@@ -1,0 +1,72 @@
+package parser
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/retroenv/assembler/expression"
+	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/assembler/parser/directives"
+)
+
+func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
+	evaluateOnce := false
+	symbolReusable := false
+
+	switch {
+	case next.Type == token.Assign:
+		evaluateOnce = true
+		symbolReusable = true
+		break
+
+	case next.Type == token.Identifier && strings.ToUpper(next.Value) == "EQU":
+		break
+
+	default:
+		// check if token string is a directive and was used without .
+		directive := strings.ToLower(tok.Value)
+		handler, ok := directives.Handlers[directive]
+		if !ok {
+			return nil, fmt.Errorf("unsupported identifier '%s'", tok.Value)
+		}
+		p.readPosition-- // advance back since dot handler expects dot token
+		return handler(p)
+	}
+
+	alias, err := p.parseAliasValues(tok)
+	if err != nil {
+		return nil, fmt.Errorf("parsing alias values: %w", err)
+	}
+	alias.SymbolReusable = symbolReusable
+	alias.Expression.SetEvaluateOnce(evaluateOnce)
+
+	p.readPosition += 2
+	return alias, nil
+}
+
+func (p *Parser) parseAliasValues(tok token.Token) (*ast.Alias, error) {
+	alias := &ast.Alias{
+		Name:       tok.Value,
+		Expression: &expression.Expression{},
+	}
+
+	tokens := 0
+
+	for next := p.NextToken(2); !next.Type.IsTerminator(); {
+		alias.Expression.AddTokens(next)
+		tokens++
+
+		next = p.NextToken(3)
+		if next.Type.IsTerminator() {
+			break
+		}
+		p.readPosition++
+	}
+
+	if tokens == 0 {
+		// there needs to be at least one valid node
+		return nil, errMissingParameter
+	}
+	return alias, nil
+}
