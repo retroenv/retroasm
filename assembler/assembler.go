@@ -7,16 +7,16 @@ import (
 	"os"
 
 	"github.com/retroenv/assembler/assembler/config"
-	"github.com/retroenv/assembler/parser"
 	"github.com/retroenv/assembler/scope"
 )
 
 // Assembler is the assembler implementation.
 type Assembler struct {
-	cfg    *config.Config
-	parser *parser.Parser
-	writer io.Writer
+	cfg         *config.Config
+	inputReader io.Reader
+	writer      io.Writer
 
+	// a function that reads in a file, for testing includes, defaults to os.ReadFile
 	fileReader func(name string) ([]byte, error)
 
 	fileScope    *scope.Scope // scope for current to be parsed file
@@ -27,6 +27,8 @@ type Assembler struct {
 	segmentsOrder  []*segment          // sorted list of all parsed segments
 
 	currentContext *context
+
+	macros map[string]macro
 }
 
 // New returns a new assembler.
@@ -34,9 +36,9 @@ func New(cfg *config.Config, reader io.Reader, writer io.Writer) *Assembler {
 	sc := scope.New(nil)
 
 	return &Assembler{
-		cfg:    cfg,
-		parser: parser.New(cfg.Arch, reader),
-		writer: writer,
+		cfg:         cfg,
+		inputReader: reader,
+		writer:      writer,
 
 		fileReader: os.ReadFile,
 
@@ -50,6 +52,8 @@ func New(cfg *config.Config, reader io.Reader, writer io.Writer) *Assembler {
 			processNodes: true,
 			parent:       nil,
 		},
+
+		macros: map[string]macro{},
 	}
 }
 

@@ -287,6 +287,28 @@ func TestAssemblerAsm6IfdefIfndef(t *testing.T) {
 	assert.Equal(t, expected, b)
 }
 
+var asm6MacroCode = `
+.segment "HEADER"
+
+MACRO setAXY x,y,z
+	LDA #x
+	LDX #y
+	LDY #z
+ENDM
+
+setAXY $12,$34,$56
+`
+
+func TestAssemblerAsm6Macro(t *testing.T) {
+	b := runAsm6Test(t, unitTestConfig, asm6MacroCode)
+	expected := []byte{
+		0xa9, 0x12, // 2 items
+		0xa2, 0x34, // 2 items
+		0xa0, 0x56, // 2 items
+	}
+	assert.Equal(t, expected, b)
+}
+
 func runAsm6Test(t *testing.T, testConfig, testCode string) []byte {
 	t.Helper()
 

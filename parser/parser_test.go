@@ -57,7 +57,8 @@ func TestParser_Instruction(t *testing.T) {
 
 	for _, tt := range tests {
 		parser := New(architecture, strings.NewReader(tt.input))
-		nodes, err := parser.Read()
+		assert.NoError(t, parser.Read())
+		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
 
 		for i, expected := range tt.expected {

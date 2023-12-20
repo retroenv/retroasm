@@ -12,6 +12,10 @@ var steps = []step{
 		errorTemplate: "parsing AST nodes",
 	},
 	{
+		handler:       processMacrosStep,
+		errorTemplate: "processing macros",
+	},
+	{
 		handler:       evaluateExpressionsStep,
 		errorTemplate: "evaluating expressions",
 	},

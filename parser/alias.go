@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/retroenv/assembler/parser/ast"
 	"github.com/retroenv/assembler/parser/directives"
 )
+
+var errUnsupportedIdentifier = errors.New("unsupported identifier")
 
 func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
 	evaluateOnce := false
@@ -28,7 +31,7 @@ func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
 		directive := strings.ToLower(tok.Value)
 		handler, ok := directives.Handlers[directive]
 		if !ok {
-			return nil, fmt.Errorf("unsupported identifier '%s'", tok.Value)
+			return nil, fmt.Errorf("'%s': %w", tok.Value, errUnsupportedIdentifier)
 		}
 		p.readPosition-- // advance back since dot handler expects dot token
 		return handler(p)

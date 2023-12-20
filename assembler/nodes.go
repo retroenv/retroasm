@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"github.com/retroenv/assembler/expression"
+	"github.com/retroenv/assembler/lexer/token"
 	"github.com/retroenv/assembler/parser/ast"
 	"github.com/retroenv/assembler/scope"
 	"github.com/retroenv/retrogolib/addressing"
@@ -65,4 +66,10 @@ type variable struct {
 
 type scopeChange struct {
 	scope *scope.Scope
+}
+
+type macro struct {
+	name      string
+	arguments map[string]int // maps name to position
+	token     []token.Token
 }
