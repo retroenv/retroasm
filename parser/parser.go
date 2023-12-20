@@ -29,7 +29,7 @@ type Parser struct {
 	programLength int
 }
 
-// New returns a new Parser.
+// New returns a new Parser that uses a lexer for the given reader.
 func New(arch arch.Architecture, reader io.Reader) *Parser {
 	lexerCfg := lexer.Config{
 		CommentPrefixes: []string{"//", ";"},
@@ -41,17 +41,21 @@ func New(arch arch.Architecture, reader io.Reader) *Parser {
 	}
 }
 
-func (p *Parser) Read() ([]ast.Node, error) {
+// NewWithTokens returns a new Parser that processes the lexed tokens.
+func NewWithTokens(arch arch.Architecture, tokens []token.Token) *Parser {
+	return &Parser{
+		arch:          arch,
+		program:       tokens,
+		programLength: len(tokens),
+	}
+}
+
+// Read all tokens of the lexer.
+func (p *Parser) Read() error {
 	if err := p.parseTokens(); err != nil {
-		return nil, fmt.Errorf("parsing tokens: %w", err)
+		return fmt.Errorf("parsing tokens: %w", err)
 	}
-
-	nodes, err := p.convertTokensToAstNodes()
-	if err != nil {
-		return nil, fmt.Errorf("converting tokens to ast nodes: %w", err)
-	}
-
-	return nodes, nil
+	return nil
 }
 
 // NextToken returns the current or a following token with the given offset from current token parse position.
@@ -75,27 +79,8 @@ func (p *Parser) Arch() arch.Architecture {
 	return p.arch
 }
 
-func (p *Parser) parseTokens() error {
-	for {
-		tok, err := p.lexer.NextToken()
-		if err != nil {
-			return fmt.Errorf("reading next token: %w", err)
-		}
-		if tok.Type == token.Illegal {
-			return fmt.Errorf("illegal token '%s' found at line %d column %d",
-				tok.Value, tok.Position.Line, tok.Position.Column)
-		}
-		if tok.Type == token.EOF {
-			break
-		}
-		p.program = append(p.program, tok)
-	}
-
-	p.programLength = len(p.program)
-	return nil
-}
-
-func (p *Parser) convertTokensToAstNodes() ([]ast.Node, error) {
+// TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.
+func (p *Parser) TokensToAstNodes() ([]ast.Node, error) {
 	var (
 		err          error
 		nodes        []ast.Node
@@ -148,6 +133,26 @@ func (p *Parser) convertTokensToAstNodes() ([]ast.Node, error) {
 	}
 
 	return nodes, nil
+}
+
+func (p *Parser) parseTokens() error {
+	for {
+		tok, err := p.lexer.NextToken()
+		if err != nil {
+			return fmt.Errorf("reading next token: %w", err)
+		}
+		if tok.Type == token.Illegal {
+			return fmt.Errorf("illegal token '%s' found at line %d column %d",
+				tok.Value, tok.Position.Line, tok.Position.Column)
+		}
+		if tok.Type == token.EOF {
+			break
+		}
+		p.program = append(p.program, tok)
+	}
+
+	p.programLength = len(p.program)
+	return nil
 }
 
 type commentSetter interface {
@@ -208,7 +213,14 @@ func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
 	instructionName := strings.ToLower(tok.Value)
 	ins, ok := p.arch.Instructions[instructionName]
 	if !ok {
-		return p.parseAlias(tok, next)
+		n, err := p.parseAlias(tok, next)
+		if err != nil {
+			if errors.Is(err, errUnsupportedIdentifier) {
+				return p.createIdentifier(tok)
+			}
+			return n, err
+		}
+		return n, nil
 	}
 
 	if len(ins.Addressing) == 1 && ins.HasAddressing(ImpliedAddressing) {
@@ -255,4 +267,28 @@ func (p *Parser) parseNumber(tok token.Token) (ast.Node, error) {
 		return nil, fmt.Errorf("processing program counter assignment: %w", err)
 	}
 	return node, nil
+}
+
+func (p *Parser) createIdentifier(tok token.Token) (ast.Node, error) {
+	i := &ast.Identifier{
+		Name: tok.Value,
+	}
+	p.AdvanceReadPosition(1)
+
+	for end := false; !end; {
+		tok = p.NextToken(0)
+
+		switch tok.Type {
+		case token.Identifier, token.Number:
+			i.Arguments = append(i.Arguments, tok)
+		case token.Comma:
+		default:
+			end = true
+			continue
+		}
+
+		p.AdvanceReadPosition(1)
+	}
+
+	return i, nil
 }

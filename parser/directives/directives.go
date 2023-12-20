@@ -59,6 +59,7 @@ var Handlers = map[string]Handler{
 	"inesmir":    NesasmConfig,
 	"inesprg":    NesasmConfig,
 	"inessubmap": NesasmConfig,
+	"macro":      Macro,   // asm6
 	"org":        Base,    // asm6
 	"pad":        Padding, // asm6
 	"proc":       Proc,
