@@ -97,7 +97,8 @@ func parseASTNode(asm *Assembler, node ast.Node) ([]any, error) {
 		*ast.Else,
 		*ast.ElseIf,
 		*ast.Endif,
-		*ast.Identifier:
+		*ast.Identifier,
+		*ast.Error:
 
 		return []any{n}, nil
 
