@@ -19,7 +19,8 @@ DB one plus one ;DB 1 + 1
 `
 
 func TestAssemblerAsm6EQU(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6EquTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6EquTestCode)
+	assert.NoError(t, err)
 	assert.Equal(t, []byte{2}, b)
 	assert.Equal(t, 1, len(b))
 }
@@ -39,7 +40,8 @@ i=k+1   ;i=2+1
 `
 
 func TestAssemblerAsm6Assign(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6AssignTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6AssignTestCode)
+	assert.NoError(t, err)
 	assert.Equal(t, []byte{1, 2, 3, 3}, b)
 }
 
@@ -74,7 +76,8 @@ DB "ABC"-"A"+32
 `
 
 func TestAssemblerAsm6DataModifier(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6DataModifierTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6DataModifierTestCode)
+	assert.NoError(t, err)
 	assert.Equal(t, []byte{'B', 'C', 'D', 32, 33, 34}, b)
 }
 
@@ -91,7 +94,8 @@ DH label2
 `
 
 func TestAssemblerAsm6Address(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6AddressTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6AddressTestCode)
+	assert.NoError(t, err)
 	assert.Equal(t, []byte{2, 1, 1, 0, 3, 4, 0}, b)
 }
 
@@ -102,7 +106,8 @@ HEX 0 1 23 4567
 `
 
 func TestAssemblerAsm6Hex(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6HexTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6HexTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
 		0x00, 0x01, 0x23, 0x45, 0x67,
@@ -120,7 +125,8 @@ DSW 4,$ABCD
 `
 
 func TestAssemblerAsm6Dsb(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6DsbTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6DsbTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0x12, 0x12, 0x12,
 		0x00, 0x00, 0x00, 0x00,
@@ -140,7 +146,8 @@ DSB $1005-$, 2
 `
 
 func TestAssemblerAsm6CurrentProgramAddress(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6CurrentProgramAddressTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6CurrentProgramAddressTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		1, 2, 3, // 3 items
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 13 items
@@ -158,7 +165,8 @@ PAD $20, 1
 `
 
 func TestAssemblerAsm6Pad(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6PadTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6PadTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		1, 2, 3, // 3 items
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 13 items
@@ -175,7 +183,8 @@ ORG $20, 4
 `
 
 func TestAssemblerAsm6Org(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6OrgTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6OrgTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, // 16 items
 	}
@@ -190,7 +199,8 @@ ALIGN 8,$EA
 `
 
 func TestAssemblerAsm6Align(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6AlignTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6AlignTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		1, 2, 3, 0, 0xea, 0xea, 0xea, 0xea, // 8 items
 	}
@@ -206,7 +216,8 @@ PAD 8
 `
 
 func TestAssemblerAsm6FillValue(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6FillValueTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6FillValueTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0xff, 0xff, 0xff, 0xff, 0xfe, 0xfe, 0xfe, 0xfe, // 8 items
 	}
@@ -222,7 +233,8 @@ PAD oldaddr+9, 0x34
 `
 
 func TestAssemblerAsm6Base(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6BaseTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6BaseTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0x12, 0x12, 0x12, 0x12, 0x12, // 5 items
 		0x34, 0x34, 0x34, 0x34, // 4 items
@@ -252,7 +264,8 @@ ENDIF
 `
 
 func TestAssemblerAsm6IfElseElseIfEndif(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6IfEndifTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6IfEndifTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0x1, // 1 item
 		0x3, // 1 item
@@ -279,7 +292,8 @@ ENDIF
 `
 
 func TestAssemblerAsm6IfdefIfndef(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6IfIfdefTestCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6IfIfdefTestCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0x1, // 1 item
 		0x3, // 1 item
@@ -300,7 +314,8 @@ setAXY $12,$34,$56
 `
 
 func TestAssemblerAsm6Macro(t *testing.T) {
-	b := runAsm6Test(t, unitTestConfig, asm6MacroCode)
+	b, err := runAsm6Test(t, unitTestConfig, asm6MacroCode)
+	assert.NoError(t, err)
 	expected := []byte{
 		0xa9, 0x12, // 2 items
 		0xa2, 0x34, // 2 items
@@ -309,7 +324,23 @@ func TestAssemblerAsm6Macro(t *testing.T) {
 	assert.Equal(t, expected, b)
 }
 
-func runAsm6Test(t *testing.T, testConfig, testCode string) []byte {
+var asm6ErrorCode = `
+.segment "HEADER"
+x=101
+IF x<100
+	ERROR "should not trigger error"
+ENDIF
+IF x>100
+	ERROR "X is out of range :("
+ENDIF
+`
+
+func TestAssemblerAsm6Error(t *testing.T) {
+	_, err := runAsm6Test(t, unitTestConfig, asm6ErrorCode)
+	assert.True(t, strings.Contains(err.Error(), "X is out of range :("), "error not triggered")
+}
+
+func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 
 	cfg := &config.Config{}
@@ -320,7 +351,7 @@ func runAsm6Test(t *testing.T, testConfig, testCode string) []byte {
 	var buf bytes.Buffer
 	asm := New(cfg, reader, &buf)
 
-	assert.NoError(t, asm.Process())
+	err := asm.Process()
 	b := buf.Bytes()
-	return b
+	return b, err
 }

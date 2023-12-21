@@ -43,6 +43,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 // evaluateNode evaluates a node and returns whether the node should be removed.
 // This is useful for conditional nodes with an expression that does not match and
 // that wraps other nodes.
+// nolint:cyclop
 func evaluateNode(asm *Assembler, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
@@ -60,6 +61,10 @@ func evaluateNode(asm *Assembler, node any) (bool, error) {
 		return true, parseElseIfCondition(asm, n)
 	case *ast.Endif:
 		return true, processEndifCondition(asm)
+	case *ast.Error:
+		if asm.currentContext.processNodes {
+			return true, errors.New(n.Message)
+		}
 	}
 
 	// skip processing nodes if the if context condition is not met
