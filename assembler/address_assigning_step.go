@@ -4,38 +4,49 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/retroenv/assembler/arch"
 	"github.com/retroenv/assembler/parser/ast"
 	"github.com/retroenv/assembler/scope"
 	. "github.com/retroenv/retrogolib/addressing"
 )
 
+type addressAssign struct {
+	arch arch.Architecture
+
+	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
+	programCounter uint64
+}
+
 // assignAddressesStep assigns an address for every node in each scope.
 func assignAddressesStep(asm *Assembler) error {
 	var err error
-	currentScope := asm.fileScope
+	aa := addressAssign{
+		arch:         asm.cfg.Arch,
+		currentScope: asm.fileScope,
+	}
 
 	for _, seg := range asm.segmentsOrder {
-		programCounter := seg.config.Start
+		aa.programCounter = seg.config.Start
 
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
 			case *data:
-				programCounter, err = assignDataAddress(asm, n, programCounter)
+				aa.programCounter, err = assignDataAddress(aa, n)
 
 			case *variable:
-				assignVariableAddress(n, programCounter)
+				assignVariableAddress(aa, n)
 
 			case *scope.Symbol:
-				err = assignSymbolAddress(asm, n, programCounter)
+				err = assignSymbolAddress(aa, n)
 
 			case *instruction:
-				programCounter, err = assignInstructionAddress(currentScope, asm, n, programCounter)
+				aa.programCounter, err = assignInstructionAddress(aa, n)
 
 			case *base:
-				programCounter, err = assignBaseAddress(n)
+				aa.programCounter, err = assignBaseAddress(n)
 
 			case scopeChange:
-				currentScope = n.scope
+				aa.currentScope = n.scope
 
 			case *ast.Configuration:
 
@@ -52,27 +63,27 @@ func assignAddressesStep(asm *Assembler) error {
 	return nil
 }
 
-func assignDataAddress(asm *Assembler, d *data, programCounter uint64) (uint64, error) {
+func assignDataAddress(aa addressAssign, d *data) (uint64, error) {
 	if d.size.IsEvaluatedAtAddressAssign() {
-		_, err := d.size.EvaluateAtProgramCounter(asm.currentScope, d.width, programCounter)
+		_, err := d.size.EvaluateAtProgramCounter(aa.currentScope, d.width, aa.programCounter)
 		if err != nil {
 			return 0, fmt.Errorf("evaluating data size at program counter: %w", err)
 		}
 	}
 
-	d.address = programCounter
+	d.address = aa.programCounter
 	size, err := d.size.IntValue()
 	if err != nil {
 		return 0, fmt.Errorf("getting data node size: %w", err)
 	}
-	programCounter += uint64(size)
-	return programCounter, nil
+	aa.programCounter += uint64(size)
+	return aa.programCounter, nil
 }
 
-func assignVariableAddress(v *variable, programCounter uint64) uint64 {
-	v.address = programCounter
-	programCounter += uint64(v.v.Size)
-	return programCounter
+func assignVariableAddress(aa addressAssign, v *variable) uint64 {
+	v.address = aa.programCounter
+	aa.programCounter += uint64(v.v.Size)
+	return aa.programCounter
 }
 
 func assignBaseAddress(b *base) (uint64, error) {
@@ -83,11 +94,11 @@ func assignBaseAddress(b *base) (uint64, error) {
 	return uint64(i), nil
 }
 
-func assignSymbolAddress(asm *Assembler, sym *scope.Symbol, programCounter uint64) error {
-	sym.SetAddress(programCounter)
+func assignSymbolAddress(aa addressAssign, sym *scope.Symbol) error {
+	sym.SetAddress(aa.programCounter)
 	exp := sym.Expression()
 	if exp != nil && exp.IsEvaluatedAtAddressAssign() {
-		_, err := exp.EvaluateAtProgramCounter(asm.currentScope, asm.cfg.Arch.AddressWidth, programCounter)
+		_, err := exp.EvaluateAtProgramCounter(aa.currentScope, aa.arch.AddressWidth, aa.programCounter)
 		if err != nil {
 			return fmt.Errorf("evaluating data size at program counter: %w", err)
 		}
@@ -95,11 +106,11 @@ func assignSymbolAddress(asm *Assembler, sym *scope.Symbol, programCounter uint6
 	return nil
 }
 
-func assignInstructionAddress(currentScope *scope.Scope, asm *Assembler, n *instruction, programCounter uint64) (uint64, error) {
-	n.address = programCounter
+func assignInstructionAddress(aa addressAssign, n *instruction) (uint64, error) {
+	n.address = aa.programCounter
 
 	name := n.name
-	ins, ok := asm.cfg.Arch.Instructions[name]
+	ins, ok := aa.arch.Instructions[name]
 	if !ok {
 		return 0, fmt.Errorf("unsupported instruction '%s'", name)
 	}
@@ -108,7 +119,7 @@ func assignInstructionAddress(currentScope *scope.Scope, asm *Assembler, n *inst
 	// zeropage ones if the used address value fits into byte
 	switch n.addressing {
 	case ast.XAddressing:
-		value, err := getArgumentValue(n.argument, currentScope)
+		value, err := getArgumentValue(n.argument, aa.currentScope)
 		if err != nil {
 			return 0, fmt.Errorf("getting instruction argument: %w", err)
 		}
@@ -119,7 +130,7 @@ func assignInstructionAddress(currentScope *scope.Scope, asm *Assembler, n *inst
 		}
 
 	case ast.YAddressing:
-		value, err := getArgumentValue(n.argument, currentScope)
+		value, err := getArgumentValue(n.argument, aa.currentScope)
 		if err != nil {
 			return 0, fmt.Errorf("getting instruction argument: %w", err)
 		}
@@ -135,6 +146,6 @@ func assignInstructionAddress(currentScope *scope.Scope, asm *Assembler, n *inst
 		return 0, fmt.Errorf("unsupported instruction '%s' addressing %d", name, n.addressing)
 	}
 
-	programCounter += uint64(addressingInfo.Size)
+	programCounter := aa.programCounter + uint64(addressingInfo.Size)
 	return programCounter, nil
 }

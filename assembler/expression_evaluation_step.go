@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/retroenv/assembler/arch"
+	"github.com/retroenv/assembler/expression"
 	"github.com/retroenv/assembler/number"
 	"github.com/retroenv/assembler/parser/ast"
 	"github.com/retroenv/assembler/scope"
@@ -14,15 +16,31 @@ var (
 	errConditionOutsideIfContext             = errors.New("directive used outside if context")
 )
 
+type expressionEvaluation struct {
+	arch arch.Architecture
+
+	currentContext *context
+	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
+
+	fillValues *expression.Expression
+}
+
 // evaluateExpressionsStep parses the AST nodes and evaluates aliases to their values.
 func evaluateExpressionsStep(asm *Assembler) error {
-	asm.cfg.Reset()
+	expEval := expressionEvaluation{
+		arch:         asm.cfg.Arch,
+		currentScope: asm.fileScope,
+		currentContext: &context{
+			processNodes: true,
+			parent:       nil,
+		},
+	}
 
 	for _, seg := range asm.segmentsOrder {
 		nodes := make([]any, 0, len(seg.nodes))
 
 		for _, node := range seg.nodes {
-			remove, err := evaluateNode(asm, node)
+			remove, err := evaluateNode(&expEval, node)
 			if err != nil {
 				return err
 			}
@@ -34,7 +52,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 		seg.nodes = nodes
 	}
 
-	if asm.currentContext.parent != nil {
+	if expEval.currentContext.parent != nil {
 		return errors.New("missing endif")
 	}
 	return nil
@@ -44,63 +62,63 @@ func evaluateExpressionsStep(asm *Assembler) error {
 // This is useful for conditional nodes with an expression that does not match and
 // that wraps other nodes.
 // nolint:cyclop
-func evaluateNode(asm *Assembler, node any) (bool, error) {
+func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
 	case *ast.If:
-		return true, parseIfCondition(asm, n)
+		return true, parseIfCondition(expEval, n)
 	case *ast.Ifdef:
-		parseIfdefCondition(asm, n)
+		parseIfdefCondition(expEval, n)
 		return true, nil
 	case *ast.Ifndef:
-		parseIfndefCondition(asm, n)
+		parseIfndefCondition(expEval, n)
 		return true, nil
 	case *ast.Else:
-		return true, processElseCondition(asm)
+		return true, processElseCondition(expEval)
 	case *ast.ElseIf:
-		return true, parseElseIfCondition(asm, n)
+		return true, parseElseIfCondition(expEval, n)
 	case *ast.Endif:
-		return true, processEndifCondition(asm)
+		return true, processEndifCondition(expEval)
 	case *ast.Error:
-		if asm.currentContext.processNodes {
+		if expEval.currentContext.processNodes {
 			return true, errors.New(n.Message)
 		}
 	}
 
-	// skip processing nodes if the if context condition is not met
-	if !asm.currentContext.processNodes {
+	// skip processing nodes in case the if context condition is not met
+	if !expEval.currentContext.processNodes {
 		return true, nil
 	}
 
 	switch n := node.(type) {
 	case *data:
-		return false, parseDataExpression(asm, n)
+		return false, parseDataExpression(expEval, n)
 
 	case *base:
-		_, err := n.address.Evaluate(asm.currentScope, asm.cfg.Arch.AddressWidth)
+		_, err := n.address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
 		if err != nil {
 			return false, fmt.Errorf("evaluating base expression: %w", err)
 		}
 
 	case *scope.Symbol:
-		return false, parseSymbolExpression(asm, n)
+		return false, parseSymbolExpression(expEval, n)
 
 	case *ast.Configuration:
-		if err := parseConfigExpression(asm, n); err != nil {
+		if err := parseConfigExpression(expEval, n); err != nil {
 			return false, err
 		}
 
 		if n.Item == ast.ConfigFillValue {
-			asm.cfg.FillValues = n.Expression
+			expEval.fillValues = n.Expression
 		}
 	}
 
 	return false, nil
 }
 
-func parseDataExpression(asm *Assembler, dat *data) error {
+func parseDataExpression(expEval *expressionEvaluation, dat *data) error {
 	if !dat.size.IsEvaluatedAtAddressAssign() {
-		_, err := dat.size.Evaluate(asm.currentScope, dat.width)
+		_, err := dat.size.Evaluate(expEval.currentScope, dat.width)
 		if err != nil {
 			return fmt.Errorf("evaluating data size expression: %w", err)
 		}
@@ -108,13 +126,13 @@ func parseDataExpression(asm *Assembler, dat *data) error {
 
 	// if no fill value expression is specified, use the current fill value config expression
 	if dat.expression == nil {
-		dat.expression = asm.cfg.FillValues
+		dat.expression = expEval.fillValues
 	}
 	if dat.expression == nil || dat.expression.IsEvaluatedAtAddressAssign() {
 		return nil
 	}
 
-	value, err := dat.expression.Evaluate(asm.currentScope, dat.width)
+	value, err := dat.expression.Evaluate(expEval.currentScope, dat.width)
 	if err != nil {
 		return fmt.Errorf("evaluating data expression: %w", err)
 	}
@@ -138,7 +156,7 @@ func parseDataExpression(asm *Assembler, dat *data) error {
 	}
 }
 
-func parseSymbolExpression(asm *Assembler, sym *scope.Symbol) error {
+func parseSymbolExpression(expEval *expressionEvaluation, sym *scope.Symbol) error {
 	exp := sym.Expression()
 	if exp == nil || exp.IsEvaluatedAtAddressAssign() {
 		return nil
@@ -146,14 +164,14 @@ func parseSymbolExpression(asm *Assembler, sym *scope.Symbol) error {
 
 	// only process constant expressions that result in a value
 	if exp.IsEvaluatedOnce() {
-		_, err := exp.Evaluate(asm.currentScope, 1)
+		_, err := exp.Evaluate(expEval.currentScope, 1)
 		if err != nil {
 			return fmt.Errorf("evaluating symbol expression: %w", err)
 		}
 	}
 
 	if sym.Type() == scope.AliasType {
-		if err := asm.currentScope.AddSymbol(sym); err != nil {
+		if err := expEval.currentScope.AddSymbol(sym); err != nil {
 			return fmt.Errorf("setting symbol in scope: %w", err)
 		}
 	}
@@ -161,7 +179,7 @@ func parseSymbolExpression(asm *Assembler, sym *scope.Symbol) error {
 	return nil
 }
 
-func parseConfigExpression(asm *Assembler, cfg *ast.Configuration) error {
+func parseConfigExpression(expEval *expressionEvaluation, cfg *ast.Configuration) error {
 	exp := cfg.Expression
 	if exp == nil {
 		return nil
@@ -173,7 +191,7 @@ func parseConfigExpression(asm *Assembler, cfg *ast.Configuration) error {
 
 	// only process constant expressions that result in a value
 	if exp.IsEvaluatedOnce() {
-		_, err := exp.Evaluate(asm.currentScope, 1)
+		_, err := exp.Evaluate(expEval.currentScope, 1)
 		if err != nil {
 			return fmt.Errorf("evaluating config expression: %w", err)
 		}
@@ -182,12 +200,12 @@ func parseConfigExpression(asm *Assembler, cfg *ast.Configuration) error {
 	return nil
 }
 
-func parseIfCondition(asm *Assembler, cond *ast.If) error {
+func parseIfCondition(expEval *expressionEvaluation, cond *ast.If) error {
 	if cond.Condition.IsEvaluatedAtAddressAssign() {
 		return errExpressionCantReferenceProgramCounter
 	}
 
-	value, err := cond.Condition.Evaluate(asm.currentScope, asm.cfg.Arch.AddressWidth)
+	value, err := cond.Condition.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
 	if err != nil {
 		return fmt.Errorf("evaluating if condition at program counter: %w", err)
 	}
@@ -199,49 +217,49 @@ func parseIfCondition(asm *Assembler, cond *ast.If) error {
 
 	ctx := &context{
 		processNodes: conditionMet,
-		parent:       asm.currentContext,
+		parent:       expEval.currentContext,
 	}
-	asm.currentContext = ctx
+	expEval.currentContext = ctx
 	return nil
 }
 
-func parseIfdefCondition(asm *Assembler, cond *ast.Ifdef) {
+func parseIfdefCondition(expEval *expressionEvaluation, cond *ast.Ifdef) {
 	conditionMet := true
-	_, err := asm.currentScope.GetSymbol(cond.Identifier)
+	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
 	if err != nil {
 		conditionMet = false
 	}
 
 	ctx := &context{
 		processNodes: conditionMet,
-		parent:       asm.currentContext,
+		parent:       expEval.currentContext,
 	}
-	asm.currentContext = ctx
+	expEval.currentContext = ctx
 }
 
-func parseIfndefCondition(asm *Assembler, cond *ast.Ifndef) {
+func parseIfndefCondition(expEval *expressionEvaluation, cond *ast.Ifndef) {
 	conditionMet := false
-	_, err := asm.currentScope.GetSymbol(cond.Identifier)
+	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
 	if err != nil {
 		conditionMet = true
 	}
 
 	ctx := &context{
 		processNodes: conditionMet,
-		parent:       asm.currentContext,
+		parent:       expEval.currentContext,
 	}
-	asm.currentContext = ctx
+	expEval.currentContext = ctx
 }
 
-func parseElseIfCondition(asm *Assembler, cond *ast.ElseIf) error {
-	if asm.currentContext.parent == nil {
+func parseElseIfCondition(expEval *expressionEvaluation, cond *ast.ElseIf) error {
+	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}
 	if cond.Condition.IsEvaluatedAtAddressAssign() {
 		return errExpressionCantReferenceProgramCounter
 	}
 
-	value, err := cond.Condition.Evaluate(asm.currentScope, asm.cfg.Arch.AddressWidth)
+	value, err := cond.Condition.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
 	if err != nil {
 		return fmt.Errorf("evaluating if condition at program counter: %w", err)
 	}
@@ -251,6 +269,6 @@ func parseElseIfCondition(asm *Assembler, cond *ast.ElseIf) error {
 		return fmt.Errorf("unsupported expression value type %T", value)
 	}
 
-	asm.currentContext.processNodes = conditionMet
+	expEval.currentContext.processNodes = conditionMet
 	return nil
 }

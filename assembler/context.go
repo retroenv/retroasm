@@ -10,23 +10,23 @@ type context struct {
 }
 
 // TODO can else have an expression as well?
-func processElseCondition(asm *Assembler) error {
-	if asm.currentContext.parent == nil {
+func processElseCondition(expEval *expressionEvaluation) error {
+	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}
-	if asm.currentContext.hasElse {
+	if expEval.currentContext.hasElse {
 		return errors.New("multiple else found")
 	}
 
-	asm.currentContext.hasElse = true
-	asm.currentContext.processNodes = !asm.currentContext.processNodes
+	expEval.currentContext.hasElse = true
+	expEval.currentContext.processNodes = !expEval.currentContext.processNodes
 	return nil
 }
 
-func processEndifCondition(asm *Assembler) error {
-	if asm.currentContext.parent == nil {
+func processEndifCondition(expEval *expressionEvaluation) error {
+	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}
-	asm.currentContext = asm.currentContext.parent
+	expEval.currentContext = expEval.currentContext.parent
 	return nil
 }

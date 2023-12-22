@@ -10,8 +10,6 @@ import (
 
 // processMacrosStep processes macro usages and replace them by the macro nodes.
 func processMacrosStep(asm *Assembler) error {
-	asm.currentScope = asm.fileScope
-
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]any, 0, len(seg.nodes))
 
@@ -30,9 +28,6 @@ func processMacrosStep(asm *Assembler) error {
 					return fmt.Errorf("macro '%s' already exists", n.name)
 				}
 				asm.macros[n.name] = n
-
-			case scopeChange:
-				asm.currentScope = n.scope
 
 			default:
 				segmentNodesResolved = append(segmentNodesResolved, n)
@@ -57,7 +52,7 @@ func resolveMacroUsage(asm *Assembler, id *ast.Identifier) ([]any, error) {
 	}
 
 	// replace the macro placeholders with the passed values
-	for i, tok := range mac.token {
+	for i, tok := range mac.tokens {
 		if tok.Type != token.Identifier {
 			continue
 		}
@@ -70,26 +65,37 @@ func resolveMacroUsage(asm *Assembler, id *ast.Identifier) ([]any, error) {
 		arg := id.Arguments[argPos]
 
 		// handle case for usage of #arg for a macro argument
-		if i > 0 && mac.token[i-1].Type == token.Number && mac.token[i-1].Value == "#" {
-			mac.token[i-1].Value = "#" + arg.Value
-			mac.token[i-1].Type = arg.Type
-			mac.token[i].Type = token.EOL
+		if i > 0 && mac.tokens[i-1].Type == token.Number && mac.tokens[i-1].Value == "#" {
+			mac.tokens[i-1].Value = "#" + arg.Value
+			mac.tokens[i-1].Type = arg.Type
+			mac.tokens[i].Type = token.EOL
 		} else {
-			mac.token[i] = arg
+			mac.tokens[i] = arg
 		}
 	}
 
+	return macroTokensToAStNodes(asm, mac.tokens)
+}
+
+func macroTokensToAStNodes(asm *Assembler, tokens []token.Token) ([]any, error) {
 	// convert the adjusted tokens to AST nodes
-	par := parser.NewWithTokens(asm.cfg.Arch, mac.token)
+	par := parser.NewWithTokens(asm.cfg.Arch, tokens)
 	astNodes, err := par.TokensToAstNodes()
 	if err != nil {
 		return nil, fmt.Errorf("converting tokens to ast nodes: %w", err)
 	}
 
+	p := &parseAST{
+		cfg:          asm.cfg,
+		fileReader:   asm.fileReader,
+		currentScope: asm.fileScope,
+		segments:     map[string]*segment{},
+	}
+
 	// process the AST nodes
 	var result []any
 	for _, node := range astNodes {
-		nodes, err := parseASTNode(asm, node)
+		nodes, err := parseASTNode(p, node)
 		if err != nil {
 			return nil, err
 		}

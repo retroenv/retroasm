@@ -3,13 +3,14 @@ package assembler
 import (
 	"fmt"
 
+	"github.com/retroenv/assembler/assembler/config"
 	"github.com/retroenv/assembler/parser/ast"
 	"github.com/retroenv/assembler/scope"
 )
 
 // writeOutputStep writes the filled memory segments to the output stream.
 func writeOutputStep(asm *Assembler) error {
-	memories, err := writeSegmentsToMemory(asm, asm.segments)
+	memories, err := writeSegmentsToMemory(asm.cfg.SegmentsOrdered, asm.segments)
 	if err != nil {
 		return fmt.Errorf("writing segments to memory: %w", err)
 	}
@@ -43,10 +44,12 @@ func writeOutputStep(asm *Assembler) error {
 	return nil
 }
 
-func writeSegmentsToMemory(asm *Assembler, segments map[string]*segment) (map[string]*memory, error) {
+func writeSegmentsToMemory(configSegmentsOrdered []*config.Segment,
+	segments map[string]*segment) (map[string]*memory, error) {
+
 	memories := map[string]*memory{}
 
-	for _, segOrdered := range asm.cfg.SegmentsOrdered {
+	for _, segOrdered := range configSegmentsOrdered {
 		seg, ok := segments[segOrdered.SegmentName]
 		if !ok {
 			continue

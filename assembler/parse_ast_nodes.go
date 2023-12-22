@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/retroenv/assembler/assembler/config"
 	"github.com/retroenv/assembler/expression"
 	"github.com/retroenv/assembler/lexer/token"
 	"github.com/retroenv/assembler/number"
@@ -13,8 +14,27 @@ import (
 	"github.com/retroenv/assembler/scope"
 )
 
+type parseAST struct {
+	cfg *config.Config
+	// a function that reads in a file, for testing includes, defaults to os.ReadFile
+	fileReader func(name string) ([]byte, error)
+
+	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
+	currentSegment *segment     // the current segment being parsed
+
+	segments      map[string]*segment // maps segment name to segment
+	segmentsOrder []*segment          // sorted list of all parsed segments
+}
+
 // parseASTNodesStep parses the AST nodes and converts them to internal types.
 func parseASTNodesStep(asm *Assembler) error {
+	p := &parseAST{
+		cfg:          asm.cfg,
+		fileReader:   asm.fileReader,
+		currentScope: asm.fileScope,
+		segments:     map[string]*segment{},
+	}
+
 	pars := parser.New(asm.cfg.Arch, asm.inputReader)
 	if err := pars.Read(); err != nil {
 		return fmt.Errorf("parsing lexer tokens: %w", err)
@@ -29,30 +49,33 @@ func parseASTNodesStep(asm *Assembler) error {
 		case *ast.Comment:
 
 		case *ast.Segment:
-			if err := parseSegment(asm, n); err != nil {
+			if err := parseSegment(p, n); err != nil {
 				return fmt.Errorf("parsing segment node: %w", err)
 			}
 
 		default:
-			if asm.currentSegment == nil {
+			if p.currentSegment == nil {
 				return errNoCurrentSegment
 			}
 
-			newNodes, err := parseASTNode(asm, node)
+			newNodes, err := parseASTNode(p, node)
 			if err != nil {
 				return err
 			}
 			for _, newNode := range newNodes {
-				asm.currentSegment.addNode(newNode)
+				p.currentSegment.addNode(newNode)
 			}
 		}
 	}
+
+	asm.segments = p.segments
+	asm.segmentsOrder = p.segmentsOrder
 
 	return nil
 }
 
 // nolint: cyclop, funlen
-func parseASTNode(asm *Assembler, node ast.Node) ([]any, error) {
+func parseASTNode(asm *parseAST, node ast.Node) ([]any, error) {
 	var (
 		err   error
 		nodes []any
@@ -112,7 +135,7 @@ func parseASTNode(asm *Assembler, node ast.Node) ([]any, error) {
 	return nodes, nil
 }
 
-func parseSegment(asm *Assembler, astSegment *ast.Segment) error {
+func parseSegment(asm *parseAST, astSegment *ast.Segment) error {
 	name := strings.Trim(astSegment.Name, "\"'")
 
 	seg, ok := asm.segments[name]
@@ -213,7 +236,7 @@ func parseDataAddress(dat *data, expression *expression.Expression, refType refe
 	return nil
 }
 
-func parseAlias(asm *Assembler, alias *ast.Alias) ([]any, error) {
+func parseAlias(asm *parseAST, alias *ast.Alias) ([]any, error) {
 	typ := scope.AliasType
 	if !alias.SymbolReusable {
 		typ = scope.EquType
@@ -227,7 +250,7 @@ func parseAlias(asm *Assembler, alias *ast.Alias) ([]any, error) {
 	return []any{sym}, nil
 }
 
-func parseLabel(asm *Assembler, label *ast.Label) ([]any, error) {
+func parseLabel(asm *parseAST, label *ast.Label) ([]any, error) {
 	sym, err := scope.NewSymbol(asm.currentScope, label.Name, scope.LabelType)
 	if err != nil {
 		return nil, fmt.Errorf("creating symbol: %w", err)
@@ -263,7 +286,7 @@ func parseInstruction(astInstruction *ast.Instruction) ([]any, error) {
 	return []any{ins}, nil
 }
 
-func parseInclude(asm *Assembler, inc *ast.Include) ([]any, error) {
+func parseInclude(asm *parseAST, inc *ast.Include) ([]any, error) {
 	if !inc.Binary {
 		return nil, errors.New("non binary includes are currently not supported") // TODO implement
 	}
@@ -290,7 +313,7 @@ func parseVariable(astVar *ast.Variable) []any {
 	return []any{v}
 }
 
-func parseFunction(asm *Assembler, fun *ast.Function) ([]any, error) {
+func parseFunction(asm *parseAST, fun *ast.Function) ([]any, error) {
 	sym, err := scope.NewSymbol(asm.currentScope, fun.Name, scope.FunctionType)
 	if err != nil {
 		return nil, fmt.Errorf("creating symbol: %w", err)
@@ -304,7 +327,7 @@ func parseFunction(asm *Assembler, fun *ast.Function) ([]any, error) {
 	return []any{newScope, sym}, nil
 }
 
-func parseFunctionEnd(asm *Assembler, _ ast.FunctionEnd) ([]any, error) {
+func parseFunctionEnd(asm *parseAST, _ ast.FunctionEnd) ([]any, error) {
 	parentScope := asm.currentScope.Parent()
 	if parentScope == nil {
 		return nil, errors.New("unexpected function end, no parent scope found")
@@ -323,7 +346,7 @@ func parseMacro(astMacro *ast.Macro) ([]any, error) {
 	mac := macro{
 		name:      astMacro.Name,
 		arguments: map[string]int{},
-		token:     astMacro.Token,
+		tokens:    astMacro.Token,
 	}
 
 	for i, argument := range astMacro.Arguments {

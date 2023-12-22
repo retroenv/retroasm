@@ -19,22 +19,16 @@ type Assembler struct {
 	// a function that reads in a file, for testing includes, defaults to os.ReadFile
 	fileReader func(name string) ([]byte, error)
 
-	fileScope    *scope.Scope // scope for current to be parsed file
-	currentScope *scope.Scope // current scope, can be a function scope with file scope as parent
+	fileScope *scope.Scope // scope for current to be parsed file
 
-	currentSegment *segment            // the current segment being parsed
-	segments       map[string]*segment // maps segment name to segment
-	segmentsOrder  []*segment          // sorted list of all parsed segments
-
-	currentContext *context
+	segments      map[string]*segment // maps segment name to segment
+	segmentsOrder []*segment          // sorted list of all parsed segments
 
 	macros map[string]macro
 }
 
 // New returns a new assembler.
 func New(cfg *config.Config, reader io.Reader, writer io.Writer) *Assembler {
-	sc := scope.New(nil)
-
 	return &Assembler{
 		cfg:         cfg,
 		inputReader: reader,
@@ -42,16 +36,7 @@ func New(cfg *config.Config, reader io.Reader, writer io.Writer) *Assembler {
 
 		fileReader: os.ReadFile,
 
-		fileScope:      sc,
-		currentScope:   sc,
-		currentSegment: nil,
-		segments:       map[string]*segment{},
-		segmentsOrder:  nil,
-
-		currentContext: &context{
-			processNodes: true,
-			parent:       nil,
-		},
+		fileScope: scope.New(nil),
 
 		macros: map[string]macro{},
 	}

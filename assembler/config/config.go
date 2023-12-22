@@ -3,7 +3,6 @@ package config
 
 import (
 	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/expression"
 )
 
 // Config defines an assembler config.
@@ -11,15 +10,6 @@ type Config struct {
 	Arch            arch.Architecture
 	Segments        map[string]*Segment
 	SegmentsOrdered []*Segment
-
-	// assembly code configurable items
-	FillValues *expression.Expression
-}
-
-// Reset resets the configuration items that can be configured in the
-// assembly code.
-func (c *Config) Reset() {
-	c.FillValues = nil
 }
 
 // Memory contains the basic configuration for a memory segment.

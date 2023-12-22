@@ -71,5 +71,5 @@ type scopeChange struct {
 type macro struct {
 	name      string
 	arguments map[string]int // maps name to position
-	token     []token.Token
+	tokens    []token.Token
 }
