@@ -16,6 +16,8 @@ const (
 
 // Data ...
 type Data struct {
+	node
+
 	Type          string
 	Width         int // byte width of a data item
 	ReferenceType ReferenceType
@@ -24,13 +26,4 @@ type Data struct {
 
 	Size   *expression.Expression
 	Values *expression.Expression
-
-	Comment Comment
-}
-
-func (d *Data) node() {}
-
-// SetComment sets the comment for the node.
-func (d *Data) SetComment(message string) {
-	d.Comment.Message = message
 }

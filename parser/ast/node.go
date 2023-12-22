@@ -3,5 +3,18 @@ package ast
 
 // Node ...
 type Node interface {
-	node()
+	astNode()
+
+	SetComment(message string)
+}
+
+type node struct {
+	comment Comment
+}
+
+func (n node) astNode() {}
+
+// SetComment sets the comment for the node.
+func (n *node) SetComment(message string) {
+	n.comment.Message = message
 }

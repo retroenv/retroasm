@@ -155,18 +155,13 @@ func (p *Parser) parseTokens() error {
 	return nil
 }
 
-type commentSetter interface {
-	SetComment(message string)
-}
-
 // parseComment returns a new comment AST node or attaches the comment to the previous node if the comment is on the
 // same line.
 func (p *Parser) parseComment(tok token.Token, previousNode ast.Node) ast.Node {
 	message := strings.TrimSpace(tok.Value)
 
-	commentNode, ok := previousNode.(commentSetter)
-	if ok {
-		commentNode.SetComment(message)
+	if previousNode != nil {
+		previousNode.SetComment(message)
 		return nil
 	}
 

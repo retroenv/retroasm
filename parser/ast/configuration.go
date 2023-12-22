@@ -20,16 +20,9 @@ const (
 
 // Configuration ...
 type Configuration struct {
+	node
+
 	Item       ConfigurationItem
 	Value      uint64
 	Expression *expression.Expression
-
-	Comment Comment
-}
-
-func (c *Configuration) node() {}
-
-// SetComment sets the comment for the node.
-func (c *Configuration) SetComment(message string) {
-	c.Comment.Message = message
 }

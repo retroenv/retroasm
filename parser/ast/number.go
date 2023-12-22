@@ -2,7 +2,7 @@ package ast
 
 // Number ...
 type Number struct {
+	*node
+
 	Value uint64
 }
-
-func (n Number) node() {}

@@ -2,7 +2,7 @@ package ast
 
 // OffsetCounter ...
 type OffsetCounter struct {
+	*node
+
 	Number uint64
 }
-
-func (o OffsetCounter) node() {}

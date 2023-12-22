@@ -6,14 +6,7 @@ import (
 
 // Base ...
 type Base struct {
+	node
+
 	Address *expression.Expression
-
-	Comment Comment
-}
-
-func (b *Base) node() {}
-
-// SetComment sets the comment for the node.
-func (b *Base) SetComment(message string) {
-	b.Comment.Message = message
 }

@@ -6,50 +6,38 @@ import (
 
 // If ...
 type If struct {
+	node
+
 	Condition *expression.Expression
-
-	Comment Comment
 }
-
-func (i If) node() {}
 
 // Ifdef ...
 type Ifdef struct {
+	node
+
 	Identifier string
-
-	Comment Comment
 }
-
-func (i Ifdef) node() {}
 
 // Ifndef ...
 type Ifndef struct {
+	node
+
 	Identifier string
-
-	Comment Comment
 }
-
-func (i Ifndef) node() {}
 
 // Else ...
 type Else struct {
-	Comment Comment
+	node
 }
-
-func (e Else) node() {}
 
 // ElseIf ...
 type ElseIf struct {
+	node
+
 	Condition *expression.Expression
-
-	Comment Comment
 }
-
-func (e ElseIf) node() {}
 
 // Endif ...
 type Endif struct {
-	Comment Comment
+	node
 }
-
-func (e Endif) node() {}
