@@ -10,13 +10,11 @@ func Proc(p Parser) (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 
-	return &ast.Function{
-		Name: next.Value,
-	}, nil
+	return ast.NewFunction(next.Value), nil
 }
 
 // EndProc ...
 func EndProc(p Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
-	return ast.FunctionEnd{}, nil
+	return ast.NewFunctionEnd(), nil
 }

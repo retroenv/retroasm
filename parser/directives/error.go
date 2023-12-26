@@ -16,7 +16,5 @@ func Error(p Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
-	return &ast.Error{
-		Message: strings.Trim(msg.Value, "\"'"),
-	}, nil
+	return ast.NewError(strings.Trim(msg.Value, "\"'")), nil
 }

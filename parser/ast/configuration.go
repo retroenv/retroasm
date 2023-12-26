@@ -20,9 +20,17 @@ const (
 
 // Configuration ...
 type Configuration struct {
-	node
+	*node
 
 	Item       ConfigurationItem
 	Value      uint64
 	Expression *expression.Expression
+}
+
+// NewConfiguration returns a new configuration node.
+func NewConfiguration(item ConfigurationItem) Configuration {
+	return Configuration{
+		node: &node{},
+		Item: item,
+	}
 }

@@ -10,7 +10,5 @@ func Segment(p Parser) (ast.Node, error) {
 	}
 	p.AdvanceReadPosition(2)
 
-	return &ast.Segment{
-		Name: next.Value,
-	}, nil
+	return ast.NewSegment(next.Value), nil
 }

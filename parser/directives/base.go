@@ -17,9 +17,7 @@ func Base(p Parser) (ast.Node, error) {
 
 	tok := p.NextToken(1)
 	if tok.Type.IsTerminator() {
-		return &ast.Base{
-			Address: expression.New(addressTokens...),
-		}, nil
+		return ast.NewBase(addressTokens), nil
 	}
 
 	p.AdvanceReadPosition(-1)
@@ -28,12 +26,9 @@ func Base(p Parser) (ast.Node, error) {
 		return nil, fmt.Errorf("reading base data tokens: %w", err)
 	}
 
-	data := &ast.Data{
-		Type:   "data",
-		Width:  1,
-		Fill:   true,
-		Size:   expression.New(addressTokens...),
-		Values: expression.New(tokens...),
-	}
+	data := ast.NewData(ast.DataType, 1)
+	data.Fill = true
+	data.Size.AddTokens(addressTokens...)
+	data.Values = expression.New(tokens...)
 	return addSizeProgramCounterReference(data)
 }

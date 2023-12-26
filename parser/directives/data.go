@@ -37,11 +37,7 @@ func Data(p Parser) (ast.Node, error) {
 		return nil, fmt.Errorf("data width for type '%s' not found", typ.Value)
 	}
 
-	data := &ast.Data{
-		Type:  "data",
-		Width: width,
-		Size:  expression.New(),
-	}
+	data := ast.NewData(ast.DataType, width)
 
 	tokens, err := readDataTokens(p, false)
 	if err != nil {
@@ -95,7 +91,7 @@ func Align(p Parser) (ast.Node, error) {
 	return data, nil
 }
 
-func addSizeProgramCounterReference(data *ast.Data) (ast.Node, error) {
+func addSizeProgramCounterReference(data ast.Data) (ast.Node, error) {
 	minus := token.Token{
 		Type: token.Minus,
 	}
@@ -107,9 +103,9 @@ func addSizeProgramCounterReference(data *ast.Data) (ast.Node, error) {
 	return data, nil
 }
 
-func readDataStorageTokens(p Parser) (*ast.Data, error) {
+func readDataStorageTokens(p Parser) (ast.Data, error) {
 	if p.NextToken(2).Type.IsTerminator() {
-		return nil, errMissingParameter
+		return ast.Data{}, errMissingParameter
 	}
 
 	p.AdvanceReadPosition(1)
@@ -117,18 +113,15 @@ func readDataStorageTokens(p Parser) (*ast.Data, error) {
 	typName := strings.ToLower(typ.Value)
 	width, ok := dataByteWidth[typName]
 	if !ok {
-		return nil, fmt.Errorf("data width for type '%s' not found", typ.Value)
+		return ast.Data{}, fmt.Errorf("data width for type '%s' not found", typ.Value)
 	}
 
-	data := &ast.Data{
-		Type:  "data",
-		Width: width,
-		Fill:  true,
-	}
+	data := ast.NewData(ast.DataType, width)
+	data.Fill = true
 
 	tokens, err := readDataTokens(p, true)
 	if err != nil {
-		return nil, fmt.Errorf("reading data size tokens: %w", err)
+		return ast.Data{}, fmt.Errorf("reading data size tokens: %w", err)
 	}
 	data.Size = expression.New(tokens...)
 
@@ -140,7 +133,7 @@ func readDataStorageTokens(p Parser) (*ast.Data, error) {
 
 	tokens, err = readDataTokens(p, false)
 	if err != nil {
-		return nil, fmt.Errorf("reading data tokens: %w", err)
+		return ast.Data{}, fmt.Errorf("reading data tokens: %w", err)
 	}
 	data.Values = expression.New(tokens...)
 	return data, nil

@@ -65,21 +65,21 @@ func evaluateExpressionsStep(asm *Assembler) error {
 func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
-	case *ast.If:
+	case ast.If:
 		return true, parseIfCondition(expEval, n)
-	case *ast.Ifdef:
+	case ast.Ifdef:
 		parseIfdefCondition(expEval, n)
 		return true, nil
-	case *ast.Ifndef:
+	case ast.Ifndef:
 		parseIfndefCondition(expEval, n)
 		return true, nil
-	case *ast.Else:
+	case ast.Else:
 		return true, processElseCondition(expEval)
-	case *ast.ElseIf:
+	case ast.ElseIf:
 		return true, parseElseIfCondition(expEval, n)
-	case *ast.Endif:
+	case ast.Endif:
 		return true, processEndifCondition(expEval)
-	case *ast.Error:
+	case ast.Error:
 		if expEval.currentContext.processNodes {
 			return true, errors.New(n.Message)
 		}
@@ -94,8 +94,8 @@ func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 	case *data:
 		return false, parseDataExpression(expEval, n)
 
-	case *base:
-		_, err := n.address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+	case ast.Base:
+		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
 		if err != nil {
 			return false, fmt.Errorf("evaluating base expression: %w", err)
 		}
@@ -103,7 +103,7 @@ func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 	case *scope.Symbol:
 		return false, parseSymbolExpression(expEval, n)
 
-	case *ast.Configuration:
+	case ast.Configuration:
 		if err := parseConfigExpression(expEval, n); err != nil {
 			return false, err
 		}
@@ -179,7 +179,7 @@ func parseSymbolExpression(expEval *expressionEvaluation, sym *scope.Symbol) err
 	return nil
 }
 
-func parseConfigExpression(expEval *expressionEvaluation, cfg *ast.Configuration) error {
+func parseConfigExpression(expEval *expressionEvaluation, cfg ast.Configuration) error {
 	exp := cfg.Expression
 	if exp == nil {
 		return nil
@@ -200,7 +200,7 @@ func parseConfigExpression(expEval *expressionEvaluation, cfg *ast.Configuration
 	return nil
 }
 
-func parseIfCondition(expEval *expressionEvaluation, cond *ast.If) error {
+func parseIfCondition(expEval *expressionEvaluation, cond ast.If) error {
 	if cond.Condition.IsEvaluatedAtAddressAssign() {
 		return errExpressionCantReferenceProgramCounter
 	}
@@ -223,7 +223,7 @@ func parseIfCondition(expEval *expressionEvaluation, cond *ast.If) error {
 	return nil
 }
 
-func parseIfdefCondition(expEval *expressionEvaluation, cond *ast.Ifdef) {
+func parseIfdefCondition(expEval *expressionEvaluation, cond ast.Ifdef) {
 	conditionMet := true
 	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
 	if err != nil {
@@ -237,7 +237,7 @@ func parseIfdefCondition(expEval *expressionEvaluation, cond *ast.Ifdef) {
 	expEval.currentContext = ctx
 }
 
-func parseIfndefCondition(expEval *expressionEvaluation, cond *ast.Ifndef) {
+func parseIfndefCondition(expEval *expressionEvaluation, cond ast.Ifndef) {
 	conditionMet := false
 	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
 	if err != nil {
@@ -251,7 +251,7 @@ func parseIfndefCondition(expEval *expressionEvaluation, cond *ast.Ifndef) {
 	expEval.currentContext = ctx
 }
 
-func parseElseIfCondition(expEval *expressionEvaluation, cond *ast.ElseIf) error {
+func parseElseIfCondition(expEval *expressionEvaluation, cond ast.ElseIf) error {
 	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}

@@ -77,8 +77,8 @@ func writeSegmentsToMemory(configSegmentsOrdered []*config.Segment,
 				}
 
 			case *scope.Symbol,
-				*base,
-				*ast.Configuration,
+				ast.Base,
+				ast.Configuration,
 				scopeChange:
 
 			case *instruction:

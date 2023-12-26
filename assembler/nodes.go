@@ -54,14 +54,10 @@ type instruction struct {
 	argument   any
 }
 
-type base struct {
-	address *expression.Expression
-}
-
 type variable struct {
 	address uint64 // assigned start address of the instruction
 
-	v *ast.Variable
+	v ast.Variable
 }
 
 type scopeChange struct {

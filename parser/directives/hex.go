@@ -16,10 +16,7 @@ func Hex(p Parser) (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 
-	data := &ast.Data{
-		Type:  "data",
-		Width: 1,
-	}
+	data := ast.NewData(ast.DataType, 1)
 	p.AdvanceReadPosition(2)
 
 	var tokens []token.Token

@@ -37,21 +37,17 @@ func AddrLow(p Parser) (ast.Node, error) {
 	return addr, nil
 }
 
-func createAddressData(p Parser) (*ast.Data, error) {
+func createAddressData(p Parser) (ast.Data, error) {
 	if p.NextToken(2).Type.IsTerminator() {
-		return nil, errMissingParameter
+		return ast.Data{}, errMissingParameter
 	}
 
-	data := &ast.Data{
-		Type:  "address",
-		Width: p.Arch().AddressWidth / 8,
-		Size:  expression.New(),
-	}
+	data := ast.NewData(ast.AddressType, p.Arch().AddressWidth/8)
 
 	p.AdvanceReadPosition(1)
 	tokens, err := readDataTokens(p, false)
 	if err != nil {
-		return nil, fmt.Errorf("reading data tokens: %w", err)
+		return ast.Data{}, fmt.Errorf("reading data tokens: %w", err)
 	}
 	data.Values = expression.New(tokens...)
 

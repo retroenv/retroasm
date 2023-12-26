@@ -59,10 +59,5 @@ func Include(p Parser) (ast.Node, error) {
 
 	_, binary := directiveBinaryIncludes[strings.ToLower(command.Value)]
 
-	return &ast.Include{
-		Name:   fileName,
-		Binary: binary,
-		Start:  start,
-		Size:   size,
-	}, nil
+	return ast.NewInclude(fileName, binary, start, size), nil
 }

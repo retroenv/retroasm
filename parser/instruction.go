@@ -117,14 +117,8 @@ func (p *Parser) parseInstructionSingleIdentifier(ins *instruction) (ast.Node, e
 		return nil, errors.New("invalid number addressing mode usage")
 	}
 
-	return &ast.Instruction{
-		Name:       ins.instruction.Name,
-		Addressing: addressing,
-		Argument: &ast.Label{
-			Name: ins.arg1.Value,
-		},
-		Modifier: ins.modifiers,
-	}, nil
+	l := ast.NewLabel(ins.arg1.Value)
+	return ast.NewInstruction(ins.instruction.Name, addressing, l, ins.modifiers), nil
 }
 
 func (p *Parser) parseInstructionSingleIdentifierAccumulator(ins *instruction) ast.Node {
@@ -153,12 +147,7 @@ func (p *Parser) parseInstructionSingleIdentifierAccumulator(ins *instruction) a
 	if !usesAccumulator {
 		return nil
 	}
-	return &ast.Instruction{
-		Name:       ins.instruction.Name,
-		Addressing: AccumulatorAddressing,
-		Argument:   nil,
-		Modifier:   ins.modifiers,
-	}
+	return ast.NewInstruction(ins.instruction.Name, AccumulatorAddressing, nil, ins.modifiers)
 }
 
 func (p *Parser) parseBranchingInstruction(ins *instruction) (ast.Node, error) {
@@ -182,14 +171,8 @@ func (p *Parser) parseBranchingInstruction(ins *instruction) (ast.Node, error) {
 		p.readPosition += 2
 	}
 
-	l := &ast.Label{
-		Name: ins.arg1.Value,
-	}
-	return &ast.Instruction{
-		Name:       ins.instruction.Name,
-		Addressing: addressing,
-		Argument:   l,
-	}, nil
+	l := ast.NewLabel(ins.arg1.Value)
+	return ast.NewInstruction(ins.instruction.Name, addressing, l, nil), nil
 }
 
 func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (ast.Node, error) {
@@ -206,14 +189,10 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 		if err != nil {
 			return nil, fmt.Errorf("parsing number '%s': %w", ins.arg1.Value, err)
 		}
-		argument = ast.Number{
-			Value: i,
-		}
+		argument = ast.NewNumber(i)
 
 	case ins.arg1.Type == token.Identifier:
-		argument = &ast.Label{
-			Name: ins.arg1.Value,
-		}
+		argument = ast.NewLabel(ins.arg1.Value)
 
 	default:
 		return nil, fmt.Errorf("unsupported argument type %s", ins.arg1.Type)
@@ -240,12 +219,7 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 		return nil, errors.New("invalid second parameter addressing mode usage")
 	}
 
-	return &ast.Instruction{
-		Name:       ins.instruction.Name,
-		Addressing: addressing,
-		Argument:   argument,
-		Modifier:   ins.modifiers,
-	}, nil
+	return ast.NewInstruction(ins.instruction.Name, addressing, argument, ins.modifiers), nil
 }
 
 func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
@@ -260,16 +234,8 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 	if i > math.MaxUint8 {
 		return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", ins.arg1.Value)
 	}
-	n := ast.Number{
-		Value: i,
-	}
-
-	return &ast.Instruction{
-		Name:       ins.instruction.Name,
-		Addressing: ImmediateAddressing,
-		Argument:   n,
-		Modifier:   ins.modifiers,
-	}, nil
+	n := ast.NewNumber(i)
+	return ast.NewInstruction(ins.instruction.Name, ImmediateAddressing, n, ins.modifiers), nil
 }
 
 func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
@@ -307,13 +273,6 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 		}
 	}
 
-	n := ast.Number{
-		Value: i,
-	}
-	return &ast.Instruction{
-		Name:       ins.instruction.Name,
-		Addressing: addressing,
-		Argument:   n,
-		Modifier:   ins.modifiers,
-	}, nil
+	n := ast.NewNumber(i)
+	return ast.NewInstruction(ins.instruction.Name, addressing, n, ins.modifiers), nil
 }

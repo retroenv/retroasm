@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/retroenv/assembler/expression"
 	"github.com/retroenv/assembler/lexer/token"
 	"github.com/retroenv/assembler/parser/ast"
 	"github.com/retroenv/assembler/parser/directives"
@@ -48,11 +47,8 @@ func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
 	return alias, nil
 }
 
-func (p *Parser) parseAliasValues(tok token.Token) (*ast.Alias, error) {
-	alias := &ast.Alias{
-		Name:       tok.Value,
-		Expression: &expression.Expression{},
-	}
+func (p *Parser) parseAliasValues(tok token.Token) (ast.Alias, error) {
+	alias := ast.NewAlias(tok.Value)
 
 	tokens := 0
 
@@ -69,7 +65,7 @@ func (p *Parser) parseAliasValues(tok token.Token) (*ast.Alias, error) {
 
 	if tokens == 0 {
 		// there needs to be at least one valid node
-		return nil, errMissingParameter
+		return ast.Alias{}, errMissingParameter
 	}
 	return alias, nil
 }

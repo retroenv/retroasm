@@ -14,42 +14,27 @@ import (
 func TestParser_Instruction(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected []ast.Node
+		expected func() []ast.Node
 	}{
-		{"asl a:var1", []ast.Node{
-			&ast.Instruction{
-				Name:       "asl",
-				Addressing: AbsoluteAddressing,
-				Argument:   &ast.Label{Name: "var1"},
-			},
+		{"asl a:var1", func() []ast.Node {
+			l := ast.NewLabel("var1")
+			return []ast.Node{ast.NewInstruction("asl", AbsoluteAddressing, l, nil)}
 		}},
-		{"asl a:1", []ast.Node{
-			&ast.Instruction{
-				Name:       "asl",
-				Addressing: AbsoluteAddressing,
-				Argument:   ast.Number{Value: 1},
-			},
+		{"asl a:1", func() []ast.Node {
+			return []ast.Node{ast.NewInstruction("asl", AbsoluteAddressing, ast.NewNumber(1), nil)}
 		}},
-		{"asl", []ast.Node{
-			&ast.Instruction{
-				Name:       "asl",
-				Addressing: AccumulatorAddressing,
-			},
+		{"asl", func() []ast.Node {
+			return []ast.Node{ast.NewInstruction("asl", AccumulatorAddressing, nil, nil)}
 		}},
-		{"asl a", []ast.Node{
-			&ast.Instruction{
-				Name:       "asl",
-				Addressing: AccumulatorAddressing,
-			},
+		{"asl a", func() []ast.Node {
+			return []ast.Node{ast.NewInstruction("asl", AccumulatorAddressing, nil, nil)}
 		}},
-		{"asl\na:", []ast.Node{
-			&ast.Instruction{
-				Name:       "asl",
-				Addressing: AccumulatorAddressing,
-			},
-			&ast.Label{
-				Name: "a",
-			},
+		{"asl\na:", func() []ast.Node {
+			l := ast.NewLabel("a")
+			return []ast.Node{
+				ast.NewInstruction("asl", AccumulatorAddressing, nil, nil),
+				l,
+			}
 		}},
 	}
 
@@ -61,14 +46,15 @@ func TestParser_Instruction(t *testing.T) {
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
 
-		for i, expected := range tt.expected {
+		expectedNodes := tt.expected()
+		for i, expected := range expectedNodes {
 			assert.False(t, i >= len(nodes))
 
 			node := nodes[i]
 			assert.Equal(t, expected, node)
 		}
 
-		last := len(tt.expected)
+		last := len(expectedNodes)
 		for i := last; i < len(nodes); i++ {
 			t.Errorf("unexpected node %v", nodes[i])
 		}

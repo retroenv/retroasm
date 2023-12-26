@@ -15,7 +15,7 @@ func processMacrosStep(asm *Assembler) error {
 
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
-			case *ast.Identifier:
+			case ast.Identifier:
 				nodes, err := resolveMacroUsage(asm, n)
 				if err != nil {
 					return fmt.Errorf("processing identifier '%s': %w", n.Name, err)
@@ -40,7 +40,7 @@ func processMacrosStep(asm *Assembler) error {
 	return nil
 }
 
-func resolveMacroUsage(asm *Assembler, id *ast.Identifier) ([]any, error) {
+func resolveMacroUsage(asm *Assembler, id ast.Identifier) ([]any, error) {
 	mac, ok := asm.macros[id.Name]
 	if !ok {
 		return nil, fmt.Errorf("macro '%s' not found", id.Name)

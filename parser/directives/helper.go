@@ -14,13 +14,9 @@ func ParseModifier(p Parser) []ast.Modifier {
 		switch next1.Type {
 
 		case token.Plus:
-			operator = ast.Operator{
-				Operator: "+",
-			}
+			operator = ast.NewOperator("+")
 		case token.Minus:
-			operator = ast.Operator{
-				Operator: "-",
-			}
+			operator = ast.NewOperator("-")
 
 		default:
 			return modifiers

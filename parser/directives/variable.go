@@ -27,7 +27,5 @@ func Res(p Parser) (ast.Node, error) {
 		return nil, fmt.Errorf("parsing number '%s': %w", next.Value, err)
 	}
 
-	return &ast.Variable{
-		Size: int(i),
-	}, nil
+	return ast.NewVariable("", int(i)), nil
 }

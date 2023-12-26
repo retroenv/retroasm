@@ -11,7 +11,7 @@ const (
 
 // Instruction ...
 type Instruction struct {
-	node
+	*node
 
 	Name string
 	// Addressing can be any single addressing value or the combined defined
@@ -20,4 +20,15 @@ type Instruction struct {
 	Addressing Mode
 	Argument   Node
 	Modifier   []Modifier
+}
+
+// NewInstruction returns a new instruction node.
+func NewInstruction(name string, addressing Mode, argument Node, modifier []Modifier) Instruction {
+	return Instruction{
+		node:       &node{},
+		Name:       name,
+		Addressing: addressing,
+		Argument:   argument,
+		Modifier:   modifier,
+	}
 }

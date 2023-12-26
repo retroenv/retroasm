@@ -3,7 +3,6 @@ package directives
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/expression"
 	"github.com/retroenv/assembler/lexer/token"
 	"github.com/retroenv/assembler/parser/ast"
 )
@@ -14,15 +13,12 @@ func If(p Parser) (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 
-	cond := &ast.If{}
-
 	p.AdvanceReadPosition(1)
 	tokens, err := readDataTokens(p, false)
 	if err != nil {
 		return nil, fmt.Errorf("reading data tokens: %w", err)
 	}
-	cond.Condition = expression.New(tokens...)
-	return cond, nil
+	return ast.NewIf(tokens), nil
 }
 
 // Ifdef ...
@@ -36,9 +32,7 @@ func Ifdef(p Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
-	return &ast.Ifdef{
-		Identifier: next.Value,
-	}, nil
+	return ast.NewIfdef(next.Value), nil
 }
 
 // Ifndef ...
@@ -52,22 +46,18 @@ func Ifndef(p Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
-	return &ast.Ifndef{
-		Identifier: next.Value,
-	}, nil
+	return ast.NewIfndef(next.Value), nil
 }
 
 // Else ...
 func Else(p Parser) (ast.Node, error) {
-	cond := &ast.Else{}
-
 	p.AdvanceReadPosition(2)
 	tok := p.NextToken(0)
 	if !tok.Type.IsTerminator() {
 		return nil, errUnexpectedParameter
 	}
 
-	return cond, nil
+	return ast.NewElse(), nil
 }
 
 // Elseif ...
@@ -76,26 +66,21 @@ func Elseif(p Parser) (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 
-	cond := &ast.ElseIf{}
-
 	p.AdvanceReadPosition(1)
 	tokens, err := readDataTokens(p, false)
 	if err != nil {
 		return nil, fmt.Errorf("reading data tokens: %w", err)
 	}
-	cond.Condition = expression.New(tokens...)
-	return cond, nil
+	return ast.NewElseIf(tokens), nil
 }
 
 // Endif ...
 func Endif(p Parser) (ast.Node, error) {
-	cond := &ast.Endif{}
-
 	p.AdvanceReadPosition(2)
 	tok := p.NextToken(0)
 	if !tok.Type.IsTerminator() {
 		return nil, errUnexpectedParameter
 	}
 
-	return cond, nil
+	return ast.NewEndif(), nil
 }

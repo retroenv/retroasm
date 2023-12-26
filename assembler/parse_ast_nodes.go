@@ -48,7 +48,7 @@ func parseASTNodesStep(asm *Assembler) error {
 		switch n := node.(type) {
 		case *ast.Comment:
 
-		case *ast.Segment:
+		case ast.Segment:
 			if err := parseSegment(p, n); err != nil {
 				return fmt.Errorf("parsing segment node: %w", err)
 			}
@@ -82,46 +82,44 @@ func parseASTNode(asm *parseAST, node ast.Node) ([]any, error) {
 	)
 
 	switch n := node.(type) {
-	case *ast.Data:
+	case ast.Data:
 		nodes, err = parseData(n)
 
-	case *ast.Alias:
+	case ast.Alias:
 		nodes, err = parseAlias(asm, n)
 
-	case *ast.Label:
+	case ast.Label:
 		nodes, err = parseLabel(asm, n)
 
-	case *ast.Function:
+	case ast.Function:
 		nodes, err = parseFunction(asm, n)
 
 	case ast.FunctionEnd:
 		nodes, err = parseFunctionEnd(asm, n)
 
-	case *ast.Instruction:
+	case ast.Instruction:
 		nodes, err = parseInstruction(n)
 
-	case *ast.Include:
+	case ast.Include:
 		nodes, err = parseInclude(asm, n)
 
-	case *ast.Macro:
+	case ast.Macro:
 		nodes, err = parseMacro(n)
 
-	case *ast.Base:
-		nodes = parseBase(n)
-
-	case *ast.Variable:
+	case ast.Variable:
 		parseVariable(n)
 
 		// default case for node types that do not have special handling at this point
-	case *ast.Configuration,
-		*ast.If,
-		*ast.Ifdef,
-		*ast.Ifndef,
-		*ast.Else,
-		*ast.ElseIf,
-		*ast.Endif,
-		*ast.Identifier,
-		*ast.Error:
+	case ast.Configuration,
+		ast.If,
+		ast.Ifdef,
+		ast.Ifndef,
+		ast.Else,
+		ast.ElseIf,
+		ast.Endif,
+		ast.Identifier,
+		ast.Error,
+		ast.Base:
 
 		return []any{n}, nil
 
@@ -135,7 +133,7 @@ func parseASTNode(asm *parseAST, node ast.Node) ([]any, error) {
 	return nodes, nil
 }
 
-func parseSegment(asm *parseAST, astSegment *ast.Segment) error {
+func parseSegment(asm *parseAST, astSegment ast.Segment) error {
 	name := strings.Trim(astSegment.Name, "\"'")
 
 	seg, ok := asm.segments[name]
@@ -162,7 +160,7 @@ func parseSegment(asm *parseAST, astSegment *ast.Segment) error {
 
 var errNoCurrentSegment = errors.New("no current segment found")
 
-func parseData(astData *ast.Data) ([]any, error) {
+func parseData(astData ast.Data) ([]any, error) {
 	dat := &data{
 		fill:  astData.Fill,
 		width: astData.Width,
@@ -173,7 +171,7 @@ func parseData(astData *ast.Data) ([]any, error) {
 	}
 
 	switch astData.Type {
-	case "address":
+	case ast.AddressType:
 		refType := fullAddress
 		switch astData.ReferenceType {
 		case ast.LowAddressByte:
@@ -188,11 +186,11 @@ func parseData(astData *ast.Data) ([]any, error) {
 			return nil, fmt.Errorf("parsing data address: %w", err)
 		}
 
-	case "data":
+	case ast.DataType:
 		dat.expression = astData.Values
 
 	default:
-		return nil, fmt.Errorf("unsupported data type '%s'", astData.Type)
+		return nil, fmt.Errorf("unsupported data type %d", astData.Type)
 	}
 
 	return []any{dat}, nil
@@ -236,7 +234,7 @@ func parseDataAddress(dat *data, expression *expression.Expression, refType refe
 	return nil
 }
 
-func parseAlias(asm *parseAST, alias *ast.Alias) ([]any, error) {
+func parseAlias(asm *parseAST, alias ast.Alias) ([]any, error) {
 	typ := scope.AliasType
 	if !alias.SymbolReusable {
 		typ = scope.EquType
@@ -250,7 +248,7 @@ func parseAlias(asm *parseAST, alias *ast.Alias) ([]any, error) {
 	return []any{sym}, nil
 }
 
-func parseLabel(asm *parseAST, label *ast.Label) ([]any, error) {
+func parseLabel(asm *parseAST, label ast.Label) ([]any, error) {
 	sym, err := scope.NewSymbol(asm.currentScope, label.Name, scope.LabelType)
 	if err != nil {
 		return nil, fmt.Errorf("creating symbol: %w", err)
@@ -259,7 +257,7 @@ func parseLabel(asm *parseAST, label *ast.Label) ([]any, error) {
 	return []any{sym}, nil
 }
 
-func parseInstruction(astInstruction *ast.Instruction) ([]any, error) {
+func parseInstruction(astInstruction ast.Instruction) ([]any, error) {
 	if astInstruction.Modifier != nil {
 		return nil, fmt.Errorf("unexpected modifier %v", astInstruction.Modifier)
 	}
@@ -276,7 +274,7 @@ func parseInstruction(astInstruction *ast.Instruction) ([]any, error) {
 	case ast.Number:
 		ins.argument = arg.Value
 
-	case *ast.Label:
+	case ast.Label:
 		ins.argument = reference{name: arg.Name}
 
 	default:
@@ -286,7 +284,7 @@ func parseInstruction(astInstruction *ast.Instruction) ([]any, error) {
 	return []any{ins}, nil
 }
 
-func parseInclude(asm *parseAST, inc *ast.Include) ([]any, error) {
+func parseInclude(asm *parseAST, inc ast.Include) ([]any, error) {
 	if !inc.Binary {
 		return nil, errors.New("non binary includes are currently not supported") // TODO implement
 	}
@@ -303,17 +301,12 @@ func parseInclude(asm *parseAST, inc *ast.Include) ([]any, error) {
 	return []any{dat}, nil
 }
 
-func parseBase(astBase *ast.Base) []any {
-	bas := &base{address: astBase.Address}
-	return []any{bas}
-}
-
-func parseVariable(astVar *ast.Variable) []any {
+func parseVariable(astVar ast.Variable) []any {
 	v := &variable{v: astVar}
 	return []any{v}
 }
 
-func parseFunction(asm *parseAST, fun *ast.Function) ([]any, error) {
+func parseFunction(asm *parseAST, fun ast.Function) ([]any, error) {
 	sym, err := scope.NewSymbol(asm.currentScope, fun.Name, scope.FunctionType)
 	if err != nil {
 		return nil, fmt.Errorf("creating symbol: %w", err)
@@ -342,7 +335,7 @@ func parseFunctionEnd(asm *parseAST, _ ast.FunctionEnd) ([]any, error) {
 	return []any{newScope}, nil
 }
 
-func parseMacro(astMacro *ast.Macro) ([]any, error) {
+func parseMacro(astMacro ast.Macro) ([]any, error) {
 	mac := macro{
 		name:      astMacro.Name,
 		arguments: map[string]int{},

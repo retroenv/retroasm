@@ -191,9 +191,7 @@ func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
 	switch {
 	case next.Type == token.Colon: // "identifier:"
 		p.readPosition++
-		return &ast.Label{
-			Name: tok.Value,
-		}, nil
+		return ast.NewLabel(tok.Value), nil
 
 	case next.Type == token.Assign: // "identifier = number"
 		return p.parseAlias(tok, next)
@@ -219,10 +217,7 @@ func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
 	}
 
 	if len(ins.Addressing) == 1 && ins.HasAddressing(ImpliedAddressing) {
-		return &ast.Instruction{
-			Name:       ins.Name,
-			Addressing: ImpliedAddressing,
-		}, nil
+		return ast.NewInstruction(ins.Name, ImpliedAddressing, nil, nil), nil
 	}
 
 	node, err := p.parseInstruction(ins)
@@ -244,11 +239,9 @@ func (p *Parser) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
 	}
 
 	p.readPosition += 3
-	return &ast.Variable{
-		Name:             tok.Value,
-		Size:             int(i),
-		UseOffsetCounter: true,
-	}, nil
+	v := ast.NewVariable(tok.Value, int(i))
+	v.UseOffsetCounter = true
+	return v, nil
 }
 
 func (p *Parser) parseNumber(tok token.Token) (ast.Node, error) {
@@ -265,9 +258,7 @@ func (p *Parser) parseNumber(tok token.Token) (ast.Node, error) {
 }
 
 func (p *Parser) createIdentifier(tok token.Token) (ast.Node, error) {
-	i := &ast.Identifier{
-		Name: tok.Value,
-	}
+	i := ast.NewIdentifier(tok.Value)
 	p.AdvanceReadPosition(1)
 
 	for end := false; !end; {

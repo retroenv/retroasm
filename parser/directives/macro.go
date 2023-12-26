@@ -15,9 +15,7 @@ func Macro(p Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(3)
-	m := &ast.Macro{
-		Name: value.Value,
-	}
+	m := ast.NewMacro(value.Value)
 
 	// read arguments
 	for end := false; !end; {

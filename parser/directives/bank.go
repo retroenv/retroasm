@@ -21,7 +21,5 @@ func Bank(p Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
-	return &ast.Bank{
-		Number: int(i),
-	}, nil
+	return ast.NewBank(int(i)), nil
 }

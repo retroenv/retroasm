@@ -15,57 +15,31 @@ import (
 func TestParserAsm6(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected []ast.Node
+		expected func() []ast.Node
 	}{
-		{input: "INCBIN foo.bin, $200, $2000", expected: []ast.Node{
-			&ast.Include{
-				Name:   "foo.bin",
-				Binary: true,
-				Start:  0x200,
-				Size:   0x2000,
-			},
+		{input: "INCBIN foo.bin, $200, $2000", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("foo.bin", true, 0x200, 0x2000)}
 		}},
-		{input: "INCBIN foo.bin, $400", expected: []ast.Node{
-			&ast.Include{
-				Name:   "foo.bin",
-				Binary: true,
-				Start:  0x400,
-			},
+		{input: "INCBIN foo.bin, $400", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("foo.bin", true, 0x400, 0)}
 		}},
-		{input: "BIN \"../whatever.bin\"", expected: []ast.Node{
-			&ast.Include{
-				Name:   "\"../whatever.bin\"",
-				Binary: true,
-			},
+		{input: "BIN \"../whatever.bin\"", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("\"../whatever.bin\"", true, 0, 0)}
 		}},
-		{input: "BIN whatever.bin", expected: []ast.Node{
-			&ast.Include{
-				Name:   "whatever.bin",
-				Binary: true,
-			},
+		{input: "BIN whatever.bin", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("whatever.bin", true, 0, 0)}
 		}},
-		{input: "INCBIN whatever.bin", expected: []ast.Node{
-			&ast.Include{
-				Name:   "whatever.bin",
-				Binary: true,
-			},
+		{input: "INCBIN whatever.bin", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("whatever.bin", true, 0, 0)}
 		}},
-		{input: "INCSRC whatever.asm", expected: []ast.Node{
-			&ast.Include{
-				Name: "whatever.asm",
-			},
+		{input: "INCSRC whatever.asm", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("whatever.asm", false, 0, 0)}
 		}},
-		{input: "INCLUDE whatever.asm", expected: []ast.Node{
-			&ast.Include{
-				Name: "whatever.asm",
-			},
+		{input: "INCLUDE whatever.asm", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInclude("whatever.asm", false, 0, 0)}
 		}},
-		{input: "lda #12h", expected: []ast.Node{
-			&ast.Instruction{
-				Name:       "lda",
-				Addressing: ImmediateAddressing,
-				Argument:   ast.Number{Value: 0x12},
-			},
+		{input: "lda #12h", expected: func() []ast.Node {
+			return []ast.Node{ast.NewInstruction("lda", ImmediateAddressing, ast.NewNumber(0x12), nil)}
 		}},
 	}
 
@@ -77,14 +51,15 @@ func TestParserAsm6(t *testing.T) {
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err, fmt.Sprintf("input: %s", tt.input))
 
-		for i, expected := range tt.expected {
+		expectedNodes := tt.expected()
+		for i, expected := range expectedNodes {
 			assert.False(t, i >= len(nodes))
 
 			node := nodes[i]
 			assert.Equal(t, expected, node, fmt.Sprintf("input: %s", tt.input))
 		}
 
-		last := len(tt.expected)
+		last := len(expectedNodes)
 		for i := last; i < len(nodes); i++ {
 			t.Errorf("unexpected node %v", nodes[i])
 		}

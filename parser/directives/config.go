@@ -13,9 +13,7 @@ func FillValue(p Parser) (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 
-	cfg := &ast.Configuration{
-		Item: ast.ConfigFillValue,
-	}
+	cfg := ast.NewConfiguration(ast.ConfigFillValue)
 
 	p.AdvanceReadPosition(1)
 	tokens, err := readDataTokens(p, false)

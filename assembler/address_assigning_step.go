@@ -42,13 +42,13 @@ func assignAddressesStep(asm *Assembler) error {
 			case *instruction:
 				aa.programCounter, err = assignInstructionAddress(aa, n)
 
-			case *base:
+			case ast.Base:
 				aa.programCounter, err = assignBaseAddress(n)
 
 			case scopeChange:
 				aa.currentScope = n.scope
 
-			case *ast.Configuration:
+			case ast.Configuration:
 
 			default:
 				return fmt.Errorf("unsupported node type %T", n)
@@ -86,8 +86,8 @@ func assignVariableAddress(aa addressAssign, v *variable) uint64 {
 	return aa.programCounter
 }
 
-func assignBaseAddress(b *base) (uint64, error) {
-	i, err := b.address.IntValue()
+func assignBaseAddress(b ast.Base) (uint64, error) {
+	i, err := b.Address.IntValue()
 	if err != nil {
 		return 0, fmt.Errorf("getting base node address: %w", err)
 	}
