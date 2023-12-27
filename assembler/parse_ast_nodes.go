@@ -119,7 +119,9 @@ func parseASTNode(asm *parseAST, node ast.Node) ([]any, error) {
 		ast.Endif,
 		ast.Identifier,
 		ast.Error,
-		ast.Base:
+		ast.Base,
+		ast.Enum,
+		ast.EnumEnd:
 
 		return []any{n}, nil
 

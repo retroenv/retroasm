@@ -43,7 +43,7 @@ func processMacrosStep(asm *Assembler) error {
 func resolveMacroUsage(asm *Assembler, id ast.Identifier) ([]any, error) {
 	mac, ok := asm.macros[id.Name]
 	if !ok {
-		return nil, fmt.Errorf("macro '%s' not found", id.Name)
+		return nil, fmt.Errorf("unexpected identifier '%s' found", id.Name)
 	}
 
 	if len(mac.arguments) != len(id.Arguments) {

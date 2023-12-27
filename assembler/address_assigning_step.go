@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -15,6 +16,9 @@ type addressAssign struct {
 
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
 	programCounter uint64
+
+	inEnum                   bool
+	enumBackupProgramCounter uint64
 }
 
 // assignAddressesStep assigns an address for every node in each scope.
@@ -30,25 +34,31 @@ func assignAddressesStep(asm *Assembler) error {
 
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
+			case ast.Base:
+				aa.programCounter, err = assignBaseAddress(n)
+
+			case ast.Configuration:
+
+			case ast.Enum:
+				aa.programCounter, err = assignEnumAddress(&aa, n)
+
+			case ast.EnumEnd:
+				aa.programCounter, err = assignEnumEndAddress(&aa)
+
 			case *data:
 				aa.programCounter, err = assignDataAddress(aa, n)
-
-			case *variable:
-				assignVariableAddress(aa, n)
-
-			case *scope.Symbol:
-				err = assignSymbolAddress(aa, n)
 
 			case *instruction:
 				aa.programCounter, err = assignInstructionAddress(aa, n)
 
-			case ast.Base:
-				aa.programCounter, err = assignBaseAddress(n)
-
 			case scopeChange:
 				aa.currentScope = n.scope
 
-			case ast.Configuration:
+			case *scope.Symbol:
+				err = assignSymbolAddress(aa, n)
+
+			case *variable:
+				assignVariableAddress(aa, n)
 
 			default:
 				return fmt.Errorf("unsupported node type %T", n)
@@ -148,4 +158,29 @@ func assignInstructionAddress(aa addressAssign, n *instruction) (uint64, error) 
 
 	programCounter := aa.programCounter + uint64(addressingInfo.Size)
 	return programCounter, nil
+}
+
+func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
+	if aa.inEnum {
+		return 0, errors.New("invalid enum inside enum context")
+	}
+
+	aa.enumBackupProgramCounter = aa.programCounter
+	aa.inEnum = true
+
+	pc, err := e.Address.IntValue()
+	if err != nil {
+		return 0, fmt.Errorf("getting enum address: %w", err)
+	}
+	return uint64(pc), nil
+}
+
+func assignEnumEndAddress(aa *addressAssign) (uint64, error) {
+	if !aa.inEnum {
+		return 0, errors.New("enum outside of enum context")
+	}
+
+	aa.inEnum = false
+
+	return aa.enumBackupProgramCounter, nil
 }
