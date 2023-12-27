@@ -91,17 +91,11 @@ func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 	}
 
 	switch n := node.(type) {
-	case *data:
-		return false, parseDataExpression(expEval, n)
-
 	case ast.Base:
 		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
 		if err != nil {
 			return false, fmt.Errorf("evaluating base expression: %w", err)
 		}
-
-	case *scope.Symbol:
-		return false, parseSymbolExpression(expEval, n)
 
 	case ast.Configuration:
 		if err := parseConfigExpression(expEval, n); err != nil {
@@ -111,6 +105,18 @@ func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 		if n.Item == ast.ConfigFillValue {
 			expEval.fillValues = n.Expression
 		}
+
+	case ast.Enum:
+		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+		if err != nil {
+			return false, fmt.Errorf("evaluating enum expression: %w", err)
+		}
+
+	case *data:
+		return false, parseDataExpression(expEval, n)
+
+	case *scope.Symbol:
+		return false, parseSymbolExpression(expEval, n)
 	}
 
 	return false, nil

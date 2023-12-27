@@ -44,7 +44,9 @@ var Handlers = map[string]Handler{
 	"else":       Else,   // asm6
 	"elseif":     Elseif, // asm6
 	"endif":      Endif,  // asm6
+	"ende":       Ende,   // asm6
 	"endproc":    EndProc,
+	"enum":       Enum,      // asm6
 	"error":      Error,     // asm6
 	"fillvalue":  FillValue, // asm6
 	"hex":        Hex,       // asm6

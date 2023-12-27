@@ -64,6 +64,8 @@ func writeSegmentsToMemory(configSegmentsOrdered []*config.Segment,
 
 		offset := seg.config.SegmentStart
 
+		// TODO fix segment nodes not always being in order of address as
+		// directives like base or enum can change the order
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
 			case *data:
@@ -76,9 +78,11 @@ func writeSegmentsToMemory(configSegmentsOrdered []*config.Segment,
 					offset += uint64(len(b))
 				}
 
-			case *scope.Symbol,
-				ast.Base,
+			case ast.Base,
 				ast.Configuration,
+				ast.Enum,
+				ast.EnumEnd,
+				*scope.Symbol,
 				scopeChange:
 
 			case *instruction:

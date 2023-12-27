@@ -340,6 +340,29 @@ func TestAssemblerAsm6Error(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "X is out of range :("), "error not triggered")
 }
 
+var asm6EnumCode = `
+.segment "HEADER"
+
+BASE $202
+db 3
+
+ENUM $200
+	foo:    db 1
+	foo2:   db 2
+ENDE
+`
+
+func TestAssemblerAsm6Enum(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6EnumCode)
+	assert.NoError(t, err)
+	expected := []byte{
+		0x03, // 1 item TODO fix as it should be at the end
+		0x01, // 1 item
+		0x02, // 1 item
+	}
+	assert.Equal(t, expected, b)
+}
+
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 
