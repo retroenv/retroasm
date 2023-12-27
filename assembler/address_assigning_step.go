@@ -17,7 +17,7 @@ type addressAssign struct {
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
 	programCounter uint64
 
-	inEnum                   bool
+	enumActive               bool
 	enumBackupProgramCounter uint64
 }
 
@@ -161,12 +161,12 @@ func assignInstructionAddress(aa addressAssign, n *instruction) (uint64, error) 
 }
 
 func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
-	if aa.inEnum {
+	if aa.enumActive {
 		return 0, errors.New("invalid enum inside enum context")
 	}
 
 	aa.enumBackupProgramCounter = aa.programCounter
-	aa.inEnum = true
+	aa.enumActive = true
 
 	pc, err := e.Address.IntValue()
 	if err != nil {
@@ -176,11 +176,11 @@ func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
 }
 
 func assignEnumEndAddress(aa *addressAssign) (uint64, error) {
-	if !aa.inEnum {
+	if !aa.enumActive {
 		return 0, errors.New("enum outside of enum context")
 	}
 
-	aa.inEnum = false
+	aa.enumActive = false
 
 	return aa.enumBackupProgramCounter, nil
 }
