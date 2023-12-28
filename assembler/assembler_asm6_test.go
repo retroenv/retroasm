@@ -141,8 +141,8 @@ var asm6CurrentProgramAddressTestCode = `
 DB 1,2,3
 DSB $10-$
 DSB $20-$, 1
-$=$1000
-DSB $1005-$, 2
+$=$22
+DSB $25-$, 2
 `
 
 func TestAssemblerAsm6CurrentProgramAddress(t *testing.T) {
@@ -152,7 +152,8 @@ func TestAssemblerAsm6CurrentProgramAddress(t *testing.T) {
 		1, 2, 3, // 3 items
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 13 items
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 16 items
-		2, 2, 2, 2, 2, // 5 items
+		0, 0, // 2 items
+		2, 2, 2, // 3 items
 	}
 	assert.Equal(t, expected, b)
 }
@@ -186,6 +187,7 @@ func TestAssemblerAsm6Org(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6OrgTestCode)
 	assert.NoError(t, err)
 	expected := []byte{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16 items
 		1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, // 16 items
 	}
 	assert.Equal(t, expected, b)
@@ -226,9 +228,9 @@ func TestAssemblerAsm6FillValue(t *testing.T) {
 
 var asm6BaseTestCode = `
 .segment "HEADER"
-BASE $6000
+BASE $10
 oldaddr=$
-PAD $6005, 0x12
+PAD $15, 0x12
 PAD oldaddr+9, 0x34
 `
 
@@ -236,6 +238,7 @@ func TestAssemblerAsm6Base(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6BaseTestCode)
 	assert.NoError(t, err)
 	expected := []byte{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16 items
 		0x12, 0x12, 0x12, 0x12, 0x12, // 5 items
 		0x34, 0x34, 0x34, 0x34, // 4 items
 	}
@@ -343,10 +346,10 @@ func TestAssemblerAsm6Error(t *testing.T) {
 var asm6EnumCode = `
 .segment "HEADER"
 
-BASE $202
+BASE $2
 db 3
 
-ENUM $200
+ENUM $0
 	foo:    db 1
 	foo2:   db 2
 ENDE
@@ -356,9 +359,9 @@ func TestAssemblerAsm6Enum(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6EnumCode)
 	assert.NoError(t, err)
 	expected := []byte{
-		0x03, // 1 item TODO fix as it should be at the end
 		0x01, // 1 item
 		0x02, // 1 item
+		0x03, // 1 item
 	}
 	assert.Equal(t, expected, b)
 }

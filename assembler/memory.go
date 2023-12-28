@@ -29,8 +29,8 @@ func newMemory(cfg config.Memory) *memory {
 // write data using the offset address into the memory, the index will be calculated based on
 // the start address of the memory. If the memory config does not specify the fill flag,
 // the memory can not be preallocated but has to be written incrementally.
-func (o *memory) write(data []byte, offsetAddress uint64) {
-	index := int(offsetAddress - o.start)
+func (o *memory) write(data []byte, offsetAddress, segmentStart uint64) {
+	index := int(offsetAddress - o.start + segmentStart)
 
 	extendBuf := index - len(o.data) + len(data)
 	if extendBuf > 0 {

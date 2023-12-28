@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/retroenv/assembler/assembler/config"
-	"github.com/retroenv/assembler/parser/ast"
-	"github.com/retroenv/assembler/scope"
 )
 
 // writeOutputStep writes the filled memory segments to the output stream.
@@ -28,12 +26,13 @@ func writeOutputStep(asm *Assembler) error {
 			continue
 		}
 
-		if len(mem.data) > int(mem.size) {
+		if uint64(len(mem.data))-mem.start > mem.size {
 			return fmt.Errorf("memory '%s' exceeds size limit %d, %d bytes written",
 				memName, mem.size, len(mem.data))
 		}
 
-		_, err = asm.writer.Write(mem.data)
+		buf := mem.data[mem.start:]
+		_, err = asm.writer.Write(buf)
 		if err != nil {
 			return fmt.Errorf("writing fill data to output: %w", err)
 		}
@@ -62,38 +61,21 @@ func writeSegmentsToMemory(configSegmentsOrdered []*config.Segment,
 			memories[memName] = mem
 		}
 
-		offset := seg.config.SegmentStart
-
-		// TODO fix segment nodes not always being in order of address as
-		// directives like base or enum can change the order
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
 			case *data:
+				offset := n.address
 				for _, val := range n.values {
 					b, ok := val.([]byte)
 					if !ok {
 						return nil, fmt.Errorf("unsupported node value type %T", val)
 					}
-					mem.write(b, offset)
+					mem.write(b, offset, seg.config.SegmentStart)
 					offset += uint64(len(b))
 				}
 
-			case ast.Base,
-				ast.Configuration,
-				ast.Enum,
-				ast.EnumEnd,
-				*scope.Symbol,
-				scopeChange:
-
 			case *instruction:
-				mem.write(n.opcodes, offset)
-				offset += uint64(len(n.opcodes))
-
-			case *variable:
-				offset += uint64(n.v.Size)
-
-			default:
-				return nil, fmt.Errorf("unsupported node type %T", n)
+				mem.write(n.opcodes, n.address, seg.config.SegmentStart)
 			}
 		}
 	}
