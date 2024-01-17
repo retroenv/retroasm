@@ -20,7 +20,7 @@ test-coverage-web: test-coverage ## run unit tests and show test coverage in bro
 	go tool cover -html=.testCoverage
 
 install-linters: ## install the linter
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin ${GOLANGCI_VERSION}
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_VERSION}
 
 release: ## build release binaries for current git tag and publish on github
 	goreleaser release
