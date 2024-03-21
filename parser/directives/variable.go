@@ -3,9 +3,9 @@ package directives
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/number"
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/number"
+	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Res ...

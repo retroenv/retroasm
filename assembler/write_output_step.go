@@ -3,7 +3,7 @@ package assembler
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/assembler/config"
+	"github.com/retroenv/retroasm/assembler/config"
 )
 
 // writeOutputStep writes the filled memory segments to the output stream.

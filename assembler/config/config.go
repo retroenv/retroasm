@@ -2,7 +2,7 @@
 package config
 
 import (
-	"github.com/retroenv/assembler/arch"
+	"github.com/retroenv/retroasm/arch"
 )
 
 // Config defines an assembler config.

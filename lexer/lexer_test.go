@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retrogolib/assert"
 )
 

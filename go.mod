@@ -1,4 +1,4 @@
-module github.com/retroenv/assembler
+module github.com/retroenv/retroasm
 
 go 1.22
 

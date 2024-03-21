@@ -7,9 +7,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/retroenv/assembler/lexer"
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/number"
+	"github.com/retroenv/retroasm/lexer"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/number"
 )
 
 // TODO support FEATURES and SYMBOLS areas

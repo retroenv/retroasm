@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/expression"
-	"github.com/retroenv/assembler/number"
-	"github.com/retroenv/assembler/parser/ast"
-	"github.com/retroenv/assembler/scope"
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/expression"
+	"github.com/retroenv/retroasm/number"
+	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/scope"
 )
 
 var (

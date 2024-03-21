@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/retroenv/assembler/assembler/config"
-	"github.com/retroenv/assembler/scope"
+	"github.com/retroenv/retroasm/assembler/config"
+	"github.com/retroenv/retroasm/scope"
 )
 
 // Assembler is the assembler implementation.

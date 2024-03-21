@@ -4,7 +4,7 @@ package scope
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/retroasm/lexer/token"
 )
 
 // SymbolType defines a type of symbol.

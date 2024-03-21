@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/assembler"
-	"github.com/retroenv/assembler/assembler/config"
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/assembler"
+	"github.com/retroenv/retroasm/assembler/config"
 	"github.com/retroenv/retrogolib/buildinfo"
 	"github.com/retroenv/retrogolib/log"
 )

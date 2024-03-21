@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/parser/ast"
 	. "github.com/retroenv/retrogolib/addressing"
 	"github.com/retroenv/retrogolib/assert"
 )

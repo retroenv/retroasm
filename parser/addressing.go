@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/retroasm/lexer/token"
 	. "github.com/retroenv/retrogolib/addressing"
 	"github.com/retroenv/retrogolib/cpu"
 )

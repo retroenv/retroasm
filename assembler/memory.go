@@ -1,6 +1,6 @@
 package assembler
 
-import "github.com/retroenv/assembler/assembler/config"
+import "github.com/retroenv/retroasm/assembler/config"
 
 // memory is a memory segment of the output file.
 type memory struct {

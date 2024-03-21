@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/parser/ast"
-	"github.com/retroenv/assembler/scope"
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/scope"
 	. "github.com/retroenv/retrogolib/addressing"
 )
 

@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/retroenv/assembler/expression"
+	"github.com/retroenv/retroasm/expression"
 )
 
 // Alias ...

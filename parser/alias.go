@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/parser/ast"
-	"github.com/retroenv/assembler/parser/directives"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/parser/directives"
 )
 
 var errUnsupportedIdentifier = errors.New("unsupported identifier")
