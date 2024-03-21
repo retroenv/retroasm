@@ -1,7 +1,6 @@
 package expression
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -43,15 +42,15 @@ func TestExpression(t *testing.T) {
 		result, err := runEvaluation(t, lex)
 
 		if tt.expectedErr {
-			assert.True(t, err != nil, fmt.Sprintf("input: %s", tt.input))
+			assert.True(t, err != nil, "input: "+tt.input)
 		} else {
-			assert.NoError(t, err, fmt.Sprintf("input: %s", tt.input))
+			assert.NoError(t, err, "input: "+tt.input)
 		}
 
 		if tt.expected == nil {
 			tt.expected = 0
 		}
-		assert.Equal(t, tt.expected, result, fmt.Sprintf("input: %s", tt.input))
+		assert.Equal(t, tt.expected, result, "input: "+tt.input)
 	}
 }
 

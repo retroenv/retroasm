@@ -60,7 +60,7 @@ func generateDataFillBytes(d *data) error {
 	b := make([]byte, size)
 	if len(filler) > 0 {
 		j := 0
-		for i := 0; i < len(b); i++ {
+		for i := range len(b) {
 			if j >= len(filler) {
 				j = 0
 			}

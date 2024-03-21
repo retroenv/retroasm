@@ -1,7 +1,6 @@
 package number
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/retroenv/retrogolib/assert"
@@ -31,7 +30,7 @@ func TestNumberParseToBytes(t *testing.T) {
 		if tt.expectedErr {
 			assert.True(t, err != nil)
 		} else {
-			assert.NoError(t, err, fmt.Sprintf("input: %s", tt.input))
+			assert.NoError(t, err, "input: "+tt.input)
 		}
 
 		assert.Equal(t, tt.expected, b)
@@ -66,7 +65,7 @@ func TestNumberParse(t *testing.T) {
 		if tt.expectedErr {
 			assert.True(t, err != nil)
 		} else {
-			assert.NoError(t, err, fmt.Sprintf("input: %s", tt.input))
+			assert.NoError(t, err, "input: "+tt.input)
 		}
 
 		assert.Equal(t, tt.expected, i)

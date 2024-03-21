@@ -18,7 +18,7 @@ func newMemory(cfg config.Memory) *memory {
 
 	if cfg.Fill {
 		o.data = make([]byte, cfg.Size)
-		for i := uint64(0); i < cfg.Size; i++ {
+		for i := range cfg.Size {
 			o.data[i] = cfg.FillValue
 		}
 	}
