@@ -110,23 +110,8 @@ func parseASTNode(asm *parseAST, node ast.Node) ([]any, error) {
 		parseVariable(n)
 
 		// default case for node types that do not have special handling at this point
-	case ast.Configuration,
-		ast.If,
-		ast.Ifdef,
-		ast.Ifndef,
-		ast.Else,
-		ast.ElseIf,
-		ast.Endif,
-		ast.Identifier,
-		ast.Error,
-		ast.Base,
-		ast.Enum,
-		ast.EnumEnd:
-
-		return []any{n}, nil
-
 	default:
-		return nil, fmt.Errorf("unsupported node type %T", n)
+		return []any{n}, nil
 	}
 
 	if err != nil {

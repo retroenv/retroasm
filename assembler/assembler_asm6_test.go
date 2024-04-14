@@ -366,6 +366,27 @@ func TestAssemblerAsm6Enum(t *testing.T) {
 	assert.Equal(t, expected, b)
 }
 
+var asm6ReptCode = `
+.segment "HEADER"
+
+i=0
+REPT 3
+	DB i
+	i=i+1
+ENDR
+`
+
+func TestAssemblerAsm6Rept(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6ReptCode)
+	assert.NoError(t, err)
+	expected := []byte{
+		0x01, // 1 item
+		0x02, // 1 item
+		0x03, // 1 item
+	}
+	assert.Equal(t, expected, b)
+}
+
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 
