@@ -1,8 +1,8 @@
 package ast
 
 import (
-	"github.com/retroenv/assembler/expression"
-	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/retroasm/expression"
+	"github.com/retroenv/retroasm/lexer/token"
 )
 
 // Rept ...

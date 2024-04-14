@@ -3,7 +3,7 @@ package directives
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Rept ...
