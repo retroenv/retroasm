@@ -1,6 +1,6 @@
 package directives
 
-import "github.com/retroenv/assembler/parser/ast"
+import "github.com/retroenv/retroasm/parser/ast"
 
 // Segment ...
 func Segment(p Parser) (ast.Node, error) {

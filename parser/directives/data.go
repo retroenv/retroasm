@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/retroenv/assembler/expression"
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/expression"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/parser/ast"
 )
 
 var dataByteWidth = map[string]int{

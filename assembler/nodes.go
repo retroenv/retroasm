@@ -1,10 +1,10 @@
 package assembler
 
 import (
-	"github.com/retroenv/assembler/expression"
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/parser/ast"
-	"github.com/retroenv/assembler/scope"
+	"github.com/retroenv/retroasm/expression"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/scope"
 	"github.com/retroenv/retrogolib/addressing"
 )
 

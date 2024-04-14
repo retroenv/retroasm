@@ -1,11 +1,10 @@
 package lexer
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -81,8 +80,8 @@ func TestLexer(t *testing.T) {
 		for _, expected := range tt.expected {
 			tok, err := l.NextToken()
 			assert.NoError(t, err)
-			assert.Equal(t, expected.Type, tok.Type, fmt.Sprintf("input: %s", tt.input))
-			assert.Equal(t, expected.Value, tok.Value, fmt.Sprintf("input: %s", tt.input))
+			assert.Equal(t, expected.Type, tok.Type, "input: "+tt.input)
+			assert.Equal(t, expected.Value, tok.Value, "input: "+tt.input)
 		}
 
 		tok, err := l.NextToken()

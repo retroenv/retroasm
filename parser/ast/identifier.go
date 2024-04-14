@@ -1,6 +1,6 @@
 package ast
 
-import "github.com/retroenv/assembler/lexer/token"
+import "github.com/retroenv/retroasm/lexer/token"
 
 // Identifier ...
 type Identifier struct {

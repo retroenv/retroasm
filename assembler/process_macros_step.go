@@ -3,9 +3,9 @@ package assembler
 import (
 	"fmt"
 
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/parser"
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/parser"
+	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // processMacrosStep processes macro and rept nodes and replace them by their resolved nodes.

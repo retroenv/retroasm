@@ -4,9 +4,9 @@ package directives
 import (
 	"errors"
 
-	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/lexer/token"
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/lexer/token"
+	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Parser defines the parser that the directives use to read tokens.

@@ -1,12 +1,11 @@
 package parser
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/retroenv/assembler/arch"
-	"github.com/retroenv/assembler/parser/ast"
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/parser/ast"
 	. "github.com/retroenv/retrogolib/addressing"
 	"github.com/retroenv/retrogolib/assert"
 )
@@ -49,14 +48,14 @@ func TestParserAsm6(t *testing.T) {
 		parser := New(architecture, strings.NewReader(tt.input))
 		assert.NoError(t, parser.Read())
 		nodes, err := parser.TokensToAstNodes()
-		assert.NoError(t, err, fmt.Sprintf("input: %s", tt.input))
+		assert.NoError(t, err, "input: "+tt.input)
 
 		expectedNodes := tt.expected()
 		for i, expected := range expectedNodes {
 			assert.False(t, i >= len(nodes))
 
 			node := nodes[i]
-			assert.Equal(t, expected, node, fmt.Sprintf("input: %s", tt.input))
+			assert.Equal(t, expected, node, "input: "+tt.input)
 		}
 
 		last := len(expectedNodes)

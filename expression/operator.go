@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/retroenv/assembler/lexer/token"
+	"github.com/retroenv/retroasm/lexer/token"
 )
 
 var operatorPriority = map[token.Type]struct {
