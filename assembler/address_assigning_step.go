@@ -19,6 +19,7 @@ type addressAssign struct {
 
 	enumActive               bool
 	enumBackupProgramCounter uint64
+	reptActive               bool
 }
 
 // assignAddressesStep assigns an address for every node in each scope.
@@ -39,11 +40,17 @@ func assignAddressesStep(asm *Assembler) error {
 
 			case ast.Configuration:
 
+			case ast.Endr:
+				aa.programCounter, err = assignReptEndAddress(&aa)
+
 			case ast.Enum:
 				aa.programCounter, err = assignEnumAddress(&aa, n)
 
 			case ast.EnumEnd:
 				aa.programCounter, err = assignEnumEndAddress(&aa)
+
+			case ast.Rept:
+				aa.programCounter, err = assignReptAddress(&aa, n)
 
 			case *data:
 				aa.programCounter, err = assignDataAddress(aa, n)
@@ -177,10 +184,34 @@ func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
 
 func assignEnumEndAddress(aa *addressAssign) (uint64, error) {
 	if !aa.enumActive {
-		return 0, errors.New("enum outside of enum context")
+		return 0, errors.New("enum end outside of enum context")
 	}
 
 	aa.enumActive = false
 
 	return aa.enumBackupProgramCounter, nil
+}
+
+func assignReptAddress(aa *addressAssign, r ast.Rept) (uint64, error) {
+	if aa.reptActive {
+		return 0, errors.New("invalid rept inside rept context")
+	}
+
+	aa.reptActive = true
+
+	pc, err := r.Count.IntValue()
+	if err != nil {
+		return 0, fmt.Errorf("getting rept address: %w", err)
+	}
+	return uint64(pc), nil
+}
+
+func assignReptEndAddress(aa *addressAssign) (uint64, error) {
+	if !aa.reptActive {
+		return 0, errors.New("rept end outside of rept context")
+	}
+
+	aa.reptActive = false
+
+	return aa.programCounter, nil
 }
