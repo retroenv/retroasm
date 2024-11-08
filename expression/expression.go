@@ -264,6 +264,7 @@ func parseToRPNHandleOperator(tok token.Token, values, operators *stack[token.To
 
 		if (rightAssociative && priorityInfo.priority < previousPriorityInfo.priority) ||
 			(!rightAssociative && priorityInfo.priority <= previousPriorityInfo.priority) {
+
 			operators.pop()
 			values.push(top)
 		} else {

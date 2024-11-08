@@ -81,6 +81,7 @@ var directiveBinaryIncludes = map[string]struct{}{
 }
 
 // SetCPU ...
+// nolint: nilnil
 func SetCPU(p Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	return nil, nil
