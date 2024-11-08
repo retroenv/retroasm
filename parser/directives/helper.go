@@ -12,12 +12,10 @@ func ParseModifier(p Parser) []ast.Modifier {
 
 	for next1 := p.NextToken(1); ; next1 = p.NextToken(1) {
 		switch next1.Type {
-
 		case token.Plus:
 			operator = ast.NewOperator("+")
 		case token.Minus:
 			operator = ast.NewOperator("-")
-
 		default:
 			return modifiers
 		}

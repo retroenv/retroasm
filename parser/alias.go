@@ -20,10 +20,8 @@ func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
 	case next.Type == token.Assign:
 		evaluateOnce = true
 		symbolReusable = true
-		break
 
 	case next.Type == token.Identifier && strings.ToUpper(next.Value) == "EQU":
-		break
 
 	default:
 		// check if token string is a directive and was used without .
