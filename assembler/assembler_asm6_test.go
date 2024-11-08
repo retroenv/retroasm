@@ -374,15 +374,17 @@ REPT 3
 	DB i
 	i=i+1
 ENDR
+DB 0xff
 `
 
 func TestAssemblerAsm6Rept(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6ReptCode)
 	assert.NoError(t, err)
 	expected := []byte{
+		0x00, // 1 item
 		0x01, // 1 item
 		0x02, // 1 item
-		0x03, // 1 item
+		0xff, // 1 item
 	}
 	assert.Equal(t, expected, b)
 }

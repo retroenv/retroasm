@@ -13,8 +13,8 @@ func processMacrosStep(asm *Assembler) error {
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]any, 0, len(seg.nodes))
 
-		for i := 0; i < len(seg.nodes); i++ {
-			node := seg.nodes[i]
+		for j := 0; j < len(seg.nodes); j++ {
+			node := seg.nodes[j]
 
 			switch n := node.(type) {
 			case ast.Identifier:
@@ -23,9 +23,6 @@ func processMacrosStep(asm *Assembler) error {
 					return fmt.Errorf("processing identifier '%s': %w", n.Name, err)
 				}
 				segmentNodesResolved = append(segmentNodesResolved, nodes...)
-
-			case ast.Rept:
-				// TODO handle rept but evaluation needs to be later
 
 			case macro:
 				_, ok := asm.macros[n.name]
