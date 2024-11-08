@@ -15,6 +15,14 @@ func NewFunction(name string) Function {
 	}
 }
 
+// Copy returns a copy of the function node.
+func (f Function) Copy() Node {
+	return Function{
+		node: f.node,
+		Name: f.Name,
+	}
+}
+
 // FunctionEnd ...
 type FunctionEnd struct {
 	*node
@@ -24,5 +32,12 @@ type FunctionEnd struct {
 func NewFunctionEnd() FunctionEnd {
 	return FunctionEnd{
 		node: &node{},
+	}
+}
+
+// Copy returns a copy of the function end node.
+func (f FunctionEnd) Copy() Node {
+	return FunctionEnd{
+		node: f.node,
 	}
 }

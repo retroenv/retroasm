@@ -14,3 +14,11 @@ func NewOffsetCounter(value uint64) Number {
 		Value: value,
 	}
 }
+
+// Copy returns a copy of the offset number node.
+func (o OffsetCounter) Copy() Node {
+	return OffsetCounter{
+		node:   o.node,
+		Number: o.Number,
+	}
+}

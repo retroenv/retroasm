@@ -34,3 +34,13 @@ func NewConfiguration(item ConfigurationItem) Configuration {
 		Item: item,
 	}
 }
+
+// Copy returns a copy of the configuration node.
+func (c Configuration) Copy() Node {
+	return Configuration{
+		node:       c.node,
+		Item:       c.Item,
+		Value:      c.Value,
+		Expression: c.Expression.Copy(),
+	}
+}

@@ -46,3 +46,16 @@ func NewData(typ DataContentType, width int) Data {
 		Size:  expression.New(),
 	}
 }
+
+// Copy returns a copy of the data node.
+func (d Data) Copy() Node {
+	return Data{
+		node:          d.node,
+		Type:          d.Type,
+		Width:         d.Width,
+		ReferenceType: d.ReferenceType,
+		Fill:          d.Fill,
+		Size:          d.Size.Copy(),
+		Values:        d.Values.Copy(),
+	}
+}

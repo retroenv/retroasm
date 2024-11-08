@@ -14,3 +14,11 @@ func NewBank(number int) Bank {
 		Number: number,
 	}
 }
+
+// Copy returns a copy of the bank node.
+func (b Bank) Copy() Node {
+	return Bank{
+		node:   b.node,
+		Number: b.Number,
+	}
+}

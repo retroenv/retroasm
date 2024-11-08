@@ -1,6 +1,8 @@
 package ast
 
 import (
+	"slices"
+
 	. "github.com/retroenv/retrogolib/addressing"
 )
 
@@ -30,5 +32,16 @@ func NewInstruction(name string, addressing Mode, argument Node, modifier []Modi
 		Addressing: addressing,
 		Argument:   argument,
 		Modifier:   modifier,
+	}
+}
+
+// Copy returns a copy of the instruction node.
+func (i Instruction) Copy() Node {
+	return Instruction{
+		node:       i.node,
+		Name:       i.Name,
+		Addressing: i.Addressing,
+		Argument:   i.Argument.Copy(),
+		Modifier:   slices.Clone(i.Modifier),
 	}
 }

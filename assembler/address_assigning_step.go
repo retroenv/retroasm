@@ -54,7 +54,7 @@ func assignAddressesStep(asm *Assembler) error {
 			case scopeChange:
 				aa.currentScope = n.scope
 
-			case *scope.Symbol:
+			case *symbol:
 				err = assignSymbolAddress(aa, n)
 
 			case *variable:
@@ -104,7 +104,7 @@ func assignBaseAddress(b ast.Base) (uint64, error) {
 	return uint64(i), nil
 }
 
-func assignSymbolAddress(aa addressAssign, sym *scope.Symbol) error {
+func assignSymbolAddress(aa addressAssign, sym *symbol) error {
 	sym.SetAddress(aa.programCounter)
 	exp := sym.Expression()
 	if exp != nil && exp.IsEvaluatedAtAddressAssign() {

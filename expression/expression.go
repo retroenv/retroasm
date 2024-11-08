@@ -5,6 +5,7 @@ package expression
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -43,6 +44,18 @@ func New(tokens ...token.Token) *Expression {
 	e := &Expression{}
 	e.AddTokens(tokens...)
 	return e
+}
+
+// Copy creates a copy of the expression.
+func (e *Expression) Copy() *Expression {
+	return &Expression{
+		nodes:                   slices.Clone(e.nodes),
+		value:                   e.value,
+		evaluated:               e.evaluated,
+		evaluating:              e.evaluating,
+		evaluateOnce:            e.evaluateOnce,
+		evaluateAtAddressAssign: e.evaluateAtAddressAssign,
+	}
 }
 
 // SetEvaluateOnce sets the evaluate once flag for the expression.

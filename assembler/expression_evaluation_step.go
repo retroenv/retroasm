@@ -37,7 +37,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 	}
 
 	for _, seg := range asm.segmentsOrder {
-		nodes := make([]any, 0, len(seg.nodes))
+		nodes := make([]ast.Node, 0, len(seg.nodes))
 
 		for _, node := range seg.nodes {
 			remove, err := evaluateNode(&expEval, node)

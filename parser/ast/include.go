@@ -22,3 +22,14 @@ func NewInclude(name string, binary bool, start, size int) Include {
 		Size:   size,
 	}
 }
+
+// Copy returns a copy of the include node.
+func (i Include) Copy() Node {
+	return Include{
+		node:   i.node,
+		Name:   i.Name,
+		Binary: i.Binary,
+		Start:  i.Start,
+		Size:   i.Size,
+	}
+}
