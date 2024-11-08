@@ -13,7 +13,7 @@ func processMacrosStep(asm *Assembler) error {
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]any, 0, len(seg.nodes))
 
-		for j := 0; j < len(seg.nodes); j++ {
+		for j := range seg.nodes {
 			node := seg.nodes[j]
 
 			switch n := node.(type) {

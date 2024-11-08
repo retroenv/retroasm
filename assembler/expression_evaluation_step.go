@@ -39,6 +39,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 	for _, seg := range asm.segmentsOrder {
 		nodes := make([]any, 0, len(seg.nodes))
 
+		// nolint:intrange
 		for i := 0; i < len(seg.nodes); i++ {
 			node := seg.nodes[i]
 			removeNode, err := evaluateNode(&expEval, seg, i, node)
@@ -127,7 +128,6 @@ func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex 
 
 	case *scope.Symbol:
 		return false, parseSymbolExpression(expEval, n)
-
 	}
 
 	return false, nil
@@ -328,7 +328,7 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 	// insert the nodes count-1 times, as the first insertion are the existing nodes
 	count--
 	nodesToInsert := make([]any, 0, len(nodes)*int(count))
-	for i := int64(0); i < count; i++ {
+	for range count {
 		// TODO this needs to create copies of the nodes
 		nodesToInsert = append(nodesToInsert, nodes...)
 	}
