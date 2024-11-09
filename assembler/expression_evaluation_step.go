@@ -39,7 +39,9 @@ func evaluateExpressionsStep(asm *Assembler) error {
 	for segNr, seg := range asm.segmentsOrder {
 		nodes := make([]ast.Node, 0, len(seg.nodes))
 
-		for nodeNr, node := range seg.nodes {
+		// nolint:intrange // seg.nodes gets modified in the loop
+		for nodeNr := 0; nodeNr < len(seg.nodes); nodeNr++ {
+			node := seg.nodes[nodeNr]
 			removeNode, err := evaluateNode(&expEval, seg, nodeNr, node)
 			if err != nil {
 				return fmt.Errorf("evaluating node %d in segment %d: %w", nodeNr, segNr, err)
@@ -61,7 +63,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 // evaluateNode evaluates a node and returns whether the node should be removed.
 // This is useful for conditional nodes with an expression that does not match and
 // that wraps other nodes.
-// nolint:cyclop
+// nolint:cyclop,funlen
 func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex int, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
@@ -327,8 +329,9 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 	count--
 	nodesToInsert := make([]ast.Node, 0, len(nodes)*int(count))
 	for range count {
-		// TODO this needs to create copies of the nodes
-		nodesToInsert = append(nodesToInsert, nodes...)
+		for _, node := range nodes {
+			nodesToInsert = append(nodesToInsert, node.Copy())
+		}
 	}
 
 	seg.nodes = append(seg.nodes[:currentNodeIndex+1], append(nodesToInsert, seg.nodes[currentNodeIndex+1:]...)...)
