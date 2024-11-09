@@ -36,13 +36,13 @@ func evaluateExpressionsStep(asm *Assembler) error {
 		},
 	}
 
-	for _, seg := range asm.segmentsOrder {
+	for segNr, seg := range asm.segmentsOrder {
 		nodes := make([]ast.Node, 0, len(seg.nodes))
 
-		for _, node := range seg.nodes {
+		for nodeNr, node := range seg.nodes {
 			remove, err := evaluateNode(&expEval, node)
 			if err != nil {
-				return err
+				return fmt.Errorf("evaluating node %d in segment %d: %w", nodeNr, segNr, err)
 			}
 			if !remove {
 				nodes = append(nodes, node)
@@ -115,7 +115,7 @@ func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 	case *data:
 		return false, parseDataExpression(expEval, n)
 
-	case *scope.Symbol:
+	case *symbol:
 		return false, parseSymbolExpression(expEval, n)
 	}
 
@@ -162,7 +162,7 @@ func parseDataExpression(expEval *expressionEvaluation, dat *data) error {
 	}
 }
 
-func parseSymbolExpression(expEval *expressionEvaluation, sym *scope.Symbol) error {
+func parseSymbolExpression(expEval *expressionEvaluation, sym *symbol) error {
 	exp := sym.Expression()
 	if exp == nil || exp.IsEvaluatedAtAddressAssign() {
 		return nil
@@ -177,7 +177,7 @@ func parseSymbolExpression(expEval *expressionEvaluation, sym *scope.Symbol) err
 	}
 
 	if sym.Type() == scope.AliasType {
-		if err := expEval.currentScope.AddSymbol(sym); err != nil {
+		if err := expEval.currentScope.AddSymbol(sym.Symbol); err != nil {
 			return fmt.Errorf("setting symbol in scope: %w", err)
 		}
 	}
