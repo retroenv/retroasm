@@ -177,7 +177,7 @@ func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
 
 func assignEnumEndAddress(aa *addressAssign) (uint64, error) {
 	if !aa.enumActive {
-		return 0, errors.New("enum outside of enum context")
+		return 0, errors.New("enum end outside of enum context")
 	}
 
 	aa.enumActive = false

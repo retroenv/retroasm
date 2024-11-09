@@ -8,12 +8,14 @@ import (
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
-// processMacrosStep processes macro usages and replace them by the macro nodes.
+// processMacrosStep processes macro and rept nodes and replace them by their resolved nodes.
 func processMacrosStep(asm *Assembler) error {
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]ast.Node, 0, len(seg.nodes))
 
-		for _, node := range seg.nodes {
+		for j := range seg.nodes {
+			node := seg.nodes[j]
+
 			switch n := node.(type) {
 			case ast.Identifier:
 				nodes, err := resolveMacroUsage(asm, n)
