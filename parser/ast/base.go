@@ -19,3 +19,11 @@ func NewBase(addressTokens []token.Token) Base {
 		Address: expression.New(addressTokens...),
 	}
 }
+
+// Copy returns a copy of the base node.
+func (b Base) Copy() Node {
+	return Base{
+		node:    b.node,
+		Address: b.Address.Copy(),
+	}
+}

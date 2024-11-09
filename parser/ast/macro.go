@@ -1,6 +1,10 @@
 package ast
 
-import "github.com/retroenv/retroasm/lexer/token"
+import (
+	"slices"
+
+	"github.com/retroenv/retroasm/lexer/token"
+)
 
 // Macro ...
 type Macro struct {
@@ -16,5 +20,15 @@ func NewMacro(name string) Macro {
 	return Macro{
 		node: &node{},
 		Name: name,
+	}
+}
+
+// Copy returns a copy of the macro node.
+func (m Macro) Copy() Node {
+	return Macro{
+		node:      m.node,
+		Name:      m.Name,
+		Arguments: slices.Clone(m.Arguments),
+		Token:     slices.Clone(m.Token),
 	}
 }

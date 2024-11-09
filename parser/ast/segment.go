@@ -14,3 +14,11 @@ func NewSegment(name string) Segment {
 		Name: name,
 	}
 }
+
+// Copy returns a copy of the segment node.
+func (s Segment) Copy() Node {
+	return Segment{
+		node: s.node,
+		Name: s.Name,
+	}
+}

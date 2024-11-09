@@ -1,12 +1,15 @@
 package assembler
 
-import "github.com/retroenv/retroasm/assembler/config"
+import (
+	"github.com/retroenv/retroasm/assembler/config"
+	"github.com/retroenv/retroasm/parser/ast"
+)
 
 type segment struct {
 	config *config.Segment
-	nodes  []any
+	nodes  []ast.Node
 }
 
-func (seg *segment) addNode(node any) {
+func (seg *segment) addNode(node ast.Node) {
 	seg.nodes = append(seg.nodes, node)
 }

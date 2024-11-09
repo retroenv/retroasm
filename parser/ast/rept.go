@@ -20,6 +20,14 @@ func NewRept(count []token.Token) Rept {
 	}
 }
 
+// Copy returns a copy of the rept node.
+func (r Rept) Copy() Node {
+	return Rept{
+		node:  r.node,
+		Count: r.Count.Copy(),
+	}
+}
+
 // Endr ...
 type Endr struct {
 	*node
@@ -29,5 +37,12 @@ type Endr struct {
 func NewEndr() Endr {
 	return Endr{
 		node: &node{},
+	}
+}
+
+// Copy returns a copy of the rept end node.
+func (e Endr) Copy() Node {
+	return Endr{
+		node: e.node,
 	}
 }

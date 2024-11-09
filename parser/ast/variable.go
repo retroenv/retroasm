@@ -17,3 +17,13 @@ func NewVariable(name string, size int) Variable {
 		Size: size,
 	}
 }
+
+// Copy returns a copy of the variable node.
+func (v Variable) Copy() Node {
+	return Variable{
+		node:             v.node,
+		Name:             v.Name,
+		Size:             v.Size,
+		UseOffsetCounter: v.UseOffsetCounter,
+	}
+}

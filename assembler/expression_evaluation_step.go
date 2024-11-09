@@ -36,15 +36,13 @@ func evaluateExpressionsStep(asm *Assembler) error {
 		},
 	}
 
-	for _, seg := range asm.segmentsOrder {
-		nodes := make([]any, 0, len(seg.nodes))
+	for segNr, seg := range asm.segmentsOrder {
+		nodes := make([]ast.Node, 0, len(seg.nodes))
 
-		// nolint:intrange
-		for i := 0; i < len(seg.nodes); i++ {
-			node := seg.nodes[i]
-			removeNode, err := evaluateNode(&expEval, seg, i, node)
+		for nodeNr, node := range seg.nodes {
+			removeNode, err := evaluateNode(&expEval, seg, nodeNr, node)
 			if err != nil {
-				return err
+				return fmt.Errorf("evaluating node %d in segment %d: %w", nodeNr, segNr, err)
 			}
 			if !removeNode {
 				nodes = append(nodes, node)
@@ -126,7 +124,7 @@ func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex 
 	case *data:
 		return false, parseDataExpression(expEval, n)
 
-	case *scope.Symbol:
+	case *symbol:
 		return false, parseSymbolExpression(expEval, n)
 	}
 
@@ -173,7 +171,7 @@ func parseDataExpression(expEval *expressionEvaluation, dat *data) error {
 	}
 }
 
-func parseSymbolExpression(expEval *expressionEvaluation, sym *scope.Symbol) error {
+func parseSymbolExpression(expEval *expressionEvaluation, sym *symbol) error {
 	exp := sym.Expression()
 	if exp == nil || exp.IsEvaluatedAtAddressAssign() {
 		return nil
@@ -188,7 +186,7 @@ func parseSymbolExpression(expEval *expressionEvaluation, sym *scope.Symbol) err
 	}
 
 	if sym.Type() == scope.AliasType {
-		if err := expEval.currentScope.AddSymbol(sym); err != nil {
+		if err := expEval.currentScope.AddSymbol(sym.Symbol); err != nil {
 			return fmt.Errorf("setting symbol in scope: %w", err)
 		}
 	}
@@ -308,7 +306,7 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 		return errors.New("rept count must be positive")
 	}
 
-	var nodes []any
+	var nodes []ast.Node
 	var reptEnded bool
 
 	for i := currentNodeIndex + 1; i < len(seg.nodes); i++ {
@@ -327,7 +325,7 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 
 	// insert the nodes count-1 times, as the first insertion are the existing nodes
 	count--
-	nodesToInsert := make([]any, 0, len(nodes)*int(count))
+	nodesToInsert := make([]ast.Node, 0, len(nodes)*int(count))
 	for range count {
 		// TODO this needs to create copies of the nodes
 		nodesToInsert = append(nodesToInsert, nodes...)
