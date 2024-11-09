@@ -3,16 +3,15 @@ package ast
 
 // Node ...
 type Node interface {
-	astNode()
-
+	// Copy returns a copy of the node. Used for copying nodes in rept support.
+	Copy() Node
+	// SetComment sets the comment for the node.
 	SetComment(message string)
 }
 
 type node struct {
 	comment Comment
 }
-
-func (n node) astNode() {}
 
 // SetComment sets the comment for the node.
 func (n *node) SetComment(message string) {

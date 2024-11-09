@@ -14,3 +14,11 @@ func NewLabel(name string) Label {
 		Name: name,
 	}
 }
+
+// Copy returns a copy of the label node.
+func (l Label) Copy() Node {
+	return Label{
+		node: l.node,
+		Name: l.Name,
+	}
+}

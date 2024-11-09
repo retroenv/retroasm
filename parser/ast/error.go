@@ -14,3 +14,11 @@ func NewError(message string) Error {
 		Message: message,
 	}
 }
+
+// Copy returns a copy of the error node.
+func (e Error) Copy() Node {
+	return Error{
+		node:    e.node,
+		Message: e.Message,
+	}
+}

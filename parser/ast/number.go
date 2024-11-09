@@ -14,3 +14,11 @@ func NewNumber(value uint64) Number {
 		Value: value,
 	}
 }
+
+// Copy returns a copy of the number node.
+func (n Number) Copy() Node {
+	return Number{
+		node:  n.node,
+		Value: n.Value,
+	}
+}
