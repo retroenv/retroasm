@@ -58,6 +58,12 @@ func (e *Expression) Copy() *Expression {
 	}
 }
 
+// CopyExpression creates a copy of the expression.
+// Secondary copy function to avoid cyclic dependency.
+func (e *Expression) CopyExpression() any {
+	return e.Copy()
+}
+
 // SetEvaluateOnce sets the evaluate once flag for the expression.
 // = will declare an alias that is evaluated on processing of the node,
 // EQU will declare an expression that is evaluated on every usage and

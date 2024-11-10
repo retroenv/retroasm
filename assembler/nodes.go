@@ -144,7 +144,7 @@ type symbol struct {
 // Copy returns a copy of the symbol node.
 func (s *symbol) Copy() ast.Node {
 	return &symbol{
-		Symbol: s.Symbol,
+		Symbol: s.Symbol.Copy(),
 	}
 }
 

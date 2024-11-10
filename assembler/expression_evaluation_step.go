@@ -39,12 +39,14 @@ func evaluateExpressionsStep(asm *Assembler) error {
 	for segNr, seg := range asm.segmentsOrder {
 		nodes := make([]ast.Node, 0, len(seg.nodes))
 
-		for nodeNr, node := range seg.nodes {
-			remove, err := evaluateNode(&expEval, node)
+		// nolint:intrange // seg.nodes gets modified in the loop
+		for nodeNr := 0; nodeNr < len(seg.nodes); nodeNr++ {
+			node := seg.nodes[nodeNr]
+			removeNode, err := evaluateNode(&expEval, seg, nodeNr, node)
 			if err != nil {
 				return fmt.Errorf("evaluating node %d in segment %d: %w", nodeNr, segNr, err)
 			}
-			if !remove {
+			if !removeNode {
 				nodes = append(nodes, node)
 			}
 		}
@@ -61,8 +63,8 @@ func evaluateExpressionsStep(asm *Assembler) error {
 // evaluateNode evaluates a node and returns whether the node should be removed.
 // This is useful for conditional nodes with an expression that does not match and
 // that wraps other nodes.
-// nolint:cyclop
-func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
+// nolint:cyclop,funlen
+func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex int, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
 	case ast.If:
@@ -111,6 +113,15 @@ func evaluateNode(expEval *expressionEvaluation, node any) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("evaluating enum expression: %w", err)
 		}
+
+	case ast.Rept:
+		if err := parseRept(expEval, n, seg, currentNodeIndex); err != nil {
+			return false, err
+		}
+		return true, nil
+
+	case ast.Endr:
+		return true, nil
 
 	case *data:
 		return false, parseDataExpression(expEval, n)
@@ -276,5 +287,60 @@ func parseElseIfCondition(expEval *expressionEvaluation, cond ast.ElseIf) error 
 	}
 
 	expEval.currentContext.processNodes = conditionMet
+	return nil
+}
+
+func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, currentNodeIndex int) error {
+	if rept.Count.IsEvaluatedAtAddressAssign() {
+		return errExpressionCantReferenceProgramCounter
+	}
+
+	_, err := rept.Count.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+	if err != nil {
+		return fmt.Errorf("evaluating if condition at program counter: %w", err)
+	}
+
+	count, err := rept.Count.IntValue()
+	if err != nil {
+		return fmt.Errorf("getting rept count: %w", err)
+	}
+	if count <= 0 {
+		return errors.New("rept count must be positive")
+	}
+
+	var nodes []ast.Node
+	var reptEnded bool
+
+	for i := currentNodeIndex + 1; i < len(seg.nodes); i++ {
+		node := seg.nodes[i]
+		if _, ok := node.(ast.Endr); !ok {
+			nodes = append(nodes, node)
+		} else {
+			reptEnded = true
+			break
+		}
+	}
+
+	if !reptEnded {
+		return errors.New("rept without endr found")
+	}
+
+	// insert the nodes count-1 times, as the first insertion are the existing nodes
+	count--
+	nodesToInsert := make([]ast.Node, 0, len(nodes)*int(count))
+	for range count {
+		for _, node := range nodes {
+			nodesToInsert = append(nodesToInsert, node.Copy())
+		}
+	}
+
+	// copy nodes up to endr
+	nodes = seg.nodes[:currentNodeIndex+len(nodesToInsert)-1]
+	// append now node copies
+	nodes = append(nodes, nodesToInsert...)
+	// append nodes after endr
+	nodes = append(nodes, seg.nodes[currentNodeIndex+len(nodesToInsert):]...)
+
+	seg.nodes = nodes
 	return nil
 }

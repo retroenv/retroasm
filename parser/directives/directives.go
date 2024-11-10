@@ -46,6 +46,7 @@ var Handlers = map[string]Handler{
 	"endif":      Endif,  // asm6
 	"ende":       Ende,   // asm6
 	"endproc":    EndProc,
+	"endr":       Endr,      // asm6
 	"enum":       Enum,      // asm6
 	"error":      Error,     // asm6
 	"fillvalue":  FillValue, // asm6
@@ -66,6 +67,7 @@ var Handlers = map[string]Handler{
 	"org":        Base,    // asm6
 	"pad":        Padding, // asm6
 	"proc":       Proc,
+	"rept":       Rept, // asm6
 	"res":        Res,
 	"rsset":      NesasmOffsetCounter,
 	"segment":    Segment,

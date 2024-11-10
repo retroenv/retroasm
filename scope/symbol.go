@@ -20,6 +20,7 @@ const (
 
 // Expression defines the used expression functions.
 type Expression interface {
+	CopyExpression() any
 	Evaluate(scope *Scope, dataWidth int) (any, error)
 	EvaluateAtProgramCounter(scope *Scope, dataWidth int, programCounter uint64) (any, error)
 	IsEvaluatedAtAddressAssign() bool
@@ -46,6 +47,16 @@ func NewSymbol(scope *Scope, name string, typ SymbolType) (*Symbol, error) {
 		return nil, fmt.Errorf("adding symbol: %w", err)
 	}
 	return sym, nil
+}
+
+// Copy returns a copy of the symbol.
+func (sym *Symbol) Copy() *Symbol {
+	return &Symbol{
+		name:       sym.name,
+		address:    sym.address,
+		typ:        sym.typ,
+		expression: sym.expression.CopyExpression().(Expression),
+	}
 }
 
 // SetAddress sets the address of the symbol. This is only useful for symbols of type label that
