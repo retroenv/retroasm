@@ -334,7 +334,13 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 		}
 	}
 
-	seg.nodes = append(seg.nodes[:currentNodeIndex+1], append(nodesToInsert, seg.nodes[currentNodeIndex+1:]...)...)
+	// copy nodes up to endr
+	nodes = seg.nodes[:currentNodeIndex+len(nodesToInsert)-1]
+	// append now node copies
+	nodes = append(nodes, nodesToInsert...)
+	// append nodes after endr
+	nodes = append(nodes, seg.nodes[currentNodeIndex+len(nodesToInsert):]...)
 
+	seg.nodes = nodes
 	return nil
 }
