@@ -266,6 +266,48 @@ IF i==0
 ENDIF
 `
 
+var asm6ElseOutsideOfContext = `
+.segment "HEADER"
+ELSE
+`
+
+var asm6MultipleElse = `
+.segment "HEADER"
+i = 1
+IF i > 0
+ELSE
+ELSE
+`
+
+var asm6EndifOutsideOfContext = `
+.segment "HEADER"
+ENDIF
+`
+
+var asm6MissingEndif = `
+.segment "HEADER"
+i = 1
+IF i > 0
+`
+
+var asm6ElseifOutsideOfContext = `
+.segment "HEADER"
+ELSEIF 1 > 0
+`
+
+var asm6ElseifReferenceProgramCounter = `
+.segment "HEADER"
+IF 1 > 0
+ELSEIF $ > 0
+ENDIF
+`
+
+var asm6IfReferenceProgramCounter = `
+.segment "HEADER"
+IF $ > 0
+ENDIF
+`
+
 func TestAssemblerAsm6IfElseElseIfEndif(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6IfEndifTestCode)
 	assert.NoError(t, err)
@@ -274,6 +316,27 @@ func TestAssemblerAsm6IfElseElseIfEndif(t *testing.T) {
 		0x3, // 1 item
 	}
 	assert.Equal(t, expected, b)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6ElseOutsideOfContext)
+	assert.ErrorIs(t, err, errConditionOutsideIfContext)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6MultipleElse)
+	assert.ErrorIs(t, err, errMultipleElseFound)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6EndifOutsideOfContext)
+	assert.ErrorIs(t, err, errConditionOutsideIfContext)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6MissingEndif)
+	assert.ErrorIs(t, err, errMissingEndif)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6ElseifOutsideOfContext)
+	assert.ErrorIs(t, err, errConditionOutsideIfContext)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6ElseifReferenceProgramCounter)
+	assert.ErrorIs(t, err, errExpressionCantReferenceProgramCounter)
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6IfReferenceProgramCounter)
+	assert.ErrorIs(t, err, errExpressionCantReferenceProgramCounter)
 }
 
 var asm6IfIfdefTestCode = `
@@ -292,6 +355,9 @@ ELSE
 	DB 4
 ENDIF
 
+IFDEF k
+	DB 6
+ENDIF
 `
 
 func TestAssemblerAsm6IfdefIfndef(t *testing.T) {
@@ -377,6 +443,27 @@ ENDR
 DB 0xff
 `
 
+var asm6ReptReferenceProgramCounter = `
+.segment "HEADER"
+REPT $
+ENDR
+`
+
+var asm6Rept0 = `
+.segment "HEADER"
+REPT 0
+  DB 1
+ENDR
+`
+
+var asm6Rept0Eval = `
+.segment "HEADER"
+i = 0
+REPT i
+  DB 1
+ENDR
+`
+
 func TestAssemblerAsm6Rept(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6ReptCode)
 	assert.NoError(t, err)
@@ -387,6 +474,17 @@ func TestAssemblerAsm6Rept(t *testing.T) {
 		0xff, // 1 item
 	}
 	assert.Equal(t, expected, b)
+
+	b, err = runAsm6Test(t, unitTestConfig, asm6Rept0)
+	assert.NoError(t, err)
+	assert.True(t, len(b) == 0, "expected no output")
+
+	b, err = runAsm6Test(t, unitTestConfig, asm6Rept0Eval)
+	assert.NoError(t, err)
+	assert.True(t, len(b) == 0, "expected no output")
+
+	_, err = runAsm6Test(t, unitTestConfig, asm6ReptReferenceProgramCounter)
+	assert.ErrorIs(t, err, errExpressionCantReferenceProgramCounter)
 }
 
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {

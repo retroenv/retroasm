@@ -1,7 +1,5 @@
 package assembler
 
-import "errors"
-
 type context struct {
 	processNodes bool
 	hasElse      bool // to detect invalid multiple else usages
@@ -15,7 +13,7 @@ func processElseCondition(expEval *expressionEvaluation) error {
 		return errConditionOutsideIfContext
 	}
 	if expEval.currentContext.hasElse {
-		return errors.New("multiple else found")
+		return errMultipleElseFound
 	}
 
 	expEval.currentContext.hasElse = true

@@ -13,7 +13,10 @@ import (
 
 var (
 	errExpressionCantReferenceProgramCounter = errors.New("expression can not reference program counter")
-	errConditionOutsideIfContext             = errors.New("directive used outside if context")
+	errConditionOutsideIfContext             = errors.New("directive used outside of if context")
+	errMissingEndif                          = errors.New("missing endif")
+	errMultipleElseFound                     = errors.New("multiple else found")
+	errReptCountNegative                     = errors.New("rept count can not be negative")
 )
 
 type expressionEvaluation struct {
@@ -55,7 +58,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 	}
 
 	if expEval.currentContext.parent != nil {
-		return errors.New("missing endif")
+		return errMissingEndif
 	}
 	return nil
 }
@@ -304,8 +307,8 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 	if err != nil {
 		return fmt.Errorf("getting rept count: %w", err)
 	}
-	if count <= 0 {
-		return errors.New("rept count must be positive")
+	if count < 0 {
+		return errReptCountNegative
 	}
 
 	var nodes []ast.Node
@@ -325,22 +328,36 @@ func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, curre
 		return errors.New("rept without endr found")
 	}
 
-	// insert the nodes count-1 times, as the first insertion are the existing nodes
-	count--
+	unrollReptNodes(nodes, seg, currentNodeIndex, count)
+
+	return nil
+}
+
+func unrollReptNodes(nodes []ast.Node, seg *segment, currentNodeIndex int, count int64) {
 	nodesToInsert := make([]ast.Node, 0, len(nodes)*int(count))
-	for range count {
-		for _, node := range nodes {
-			nodesToInsert = append(nodesToInsert, node.Copy())
+
+	if count > 0 {
+		// insert the nodes count-1 times, as the first insertion are the existing nodes
+		count--
+		for range count {
+			for _, node := range nodes {
+				nodesToInsert = append(nodesToInsert, node.Copy())
+			}
 		}
+
+		// copy nodes up to endr
+		nodes = seg.nodes[:currentNodeIndex+len(nodesToInsert)-1]
+		// append now node copies
+		nodes = append(nodes, nodesToInsert...)
+		// append nodes after endr
+		nodes = append(nodes, seg.nodes[currentNodeIndex+len(nodesToInsert):]...)
+	} else {
+		reptNodeCount := len(nodes)
+		// copy nodes up to rept
+		nodes = seg.nodes[:currentNodeIndex+1]
+		// append nodes after endr
+		nodes = append(nodes, seg.nodes[currentNodeIndex+reptNodeCount+2:]...)
 	}
 
-	// copy nodes up to endr
-	nodes = seg.nodes[:currentNodeIndex+len(nodesToInsert)-1]
-	// append now node copies
-	nodes = append(nodes, nodesToInsert...)
-	// append nodes after endr
-	nodes = append(nodes, seg.nodes[currentNodeIndex+len(nodesToInsert):]...)
-
 	seg.nodes = nodes
-	return nil
 }
