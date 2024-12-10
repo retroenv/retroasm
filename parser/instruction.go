@@ -11,18 +11,18 @@ import (
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/parser/directives"
 	. "github.com/retroenv/retrogolib/addressing"
-	"github.com/retroenv/retrogolib/cpu"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 type instruction struct {
-	instruction    *cpu.Instruction
+	instruction    *m6502.Instruction
 	addressingSize addressingSize
 	modifiers      []ast.Modifier
 	arg1           token.Token
 	arg2           token.Token
 }
 
-func (p *Parser) parseInstruction(instructionDetails *cpu.Instruction) (ast.Node, error) {
+func (p *Parser) parseInstruction(instructionDetails *m6502.Instruction) (ast.Node, error) {
 	p.readPosition++
 
 	var err error

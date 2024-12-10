@@ -3,7 +3,6 @@ package arch
 
 import (
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
-	"github.com/retroenv/retrogolib/cpu"
 )
 
 // Architecture contains architecture specific information.
@@ -15,7 +14,7 @@ type Architecture struct {
 	BranchingInstructions map[string]struct{}
 
 	// Instructions maps instruction names to CPU instruction information.
-	Instructions map[string]*cpu.Instruction
+	Instructions map[string]*m6502.Instruction
 }
 
 // NewNES returns a new NES architecture instance.

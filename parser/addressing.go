@@ -5,7 +5,7 @@ import (
 
 	"github.com/retroenv/retroasm/lexer/token"
 	. "github.com/retroenv/retrogolib/addressing"
-	"github.com/retroenv/retrogolib/cpu"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 type addressingSize int
@@ -18,7 +18,7 @@ const (
 
 // parseAddressSize returns the addressing mode used for an instruction based on the following
 // tokens.
-func (p *Parser) parseAddressSize(ins *cpu.Instruction) (addressingSize, error) {
+func (p *Parser) parseAddressSize(ins *m6502.Instruction) (addressingSize, error) {
 	tok := p.NextToken(0)
 	if tok.Type != token.Identifier && tok.Type != token.EOL {
 		return addressingDefault, nil
