@@ -13,11 +13,11 @@ test: ## run tests
 	go test -race ./...
 
 test-coverage: ## run unit tests and create test coverage
-	CGO_ENABLED=0 go test ./... -coverprofile .testCoverage -covermode=atomic -coverpkg=./...
-	go tool cover -func .testCoverage | grep total | awk '{print "Total coverage: "$$3}'
+	CGO_ENABLED=0 go test ./... -coverprofile coverage.txt
+	go tool cover -func coverage.txt | grep total | awk '{print "Total coverage: "$$3}'
 
 test-coverage-web: test-coverage ## run unit tests and show test coverage in browser
-	go tool cover -html=.testCoverage
+	go tool cover -html=coverage.txt
 
 install-linters: ## install the linter
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_VERSION}
