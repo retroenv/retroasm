@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/retroenv/retroasm/lexer/token"
-	. "github.com/retroenv/retrogolib/addressing"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
@@ -24,7 +23,7 @@ func (p *Parser) parseAddressSize(ins *m6502.Instruction) (addressingSize, error
 		return addressingDefault, nil
 	}
 
-	accumulatorAddressing := ins.HasAddressing(AccumulatorAddressing)
+	accumulatorAddressing := ins.HasAddressing(m6502.AccumulatorAddressing)
 	next1 := p.NextToken(1)
 
 	if accumulatorAddressing && (tok.Type == token.EOL || next1.Type != token.Colon) {
@@ -54,7 +53,7 @@ func (p *Parser) parseAddressSize(ins *m6502.Instruction) (addressingSize, error
 	}
 }
 
-func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]Mode, error) {
+func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]m6502.AddressingMode, error) {
 	var absolute, zeropage bool
 	switch ins.addressingSize {
 	case addressingDefault:
@@ -66,31 +65,31 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]Mode, err
 		zeropage = true
 	}
 
-	var addressings []Mode
+	var addressings []m6502.AddressingMode
 
 	switch ins.arg2.Value {
 	case "x", "X":
 		if indirectAccess {
-			return []Mode{IndirectXAddressing}, nil
+			return []m6502.AddressingMode{m6502.IndirectXAddressing}, nil
 		}
 
 		if absolute {
-			addressings = append(addressings, AbsoluteXAddressing)
+			addressings = append(addressings, m6502.AbsoluteXAddressing)
 		}
 		if zeropage {
-			addressings = append(addressings, ZeroPageXAddressing)
+			addressings = append(addressings, m6502.ZeroPageXAddressing)
 		}
 
 	case "y", "Y":
 		if indirectAccess {
-			return []Mode{IndirectYAddressing}, nil
+			return []m6502.AddressingMode{m6502.IndirectYAddressing}, nil
 		}
 
 		if absolute {
-			addressings = append(addressings, AbsoluteYAddressing)
+			addressings = append(addressings, m6502.AbsoluteYAddressing)
 		}
 		if zeropage {
-			addressings = append(addressings, ZeroPageYAddressing)
+			addressings = append(addressings, m6502.ZeroPageYAddressing)
 		}
 
 	default:

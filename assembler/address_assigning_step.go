@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/scope"
-	. "github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 type addressAssign struct {
@@ -134,9 +134,9 @@ func assignInstructionAddress(aa addressAssign, n *instruction) (uint64, error) 
 			return 0, fmt.Errorf("getting instruction argument: %w", err)
 		}
 		if value > math.MaxUint8 {
-			n.addressing = AbsoluteXAddressing
+			n.addressing = m6502.AbsoluteXAddressing
 		} else {
-			n.addressing = ZeroPageXAddressing
+			n.addressing = m6502.ZeroPageXAddressing
 		}
 
 	case ast.YAddressing:
@@ -145,9 +145,9 @@ func assignInstructionAddress(aa addressAssign, n *instruction) (uint64, error) 
 			return 0, fmt.Errorf("getting instruction argument: %w", err)
 		}
 		if value > math.MaxUint8 {
-			n.addressing = AbsoluteYAddressing
+			n.addressing = m6502.AbsoluteYAddressing
 		} else {
-			n.addressing = ZeroPageYAddressing
+			n.addressing = m6502.ZeroPageYAddressing
 		}
 	}
 

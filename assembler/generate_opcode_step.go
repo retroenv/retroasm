@@ -7,7 +7,7 @@ import (
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/scope"
-	. "github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 // generateOpcodesStep generates the opcodes for instructions and data nodes and resolves any
@@ -132,25 +132,25 @@ func generateInstructionOpcode(currentScope *scope.Scope, ins *instruction,
 	ins.size = int(addressingInfo.Size)
 
 	switch ins.addressing {
-	case ImpliedAddressing, AccumulatorAddressing:
+	case m6502.ImpliedAddressing, m6502.AccumulatorAddressing:
 
-	case ImmediateAddressing:
+	case m6502.ImmediateAddressing:
 		if err := generateImmediateAddressingOpcode(ins, currentScope); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case AbsoluteAddressing, AbsoluteXAddressing, AbsoluteYAddressing,
-		IndirectAddressing, IndirectXAddressing, IndirectYAddressing:
+	case m6502.AbsoluteAddressing, m6502.AbsoluteXAddressing, m6502.AbsoluteYAddressing,
+		m6502.IndirectAddressing, m6502.IndirectXAddressing, m6502.IndirectYAddressing:
 		if err := generateAbsoluteIndirectAddressingOpcode(ins, currentScope); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case ZeroPageAddressing, ZeroPageXAddressing, ZeroPageYAddressing:
+	case m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing:
 		if err := generateZeroPageAddressingOpcode(ins, currentScope); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case RelativeAddressing:
+	case m6502.RelativeAddressing:
 		if err := generateRelativeAddressingOpcode(ins, currentScope); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}

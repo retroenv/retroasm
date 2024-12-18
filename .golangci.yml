@@ -72,10 +72,6 @@ linters-settings:
     rules:
       - name: dot-imports
         disabled: true
-  stylecheck:
-    checks:
-      - "all"
-      - "-ST1001" # should not use dot imports
   whitespace:
     multi-if: true # Enforces newlines (or comments) after every multi-line if statement
     multi-func: true # Enforces newlines (or comments) after every multi-line function signature

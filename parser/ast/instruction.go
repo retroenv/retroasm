@@ -3,12 +3,12 @@ package ast
 import (
 	"slices"
 
-	. "github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 const (
-	XAddressing = AbsoluteXAddressing | ZeroPageXAddressing
-	YAddressing = AbsoluteYAddressing | ZeroPageYAddressing
+	XAddressing = m6502.AbsoluteXAddressing | m6502.ZeroPageXAddressing
+	YAddressing = m6502.AbsoluteYAddressing | m6502.ZeroPageYAddressing
 )
 
 // Instruction ...
@@ -19,13 +19,13 @@ type Instruction struct {
 	// Addressing can be any single addressing value or the combined defined
 	// values of this package, to allow the assembler to decide which addressing
 	// to use
-	Addressing Mode
+	Addressing m6502.AddressingMode
 	Argument   Node
 	Modifier   []Modifier
 }
 
 // NewInstruction returns a new instruction node.
-func NewInstruction(name string, addressing Mode, argument Node, modifier []Modifier) Instruction {
+func NewInstruction(name string, addressing m6502.AddressingMode, argument Node, modifier []Modifier) Instruction {
 	return Instruction{
 		node:       &node{},
 		Name:       name,

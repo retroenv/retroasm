@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/scope"
-	"github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 // referenceType defines the type of reference.
@@ -68,7 +68,7 @@ type instruction struct {
 	opcodes []byte
 
 	name       string
-	addressing addressing.Mode
+	addressing m6502.AddressingMode
 	argument   any
 }
 

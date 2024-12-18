@@ -10,7 +10,6 @@ import (
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/parser/directives"
-	. "github.com/retroenv/retrogolib/addressing"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
@@ -56,7 +55,7 @@ func (p *Parser) parseInstruction(instructionDetails *m6502.Instruction) (ast.No
 	case ins.arg1.Type == token.Number:
 		return parseInstructionNumberParameter(ins)
 
-	case ins.arg1.Type == token.Identifier || ins.instruction.HasAddressing(AccumulatorAddressing) || ins.arg1.Type.IsTerminator():
+	case ins.arg1.Type == token.Identifier || ins.instruction.HasAddressing(m6502.AccumulatorAddressing) || ins.arg1.Type.IsTerminator():
 		return p.parseInstructionSingleIdentifier(ins)
 
 	default:
@@ -99,19 +98,19 @@ func (p *Parser) parseInstructionSingleIdentifier(ins *instruction) (ast.Node, e
 		return p.parseBranchingInstruction(ins)
 	}
 
-	if ins.instruction.HasAddressing(AccumulatorAddressing) {
+	if ins.instruction.HasAddressing(m6502.AccumulatorAddressing) {
 		if node := p.parseInstructionSingleIdentifierAccumulator(ins); node != nil {
 			return node, nil
 		}
 	}
 
-	var addressing Mode
+	var addressing m6502.AddressingMode
 	switch {
-	case ins.addressingSize != addressingZeroPage && ins.instruction.HasAddressing(AbsoluteAddressing):
-		addressing = AbsoluteAddressing
+	case ins.addressingSize != addressingZeroPage && ins.instruction.HasAddressing(m6502.AbsoluteAddressing):
+		addressing = m6502.AbsoluteAddressing
 
-	case ins.addressingSize != addressingAbsolute && ins.instruction.HasAddressing(ZeroPageAddressing):
-		addressing = ZeroPageAddressing
+	case ins.addressingSize != addressingAbsolute && ins.instruction.HasAddressing(m6502.ZeroPageAddressing):
+		addressing = m6502.ZeroPageAddressing
 
 	default:
 		return nil, errors.New("invalid number addressing mode usage")
@@ -147,13 +146,13 @@ func (p *Parser) parseInstructionSingleIdentifierAccumulator(ins *instruction) a
 	if !usesAccumulator {
 		return nil
 	}
-	return ast.NewInstruction(ins.instruction.Name, AccumulatorAddressing, nil, ins.modifiers)
+	return ast.NewInstruction(ins.instruction.Name, m6502.AccumulatorAddressing, nil, ins.modifiers)
 }
 
 func (p *Parser) parseBranchingInstruction(ins *instruction) (ast.Node, error) {
-	addressing := RelativeAddressing
-	if !ins.instruction.HasAddressing(RelativeAddressing) {
-		addressing = AbsoluteAddressing
+	addressing := m6502.RelativeAddressing
+	if !ins.instruction.HasAddressing(m6502.RelativeAddressing) {
+		addressing = m6502.AbsoluteAddressing
 	}
 
 	if ins.arg1.Type == token.LeftParentheses {
@@ -163,11 +162,11 @@ func (p *Parser) parseBranchingInstruction(ins *instruction) (ast.Node, error) {
 		}
 		ins.arg1 = p.NextToken(1)
 
-		if !ins.instruction.HasAddressing(IndirectAddressing) {
+		if !ins.instruction.HasAddressing(m6502.IndirectAddressing) {
 			return nil, errors.New("instruction does not support indirect addressing")
 		}
 
-		addressing = IndirectAddressing
+		addressing = m6502.IndirectAddressing
 		p.readPosition += 2
 	}
 
@@ -205,12 +204,12 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 		}
 	}
 
-	var addressing Mode
+	var addressing m6502.AddressingMode
 	switch len(availableAddressing) {
 	case 1:
 		addressing = addressings[0]
 	case 2:
-		if addressings[0] == AbsoluteXAddressing {
+		if addressings[0] == m6502.AbsoluteXAddressing {
 			addressing = ast.XAddressing
 		} else {
 			addressing = ast.YAddressing
@@ -223,7 +222,7 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 }
 
 func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
-	if !ins.instruction.HasAddressing(ImmediateAddressing) {
+	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}
 
@@ -235,7 +234,7 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 		return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", ins.arg1.Value)
 	}
 	n := ast.NewNumber(i)
-	return ast.NewInstruction(ins.instruction.Name, ImmediateAddressing, n, ins.modifiers), nil
+	return ast.NewInstruction(ins.instruction.Name, m6502.ImmediateAddressing, n, ins.modifiers), nil
 }
 
 func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
@@ -244,32 +243,32 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 		return nil, fmt.Errorf("parsing number argument '%s': %w", ins.arg1.Value, err)
 	}
 
-	addressing := NoAddressing
+	addressing := m6502.NoAddressing
 
 	switch ins.addressingSize {
 	case addressingZeroPage:
-		if !ins.instruction.HasAddressing(ZeroPageAddressing) {
+		if !ins.instruction.HasAddressing(m6502.ZeroPageAddressing) {
 			return nil, errors.New("invalid zeropage addressing mode usage")
 		}
 		if i > math.MaxUint8 {
 			return nil, errors.New("zeropage address exceeds byte value")
 		}
-		addressing = ZeroPageAddressing
+		addressing = m6502.ZeroPageAddressing
 
 	case addressingAbsolute:
-		if !ins.instruction.HasAddressing(AbsoluteAddressing) {
+		if !ins.instruction.HasAddressing(m6502.AbsoluteAddressing) {
 			return nil, errors.New("invalid absolute addressing mode usage")
 		}
-		addressing = AbsoluteAddressing
+		addressing = m6502.AbsoluteAddressing
 
 	case addressingDefault:
-		if ins.instruction.HasAddressing(AbsoluteAddressing) {
-			addressing = AbsoluteAddressing
+		if ins.instruction.HasAddressing(m6502.AbsoluteAddressing) {
+			addressing = m6502.AbsoluteAddressing
 		} else {
-			if !ins.instruction.HasAddressing(ZeroPageAddressing) {
+			if !ins.instruction.HasAddressing(m6502.ZeroPageAddressing) {
 				return nil, errors.New("instruction has no absolute or zeropage addressing modes")
 			}
-			addressing = ZeroPageAddressing
+			addressing = m6502.ZeroPageAddressing
 		}
 	}
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
-	. "github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -18,21 +18,21 @@ func TestParser_Instruction(t *testing.T) {
 	}{
 		{"asl a:var1", func() []ast.Node {
 			l := ast.NewLabel("var1")
-			return []ast.Node{ast.NewInstruction("asl", AbsoluteAddressing, l, nil)}
+			return []ast.Node{ast.NewInstruction("asl", m6502.AbsoluteAddressing, l, nil)}
 		}},
 		{"asl a:1", func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("asl", AbsoluteAddressing, ast.NewNumber(1), nil)}
+			return []ast.Node{ast.NewInstruction("asl", m6502.AbsoluteAddressing, ast.NewNumber(1), nil)}
 		}},
 		{"asl", func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("asl", AccumulatorAddressing, nil, nil)}
+			return []ast.Node{ast.NewInstruction("asl", m6502.AccumulatorAddressing, nil, nil)}
 		}},
 		{"asl a", func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("asl", AccumulatorAddressing, nil, nil)}
+			return []ast.Node{ast.NewInstruction("asl", m6502.AccumulatorAddressing, nil, nil)}
 		}},
 		{"asl\na:", func() []ast.Node {
 			l := ast.NewLabel("a")
 			return []ast.Node{
-				ast.NewInstruction("asl", AccumulatorAddressing, nil, nil),
+				ast.NewInstruction("asl", m6502.AccumulatorAddressing, nil, nil),
 				l,
 			}
 		}},

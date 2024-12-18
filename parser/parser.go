@@ -15,7 +15,7 @@ import (
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/parser/directives"
-	. "github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 var errMissingParameter = errors.New("missing parameter")
@@ -216,8 +216,8 @@ func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
 		return n, nil
 	}
 
-	if len(ins.Addressing) == 1 && ins.HasAddressing(ImpliedAddressing) {
-		return ast.NewInstruction(ins.Name, ImpliedAddressing, nil, nil), nil
+	if len(ins.Addressing) == 1 && ins.HasAddressing(m6502.ImpliedAddressing) {
+		return ast.NewInstruction(ins.Name, m6502.ImpliedAddressing, nil, nil), nil
 	}
 
 	node, err := p.parseInstruction(ins)

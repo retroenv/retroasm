@@ -6,7 +6,7 @@ import (
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
-	. "github.com/retroenv/retrogolib/addressing"
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -38,7 +38,7 @@ func TestParserAsm6(t *testing.T) {
 			return []ast.Node{ast.NewInclude("whatever.asm", false, 0, 0)}
 		}},
 		{input: "lda #12h", expected: func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("lda", ImmediateAddressing, ast.NewNumber(0x12), nil)}
+			return []ast.Node{ast.NewInstruction("lda", m6502.ImmediateAddressing, ast.NewNumber(0x12), nil)}
 		}},
 	}
 
