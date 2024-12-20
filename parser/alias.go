@@ -12,7 +12,7 @@ import (
 
 var errUnsupportedIdentifier = errors.New("unsupported identifier")
 
-func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
+func (p *Parser[T]) parseAlias(tok, next token.Token) (ast.Node, error) {
 	evaluateOnce := false
 	symbolReusable := false
 
@@ -45,7 +45,7 @@ func (p *Parser) parseAlias(tok, next token.Token) (ast.Node, error) {
 	return alias, nil
 }
 
-func (p *Parser) parseAliasValues(tok token.Token) (ast.Alias, error) {
+func (p *Parser[T]) parseAliasValues(tok token.Token) (ast.Alias, error) {
 	alias := ast.NewAlias(tok.Value)
 
 	tokens := 0

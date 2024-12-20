@@ -3,16 +3,14 @@ package assembler
 import (
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/scope"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
-type addressAssign struct {
-	arch arch.Architecture
+type addressAssign[T any] struct {
+	arch arch.Architecture[T]
 
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
 	programCounter uint64
@@ -22,9 +20,9 @@ type addressAssign struct {
 }
 
 // assignAddressesStep assigns an address for every node in each scope.
-func assignAddressesStep(asm *Assembler) error {
+func assignAddressesStep[T any](asm *Assembler[T]) error {
 	var err error
-	aa := addressAssign{
+	aa := addressAssign[T]{
 		arch:         asm.cfg.Arch,
 		currentScope: asm.fileScope,
 	}
@@ -49,7 +47,7 @@ func assignAddressesStep(asm *Assembler) error {
 				aa.programCounter, err = assignDataAddress(aa, n)
 
 			case *instruction:
-				aa.programCounter, err = assignInstructionAddress(aa, n)
+				aa.programCounter, err = aa.arch.AssignInstructionAddress(&aa, n)
 
 			case scopeChange:
 				aa.currentScope = n.scope
@@ -73,7 +71,59 @@ func assignAddressesStep(asm *Assembler) error {
 	return nil
 }
 
-func assignDataAddress(aa addressAssign, d *data) (uint64, error) {
+// ArgumentValue returns the value of an instruction argument, either a number or a symbol value.
+func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
+	switch arg := argument.(type) {
+	case uint64:
+		return arg, nil
+
+	case reference:
+		sym, err := aa.currentScope.GetSymbol(arg.name)
+		if err != nil {
+			return 0, fmt.Errorf("getting instruction argument: %w", err)
+		}
+
+		value, err := sym.Value(aa.currentScope)
+		if err != nil {
+			return 0, fmt.Errorf("getting symbol '%s' value: %w", arg.name, err)
+		}
+
+		switch v := value.(type) {
+		case int64:
+			return uint64(v), nil
+		case uint64:
+			return v, nil
+		default:
+			return 0, fmt.Errorf("unexpected argument value type %T", value)
+		}
+
+	default:
+		return 0, fmt.Errorf("unexpected argument type %T", arg)
+	}
+}
+
+// RelativeOffset returns the relative offset between two addresses.
+func (aa *addressAssign[T]) RelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
+	diff := int64(destination) - int64(addressAfterInstruction)
+
+	switch {
+	case diff < -128 || diff > 127:
+		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
+
+	case diff >= 0:
+		return byte(diff), nil
+
+	default:
+		return byte(256 + diff), nil
+	}
+}
+
+// ProgramCounter returns the current program counter.
+func (aa *addressAssign[T]) ProgramCounter() uint64 {
+	return aa.programCounter
+}
+
+func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {
 	if d.size.IsEvaluatedAtAddressAssign() {
 		_, err := d.size.EvaluateAtProgramCounter(aa.currentScope, d.width, aa.programCounter)
 		if err != nil {
@@ -90,7 +140,7 @@ func assignDataAddress(aa addressAssign, d *data) (uint64, error) {
 	return aa.programCounter, nil
 }
 
-func assignVariableAddress(aa addressAssign, v *variable) uint64 {
+func assignVariableAddress[T any](aa addressAssign[T], v *variable) uint64 {
 	v.address = aa.programCounter
 	aa.programCounter += uint64(v.v.Size)
 	return aa.programCounter
@@ -104,11 +154,11 @@ func assignBaseAddress(b ast.Base) (uint64, error) {
 	return uint64(i), nil
 }
 
-func assignSymbolAddress(aa addressAssign, sym *symbol) error {
+func assignSymbolAddress[T any](aa addressAssign[T], sym *symbol) error {
 	sym.SetAddress(aa.programCounter)
 	exp := sym.Expression()
 	if exp != nil && exp.IsEvaluatedAtAddressAssign() {
-		_, err := exp.EvaluateAtProgramCounter(aa.currentScope, aa.arch.AddressWidth, aa.programCounter)
+		_, err := exp.EvaluateAtProgramCounter(aa.currentScope, aa.arch.AddressWidth(), aa.programCounter)
 		if err != nil {
 			return fmt.Errorf("evaluating data size at program counter: %w", err)
 		}
@@ -116,51 +166,7 @@ func assignSymbolAddress(aa addressAssign, sym *symbol) error {
 	return nil
 }
 
-func assignInstructionAddress(aa addressAssign, n *instruction) (uint64, error) {
-	n.address = aa.programCounter
-
-	name := n.name
-	ins, ok := aa.arch.Instructions[name]
-	if !ok {
-		return 0, fmt.Errorf("unsupported instruction '%s'", name)
-	}
-
-	// handle disambiguous addressing mode to reduce absolute addressings to
-	// zeropage ones if the used address value fits into byte
-	switch n.addressing {
-	case ast.XAddressing:
-		value, err := getArgumentValue(n.argument, aa.currentScope)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-		if value > math.MaxUint8 {
-			n.addressing = m6502.AbsoluteXAddressing
-		} else {
-			n.addressing = m6502.ZeroPageXAddressing
-		}
-
-	case ast.YAddressing:
-		value, err := getArgumentValue(n.argument, aa.currentScope)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-		if value > math.MaxUint8 {
-			n.addressing = m6502.AbsoluteYAddressing
-		} else {
-			n.addressing = m6502.ZeroPageYAddressing
-		}
-	}
-
-	addressingInfo, ok := ins.Addressing[n.addressing]
-	if !ok {
-		return 0, fmt.Errorf("unsupported instruction '%s' addressing %d", name, n.addressing)
-	}
-
-	programCounter := aa.programCounter + uint64(addressingInfo.Size)
-	return programCounter, nil
-}
-
-func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
+func assignEnumAddress[T any](aa *addressAssign[T], e ast.Enum) (uint64, error) {
 	if aa.enumActive {
 		return 0, errors.New("invalid enum inside enum context")
 	}
@@ -175,7 +181,7 @@ func assignEnumAddress(aa *addressAssign, e ast.Enum) (uint64, error) {
 	return uint64(pc), nil
 }
 
-func assignEnumEndAddress(aa *addressAssign) (uint64, error) {
+func assignEnumEndAddress[T any](aa *addressAssign[T]) (uint64, error) {
 	if !aa.enumActive {
 		return 0, errors.New("enum end outside of enum context")
 	}

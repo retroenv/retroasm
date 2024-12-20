@@ -1,8 +1,10 @@
+// Package parser implements the architecture specific parser functionality.
 package parser
 
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
@@ -15,16 +17,21 @@ const (
 	addressingZeroPage
 )
 
+const (
+	XAddressing = m6502.AbsoluteXAddressing | m6502.ZeroPageXAddressing
+	YAddressing = m6502.AbsoluteYAddressing | m6502.ZeroPageYAddressing
+)
+
 // parseAddressSize returns the addressing mode used for an instruction based on the following
 // tokens.
-func (p *Parser) parseAddressSize(ins *m6502.Instruction) (addressingSize, error) {
-	tok := p.NextToken(0)
+func parseAddressSize(parser arch.Parser, ins *m6502.Instruction) (addressingSize, error) {
+	tok := parser.NextToken(0)
 	if tok.Type != token.Identifier && tok.Type != token.EOL {
 		return addressingDefault, nil
 	}
 
 	accumulatorAddressing := ins.HasAddressing(m6502.AccumulatorAddressing)
-	next1 := p.NextToken(1)
+	next1 := parser.NextToken(1)
 
 	if accumulatorAddressing && (tok.Type == token.EOL || next1.Type != token.Colon) {
 		return addressingDefault, nil
@@ -45,7 +52,7 @@ func (p *Parser) parseAddressSize(ins *m6502.Instruction) (addressingSize, error
 		return addressingDefault, nil
 
 	case token.Colon:
-		p.readPosition += 2
+		parser.AdvanceReadPosition(2)
 		return addrSize, nil
 
 	default:

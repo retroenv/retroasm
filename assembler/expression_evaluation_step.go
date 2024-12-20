@@ -19,8 +19,8 @@ var (
 	errReptCountNegative                     = errors.New("rept count can not be negative")
 )
 
-type expressionEvaluation struct {
-	arch arch.Architecture
+type expressionEvaluation[T any] struct {
+	arch arch.Architecture[T]
 
 	currentContext *context
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
@@ -29,8 +29,8 @@ type expressionEvaluation struct {
 }
 
 // evaluateExpressionsStep parses the AST nodes and evaluates aliases to their values.
-func evaluateExpressionsStep(asm *Assembler) error {
-	expEval := expressionEvaluation{
+func evaluateExpressionsStep[T any](asm *Assembler[T]) error {
+	expEval := expressionEvaluation[T]{
 		arch:         asm.cfg.Arch,
 		currentScope: asm.fileScope,
 		currentContext: &context{
@@ -45,7 +45,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 		// nolint:intrange // seg.nodes gets modified in the loop
 		for nodeNr := 0; nodeNr < len(seg.nodes); nodeNr++ {
 			node := seg.nodes[nodeNr]
-			removeNode, err := evaluateNode(&expEval, seg, nodeNr, node)
+			removeNode, err := evaluateNode[T](&expEval, seg, nodeNr, node)
 			if err != nil {
 				return fmt.Errorf("evaluating node %d in segment %d: %w", nodeNr, segNr, err)
 			}
@@ -67,7 +67,7 @@ func evaluateExpressionsStep(asm *Assembler) error {
 // This is useful for conditional nodes with an expression that does not match and
 // that wraps other nodes.
 // nolint:cyclop,funlen
-func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex int, node any) (bool, error) {
+func evaluateNode[T any](expEval *expressionEvaluation[T], seg *segment, currentNodeIndex int, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
 	case ast.If:
@@ -97,7 +97,7 @@ func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex 
 
 	switch n := node.(type) {
 	case ast.Base:
-		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth())
 		if err != nil {
 			return false, fmt.Errorf("evaluating base expression: %w", err)
 		}
@@ -112,7 +112,7 @@ func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex 
 		}
 
 	case ast.Enum:
-		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+		_, err := n.Address.Evaluate(expEval.currentScope, expEval.arch.AddressWidth())
 		if err != nil {
 			return false, fmt.Errorf("evaluating enum expression: %w", err)
 		}
@@ -136,7 +136,7 @@ func evaluateNode(expEval *expressionEvaluation, seg *segment, currentNodeIndex 
 	return false, nil
 }
 
-func parseDataExpression(expEval *expressionEvaluation, dat *data) error {
+func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) error {
 	if !dat.size.IsEvaluatedAtAddressAssign() {
 		_, err := dat.size.Evaluate(expEval.currentScope, dat.width)
 		if err != nil {
@@ -176,7 +176,7 @@ func parseDataExpression(expEval *expressionEvaluation, dat *data) error {
 	}
 }
 
-func parseSymbolExpression(expEval *expressionEvaluation, sym *symbol) error {
+func parseSymbolExpression[T any](expEval *expressionEvaluation[T], sym *symbol) error {
 	exp := sym.Expression()
 	if exp == nil || exp.IsEvaluatedAtAddressAssign() {
 		return nil
@@ -199,7 +199,7 @@ func parseSymbolExpression(expEval *expressionEvaluation, sym *symbol) error {
 	return nil
 }
 
-func parseConfigExpression(expEval *expressionEvaluation, cfg ast.Configuration) error {
+func parseConfigExpression[T any](expEval *expressionEvaluation[T], cfg ast.Configuration) error {
 	exp := cfg.Expression
 	if exp == nil {
 		return nil
@@ -220,12 +220,12 @@ func parseConfigExpression(expEval *expressionEvaluation, cfg ast.Configuration)
 	return nil
 }
 
-func parseIfCondition(expEval *expressionEvaluation, cond ast.If) error {
+func parseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.If) error {
 	if cond.Condition.IsEvaluatedAtAddressAssign() {
 		return errExpressionCantReferenceProgramCounter
 	}
 
-	value, err := cond.Condition.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+	value, err := cond.Condition.Evaluate(expEval.currentScope, expEval.arch.AddressWidth())
 	if err != nil {
 		return fmt.Errorf("evaluating if condition at program counter: %w", err)
 	}
@@ -243,7 +243,7 @@ func parseIfCondition(expEval *expressionEvaluation, cond ast.If) error {
 	return nil
 }
 
-func parseIfdefCondition(expEval *expressionEvaluation, cond ast.Ifdef) {
+func parseIfdefCondition[T any](expEval *expressionEvaluation[T], cond ast.Ifdef) {
 	conditionMet := true
 	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
 	if err != nil {
@@ -257,7 +257,7 @@ func parseIfdefCondition(expEval *expressionEvaluation, cond ast.Ifdef) {
 	expEval.currentContext = ctx
 }
 
-func parseIfndefCondition(expEval *expressionEvaluation, cond ast.Ifndef) {
+func parseIfndefCondition[T any](expEval *expressionEvaluation[T], cond ast.Ifndef) {
 	conditionMet := false
 	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
 	if err != nil {
@@ -271,7 +271,7 @@ func parseIfndefCondition(expEval *expressionEvaluation, cond ast.Ifndef) {
 	expEval.currentContext = ctx
 }
 
-func parseElseIfCondition(expEval *expressionEvaluation, cond ast.ElseIf) error {
+func parseElseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.ElseIf) error {
 	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}
@@ -279,7 +279,7 @@ func parseElseIfCondition(expEval *expressionEvaluation, cond ast.ElseIf) error 
 		return errExpressionCantReferenceProgramCounter
 	}
 
-	value, err := cond.Condition.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+	value, err := cond.Condition.Evaluate(expEval.currentScope, expEval.arch.AddressWidth())
 	if err != nil {
 		return fmt.Errorf("evaluating if condition at program counter: %w", err)
 	}
@@ -293,12 +293,12 @@ func parseElseIfCondition(expEval *expressionEvaluation, cond ast.ElseIf) error 
 	return nil
 }
 
-func parseRept(expEval *expressionEvaluation, rept ast.Rept, seg *segment, currentNodeIndex int) error {
+func parseRept[T any](expEval *expressionEvaluation[T], rept ast.Rept, seg *segment, currentNodeIndex int) error {
 	if rept.Count.IsEvaluatedAtAddressAssign() {
 		return errExpressionCantReferenceProgramCounter
 	}
 
-	_, err := rept.Count.Evaluate(expEval.currentScope, expEval.arch.AddressWidth)
+	_, err := rept.Count.Evaluate(expEval.currentScope, expEval.arch.AddressWidth())
 	if err != nil {
 		return fmt.Errorf("evaluating if condition at program counter: %w", err)
 	}

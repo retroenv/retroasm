@@ -6,8 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/arch"
-	"github.com/retroenv/retroasm/assembler/config"
+	"github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -149,9 +148,8 @@ SEGMENTS {
 `
 
 func TestAssemblerCa65BlueExample(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := m6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(ca65BasicConfig)))
-	cfg.Arch = arch.NewNES()
 
 	reader := strings.NewReader(ca65BlueTestCode)
 	var buf bytes.Buffer

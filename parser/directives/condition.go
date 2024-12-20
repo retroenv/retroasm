@@ -3,12 +3,13 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // If ...
-func If(p Parser) (ast.Node, error) {
+func If(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
 	}
@@ -22,7 +23,7 @@ func If(p Parser) (ast.Node, error) {
 }
 
 // Ifdef ...
-func Ifdef(p Parser) (ast.Node, error) {
+func Ifdef(p arch.Parser) (ast.Node, error) {
 	next := p.NextToken(2)
 	if next.Type.IsTerminator() {
 		return nil, errMissingParameter
@@ -36,7 +37,7 @@ func Ifdef(p Parser) (ast.Node, error) {
 }
 
 // Ifndef ...
-func Ifndef(p Parser) (ast.Node, error) {
+func Ifndef(p arch.Parser) (ast.Node, error) {
 	next := p.NextToken(2)
 	if next.Type.IsTerminator() {
 		return nil, errMissingParameter
@@ -50,7 +51,7 @@ func Ifndef(p Parser) (ast.Node, error) {
 }
 
 // Else ...
-func Else(p Parser) (ast.Node, error) {
+func Else(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	tok := p.NextToken(0)
 	if !tok.Type.IsTerminator() {
@@ -61,7 +62,7 @@ func Else(p Parser) (ast.Node, error) {
 }
 
 // Elseif ...
-func Elseif(p Parser) (ast.Node, error) {
+func Elseif(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
 	}
@@ -75,7 +76,7 @@ func Elseif(p Parser) (ast.Node, error) {
 }
 
 // Endif ...
-func Endif(p Parser) (ast.Node, error) {
+func Endif(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	tok := p.NextToken(0)
 	if !tok.Type.IsTerminator() {

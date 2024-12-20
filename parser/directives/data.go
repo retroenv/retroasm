@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/expression"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
@@ -24,7 +25,7 @@ var dataByteWidth = map[string]int{
 }
 
 // Data ...
-func Data(p Parser) (ast.Node, error) {
+func Data(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
 	}
@@ -49,12 +50,12 @@ func Data(p Parser) (ast.Node, error) {
 }
 
 // DataStorage ...
-func DataStorage(p Parser) (ast.Node, error) {
+func DataStorage(p arch.Parser) (ast.Node, error) {
 	return readDataStorageTokens(p)
 }
 
 // Padding ...
-func Padding(p Parser) (ast.Node, error) {
+func Padding(p arch.Parser) (ast.Node, error) {
 	data, err := readDataStorageTokens(p)
 	if err != nil {
 		return nil, err
@@ -64,7 +65,7 @@ func Padding(p Parser) (ast.Node, error) {
 }
 
 // Align ...
-func Align(p Parser) (ast.Node, error) {
+func Align(p arch.Parser) (ast.Node, error) {
 	data, err := readDataStorageTokens(p)
 	if err != nil {
 		return nil, err
@@ -103,7 +104,7 @@ func addSizeProgramCounterReference(data ast.Data) (ast.Node, error) {
 	return data, nil
 }
 
-func readDataStorageTokens(p Parser) (ast.Data, error) {
+func readDataStorageTokens(p arch.Parser) (ast.Data, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return ast.Data{}, errMissingParameter
 	}
@@ -142,7 +143,7 @@ func readDataStorageTokens(p Parser) (ast.Data, error) {
 // readDataTokens reads size or data tokens of a data directive.
 // For size tokens a comma indicates the end of the tokens,
 // for data values it acts as a separator.
-func readDataTokens(p Parser, returnOnComma bool) ([]token.Token, error) {
+func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 	var tokens []token.Token
 
 	// read all tokens until the terminator

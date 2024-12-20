@@ -5,16 +5,8 @@ import (
 	"errors"
 
 	"github.com/retroenv/retroasm/arch"
-	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
 )
-
-// Parser defines the parser that the directives use to read tokens.
-type Parser interface {
-	AdvanceReadPosition(offset int)
-	Arch() arch.Architecture
-	NextToken(offset int) token.Token
-}
 
 var (
 	errMissingParameter    = errors.New("missing parameter")
@@ -22,7 +14,7 @@ var (
 )
 
 // Handler defines a handler for an assembler directive.
-type Handler func(Parser) (ast.Node, error)
+type Handler func(arch.Parser) (ast.Node, error)
 
 // Handlers maps the assembler directives to their handler function.
 var Handlers = map[string]Handler{
@@ -82,7 +74,7 @@ var directiveBinaryIncludes = map[string]struct{}{
 
 // SetCPU ...
 // nolint: nilnil
-func SetCPU(p Parser) (ast.Node, error) {
+func SetCPU(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	return nil, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 // writeOutputStep writes the filled memory segments to the output stream.
-func writeOutputStep(asm *Assembler) error {
+func writeOutputStep[T any](asm *Assembler[T]) error {
 	memories, err := writeSegmentsToMemory(asm.cfg.SegmentsOrdered, asm.segments)
 	if err != nil {
 		return fmt.Errorf("writing segments to memory: %w", err)

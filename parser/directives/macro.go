@@ -3,12 +3,13 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Macro ...
-func Macro(p Parser) (ast.Node, error) {
+func Macro(p arch.Parser) (ast.Node, error) {
 	value := p.NextToken(2)
 	if value.Type != token.Identifier {
 		return nil, fmt.Errorf("unsupported macro name type %s", value.Type)

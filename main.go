@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retroasm/assembler"
-	"github.com/retroenv/retroasm/assembler/config"
 	"github.com/retroenv/retrogolib/buildinfo"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -90,7 +89,7 @@ func printBanner(options *optionFlags) {
 }
 
 func assembleFile(options *optionFlags, args []string) error {
-	cfg := &config.Config{}
+	cfg := m6502.New()
 	if options.config != "" {
 		cfgData, err := os.ReadFile(options.config)
 		if err != nil {
@@ -101,7 +100,6 @@ func assembleFile(options *optionFlags, args []string) error {
 			return fmt.Errorf("reading config file '%s': %w", options.config, err)
 		}
 	}
-	cfg.Arch = arch.NewNES()
 
 	input, err := os.ReadFile(args[0])
 	if err != nil {

@@ -3,11 +3,12 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Enum ...
-func Enum(p Parser) (ast.Node, error) {
+func Enum(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	addressTokens, err := readDataTokens(p, true)
 	if err != nil {
@@ -18,7 +19,7 @@ func Enum(p Parser) (ast.Node, error) {
 }
 
 // Ende ...
-func Ende(p Parser) (ast.Node, error) {
+func Ende(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	return ast.NewEnumEnd(), nil
 }

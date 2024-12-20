@@ -3,7 +3,7 @@ package assembler
 import "fmt"
 
 // updateDataSizesStep updates the size information of data nodes.
-func updateDataSizesStep(asm *Assembler) error {
+func updateDataSizesStep[T any](asm *Assembler[T]) error {
 	for _, seg := range asm.segmentsOrder {
 		for _, node := range seg.nodes {
 			dat, ok := node.(*data)

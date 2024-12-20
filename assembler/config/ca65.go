@@ -21,7 +21,7 @@ const (
 )
 
 // ReadCa65Config reads a ca65 configuration.
-func (c *Config) ReadCa65Config(reader io.Reader) error {
+func (c *Config[T]) ReadCa65Config(reader io.Reader) error {
 	lexerCfg := lexer.Config{
 		CommentPrefixes: []string{"#"},
 		DecimalPrefix:   0,
@@ -37,7 +37,7 @@ type ca65Area struct {
 }
 
 // readCa65Config reads a ca65 config from the given lexer.
-func (c *Config) readCa65Config(lex *lexer.Lexer) error {
+func (c *Config[T]) readCa65Config(lex *lexer.Lexer) error {
 	var memory, segments []*ca65Area
 
 	for eof := false; !eof; {
@@ -90,7 +90,7 @@ func (c *Config) readCa65Config(lex *lexer.Lexer) error {
 }
 
 // readFromCa65Areas reads the configuration from the ca65 config areas.
-func (c *Config) readFromCa65Areas(memories, segments []*ca65Area) error {
+func (c *Config[T]) readFromCa65Areas(memories, segments []*ca65Area) error {
 	memoryNames := map[string]*Memory{}
 	for _, m := range memories {
 		memory, err := convertCa65MemoryArea(m)

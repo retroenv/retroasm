@@ -1,19 +1,16 @@
 package assembler
 
 import (
-	"encoding/binary"
 	"fmt"
-	"math"
 
-	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/scope"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 // generateOpcodesStep generates the opcodes for instructions and data nodes and resolves any
 // references to their value or assigned addresses.
-func generateOpcodesStep(asm *Assembler) error {
+func generateOpcodesStep[T any](asm *Assembler[T]) error {
 	currentScope := asm.fileScope
+	arch := asm.cfg.Arch
 
 	for _, seg := range asm.segmentsOrder {
 		for _, node := range seg.nodes {
@@ -29,7 +26,10 @@ func generateOpcodesStep(asm *Assembler) error {
 				}
 
 			case *instruction:
-				if err := generateInstructionOpcode(currentScope, n, asm.cfg.Arch); err != nil {
+				assigner := &addressAssign[T]{
+					currentScope: currentScope,
+				}
+				if err := arch.GenerateInstructionOpcode(assigner, n); err != nil {
 					return fmt.Errorf("generating instruction node opcode: %w", err)
 				}
 
@@ -119,144 +119,4 @@ func generateReferenceDataBytes(currentScope *scope.Scope, d *data) error {
 		d.values[i] = b
 	}
 	return nil
-}
-
-// generateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
-// its addressing mode and parameters.
-func generateInstructionOpcode(currentScope *scope.Scope, ins *instruction,
-	arch arch.Architecture) error {
-
-	instructionInfo := arch.Instructions[ins.name]
-	addressingInfo := instructionInfo.Addressing[ins.addressing]
-	ins.opcodes = []byte{addressingInfo.Opcode}
-	ins.size = int(addressingInfo.Size)
-
-	switch ins.addressing {
-	case m6502.ImpliedAddressing, m6502.AccumulatorAddressing:
-
-	case m6502.ImmediateAddressing:
-		if err := generateImmediateAddressingOpcode(ins, currentScope); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case m6502.AbsoluteAddressing, m6502.AbsoluteXAddressing, m6502.AbsoluteYAddressing,
-		m6502.IndirectAddressing, m6502.IndirectXAddressing, m6502.IndirectYAddressing:
-		if err := generateAbsoluteIndirectAddressingOpcode(ins, currentScope); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing:
-		if err := generateZeroPageAddressingOpcode(ins, currentScope); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case m6502.RelativeAddressing:
-		if err := generateRelativeAddressingOpcode(ins, currentScope); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	default:
-		return fmt.Errorf("unsupported instruction addressing %d", ins.addressing)
-	}
-
-	return nil
-}
-
-func generateAbsoluteIndirectAddressingOpcode(ins *instruction, currentScope *scope.Scope) error {
-	value, err := getArgumentValue(ins.argument, currentScope)
-	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
-	}
-	if value > math.MaxUint16 {
-		return fmt.Errorf("value %d exceeds word", value)
-	}
-
-	ins.opcodes = binary.LittleEndian.AppendUint16(ins.opcodes, uint16(value))
-	return nil
-}
-
-func generateZeroPageAddressingOpcode(ins *instruction, currentScope *scope.Scope) error {
-	value, err := getArgumentValue(ins.argument, currentScope)
-	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
-	}
-	if value > math.MaxUint8 {
-		return fmt.Errorf("value %d exceeds byte", value)
-	}
-
-	ins.opcodes = append(ins.opcodes, byte(value))
-	return nil
-}
-
-func generateImmediateAddressingOpcode(ins *instruction, currentScope *scope.Scope) error {
-	value, err := getArgumentValue(ins.argument, currentScope)
-	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
-	}
-	if value > math.MaxUint8 {
-		return fmt.Errorf("value %d exceeds byte", value)
-	}
-
-	ins.opcodes = append(ins.opcodes, byte(value))
-	return nil
-}
-
-func generateRelativeAddressingOpcode(ins *instruction, currentScope *scope.Scope) error {
-	value, err := getArgumentValue(ins.argument, currentScope)
-	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
-	}
-
-	b, err := getRelativeOffset(value, ins.address+uint64(ins.size))
-	if err != nil {
-		return fmt.Errorf("value %d exceeds byte", value)
-	}
-
-	ins.opcodes = append(ins.opcodes, b)
-	return nil
-}
-
-func getArgumentValue(argument any, currentScope *scope.Scope) (uint64, error) {
-	switch arg := argument.(type) {
-	case uint64:
-		return arg, nil
-
-	case reference:
-		sym, err := currentScope.GetSymbol(arg.name)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-
-		value, err := sym.Value(currentScope)
-		if err != nil {
-			return 0, fmt.Errorf("getting symbol '%s' value: %w", arg.name, err)
-		}
-
-		switch v := value.(type) {
-		case int64:
-			return uint64(v), nil
-		case uint64:
-			return v, nil
-		default:
-			return 0, fmt.Errorf("unexpected argument value type %T", value)
-		}
-
-	default:
-		return 0, fmt.Errorf("unexpected argument type %T", arg)
-	}
-}
-
-func getRelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
-	diff := int64(destination) - int64(addressAfterInstruction)
-
-	switch {
-	case diff < -128 || diff > 127:
-		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
-
-	case diff >= 0:
-		return byte(diff), nil
-
-	default:
-		return byte(256 + diff), nil
-	}
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // processMacrosStep processes macro and rept nodes and replace them by their resolved nodes.
-func processMacrosStep(asm *Assembler) error {
+func processMacrosStep[T any](asm *Assembler[T]) error {
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]ast.Node, 0, len(seg.nodes))
 
@@ -42,7 +42,7 @@ func processMacrosStep(asm *Assembler) error {
 	return nil
 }
 
-func resolveMacroUsage(asm *Assembler, id ast.Identifier) ([]ast.Node, error) {
+func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node, error) {
 	mac, ok := asm.macros[id.Name]
 	if !ok {
 		return nil, fmt.Errorf("unexpected identifier '%s' found", id.Name)
@@ -79,7 +79,7 @@ func resolveMacroUsage(asm *Assembler, id ast.Identifier) ([]ast.Node, error) {
 	return macroTokensToAStNodes(asm, mac.tokens)
 }
 
-func macroTokensToAStNodes(asm *Assembler, tokens []token.Token) ([]ast.Node, error) {
+func macroTokensToAStNodes[T any](asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
 	// convert the adjusted tokens to AST nodes
 	par := parser.NewWithTokens(asm.cfg.Arch, tokens)
 	astNodes, err := par.TokensToAstNodes()
@@ -87,7 +87,7 @@ func macroTokensToAStNodes(asm *Assembler, tokens []token.Token) ([]ast.Node, er
 		return nil, fmt.Errorf("converting tokens to ast nodes: %w", err)
 	}
 
-	p := &parseAST{
+	p := &parseAST[T]{
 		cfg:          asm.cfg,
 		fileReader:   asm.fileReader,
 		currentScope: asm.fileScope,

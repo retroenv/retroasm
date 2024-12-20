@@ -3,11 +3,12 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Rept ...
-func Rept(p Parser) (ast.Node, error) {
+func Rept(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	countTokens, err := readDataTokens(p, true)
 	if err != nil {
@@ -18,7 +19,7 @@ func Rept(p Parser) (ast.Node, error) {
 }
 
 // Endr ...
-func Endr(p Parser) (ast.Node, error) {
+func Endr(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	return ast.NewEndr(), nil
 }
