@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -26,6 +27,6 @@ SEGMENTS {
 
 func TestConfigReadCa65Config(t *testing.T) {
 	reader := bytes.NewReader(ca65Config)
-	var cfg Config
+	var cfg Config[*m6502.Instruction]
 	assert.NoError(t, cfg.ReadCa65Config(reader))
 }

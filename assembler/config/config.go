@@ -6,8 +6,8 @@ import (
 )
 
 // Config defines an assembler config.
-type Config struct {
-	Arch            arch.Architecture
+type Config[T any] struct {
+	Arch            arch.Architecture[T]
 	Segments        map[string]*Segment
 	SegmentsOrdered []*Segment
 }

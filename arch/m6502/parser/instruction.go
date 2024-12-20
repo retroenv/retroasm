@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
@@ -21,33 +22,47 @@ type instruction struct {
 	arg2           token.Token
 }
 
-func (p *Parser) parseInstruction(instructionDetails *m6502.Instruction) (ast.Node, error) {
-	p.readPosition++
+var errMissingParameter = errors.New("missing parameter")
+
+func ParseIdentifier(parser arch.Parser, ins *m6502.Instruction) (ast.Node, error) {
+	if len(ins.Addressing) == 1 && ins.HasAddressing(m6502.ImpliedAddressing) {
+		return ast.NewInstruction(ins.Name, int(m6502.ImpliedAddressing), nil, nil), nil
+	}
+
+	node, err := parseInstruction(parser, ins)
+	if err != nil {
+		return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
+	}
+	return node, nil
+}
+
+func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction) (ast.Node, error) {
+	parser.AdvanceReadPosition(1)
 
 	var err error
 	ins := &instruction{
 		instruction: instructionDetails,
 	}
 
-	ins.addressingSize, err = p.parseAddressSize(instructionDetails)
+	ins.addressingSize, err = parseAddressSize(parser, instructionDetails)
 	if err != nil {
 		return nil, fmt.Errorf("parsing addressing size: %w", err)
 	}
 
-	ins.arg1 = p.NextToken(0)
-	ins.modifiers = directives.ParseModifier(p)
+	ins.arg1 = parser.NextToken(0)
+	ins.modifiers = directives.ParseModifier(parser)
 
-	next1 := p.NextToken(1)
+	next1 := parser.NextToken(1)
 	if next1.Type == token.Comma {
-		p.readPosition += 2
-		ins.arg2 = p.NextToken(0)
+		parser.AdvanceReadPosition(2)
+		ins.arg2 = parser.NextToken(0)
 		return parseInstructionSecondIdentifier(ins, false)
 	}
 
 	switch {
 	case ins.arg1.Type == token.LeftParentheses:
 		ins.arg1 = next1
-		return p.parseInstructionParentheses(ins)
+		return parseInstructionParentheses(parser, ins)
 
 	case ins.arg1.Type == token.Number && ins.arg1.Value[0] == '#':
 		return parseInstructionImmediateAddressing(ins)
@@ -56,35 +71,35 @@ func (p *Parser) parseInstruction(instructionDetails *m6502.Instruction) (ast.No
 		return parseInstructionNumberParameter(ins)
 
 	case ins.arg1.Type == token.Identifier || ins.instruction.HasAddressing(m6502.AccumulatorAddressing) || ins.arg1.Type.IsTerminator():
-		return p.parseInstructionSingleIdentifier(ins)
+		return parseInstructionSingleIdentifier(parser, ins)
 
 	default:
 		return nil, fmt.Errorf("unsupported instruction argument type %s", ins.arg1.Type)
 	}
 }
 
-func (p *Parser) parseInstructionParentheses(ins *instruction) (ast.Node, error) {
-	p.readPosition += 2
+func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	parser.AdvanceReadPosition(2)
 
 	for {
-		next := p.NextToken(0)
+		next := parser.NextToken(0)
 		switch next.Type {
 		case token.EOF, token.EOL:
 			return nil, errMissingParameter
 
 		case token.Comma:
-			ins.arg2 = p.NextToken(1)
-			p.readPosition += 2
+			ins.arg2 = parser.NextToken(1)
+			parser.AdvanceReadPosition(2)
 			return parseInstructionSecondIdentifier(ins, true)
 
 		case token.RightParentheses:
-			next = p.NextToken(1)
+			next = parser.NextToken(1)
 			if next.Type != token.Comma {
-				return p.parseInstructionSingleIdentifier(ins)
+				return parseInstructionSingleIdentifier(parser, ins)
 			}
 
-			p.readPosition += 2
-			ins.arg2 = p.NextToken(0)
+			parser.AdvanceReadPosition(2)
+			ins.arg2 = parser.NextToken(0)
 			return parseInstructionSecondIdentifier(ins, true)
 
 		default:
@@ -93,13 +108,13 @@ func (p *Parser) parseInstructionParentheses(ins *instruction) (ast.Node, error)
 	}
 }
 
-func (p *Parser) parseInstructionSingleIdentifier(ins *instruction) (ast.Node, error) {
-	if _, ok := p.arch.BranchingInstructions[ins.instruction.Name]; ok {
-		return p.parseBranchingInstruction(ins)
+func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	if _, ok := m6502.BranchingInstructions[ins.instruction.Name]; ok {
+		return parseBranchingInstruction(parser, ins)
 	}
 
 	if ins.instruction.HasAddressing(m6502.AccumulatorAddressing) {
-		if node := p.parseInstructionSingleIdentifierAccumulator(ins); node != nil {
+		if node := parseInstructionSingleIdentifierAccumulator(parser, ins); node != nil {
 			return node, nil
 		}
 	}
@@ -117,10 +132,10 @@ func (p *Parser) parseInstructionSingleIdentifier(ins *instruction) (ast.Node, e
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
-	return ast.NewInstruction(ins.instruction.Name, addressing, l, ins.modifiers), nil
+	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, ins.modifiers), nil
 }
 
-func (p *Parser) parseInstructionSingleIdentifierAccumulator(ins *instruction) ast.Node {
+func parseInstructionSingleIdentifierAccumulator(parser arch.Parser, ins *instruction) ast.Node {
 	var usesAccumulator bool
 
 	switch {
@@ -131,9 +146,9 @@ func (p *Parser) parseInstructionSingleIdentifierAccumulator(ins *instruction) a
 			// handle the edge case of an instruction being used that supports accumulator addressing but
 			// does not specify the accumulator as parameter and a label follows as the nextToken token with the
 			// same name as the accumulator register a
-			arg2 := p.NextToken(1)
+			arg2 := parser.NextToken(1)
 			if arg2.Type == token.Colon {
-				p.readPosition--
+				parser.AdvanceReadPosition(-1)
 			}
 		}
 
@@ -146,32 +161,32 @@ func (p *Parser) parseInstructionSingleIdentifierAccumulator(ins *instruction) a
 	if !usesAccumulator {
 		return nil
 	}
-	return ast.NewInstruction(ins.instruction.Name, m6502.AccumulatorAddressing, nil, ins.modifiers)
+	return ast.NewInstruction(ins.instruction.Name, int(m6502.AccumulatorAddressing), nil, ins.modifiers)
 }
 
-func (p *Parser) parseBranchingInstruction(ins *instruction) (ast.Node, error) {
+func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, error) {
 	addressing := m6502.RelativeAddressing
 	if !ins.instruction.HasAddressing(m6502.RelativeAddressing) {
 		addressing = m6502.AbsoluteAddressing
 	}
 
 	if ins.arg1.Type == token.LeftParentheses {
-		param := p.NextToken(2)
+		param := parser.NextToken(2)
 		if param.Type != token.RightParentheses {
 			return nil, errors.New("missing right parentheses argument")
 		}
-		ins.arg1 = p.NextToken(1)
+		ins.arg1 = parser.NextToken(1)
 
 		if !ins.instruction.HasAddressing(m6502.IndirectAddressing) {
 			return nil, errors.New("instruction does not support indirect addressing")
 		}
 
 		addressing = m6502.IndirectAddressing
-		p.readPosition += 2
+		parser.AdvanceReadPosition(2)
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
-	return ast.NewInstruction(ins.instruction.Name, addressing, l, nil), nil
+	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, nil), nil
 }
 
 func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (ast.Node, error) {
@@ -210,15 +225,15 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 		addressing = addressings[0]
 	case 2:
 		if addressings[0] == m6502.AbsoluteXAddressing {
-			addressing = ast.XAddressing
+			addressing = XAddressing
 		} else {
-			addressing = ast.YAddressing
+			addressing = YAddressing
 		}
 	default:
 		return nil, errors.New("invalid second parameter addressing mode usage")
 	}
 
-	return ast.NewInstruction(ins.instruction.Name, addressing, argument, ins.modifiers), nil
+	return ast.NewInstruction(ins.instruction.Name, int(addressing), argument, ins.modifiers), nil
 }
 
 func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
@@ -234,7 +249,7 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 		return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", ins.arg1.Value)
 	}
 	n := ast.NewNumber(i)
-	return ast.NewInstruction(ins.instruction.Name, m6502.ImmediateAddressing, n, ins.modifiers), nil
+	return ast.NewInstruction(ins.instruction.Name, int(m6502.ImmediateAddressing), n, ins.modifiers), nil
 }
 
 func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
@@ -273,5 +288,5 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 	}
 
 	n := ast.NewNumber(i)
-	return ast.NewInstruction(ins.instruction.Name, addressing, n, ins.modifiers), nil
+	return ast.NewInstruction(ins.instruction.Name, int(addressing), n, ins.modifiers), nil
 }

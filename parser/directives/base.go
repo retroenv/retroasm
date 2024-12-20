@@ -3,12 +3,13 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/expression"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Base ...
-func Base(p Parser) (ast.Node, error) {
+func Base(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	addressTokens, err := readDataTokens(p, true)
 	if err != nil {

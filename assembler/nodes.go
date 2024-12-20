@@ -8,7 +8,6 @@ import (
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/scope"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 // referenceType defines the type of reference.
@@ -68,8 +67,48 @@ type instruction struct {
 	opcodes []byte
 
 	name       string
-	addressing m6502.AddressingMode
+	addressing int
 	argument   any
+}
+
+func (i *instruction) Address() uint64 {
+	return i.address
+}
+
+func (i *instruction) Opcodes() []byte {
+	return i.opcodes
+}
+
+func (i *instruction) Size() int {
+	return i.size
+}
+
+func (i *instruction) SetOpcodes(bytes []byte) {
+	i.opcodes = bytes
+}
+
+func (i *instruction) SetSize(size int) {
+	i.size = size
+}
+
+func (i *instruction) Addressing() int {
+	return i.addressing
+}
+
+func (i *instruction) Argument() any {
+	return i.argument
+}
+
+func (i *instruction) Name() string {
+	return i.name
+}
+
+func (i *instruction) SetAddress(addr uint64) {
+	i.address = addr
+}
+
+func (i *instruction) SetAddressing(addressing int) {
+	i.addressing = addressing
 }
 
 // Copy returns a copy of the instruction node.

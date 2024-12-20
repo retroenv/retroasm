@@ -3,12 +3,13 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/expression"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Addr ...
-func Addr(p Parser) (ast.Node, error) {
+func Addr(p arch.Parser) (ast.Node, error) {
 	addr, err := createAddressData(p)
 	if err != nil {
 		return nil, err
@@ -18,7 +19,7 @@ func Addr(p Parser) (ast.Node, error) {
 }
 
 // AddrHigh ...
-func AddrHigh(p Parser) (ast.Node, error) {
+func AddrHigh(p arch.Parser) (ast.Node, error) {
 	addr, err := createAddressData(p)
 	if err != nil {
 		return nil, err
@@ -28,7 +29,7 @@ func AddrHigh(p Parser) (ast.Node, error) {
 }
 
 // AddrLow ...
-func AddrLow(p Parser) (ast.Node, error) {
+func AddrLow(p arch.Parser) (ast.Node, error) {
 	addr, err := createAddressData(p)
 	if err != nil {
 		return nil, err
@@ -37,12 +38,12 @@ func AddrLow(p Parser) (ast.Node, error) {
 	return addr, nil
 }
 
-func createAddressData(p Parser) (ast.Data, error) {
+func createAddressData(p arch.Parser) (ast.Data, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return ast.Data{}, errMissingParameter
 	}
 
-	data := ast.NewData(ast.AddressType, p.Arch().AddressWidth/8)
+	data := ast.NewData(ast.AddressType, p.AddressWidth()/8)
 
 	p.AdvanceReadPosition(1)
 	tokens, err := readDataTokens(p, false)

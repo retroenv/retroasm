@@ -1,12 +1,13 @@
 package directives
 
 import (
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // ParseModifier ...
-func ParseModifier(p Parser) []ast.Modifier {
+func ParseModifier(p arch.Parser) []ast.Modifier {
 	var modifiers []ast.Modifier
 	var operator ast.Operator
 

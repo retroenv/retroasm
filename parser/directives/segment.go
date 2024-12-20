@@ -1,9 +1,12 @@
 package directives
 
-import "github.com/retroenv/retroasm/parser/ast"
+import (
+	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/parser/ast"
+)
 
 // Segment ...
-func Segment(p Parser) (ast.Node, error) {
+func Segment(p arch.Parser) (ast.Node, error) {
 	next := p.NextToken(2)
 	if next.Type.IsTerminator() {
 		return nil, errMissingParameter

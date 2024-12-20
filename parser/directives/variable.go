@@ -3,13 +3,14 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Res ...
-func Res(p Parser) (ast.Node, error) {
+func Res(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	next := p.NextToken(0)
 

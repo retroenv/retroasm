@@ -11,8 +11,8 @@ import (
 )
 
 // Assembler is the assembler implementation.
-type Assembler struct {
-	cfg         *config.Config
+type Assembler[T any] struct {
+	cfg         *config.Config[T]
 	inputReader io.Reader
 	writer      io.Writer
 
@@ -28,8 +28,8 @@ type Assembler struct {
 }
 
 // New returns a new assembler.
-func New(cfg *config.Config, reader io.Reader, writer io.Writer) *Assembler {
-	return &Assembler{
+func New[T any](cfg *config.Config[T], reader io.Reader, writer io.Writer) *Assembler[T] {
+	return &Assembler[T]{
 		cfg:         cfg,
 		inputReader: reader,
 		writer:      writer,
@@ -43,7 +43,8 @@ func New(cfg *config.Config, reader io.Reader, writer io.Writer) *Assembler {
 }
 
 // Process the input file and assemble it into the writer output.
-func (asm *Assembler) Process() error {
+func (asm *Assembler[T]) Process() error {
+	steps := asm.Steps()
 	for i, stp := range steps {
 		if err := stp.handler(asm); err != nil {
 			return fmt.Errorf("executing assembler step %d/%d: %s: %w",

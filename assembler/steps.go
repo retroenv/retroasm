@@ -1,38 +1,40 @@
 package assembler
 
-type step struct {
-	handler       func(*Assembler) error
+type step[T any] struct {
+	handler       func(*Assembler[T]) error
 	errorTemplate string
 }
 
-// steps of the assembler to execute, in order
-var steps = []step{
-	{
-		handler:       parseASTNodesStep,
-		errorTemplate: "parsing AST nodes",
-	},
-	{
-		handler:       processMacrosStep,
-		errorTemplate: "processing macros",
-	},
-	{
-		handler:       evaluateExpressionsStep,
-		errorTemplate: "evaluating expressions",
-	},
-	{
-		handler:       updateDataSizesStep,
-		errorTemplate: "updating data sizes",
-	},
-	{
-		handler:       assignAddressesStep,
-		errorTemplate: "assigning addresses",
-	},
-	{
-		handler:       generateOpcodesStep,
-		errorTemplate: "generating opcodes",
-	},
-	{
-		handler:       writeOutputStep,
-		errorTemplate: "writing output",
-	},
+// Steps of the assembler to execute, in order.
+func (asm *Assembler[T]) Steps() []step[T] {
+	return []step[T]{
+		{
+			handler:       parseASTNodesStep[T],
+			errorTemplate: "parsing AST nodes",
+		},
+		{
+			handler:       processMacrosStep[T],
+			errorTemplate: "processing macros",
+		},
+		{
+			handler:       evaluateExpressionsStep[T],
+			errorTemplate: "evaluating expressions",
+		},
+		{
+			handler:       updateDataSizesStep[T],
+			errorTemplate: "updating data sizes",
+		},
+		{
+			handler:       assignAddressesStep[T],
+			errorTemplate: "assigning addresses",
+		},
+		{
+			handler:       generateOpcodesStep[T],
+			errorTemplate: "generating opcodes",
+		},
+		{
+			handler:       writeOutputStep[T],
+			errorTemplate: "writing output",
+		},
+	}
 }

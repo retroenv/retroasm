@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
@@ -19,7 +20,7 @@ var nesasmDirectives = map[string]ast.ConfigurationItem{
 }
 
 // NesasmConfig converts nesasm control directives to ast configuration nodes.
-func NesasmConfig(p Parser) (ast.Node, error) {
+func NesasmConfig(p arch.Parser) (ast.Node, error) {
 	next := p.NextToken(1)
 	directive := strings.ToLower(next.Value)
 	configItem, ok := nesasmDirectives[directive]
@@ -55,7 +56,7 @@ func NesasmConfig(p Parser) (ast.Node, error) {
 }
 
 // NesasmOffsetCounter ...
-func NesasmOffsetCounter(p Parser) (ast.Node, error) {
+func NesasmOffsetCounter(p arch.Parser) (ast.Node, error) {
 	value := p.NextToken(2)
 	if value.Type != token.Number {
 		return nil, fmt.Errorf("unsupported offset counter value type %s", value.Type)

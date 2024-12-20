@@ -15,14 +15,13 @@ import (
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/parser/directives"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
 var errMissingParameter = errors.New("missing parameter")
 
 // Parser is the input stream parser.
-type Parser struct {
-	arch          arch.Architecture
+type Parser[T any] struct {
+	arch          arch.Architecture[T]
 	lexer         *lexer.Lexer
 	program       []token.Token
 	readPosition  int
@@ -30,20 +29,20 @@ type Parser struct {
 }
 
 // New returns a new Parser that uses a lexer for the given reader.
-func New(arch arch.Architecture, reader io.Reader) *Parser {
+func New[T any](arch arch.Architecture[T], reader io.Reader) *Parser[T] {
 	lexerCfg := lexer.Config{
 		CommentPrefixes: []string{"//", ";"},
 		DecimalPrefix:   '#',
 	}
-	return &Parser{
+	return &Parser[T]{
 		arch:  arch,
 		lexer: lexer.New(lexerCfg, reader),
 	}
 }
 
 // NewWithTokens returns a new Parser that processes the lexed tokens.
-func NewWithTokens(arch arch.Architecture, tokens []token.Token) *Parser {
-	return &Parser{
+func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token) *Parser[T] {
+	return &Parser[T]{
 		arch:          arch,
 		program:       tokens,
 		programLength: len(tokens),
@@ -51,7 +50,7 @@ func NewWithTokens(arch arch.Architecture, tokens []token.Token) *Parser {
 }
 
 // Read all tokens of the lexer.
-func (p *Parser) Read() error {
+func (p *Parser[T]) Read() error {
 	if err := p.parseTokens(); err != nil {
 		return fmt.Errorf("parsing tokens: %w", err)
 	}
@@ -60,7 +59,7 @@ func (p *Parser) Read() error {
 
 // NextToken returns the current or a following token with the given offset from current token parse position.
 // If the offset exceeds the available tokens, a token of type EOF is returned.
-func (p *Parser) NextToken(offset int) token.Token {
+func (p *Parser[T]) NextToken(offset int) token.Token {
 	if p.readPosition+offset >= p.programLength {
 		return token.Token{
 			Type: token.EOF,
@@ -70,17 +69,17 @@ func (p *Parser) NextToken(offset int) token.Token {
 }
 
 // AdvanceReadPosition advances the token read position.
-func (p *Parser) AdvanceReadPosition(offset int) {
+func (p *Parser[T]) AdvanceReadPosition(offset int) {
 	p.readPosition += offset
 }
 
-// Arch returns the architecture set for the parser.
-func (p *Parser) Arch() arch.Architecture {
-	return p.arch
+// AddressWidth returns the address width of the architecture.
+func (p *Parser[T]) AddressWidth() int {
+	return p.arch.AddressWidth()
 }
 
 // TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.
-func (p *Parser) TokensToAstNodes() ([]ast.Node, error) {
+func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	var (
 		err          error
 		nodes        []ast.Node
@@ -135,7 +134,7 @@ func (p *Parser) TokensToAstNodes() ([]ast.Node, error) {
 	return nodes, nil
 }
 
-func (p *Parser) parseTokens() error {
+func (p *Parser[T]) parseTokens() error {
 	for {
 		tok, err := p.lexer.NextToken()
 		if err != nil {
@@ -157,7 +156,7 @@ func (p *Parser) parseTokens() error {
 
 // parseComment returns a new comment AST node or attaches the comment to the previous node if the comment is on the
 // same line.
-func (p *Parser) parseComment(tok token.Token, previousNode ast.Node) ast.Node {
+func (p *Parser[T]) parseComment(tok token.Token, previousNode ast.Node) ast.Node {
 	message := strings.TrimSpace(tok.Value)
 
 	if previousNode != nil {
@@ -170,7 +169,7 @@ func (p *Parser) parseComment(tok token.Token, previousNode ast.Node) ast.Node {
 	}
 }
 
-func (p *Parser) parseDot() (ast.Node, error) {
+func (p *Parser[T]) parseDot() (ast.Node, error) {
 	next := p.NextToken(1)
 	if next.Type.IsTerminator() {
 		return nil, errMissingParameter
@@ -184,7 +183,7 @@ func (p *Parser) parseDot() (ast.Node, error) {
 	return handler(p)
 }
 
-func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
+func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 	next := p.NextToken(1)
 	next2 := p.NextToken(2)
 
@@ -204,7 +203,7 @@ func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
 	}
 
 	instructionName := strings.ToLower(tok.Value)
-	ins, ok := p.arch.Instructions[instructionName]
+	ins, ok := p.arch.Instruction(instructionName)
 	if !ok {
 		n, err := p.parseAlias(tok, next)
 		if err != nil {
@@ -216,18 +215,14 @@ func (p *Parser) parseIdentifier(tok token.Token) (ast.Node, error) {
 		return n, nil
 	}
 
-	if len(ins.Addressing) == 1 && ins.HasAddressing(m6502.ImpliedAddressing) {
-		return ast.NewInstruction(ins.Name, m6502.ImpliedAddressing, nil, nil), nil
-	}
-
-	node, err := p.parseInstruction(ins)
+	n, err := p.arch.ParseIdentifier(p, ins)
 	if err != nil {
-		return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
+		return nil, fmt.Errorf("parsing identifier '%s': %w", tok.Value, err)
 	}
-	return node, nil
+	return n, nil
 }
 
-func (p *Parser) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
+func (p *Parser[T]) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
 	value := p.NextToken(3)
 	if value.Type != token.Number {
 		return nil, fmt.Errorf("unsupported offset counter value type %s", value.Type)
@@ -244,7 +239,7 @@ func (p *Parser) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
 	return v, nil
 }
 
-func (p *Parser) parseNumber(tok token.Token) (ast.Node, error) {
+func (p *Parser[T]) parseNumber(tok token.Token) (ast.Node, error) {
 	if tok.Value != expression.ProgramCounterReference {
 		return nil, fmt.Errorf("unexpected token of type %s found at line %d column %d",
 			tok.Type.String(), tok.Position.Line, tok.Position.Column)
@@ -257,7 +252,7 @@ func (p *Parser) parseNumber(tok token.Token) (ast.Node, error) {
 	return node, nil
 }
 
-func (p *Parser) createIdentifier(tok token.Token) (ast.Node, error) {
+func (p *Parser[T]) createIdentifier(tok token.Token) (ast.Node, error) {
 	i := ast.NewIdentifier(tok.Value)
 	p.AdvanceReadPosition(1)
 

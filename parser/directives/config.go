@@ -3,12 +3,13 @@ package directives
 import (
 	"fmt"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/expression"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // FillValue ...
-func FillValue(p Parser) (ast.Node, error) {
+func FillValue(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
 	}

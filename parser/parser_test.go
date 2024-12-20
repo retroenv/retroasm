@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/arch"
+	m6502Arch "github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
@@ -18,30 +18,30 @@ func TestParser_Instruction(t *testing.T) {
 	}{
 		{"asl a:var1", func() []ast.Node {
 			l := ast.NewLabel("var1")
-			return []ast.Node{ast.NewInstruction("asl", m6502.AbsoluteAddressing, l, nil)}
+			return []ast.Node{ast.NewInstruction("asl", int(m6502.AbsoluteAddressing), l, nil)}
 		}},
 		{"asl a:1", func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("asl", m6502.AbsoluteAddressing, ast.NewNumber(1), nil)}
+			return []ast.Node{ast.NewInstruction("asl", int(m6502.AbsoluteAddressing), ast.NewNumber(1), nil)}
 		}},
 		{"asl", func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("asl", m6502.AccumulatorAddressing, nil, nil)}
+			return []ast.Node{ast.NewInstruction("asl", int(m6502.AccumulatorAddressing), nil, nil)}
 		}},
 		{"asl a", func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("asl", m6502.AccumulatorAddressing, nil, nil)}
+			return []ast.Node{ast.NewInstruction("asl", int(m6502.AccumulatorAddressing), nil, nil)}
 		}},
 		{"asl\na:", func() []ast.Node {
 			l := ast.NewLabel("a")
 			return []ast.Node{
-				ast.NewInstruction("asl", m6502.AccumulatorAddressing, nil, nil),
+				ast.NewInstruction("asl", int(m6502.AccumulatorAddressing), nil, nil),
 				l,
 			}
 		}},
 	}
 
-	architecture := arch.NewNES()
+	cfg := m6502Arch.New()
 
 	for _, tt := range tests {
-		parser := New(architecture, strings.NewReader(tt.input))
+		parser := New(cfg.Arch, strings.NewReader(tt.input))
 		assert.NoError(t, parser.Read())
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)

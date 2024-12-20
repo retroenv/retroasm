@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/number"
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
 // Include ...
-func Include(p Parser) (ast.Node, error) {
+func Include(p arch.Parser) (ast.Node, error) {
 	command := p.NextToken(1)
 
 	next := p.NextToken(2)

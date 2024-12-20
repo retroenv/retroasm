@@ -8,7 +8,7 @@ type context struct {
 }
 
 // TODO can else have an expression as well?
-func processElseCondition(expEval *expressionEvaluation) error {
+func processElseCondition[T any](expEval *expressionEvaluation[T]) error {
 	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}
@@ -21,7 +21,7 @@ func processElseCondition(expEval *expressionEvaluation) error {
 	return nil
 }
 
-func processEndifCondition(expEval *expressionEvaluation) error {
+func processEndifCondition[T any](expEval *expressionEvaluation[T]) error {
 	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext
 	}

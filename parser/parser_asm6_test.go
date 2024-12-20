@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/arch"
+	m6502Arch "github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
@@ -38,14 +38,14 @@ func TestParserAsm6(t *testing.T) {
 			return []ast.Node{ast.NewInclude("whatever.asm", false, 0, 0)}
 		}},
 		{input: "lda #12h", expected: func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("lda", m6502.ImmediateAddressing, ast.NewNumber(0x12), nil)}
+			return []ast.Node{ast.NewInstruction("lda", int(m6502.ImmediateAddressing), ast.NewNumber(0x12), nil)}
 		}},
 	}
 
-	architecture := arch.NewNES()
+	cfg := m6502Arch.New()
 
 	for _, tt := range tests {
-		parser := New(architecture, strings.NewReader(tt.input))
+		parser := New(cfg.Arch, strings.NewReader(tt.input))
 		assert.NoError(t, parser.Read())
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err, "input: "+tt.input)

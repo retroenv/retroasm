@@ -5,8 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/arch"
-	"github.com/retroenv/retroasm/assembler/config"
+	"github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -51,9 +50,8 @@ var asm6IncbinTestCode = `
 `
 
 func TestAssemblerAsm6Incbin(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := m6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
-	cfg.Arch = arch.NewNES()
 
 	reader := strings.NewReader(asm6IncbinTestCode)
 	var buf bytes.Buffer
@@ -490,9 +488,8 @@ func TestAssemblerAsm6Rept(t *testing.T) {
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 
-	cfg := &config.Config{}
+	cfg := m6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(testConfig)))
-	cfg.Arch = arch.NewNES()
 
 	reader := strings.NewReader(testCode)
 	var buf bytes.Buffer
