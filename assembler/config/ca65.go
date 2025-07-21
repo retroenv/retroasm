@@ -190,7 +190,7 @@ func readCa65ConfigSection(lex *lexer.Lexer) ([]*ca65Area, error) {
 // start = $8000, size = $4000
 // and:
 // start $0800
-// size = $4000
+// size = $4000.
 func readCa65ConfigAttribute(lex *lexer.Lexer, ar *ca65Area, attribute string) error {
 	tok, err := lex.NextToken()
 	if err != nil {

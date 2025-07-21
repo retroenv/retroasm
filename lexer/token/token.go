@@ -7,12 +7,12 @@ const (
 	EOF
 	EOL
 
-	// Identifiers and literals
+	// Identifiers and literals.
 	Number
 	Identifier
 	Comment
 
-	// delimiters
+	// Delimiters.
 	Dot
 	Colon
 	Semicolon
