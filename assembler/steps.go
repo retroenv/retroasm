@@ -9,10 +9,6 @@ type step[T any] struct {
 func (asm *Assembler[T]) Steps() []step[T] {
 	return []step[T]{
 		{
-			handler:       parseASTNodesStep[T],
-			errorTemplate: "parsing AST nodes",
-		},
-		{
 			handler:       processMacrosStep[T],
 			errorTemplate: "processing macros",
 		},

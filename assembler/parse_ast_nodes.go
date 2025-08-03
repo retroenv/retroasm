@@ -9,7 +9,6 @@ import (
 	"github.com/retroenv/retroasm/expression"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/number"
-	"github.com/retroenv/retroasm/parser"
 	"github.com/retroenv/retroasm/parser/ast"
 	"github.com/retroenv/retroasm/scope"
 )
@@ -24,54 +23,6 @@ type parseAST[T any] struct {
 
 	segments      map[string]*segment // maps segment name to segment
 	segmentsOrder []*segment          // sorted list of all parsed segments
-}
-
-// parseASTNodesStep parses the AST nodes and converts them to internal types.
-func parseASTNodesStep[T any](asm *Assembler[T]) error {
-	p := &parseAST[T]{
-		cfg:          asm.cfg,
-		fileReader:   asm.fileReader,
-		currentScope: asm.fileScope,
-		segments:     map[string]*segment{},
-	}
-
-	pars := parser.New[T](asm.cfg.Arch, asm.inputReader)
-	if err := pars.Read(); err != nil {
-		return fmt.Errorf("parsing lexer tokens: %w", err)
-	}
-	nodes, err := pars.TokensToAstNodes()
-	if err != nil {
-		return fmt.Errorf("converting tokens to ast nodes: %w", err)
-	}
-
-	for _, node := range nodes {
-		switch n := node.(type) {
-		case *ast.Comment:
-
-		case ast.Segment:
-			if err := parseSegment(p, n); err != nil {
-				return fmt.Errorf("parsing segment node: %w", err)
-			}
-
-		default:
-			if p.currentSegment == nil {
-				return errNoCurrentSegment
-			}
-
-			newNodes, err := parseASTNode(p, node)
-			if err != nil {
-				return err
-			}
-			for _, newNode := range newNodes {
-				p.currentSegment.addNode(newNode)
-			}
-		}
-	}
-
-	asm.segments = p.segments
-	asm.segmentsOrder = p.segmentsOrder
-
-	return nil
 }
 
 // nolint: cyclop, funlen
@@ -144,8 +95,6 @@ func parseSegment[T any](asm *parseAST[T], astSegment ast.Segment) error {
 	asm.segmentsOrder = append(asm.segmentsOrder, seg)
 	return nil
 }
-
-var errNoCurrentSegment = errors.New("no current segment found")
 
 func parseData(astData ast.Data) ([]ast.Node, error) {
 	dat := &data{
