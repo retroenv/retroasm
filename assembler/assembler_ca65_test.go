@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"bytes"
+	"context"
 	"hash/crc32"
 	"strings"
 	"testing"
@@ -153,9 +154,9 @@ func TestAssemblerCa65BlueExample(t *testing.T) {
 
 	reader := strings.NewReader(ca65BlueTestCode)
 	var buf bytes.Buffer
-	asm := New(cfg, reader, &buf)
+	asm := New(cfg, &buf)
 
-	assert.NoError(t, asm.Process())
+	assert.NoError(t, asm.Process(context.Background(), reader))
 	assert.Equal(t, 40976, buf.Len())
 
 	crc32q := crc32.MakeTable(crc32.IEEE)

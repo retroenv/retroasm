@@ -2,6 +2,7 @@
 package assembler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,9 +18,8 @@ var errNoCurrentSegment = errors.New("no current segment found")
 
 // Assembler is the assembler implementation.
 type Assembler[T any] struct {
-	cfg         *config.Config[T]
-	inputReader io.Reader
-	writer      io.Writer
+	cfg    *config.Config[T]
+	writer io.Writer
 
 	// a function that reads in a file, for testing includes, defaults to os.ReadFile
 	fileReader func(name string) ([]byte, error)
@@ -33,11 +33,10 @@ type Assembler[T any] struct {
 }
 
 // New returns a new assembler.
-func New[T any](cfg *config.Config[T], reader io.Reader, writer io.Writer) *Assembler[T] {
+func New[T any](cfg *config.Config[T], writer io.Writer) *Assembler[T] {
 	return &Assembler[T]{
-		cfg:         cfg,
-		inputReader: reader,
-		writer:      writer,
+		cfg:    cfg,
+		writer: writer,
 
 		fileReader: os.ReadFile,
 
@@ -48,10 +47,10 @@ func New[T any](cfg *config.Config[T], reader io.Reader, writer io.Writer) *Asse
 }
 
 // Process the input file and assemble it into the writer output.
-func (asm *Assembler[T]) Process() error {
+func (asm *Assembler[T]) Process(ctx context.Context, inputReader io.Reader) error {
 	// Parse AST nodes first
-	pars := parser.New[T](asm.cfg.Arch, asm.inputReader)
-	if err := pars.Read(); err != nil {
+	pars := parser.New[T](asm.cfg.Arch, inputReader)
+	if err := pars.Read(ctx); err != nil {
 		return fmt.Errorf("parsing lexer tokens: %w", err)
 	}
 	nodes, err := pars.TokensToAstNodes()
@@ -59,19 +58,25 @@ func (asm *Assembler[T]) Process() error {
 		return fmt.Errorf("converting tokens to ast nodes: %w", err)
 	}
 
-	return asm.ProcessAST(nodes)
+	return asm.ProcessAST(ctx, nodes)
 }
 
 // ProcessAST processes the given AST nodes and assembles them into the writer output.
-func (asm *Assembler[T]) ProcessAST(nodes []ast.Node) error {
+func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error {
 	// First process the AST nodes
-	if err := asm.parseASTNodes(nodes); err != nil {
+	if err := asm.parseASTNodes(ctx, nodes); err != nil {
 		return fmt.Errorf("parsing AST nodes: %w", err)
 	}
 
 	// Then run the remaining assembly steps
 	steps := asm.Steps()
 	for i, stp := range steps {
+		// Check for cancellation before each step
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("processing cancelled: %w", ctx.Err())
+		default:
+		}
 		if err := stp.handler(asm); err != nil {
 			return fmt.Errorf("executing assembler step %d/%d: %s: %w",
 				i+1, len(steps), stp.errorTemplate, err)
@@ -81,7 +86,7 @@ func (asm *Assembler[T]) ProcessAST(nodes []ast.Node) error {
 }
 
 // parseASTNodes processes the given AST nodes and converts them to internal types.
-func (asm *Assembler[T]) parseASTNodes(nodes []ast.Node) error {
+func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) error {
 	p := &parseAST[T]{
 		cfg:          asm.cfg,
 		fileReader:   asm.fileReader,
@@ -90,6 +95,12 @@ func (asm *Assembler[T]) parseASTNodes(nodes []ast.Node) error {
 	}
 
 	for _, node := range nodes {
+		// Check for cancellation in the parsing loop
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("AST parsing cancelled: %w", ctx.Err())
+		default:
+		}
 		switch n := node.(type) {
 		case *ast.Comment:
 

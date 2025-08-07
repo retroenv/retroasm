@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -42,7 +43,7 @@ func TestParser_Instruction(t *testing.T) {
 
 	for _, tt := range tests {
 		parser := New(cfg.Arch, strings.NewReader(tt.input))
-		assert.NoError(t, parser.Read())
+		assert.NoError(t, parser.Read(context.Background()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
 

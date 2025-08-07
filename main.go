@@ -9,6 +9,7 @@ import (
 
 	"github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retroasm/assembler"
+	"github.com/retroenv/retrogolib/app"
 	"github.com/retroenv/retrogolib/buildinfo"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -107,9 +108,10 @@ func assembleFile(options *optionFlags, args []string) error {
 	}
 
 	var buf bytes.Buffer
-	asm := assembler.New(cfg, bytes.NewReader(input), &buf)
+	asm := assembler.New(cfg, &buf)
 
-	if err = asm.Process(); err != nil {
+	ctx := app.Context()
+	if err = asm.Process(ctx, bytes.NewReader(input)); err != nil {
 		return fmt.Errorf("assembling input file '%s': %w", args[0], err)
 	}
 	if err = os.WriteFile(options.output, buf.Bytes(), 0600); err != nil {

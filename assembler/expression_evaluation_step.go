@@ -22,7 +22,7 @@ var (
 type expressionEvaluation[T any] struct {
 	arch arch.Architecture[T]
 
-	currentContext *context
+	currentContext *conditionalContext
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
 
 	fillValues *expression.Expression
@@ -33,7 +33,7 @@ func evaluateExpressionsStep[T any](asm *Assembler[T]) error {
 	expEval := expressionEvaluation[T]{
 		arch:         asm.cfg.Arch,
 		currentScope: asm.fileScope,
-		currentContext: &context{
+		currentContext: &conditionalContext{
 			processNodes: true,
 			parent:       nil,
 		},
@@ -235,7 +235,7 @@ func parseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.If) erro
 		return fmt.Errorf("unsupported expression value type %T", value)
 	}
 
-	ctx := &context{
+	ctx := &conditionalContext{
 		processNodes: conditionMet,
 		parent:       expEval.currentContext,
 	}
@@ -250,7 +250,7 @@ func parseIfdefCondition[T any](expEval *expressionEvaluation[T], cond ast.Ifdef
 		conditionMet = false
 	}
 
-	ctx := &context{
+	ctx := &conditionalContext{
 		processNodes: conditionMet,
 		parent:       expEval.currentContext,
 	}
@@ -264,7 +264,7 @@ func parseIfndefCondition[T any](expEval *expressionEvaluation[T], cond ast.Ifnd
 		conditionMet = true
 	}
 
-	ctx := &context{
+	ctx := &conditionalContext{
 		processNodes: conditionMet,
 		parent:       expEval.currentContext,
 	}

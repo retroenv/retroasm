@@ -1,10 +1,10 @@
 package assembler
 
-type context struct {
+type conditionalContext struct {
 	processNodes bool
 	hasElse      bool // to detect invalid multiple else usages
 
-	parent *context
+	parent *conditionalContext
 }
 
 // TODO can else have an expression as well?

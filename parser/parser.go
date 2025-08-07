@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -50,8 +51,8 @@ func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token) *Pars
 }
 
 // Read all tokens of the lexer.
-func (p *Parser[T]) Read() error {
-	if err := p.parseTokens(); err != nil {
+func (p *Parser[T]) Read(ctx context.Context) error {
+	if err := p.parseTokens(ctx); err != nil {
 		return fmt.Errorf("parsing tokens: %w", err)
 	}
 	return nil
@@ -134,8 +135,14 @@ func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	return nodes, nil
 }
 
-func (p *Parser[T]) parseTokens() error {
+func (p *Parser[T]) parseTokens(ctx context.Context) error {
 	for {
+		// Check for cancellation in tokenization loop
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("tokenization cancelled: %w", ctx.Err())
+		default:
+		}
 		tok, err := p.lexer.NextToken()
 		if err != nil {
 			return fmt.Errorf("reading next token: %w", err)

@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -55,14 +56,14 @@ func TestAssemblerAsm6Incbin(t *testing.T) {
 
 	reader := strings.NewReader(asm6IncbinTestCode)
 	var buf bytes.Buffer
-	asm := New(cfg, reader, &buf)
+	asm := New(cfg, &buf)
 
 	asm.fileReader = func(name string) ([]byte, error) {
 		assert.Equal(t, "test.bin", name)
 		return []byte{0xfe, 0xff}, nil
 	}
 
-	assert.NoError(t, asm.Process())
+	assert.NoError(t, asm.Process(context.Background(), reader))
 	b := buf.Bytes()
 	assert.Equal(t, []byte{0xfe, 0xff}, b)
 }
@@ -493,9 +494,26 @@ func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 
 	reader := strings.NewReader(testCode)
 	var buf bytes.Buffer
-	asm := New(cfg, reader, &buf)
+	asm := New(cfg, &buf)
 
-	err := asm.Process()
+	err := asm.Process(context.Background(), reader)
 	b := buf.Bytes()
 	return b, err
+}
+
+func TestAssemblerContextCancellation(t *testing.T) {
+	cfg := m6502.New()
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
+
+	// Test cancellation during parsing
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	reader := strings.NewReader(asm6EquTestCode)
+	var buf bytes.Buffer
+	asm := New(cfg, &buf)
+
+	err := asm.Process(ctx, reader)
+	assert.NotNil(t, err, "expected error from cancelled context")
+	assert.ErrorIs(t, err, context.Canceled, "expected context.Canceled error")
 }
