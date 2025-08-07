@@ -404,7 +404,7 @@ ENDIF
 
 func TestAssemblerAsm6Error(t *testing.T) {
 	_, err := runAsm6Test(t, unitTestConfig, asm6ErrorCode)
-	assert.True(t, strings.Contains(err.Error(), "X is out of range :("), "error not triggered")
+	assert.ErrorContains(t, err, "X is out of range :(")
 }
 
 var asm6EnumCode = `

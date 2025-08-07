@@ -14,7 +14,7 @@ func TestExpression(t *testing.T) {
 	tests := []struct {
 		input       string
 		expected    any
-		expectedErr bool
+		expectError bool
 	}{
 		{input: "2\n4", expected: []byte{2, 4}},
 		{input: "2-4", expected: -2},
@@ -25,11 +25,11 @@ func TestExpression(t *testing.T) {
 		{input: "((1+2)*2)+1", expected: 7},
 		{input: "1+2*2", expected: 5},
 		{input: "1+2-3+4", expected: 4},
-		{input: "(1+2)*", expectedErr: true},
-		{input: "(1+2", expectedErr: true},
-		{input: "1+2)", expectedErr: true},
-		{input: "1+a", expectedErr: true},
-		{input: "1/0", expectedErr: true},
+		{input: "(1+2)*", expectError: true},
+		{input: "(1+2", expectError: true},
+		{input: "1+2)", expectError: true},
+		{input: "1+a", expectError: true},
+		{input: "1/0", expectError: true},
 	}
 
 	lexerCfg := lexer.Config{
@@ -41,8 +41,8 @@ func TestExpression(t *testing.T) {
 		lex := lexer.New(lexerCfg, strings.NewReader(tt.input))
 		result, err := runEvaluation(t, lex)
 
-		if tt.expectedErr {
-			assert.True(t, err != nil, "input: "+tt.input)
+		if tt.expectError {
+			assert.Error(t, err, "input: "+tt.input)
 		} else {
 			assert.NoError(t, err, "input: "+tt.input)
 		}

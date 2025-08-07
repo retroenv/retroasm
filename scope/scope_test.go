@@ -28,9 +28,9 @@ func TestScope(t *testing.T) {
 	assert.Equal(t, sym, found)
 
 	// adding symbol again fails
-	assert.True(t, parent.AddSymbol(sym) != nil)
+	assert.Error(t, parent.AddSymbol(sym))
 
 	// getting an undefined symbol fails
 	_, err = parent.GetSymbol("nonexisting")
-	assert.True(t, err != nil)
+	assert.Error(t, err)
 }
