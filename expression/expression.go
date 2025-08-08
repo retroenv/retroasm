@@ -1,5 +1,33 @@
-// Package expression implements an expression parser and evaluator using
-// the Shunting yard algorithm.
+// Package expression implements an expression parser and evaluator for assembly language expressions.
+//
+// This package provides a complete expression evaluation system using the Shunting Yard algorithm
+// for parsing infix expressions into Reverse Polish Notation (RPN) and evaluating them.
+//
+// Key features:
+//   - Mathematical operations: +, -, *, /, %, ^ (exponentiation)
+//   - Comparison operations: ==, <, <=, >, >=
+//   - Parentheses for grouping and precedence control
+//   - Symbol resolution from assembly scopes
+//   - Program counter ($) references for address calculations
+//   - Mixed data types: int64, []byte, bool
+//   - Circular dependency detection
+//   - Lazy evaluation with caching support
+//
+// The expression evaluator supports two evaluation modes:
+//   - Immediate evaluation: Expression is evaluated when requested
+//   - Deferred evaluation: Expression contains program counter ($) references
+//     and must be evaluated during the address assignment phase
+//
+// Usage:
+//
+//	// Create expression from tokens
+//	expr := expression.New(tokens...)
+//
+//	// Evaluate with scope context
+//	result, err := expr.Evaluate(scope, dataWidth)
+//
+//	// Evaluate with program counter context
+//	result, err := expr.EvaluateAtProgramCounter(scope, dataWidth, pc)
 package expression
 
 import (
@@ -18,6 +46,8 @@ var (
 	errCircularDependency      = errors.New("circular symbol dependency detected")
 	errDivisionByZero          = errors.New("division by zero")
 	errEvaluateAtAddressAssign = errors.New("expression can not be referenced due to program counter $ usage")
+	errExpressionNotEvaluated  = errors.New("expression is not evaluated")
+	errMismatchedParenthesis   = errors.New("mismatched parenthesis found")
 )
 
 // ProgramCounterReference references the current program address in an expression.
@@ -102,7 +132,7 @@ func (e *Expression) Tokens() []token.Token {
 // if the expression is not evaluated or resulted in a different type than int64.
 func (e *Expression) IntValue() (int64, error) {
 	if !e.evaluated {
-		return 0, errors.New("expression is not evaluated")
+		return 0, errExpressionNotEvaluated
 	}
 	i, ok := e.value.(int64)
 	if !ok {
@@ -120,6 +150,9 @@ func (e *Expression) SetValue(value int64) {
 
 // Evaluate the expression. The returned value can be of can be of type int64, []byte or bool.
 func (e *Expression) Evaluate(scope *scope.Scope, dataWidth int) (any, error) {
+	if dataWidth < 0 {
+		return 0, fmt.Errorf("invalid data width: %d", dataWidth)
+	}
 	if e.evaluated && e.evaluateOnce {
 		return e.value, nil
 	}
@@ -136,6 +169,9 @@ func (e *Expression) Evaluate(scope *scope.Scope, dataWidth int) (any, error) {
 // EvaluateAtProgramCounter evaluates the expression using the current program counter.
 // The returned value can be of can be of type int64, []byte or bool.
 func (e *Expression) EvaluateAtProgramCounter(scope *scope.Scope, dataWidth int, programCounter uint64) (any, error) {
+	if dataWidth < 0 {
+		return 0, fmt.Errorf("invalid data width: %d", dataWidth)
+	}
 	return e.evaluate(scope, dataWidth, programCounter)
 }
 
@@ -200,7 +236,7 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 				values.push(op)
 			}
 			if !foundLeftParenthesis {
-				return nil, errors.New("mismatched parenthesis found, missing left parenthesis")
+				return nil, fmt.Errorf("%w: missing left parenthesis", errMismatchedParenthesis)
 			}
 
 		default:
@@ -211,10 +247,10 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 	}
 
 	// process remaining operators
-	for i := operators.len() - 1; i >= 0; i-- {
-		operator := operators.data[i]
+	for range operators.len() {
+		operator := operators.pop()
 		if operator.Type == token.LeftParentheses {
-			return nil, errors.New("mismatched parenthesis found, missing right parenthesis")
+			return nil, fmt.Errorf("%w: missing right parenthesis", errMismatchedParenthesis)
 		}
 		values.push(operator)
 	}
@@ -358,7 +394,7 @@ func evaluateRPN(tokens []token.Token, dataWidth int) (any, error) {
 }
 
 func processData(tokens []token.Token, dataWidth int) ([]byte, error) {
-	var data []byte
+	data := make([]byte, 0, len(tokens)*dataWidth)
 
 	for _, tok := range tokens {
 		switch tok.Type {
