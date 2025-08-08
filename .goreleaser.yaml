@@ -5,7 +5,7 @@ before:
 builds:
   - id: retroasm
     binary: retroasm
-    dir: .
+    main: ./cmd/retroasm
     env:
       - CGO_ENABLED=0
     targets:

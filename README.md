@@ -42,7 +42,7 @@ or
 2. Compile the latest release from source:
 
 ```
-go install github.com/retroenv/retroasm@latest
+go install github.com/retroenv/retroasm/cmd/retroasm@latest
 ```
 
 ## Usage
@@ -61,9 +61,13 @@ usage: retroasm [options] <file to assemble>
 
   -c string
     	assembler config file
+  -cpu string
+    	target CPU architecture (6502) (default "6502")
   -debug
     	enable debug logging
   -o string
     	name of the output file
   -q	perform operations quietly
+  -system string
+    	target system (nes) (default "nes")
 ```
