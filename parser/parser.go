@@ -1,5 +1,18 @@
-// Package parser processes an input stream and parses its token to produce
+// Package parser processes an input stream and parses tokens to produce
 // an abstract syntax tree (AST) as output.
+//
+// The parser supports two main workflows:
+//   - Stream parsing: New() + Read() + TokensToAstNodes()
+//   - Direct parsing: NewWithTokens() + TokensToAstNodes()
+//
+// The parser handles multiple assembly formats (asm6, ca65, nesasm) and supports:
+//   - Instructions with various addressing modes
+//   - Assembler directives (data, includes, conditionals, macros)
+//   - Labels and aliases
+//   - Comments and expressions
+//
+// Architecture-specific instruction parsing is delegated to the provided
+// arch.Architecture implementation.
 package parser
 
 import (
@@ -80,10 +93,22 @@ func (p *Parser[T]) AddressWidth() int {
 }
 
 // TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.
+//
+// This is the core parsing method that processes tokens sequentially and creates
+// corresponding AST nodes. It handles:
+//   - Directives (starting with '.')
+//   - Instructions (architecture-specific)
+//   - Labels (identifier followed by ':')
+//   - Aliases (identifier = value)
+//   - Address operators ('<' for low byte, '>' for high byte)
+//   - Comments (attached to previous node if on same line)
+//
+// The method maintains parsing state and provides detailed error context including
+// line and column numbers for debugging.
 func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	var (
 		err          error
-		nodes        []ast.Node
+		nodes        = make([]ast.Node, 0, p.programLength/2) // Pre-allocate with estimated capacity
 		previousNode ast.Node
 	)
 
@@ -190,6 +215,12 @@ func (p *Parser[T]) parseDot() (ast.Node, error) {
 	return handler(p)
 }
 
+// parseIdentifier handles identifier tokens which can represent:
+//   - Labels: "identifier:"
+//   - Aliases: "identifier = value"
+//   - NES ASM variables: "identifier .rs number"
+//   - Instructions: delegated to architecture-specific parsing
+//   - Generic identifiers: fallback for unknown patterns
 func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 	next := p.NextToken(1)
 	next2 := p.NextToken(2)

@@ -58,7 +58,7 @@ func Include(p arch.Parser) (ast.Node, error) {
 		p.AdvanceReadPosition(2)
 	}
 
-	_, binary := directiveBinaryIncludes[strings.ToLower(command.Value)]
+	binary := directiveBinaryIncludes.Contains(strings.ToLower(command.Value))
 
 	return ast.NewInclude(fileName, binary, start, size), nil
 }

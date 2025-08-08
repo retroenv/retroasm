@@ -1,4 +1,17 @@
 // Package directives contains assembler directives parser.
+//
+// This package implements parsing for assembly directives (commands starting with '.')
+// that control the assembler behavior. Supported directive categories include:
+//   - Data: .byte, .word, .db, .dw (data definition)
+//   - Storage: .dsb, .dsw, .res (reserved space)
+//   - Organization: .org, .base, .align, .pad (memory layout)
+//   - Conditionals: .if/.else/.endif, .ifdef/.ifndef (conditional assembly)
+//   - Macros: .macro/.endm, .rept/.endr (code generation)
+//   - Includes: .include, .incbin (file inclusion)
+//   - Configuration: .segment, .bank, .setcpu (assembler settings)
+//
+// The Handlers map provides the dispatch mechanism for directive-specific parsing.
+// Each handler receives a parser instance and returns the corresponding AST node.
 package directives
 
 import (
@@ -6,6 +19,7 @@ import (
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retrogolib/set"
 )
 
 var (
@@ -67,10 +81,10 @@ var Handlers = map[string]Handler{
 	"word":       Data, // asm6
 }
 
-var directiveBinaryIncludes = map[string]struct{}{
-	"bin":    {}, // asm6
-	"incbin": {}, // asm6
-}
+var directiveBinaryIncludes = set.NewFromSlice([]string{
+	"bin",    // asm6
+	"incbin", // asm6
+})
 
 // SetCPU ...
 // nolint: nilnil
