@@ -26,7 +26,8 @@ func writeOutputStep[T any](asm *Assembler[T]) error {
 			continue
 		}
 
-		if uint64(len(mem.data))-mem.start > mem.size {
+		dataLen := uint64(len(mem.data))
+		if dataLen-mem.start > mem.size {
 			return fmt.Errorf("memory '%s' exceeds size limit %d, %d bytes written",
 				memName, mem.size, len(mem.data))
 		}

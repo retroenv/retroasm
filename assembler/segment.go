@@ -5,6 +5,7 @@ import (
 	"github.com/retroenv/retroasm/parser/ast"
 )
 
+// segment represents a memory segment containing AST nodes.
 type segment struct {
 	config *config.Segment
 	nodes  []ast.Node

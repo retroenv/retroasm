@@ -1,4 +1,19 @@
-// Package assembler implements the assembler functionality
+// Package assembler implements the assembler functionality for retrocomputers.
+//
+// The assembler converts assembly language source code into machine code for
+// retro computer systems. It supports multiple assembly formats (asm6, ca65, nesasm)
+// and follows a multi-stage pipeline architecture:
+//
+// 1. Parse AST nodes (text → AST or direct AST input)
+// 2. Process macros and expand definitions
+// 3. Evaluate expressions and resolve symbols
+// 4. Update data sizes based on expressions
+// 5. Assign memory addresses to instructions and data
+// 6. Generate opcodes for target architecture
+// 7. Write final output to memory segments
+//
+// The assembler is designed for both library integration (AST-first) and
+// CLI usage (text-based), providing flexible APIs for different use cases.
 package assembler
 
 import (
@@ -16,7 +31,9 @@ import (
 
 var errNoCurrentSegment = errors.New("no current segment found")
 
-// Assembler is the assembler implementation.
+// Assembler is the assembler implementation for retro computer systems.
+// It processes assembly language and converts it into machine code through
+// a multi-stage pipeline. The generic type T represents the target architecture.
 type Assembler[T any] struct {
 	cfg    *config.Config[T]
 	writer io.Writer
@@ -46,7 +63,9 @@ func New[T any](cfg *config.Config[T], writer io.Writer) *Assembler[T] {
 	}
 }
 
-// Process the input file and assemble it into the writer output.
+// Process processes assembly source code from a reader and assembles it into the output writer.
+// This is the primary text-based API for CLI usage. For library integration with
+// pre-parsed AST nodes, use ProcessAST instead.
 func (asm *Assembler[T]) Process(ctx context.Context, inputReader io.Reader) error {
 	// Parse AST nodes first
 	pars := parser.New[T](asm.cfg.Arch, inputReader)
@@ -61,7 +80,9 @@ func (asm *Assembler[T]) Process(ctx context.Context, inputReader io.Reader) err
 	return asm.ProcessAST(ctx, nodes)
 }
 
-// ProcessAST processes the given AST nodes and assembles them into the writer output.
+// ProcessAST processes pre-parsed AST nodes and assembles them into the output writer.
+// This is the primary AST-based API for library integration where AST nodes are
+// already available. For text-based assembly from readers, use Process instead.
 func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error {
 	// First process the AST nodes
 	if err := asm.parseASTNodes(ctx, nodes); err != nil {

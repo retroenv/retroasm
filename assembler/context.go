@@ -1,5 +1,6 @@
 package assembler
 
+// conditionalContext represents the state of conditional compilation directives.
 type conditionalContext struct {
 	processNodes bool
 	hasElse      bool // to detect invalid multiple else usages
@@ -7,7 +8,7 @@ type conditionalContext struct {
 	parent *conditionalContext
 }
 
-// TODO can else have an expression as well?
+// TODO: Implement expression support for else directives.
 func processElseCondition[T any](expEval *expressionEvaluation[T]) error {
 	if expEval.currentContext.parent == nil {
 		return errConditionOutsideIfContext

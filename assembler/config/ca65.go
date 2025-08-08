@@ -10,6 +10,7 @@ import (
 	"github.com/retroenv/retroasm/lexer"
 	"github.com/retroenv/retroasm/lexer/token"
 	"github.com/retroenv/retroasm/number"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // TODO support FEATURES and SYMBOLS areas
@@ -125,10 +126,10 @@ var errNoStartingBlock = errors.New("no { starting block found")
 
 // readCa65ConfigSection reads a config section, this can either be MEMORY or SEGMENTS.
 func readCa65ConfigSection(lex *lexer.Lexer) ([]*ca65Area, error) {
-	leftBraceFound := false              // flag to detect multiple left braces
-	identifiers := map[string]struct{}{} // area identifiers set to detect duplicates
-	var areas []*ca65Area                // all read areas to return
-	var ar *ca65Area                     // current area to be read
+	leftBraceFound := false          // flag to detect multiple left braces
+	identifiers := set.New[string]() // area identifiers set to detect duplicates
+	var areas []*ca65Area            // all read areas to return
+	var ar *ca65Area                 // current area to be read
 
 	for {
 		tok, err := lex.NextToken()
@@ -169,10 +170,10 @@ func readCa65ConfigSection(lex *lexer.Lexer) ([]*ca65Area, error) {
 			}
 
 			// identifiers are case-sensitive
-			if _, ok := identifiers[tok.Value]; ok {
+			if identifiers.Contains(tok.Value) {
 				return nil, fmt.Errorf("multiple areas named '%s' found", tok.Value)
 			}
-			identifiers[tok.Value] = struct{}{}
+			identifiers.Add(tok.Value)
 
 			ar = &ca65Area{
 				name:       tok.Value,
