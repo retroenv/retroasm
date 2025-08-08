@@ -1,29 +1,30 @@
 package token
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/retroenv/retrogolib/set"
+)
+
+// Sentinel errors for token operations.
+var (
+	ErrUnknownRune = errors.New("unknown rune")
+)
 
 // Type defines the token type.
 type Type int
 
-var operators = map[Type]struct{}{
-	Plus:     {},
-	Minus:    {},
-	Asterisk: {},
-	Percent:  {},
-	Slash:    {},
-	Caret:    {},
-	Equals:   {},
-	Lt:       {},
-	LtE:      {},
-	Gt:       {},
-	GtE:      {},
-}
+var operators = set.NewFromSlice([]Type{
+	Plus, Minus, Asterisk, Percent, Slash, Caret,
+	Equals, Lt, LtE, Gt, GtE,
+})
 
 // NewType creates a new token type from the given rune.
 func NewType(r rune) (Type, error) {
 	t, ok := toToken[r]
 	if !ok {
-		return Illegal, fmt.Errorf("unknown rune %c", r)
+		return Illegal, fmt.Errorf("%w: %c", ErrUnknownRune, r)
 	}
 	return t, nil
 }
@@ -44,6 +45,5 @@ func (t Type) IsTerminator() bool {
 
 // IsOperator returns whether the token is an operator for a math operation.
 func (t Type) IsOperator() bool {
-	_, isOperator := operators[t]
-	return isOperator
+	return operators.Contains(t)
 }

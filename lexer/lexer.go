@@ -1,4 +1,6 @@
 // Package lexer implements a lexical analyzer that can be used for reading source and configuration files.
+// It supports tokenization of assembly language files with configurable comment prefixes and decimal prefixes.
+// The lexer handles various number formats including decimal, hexadecimal ($XX, 0xXX, XXh), and binary (%XXXXXXXX).
 package lexer
 
 import (
@@ -10,6 +12,19 @@ import (
 	"unicode"
 
 	"github.com/retroenv/retroasm/lexer/token"
+)
+
+// Sentinel errors for lexer operations.
+var (
+	ErrReadRune    = errors.New("failed to read rune")
+	ErrUnreadRune  = errors.New("failed to unread rune")
+	ErrCreateToken = errors.New("failed to create token type")
+	ErrUnknownRune = errors.New("unknown rune encountered")
+)
+
+const (
+	maxTokenLength = 65536
+	readLoopLimit  = 1000000
 )
 
 // Lexer is the lexical analyzer.
@@ -46,7 +61,7 @@ func (l *Lexer) NextToken() (token.Token, error) {
 				return l.newToken(token.EOF), nil
 			}
 
-			return token.Token{}, fmt.Errorf("reading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
 		}
 
 		l.pos.Column++
@@ -106,7 +121,7 @@ func (l *Lexer) processRune(r rune) (token.Token, bool, error) {
 
 	typ, err := token.NewType(r)
 	if err != nil {
-		return token.Token{}, false, fmt.Errorf("creating token type: %w", err)
+		return token.Token{}, false, fmt.Errorf("%w: %w", ErrCreateToken, err)
 	}
 
 	return l.newToken(typ), true, nil
@@ -148,6 +163,7 @@ func (l *Lexer) checkCommentPrefixes(r rune) (token.Token, bool, error) {
 // readNumber reads a number token that can be of decimal, hex or binary type.
 func (l *Lexer) readNumber(firstCharacter rune) (token.Token, error) {
 	literal := &strings.Builder{}
+	literal.Grow(32) // Pre-allocate for typical number length
 
 	pos := l.pos
 	isBinary := false
@@ -157,19 +173,19 @@ func (l *Lexer) readNumber(firstCharacter rune) (token.Token, error) {
 		literal.WriteRune(firstCharacter)
 	} else {
 		if err := l.reader.UnreadRune(); err != nil {
-			return token.Token{}, fmt.Errorf("unreading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrUnreadRune, err)
 		}
 		l.pos.Column--
 	}
 
-	for i := 0; ; i++ {
+	for i := range readLoopLimit {
 		r, _, err := l.reader.ReadRune()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return l.newTokenPosition(token.Number, literal.String(), pos), nil
 			}
 
-			return token.Token{}, fmt.Errorf("reading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
 		}
 
 		l.pos.Column++
@@ -183,7 +199,7 @@ func (l *Lexer) readNumber(firstCharacter rune) (token.Token, error) {
 		if !characterHandled {
 			l.pos.Column--
 			if err := l.reader.UnreadRune(); err != nil {
-				return token.Token{}, fmt.Errorf("reading rune: %w", err)
+				return token.Token{}, fmt.Errorf("%w: %w", ErrUnreadRune, err)
 			}
 		}
 
@@ -194,6 +210,9 @@ func (l *Lexer) readNumber(firstCharacter rune) (token.Token, error) {
 		}
 		return l.newTokenPosition(tokenType, value, pos), nil
 	}
+
+	// This should never be reached due to readLoopLimit, but provide fallback
+	return l.newTokenPosition(token.Number, literal.String(), pos), nil
 }
 
 // processNumberCharacter processes a character as part of a number
@@ -272,6 +291,7 @@ func (l *Lexer) addHexPrefix(builder *strings.Builder) {
 // readLiteral reads an identifier token.
 func (l *Lexer) readLiteral(r rune) (token.Token, error) {
 	var literal strings.Builder
+	literal.Grow(64) // Pre-allocate for typical identifier length
 	literal.WriteRune(r)
 	pos := l.pos
 
@@ -283,7 +303,7 @@ func (l *Lexer) readLiteral(r rune) (token.Token, error) {
 				return l.newTokenPosition(token.Identifier, literal.String(), pos), nil
 			}
 
-			return token.Token{}, fmt.Errorf("reading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
 		}
 
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '$' || r == '_' || r == '-' || r == '"' || r == '\'' {
@@ -293,15 +313,16 @@ func (l *Lexer) readLiteral(r rune) (token.Token, error) {
 		}
 
 		if err := l.reader.UnreadRune(); err != nil {
-			return token.Token{}, fmt.Errorf("unreading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrUnreadRune, err)
 		}
 		return l.newTokenPosition(token.Identifier, literal.String(), pos), nil
 	}
 }
 
-// readLiteral reads an escaped string token.
+// readString reads an escaped string token.
 func (l *Lexer) readString(stringEscape rune) (token.Token, error) {
 	var literal strings.Builder
+	literal.Grow(128) // Pre-allocate for typical string length
 	pos := l.pos
 	previousRune := stringEscape
 	literal.WriteRune(stringEscape)
@@ -314,7 +335,7 @@ func (l *Lexer) readString(stringEscape rune) (token.Token, error) {
 				return l.newTokenPosition(token.Identifier, literal.String(), pos), nil
 			}
 
-			return token.Token{}, fmt.Errorf("reading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
 		}
 
 		l.pos.Column++
@@ -348,7 +369,7 @@ func (l *Lexer) readComment(prefix rune) (token.Token, error) {
 				return t, nil
 			}
 
-			return token.Token{}, fmt.Errorf("reading rune: %w", err)
+			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
 		}
 
 		l.pos.Column++

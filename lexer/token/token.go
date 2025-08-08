@@ -1,4 +1,21 @@
-// Package token contains the tokens supported by the lexer.
+// Package token defines token types and structures for lexical analysis.
+//
+// Token represents a single lexical unit with position information and type classification.
+// This package supports various token types including identifiers, numbers, operators,
+// delimiters, and comments commonly found in assembly language syntax.
+//
+// # Token Types
+//
+// The package defines token types for:
+//   - Literals: Number, Identifier, Comment
+//   - Operators: Plus, Minus, Asterisk, etc.
+//   - Delimiters: Parentheses, Brackets, Braces
+//   - Control: EOF, EOL, Illegal
+//
+// # Position Tracking
+//
+// Each token includes position information (line and column) for accurate
+// error reporting and debugging support.
 package token
 
 const (
