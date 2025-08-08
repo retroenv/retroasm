@@ -8,9 +8,13 @@ import (
 type ReferenceType int
 
 const (
-	invalidReferenceType ReferenceType = iota
+	// InvalidReferenceType represents an uninitialized or invalid reference type.
+	InvalidReferenceType ReferenceType = iota
+	// FullAddress represents a full address reference (both high and low bytes).
 	FullAddress
+	// LowAddressByte represents only the low byte of an address.
 	LowAddressByte
+	// HighAddressByte represents only the high byte of an address.
 	HighAddressByte
 )
 
@@ -49,13 +53,21 @@ func NewData(typ DataContentType, width int) Data {
 
 // Copy returns a copy of the data node.
 func (d Data) Copy() Node {
+	var sizeCopy, valuesCopy *expression.Expression
+	if d.Size != nil {
+		sizeCopy = d.Size.Copy()
+	}
+	if d.Values != nil {
+		valuesCopy = d.Values.Copy()
+	}
+
 	return Data{
 		node:          d.node,
 		Type:          d.Type,
 		Width:         d.Width,
 		ReferenceType: d.ReferenceType,
 		Fill:          d.Fill,
-		Size:          d.Size.Copy(),
-		Values:        d.Values.Copy(),
+		Size:          sizeCopy,
+		Values:        valuesCopy,
 	}
 }
