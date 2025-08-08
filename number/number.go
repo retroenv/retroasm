@@ -1,4 +1,11 @@
-// Package number provides number string parsing helper.
+// Package number provides number string parsing for various number formats commonly used in assembly language.
+//
+// The package supports parsing multiple number formats including:
+//   - Decimal: 123, #123
+//   - Hexadecimal: $FF, 0xFF
+//   - Binary: %11110000, 01010101b
+//
+// Numbers can be converted to byte arrays with specific data widths for retro computer targets.
 package number
 
 import (
@@ -11,18 +18,38 @@ import (
 	"unicode"
 )
 
-var errInvalidNumberBaseCombination = errors.New("invalid number base combination")
+// Sentinel errors for number parsing operations.
+var (
+	ErrInvalidNumberBaseCombination = errors.New("invalid number base combination")
+	ErrInvalidBinaryChar            = errors.New("invalid binary character")
+	ErrInvalidHexChar               = errors.New("invalid hex character")
+	ErrInvalidNumberChar            = errors.New("invalid number character")
+	ErrNumberExceedsWidth           = errors.New("number exceeds data width")
+	ErrUnsupportedDataWidth         = errors.New("unsupported data width")
+	ErrParseNumber                  = errors.New("failed to parse number")
+)
 
-// Parse a number string and return it as uint64.
+// Constants for repeated strings.
+const (
+	UnsupportedDataWidthMsg = "unsupported data byte width %d"
+	NumberExceedsMsg        = "number %d exceeds %d byte"
+)
+
+// Parse parses a number string and returns it as uint64.
+// Supports multiple formats: decimal (123), hex ($FF, 0xFF), binary (%1010, 1010b), immediate (#123).
 func Parse(value string) (uint64, error) {
 	var base, idx int
 	builder := &strings.Builder{}
+	builder.Grow(len(value)) // Pre-allocate for performance
 
 	if len(value) > 0 && value[0] == '#' {
 		idx++
 	}
 
-	for i := 0; idx < len(value); i++ {
+	for i := range len(value) {
+		if idx >= len(value) {
+			break
+		}
 		c := rune(value[idx])
 		c = unicode.ToLower(c)
 
@@ -36,7 +63,7 @@ func Parse(value string) (uint64, error) {
 	s := builder.String()
 	i, err := strconv.ParseUint(s, base, 64)
 	if err != nil {
-		return 0, fmt.Errorf("decoding string '%s': %w", s, err)
+		return 0, fmt.Errorf("%w: decoding string '%s': %w", ErrParseNumber, s, err)
 	}
 
 	return i, nil
@@ -47,19 +74,19 @@ func parseCharacter(r rune, i, idx, base *int, value string, builder *strings.Bu
 	switch {
 	case r == '%': // prefix
 		if *base > 0 {
-			return errInvalidNumberBaseCombination
+			return ErrInvalidNumberBaseCombination
 		}
 		*base = 2 // binary
 
 	case r == 'b' && *base == 0 && *i+1 == len(value): // suffix
 		if *base > 0 {
-			return errInvalidNumberBaseCombination
+			return ErrInvalidNumberBaseCombination
 		}
 		*base = 2 // binary
 
 	case r == '$':
 		if *base > 0 {
-			return errInvalidNumberBaseCombination
+			return ErrInvalidNumberBaseCombination
 		}
 		*base = 16 // hex
 
@@ -70,18 +97,18 @@ func parseCharacter(r rune, i, idx, base *int, value string, builder *strings.Bu
 
 	case unicode.IsDigit(r):
 		if *base == 2 && r > '1' {
-			return fmt.Errorf("invalid binary character '%c'", r)
+			return fmt.Errorf("%w: '%c'", ErrInvalidBinaryChar, r)
 		}
 		builder.WriteRune(r)
 
 	case r >= 'a' && r <= 'f':
 		if *base != 0 && *base != 16 {
-			return fmt.Errorf("invalid hex character '%c'", r)
+			return fmt.Errorf("%w: '%c'", ErrInvalidHexChar, r)
 		}
 		builder.WriteRune(r)
 
 	default:
-		return fmt.Errorf("invalid number character '%c'", r)
+		return fmt.Errorf("%w: '%c'", ErrInvalidNumberChar, r)
 	}
 
 	return nil
@@ -107,20 +134,20 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 	switch dataWidth {
 	case 1:
 		if i > math.MaxUint8 {
-			return fmt.Errorf("number %d exceeds 1 byte", i)
+			return fmt.Errorf("%w: "+NumberExceedsMsg, ErrNumberExceedsWidth, i, 1)
 		}
 	case 2:
 		if i > math.MaxUint16 {
-			return fmt.Errorf("number %d exceeds 2 byte", i)
+			return fmt.Errorf("%w: "+NumberExceedsMsg, ErrNumberExceedsWidth, i, 2)
 		}
 	case 4:
 		if i > math.MaxUint32 {
-			return fmt.Errorf("number %d exceeds 4 byte", i)
+			return fmt.Errorf("%w: "+NumberExceedsMsg, ErrNumberExceedsWidth, i, 4)
 		}
 	case 8:
 
 	default:
-		return fmt.Errorf("unsupported data byte width %d", dataWidth)
+		return fmt.Errorf("%w: "+UnsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}
 
 	return nil
@@ -128,20 +155,22 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 
 // WriteToBytes writes a number to a byte buffer of specific data byte width.
 func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
-	data := make([]byte, dataWidth)
-
 	switch dataWidth {
 	case 1:
-		data = []byte{uint8(i)}
+		return []byte{uint8(i)}, nil
 	case 2:
+		data := make([]byte, 2)
 		binary.LittleEndian.PutUint16(data, uint16(i))
+		return data, nil
 	case 4:
+		data := make([]byte, 4)
 		binary.LittleEndian.PutUint32(data, uint32(i))
+		return data, nil
 	case 8:
+		data := make([]byte, 8)
 		binary.LittleEndian.PutUint64(data, i)
+		return data, nil
 	default:
-		return nil, fmt.Errorf("unsupported data byte width %d", dataWidth)
+		return nil, fmt.Errorf("%w: "+UnsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}
-
-	return data, nil
 }
