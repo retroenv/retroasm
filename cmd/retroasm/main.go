@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/retroenv/retroasm/arch/chip8"
 	"github.com/retroenv/retroasm/arch/m6502"
 	"github.com/retroenv/retroasm/assembler"
 	"github.com/retroenv/retroasm/assembler/config"
@@ -94,12 +95,14 @@ func createLogger(options *optionFlags) *log.Logger {
 
 // Supported architectures and systems.
 const (
-	supportedCPU    = "6502"
-	supportedSystem = "nes"
+	cpu6502  = "6502"
+	cpuChip8 = "chip8"
+
+	systemNES = "nes"
 )
 
 // validateAndProcessArchitecture validates the CPU and system flags and applies defaults.
-// Currently only supports NES system and 6502 CPU architecture.
+// Supports Chip-8 and 6502 CPU architectures, and NES system.
 // If system is "nes", it defaults to 6502 CPU if no CPU is specified.
 func validateAndProcessArchitecture(options *optionFlags) error {
 	// Validate system if specified
@@ -113,7 +116,7 @@ func validateAndProcessArchitecture(options *optionFlags) error {
 	}
 
 	// Validate compatibility between system and CPU
-	if options.system == supportedSystem && options.cpu != "" && options.cpu != supportedCPU {
+	if options.system == systemNES && options.cpu != "" && options.cpu != cpu6502 {
 		return fmt.Errorf("%w: NES system requires 6502 CPU architecture, got: %s", ErrIncompatibleArch, options.cpu)
 	}
 
@@ -127,17 +130,17 @@ func validateSystem(options *optionFlags) error {
 
 	sys, ok := arch.SystemFromString(options.system)
 	if !ok {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedSystem, options.system, supportedSystem)
+		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedSystem, options.system, systemNES)
 	}
 
 	// Currently only support NES system
 	if sys != arch.NES {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedSystem, sys, supportedSystem)
+		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedSystem, sys, systemNES)
 	}
 
 	// If system is NES and no CPU specified, default to 6502
 	if sys == arch.NES && options.cpu == "" {
-		options.cpu = supportedCPU
+		options.cpu = cpu6502
 		if options.debug {
 			options.logger.Debug("Defaulting to 6502 CPU for NES system")
 		}
@@ -153,12 +156,12 @@ func validateCPU(options *optionFlags) error {
 
 	cpu, ok := arch.FromString(options.cpu)
 	if !ok {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedCPU, options.cpu, supportedCPU)
+		return fmt.Errorf("%w: %s (supported: 6502, chip8)", ErrUnsupportedCPU, options.cpu)
 	}
 
-	// Currently only support 6502 CPU
-	if cpu != arch.M6502 {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedCPU, cpu, supportedCPU)
+	// Support both 6502 and Chip-8
+	if cpu != arch.M6502 && cpu != arch.CHIP8 {
+		return fmt.Errorf("%w: %s (supported: 6502, chip8)", ErrUnsupportedCPU, cpu)
 	}
 
 	return nil
@@ -173,8 +176,8 @@ func readArguments() (*optionFlags, []string) {
 	flags.BoolVar(&options.debug, "debug", false, "enable debug logging")
 	flags.StringVar(&options.config, "c", "", "assembler config file")
 	flags.StringVar(&options.output, "o", "", "name of the output file")
-	flags.StringVar(&options.cpu, "cpu", "6502", "target CPU architecture (6502)")
-	flags.StringVar(&options.system, "system", "nes", "target system (nes)")
+	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, chip8)")
+	flags.StringVar(&options.system, "system", "", "target system (nes)")
 	flags.BoolVar(&options.quiet, "q", false, "perform operations quietly")
 
 	err := flags.Parse(os.Args[1:])
@@ -220,38 +223,70 @@ func printBanner(options *optionFlags) {
 
 // assembleFile processes the input assembly file and generates output.
 func assembleFile(options *optionFlags, args []string) error {
-	cfg := m6502.New()
-
-	// Load configuration file if specified
-	if err := loadConfigIfSpecified(cfg, options.config); err != nil {
-		return err
-	}
-
 	// Read input assembly file
 	input, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("opening input file '%s': %w", args[0], err)
 	}
 
-	// Process assembly
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
+	// Process assembly based on CPU architecture
+	var output []byte
+	switch options.cpu {
+	case cpu6502:
+		output, err = assembleM6502(options, input)
+	case cpuChip8:
+		output, err = assembleChip8(input)
+	default:
+		return errors.New("no CPU architecture specified (use -cpu flag)")
+	}
 
-	ctx := app.Context()
-	if err = asm.Process(ctx, bytes.NewReader(input)); err != nil {
+	if err != nil {
 		return fmt.Errorf("assembling input file '%s': %w", args[0], err)
 	}
 
 	// Write output file with appropriate permissions
-	if err = os.WriteFile(options.output, buf.Bytes(), 0o644); err != nil {
+	if err = os.WriteFile(options.output, output, 0o644); err != nil {
 		return fmt.Errorf("writing output file '%s': %w", options.output, err)
 	}
 
 	return nil
 }
 
-// loadConfigIfSpecified loads the configuration file if one is specified.
-func loadConfigIfSpecified(cfg *config.Config[*m6502cpu.Instruction], configPath string) error {
+func assembleM6502(options *optionFlags, input []byte) ([]byte, error) {
+	cfg := m6502.New()
+
+	// Load configuration file if specified
+	if err := loadConfigIfSpecifiedM6502(cfg, options.config); err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	asm := assembler.New(cfg, &buf)
+
+	ctx := app.Context()
+	if err := asm.Process(ctx, bytes.NewReader(input)); err != nil {
+		return nil, fmt.Errorf("processing assembly: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func assembleChip8(input []byte) ([]byte, error) {
+	cfg := chip8.New()
+
+	var buf bytes.Buffer
+	asm := assembler.New(cfg, &buf)
+
+	ctx := app.Context()
+	if err := asm.Process(ctx, bytes.NewReader(input)); err != nil {
+		return nil, fmt.Errorf("processing assembly: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// loadConfigIfSpecifiedM6502 loads the configuration file if one is specified.
+func loadConfigIfSpecifiedM6502(cfg *config.Config[*m6502cpu.Instruction], configPath string) error {
 	if configPath == "" {
 		return nil
 	}

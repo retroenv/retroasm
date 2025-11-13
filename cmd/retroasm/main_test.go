@@ -298,7 +298,7 @@ MEMORY {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := m6502.New()
-			err := loadConfigIfSpecified(cfg, tt.configPath)
+			err := loadConfigIfSpecifiedM6502(cfg, tt.configPath)
 
 			if tt.expectedErr {
 				assert.Error(t, err)

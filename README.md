@@ -11,6 +11,7 @@ retroasm is a modern, high-performance assembler for retro computer systems, des
 
 ### Architecture Support
 * **6502 CPU** - Full support including undocumented opcodes
+* **Chip-8** - Complete Chip-8 virtual machine instruction set
 * **Nintendo Entertainment System (NES)** - Native target platform with proper memory mapping
 * **Extensible Architecture** - Framework designed for adding Z80 and other retro CPUs
 
@@ -47,8 +48,11 @@ go install github.com/retroenv/retroasm/cmd/retroasm@latest
 
 **Simple Assembly:**
 ```bash
-# Assemble a basic 6502 program
-retroasm -o game.nes program.asm
+# Assemble a 6502 program for NES
+retroasm -cpu 6502 -system nes -o game.nes program.asm
+
+# Assemble a Chip-8 program
+retroasm -cpu chip8 -o game.ch8 program.asm
 ```
 
 **With Configuration:**
@@ -65,14 +69,14 @@ usage: retroasm [options] <file to assemble>
   -c string
         assembler config file (ca65 compatible)
   -cpu string
-        target CPU architecture: 6502 (default "6502")
+        target CPU architecture: 6502, chip8
   -debug
         enable debug logging with detailed output
   -o string
         output ROM file name (required)
   -q    perform operations quietly (minimal output)
   -system string
-        target system: nes (default "nes")
+        target system: nes
 ```
 
 ## License
