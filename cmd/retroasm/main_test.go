@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/retroenv/retroasm/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/retroasm"
+	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/assert"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -255,51 +260,23 @@ func TestValidateAndProcessArchitecture(t *testing.T) {
 	}
 }
 
-func TestLoadConfigIfSpecified(t *testing.T) {
-	// Create a temporary config file for testing
-	configContent := `# Test config file
-MEMORY {
-    PRG: start = $8000, size = $8000;
-}
-`
-	tmpFile, err := os.CreateTemp("", "test_config_*.cfg")
-	assert.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tmpFile.Name())
-	}()
-
-	_, err = tmpFile.WriteString(configContent)
-	assert.NoError(t, err)
-	err = tmpFile.Close()
-	assert.NoError(t, err)
+func TestAssembleWithConfigFile(t *testing.T) {
+	tmpFile := createTestConfigFile(t)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	tests := []struct {
 		name        string
 		configPath  string
 		expectedErr bool
 	}{
-		{
-			name:        "empty config path",
-			configPath:  "",
-			expectedErr: false,
-		},
-		{
-			name:        "valid config file",
-			configPath:  tmpFile.Name(),
-			expectedErr: false,
-		},
-		{
-			name:        "non-existent config file",
-			configPath:  "nonexistent.cfg",
-			expectedErr: true,
-		},
+		{"empty config path uses default", "", false},
+		{"valid config file", tmpFile, false},
+		{"non-existent config file", "nonexistent.cfg", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := m6502.New()
-			err := loadConfigIfSpecified(cfg, tt.configPath)
-
+			err := runAssembleWithConfig(tt.configPath)
 			if tt.expectedErr {
 				assert.Error(t, err)
 			} else {
@@ -307,4 +284,35 @@ MEMORY {
 			}
 		})
 	}
+}
+
+func createTestConfigFile(t *testing.T) string {
+	t.Helper()
+	configContent := `MEMORY { CODE: start = $8000, size = $8000, fill = yes; }
+SEGMENTS { CODE: load = CODE, type = rw; }`
+	tmpFile, err := os.CreateTemp("", "test_config_*.cfg")
+	assert.NoError(t, err)
+	_, err = tmpFile.WriteString(configContent)
+	assert.NoError(t, err)
+	assert.NoError(t, tmpFile.Close())
+	return tmpFile.Name()
+}
+
+func runAssembleWithConfig(configPath string) error {
+	asm := retroasm.New()
+	m6502Arch := m6502.New()
+	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
+	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+		return fmt.Errorf("registering architecture: %w", err)
+	}
+	input := &retroasm.TextInput{
+		Source:     strings.NewReader(".segment \"CODE\"\nNOP"),
+		SourceName: "test.asm",
+		ConfigFile: configPath,
+	}
+	_, err := asm.AssembleText(context.Background(), input)
+	if err != nil {
+		return fmt.Errorf("assembling text: %w", err)
+	}
+	return nil
 }

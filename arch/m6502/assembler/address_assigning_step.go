@@ -4,6 +4,7 @@ package assembler
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retroasm/arch/m6502/parser"
@@ -14,7 +15,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	pc := assigner.ProgramCounter()
 	ins.SetAddress(pc)
 
-	name := ins.Name()
+	name := strings.ToLower(ins.Name())
 	insDetails, ok := m6502.Instructions[name]
 	if !ok {
 		return 0, fmt.Errorf("unsupported instruction '%s'", name)

@@ -42,7 +42,7 @@ func TestExpression(t *testing.T) {
 		result, err := runEvaluation(t, lex)
 
 		if tt.expectError {
-			assert.Error(t, err, "input: "+tt.input)
+			assert.NotNil(t, err, "expected error for input: "+tt.input)
 		} else {
 			assert.NoError(t, err, "input: "+tt.input)
 		}

@@ -28,9 +28,10 @@ func TestScope(t *testing.T) {
 	assert.Equal(t, sym, found)
 
 	// adding symbol again fails
-	assert.Error(t, parent.AddSymbol(sym))
+	err = parent.AddSymbol(sym)
+	assert.NotNil(t, err, "expected error when adding duplicate symbol")
 
 	// getting an undefined symbol fails
 	_, err = parent.GetSymbol("nonexisting")
-	assert.Error(t, err)
+	assert.NotNil(t, err, "expected error when getting nonexisting symbol")
 }

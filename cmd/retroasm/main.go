@@ -11,11 +11,9 @@ import (
 	"os"
 
 	"github.com/retroenv/retroasm/arch/m6502"
-	"github.com/retroenv/retroasm/assembler"
-	"github.com/retroenv/retroasm/assembler/config"
+	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/app"
 	"github.com/retroenv/retrogolib/arch"
-	m6502cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/buildinfo"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -220,49 +218,36 @@ func printBanner(options *optionFlags) {
 
 // assembleFile processes the input assembly file and generates output.
 func assembleFile(options *optionFlags, args []string) error {
-	cfg := m6502.New()
-
-	// Load configuration file if specified
-	if err := loadConfigIfSpecified(cfg, options.config); err != nil {
-		return err
+	// Create assembler and register architecture
+	asm := retroasm.New()
+	m6502Arch := m6502.New()
+	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
+	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+		return fmt.Errorf("registering architecture: %w", err)
 	}
 
 	// Read input assembly file
-	input, err := os.ReadFile(args[0])
+	inputData, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("opening input file '%s': %w", args[0], err)
 	}
 
-	// Process assembly
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
+	// Assemble using text input
+	input := &retroasm.TextInput{
+		Source:     bytes.NewReader(inputData),
+		SourceName: args[0],
+		ConfigFile: options.config,
+	}
 
 	ctx := app.Context()
-	if err = asm.Process(ctx, bytes.NewReader(input)); err != nil {
+	output, err := asm.AssembleText(ctx, input)
+	if err != nil {
 		return fmt.Errorf("assembling input file '%s': %w", args[0], err)
 	}
 
 	// Write output file with appropriate permissions
-	if err = os.WriteFile(options.output, buf.Bytes(), 0o644); err != nil {
+	if err = os.WriteFile(options.output, output.Binary, 0o644); err != nil {
 		return fmt.Errorf("writing output file '%s': %w", options.output, err)
-	}
-
-	return nil
-}
-
-// loadConfigIfSpecified loads the configuration file if one is specified.
-func loadConfigIfSpecified(cfg *config.Config[*m6502cpu.Instruction], configPath string) error {
-	if configPath == "" {
-		return nil
-	}
-
-	cfgData, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("opening config file '%s': %w", configPath, err)
-	}
-
-	if err := cfg.ReadCa65Config(bytes.NewReader(cfgData)); err != nil {
-		return fmt.Errorf("reading config file '%s': %w", configPath, err)
 	}
 
 	return nil

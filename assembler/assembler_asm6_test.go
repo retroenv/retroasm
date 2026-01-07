@@ -476,11 +476,11 @@ func TestAssemblerAsm6Rept(t *testing.T) {
 
 	b, err = runAsm6Test(t, unitTestConfig, asm6Rept0)
 	assert.NoError(t, err)
-	assert.True(t, len(b) == 0, "expected no output")
+	assert.Empty(t, b, "expected no output")
 
 	b, err = runAsm6Test(t, unitTestConfig, asm6Rept0Eval)
 	assert.NoError(t, err)
-	assert.True(t, len(b) == 0, "expected no output")
+	assert.Empty(t, b, "expected no output")
 
 	_, err = runAsm6Test(t, unitTestConfig, asm6ReptReferenceProgramCounter)
 	assert.ErrorIs(t, err, errExpressionCantReferenceProgramCounter)
