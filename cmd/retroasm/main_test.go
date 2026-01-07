@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/assert"

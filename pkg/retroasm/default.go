@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/retroenv/retroasm/arch/m6502"
-	"github.com/retroenv/retroasm/assembler"
-	"github.com/retroenv/retroasm/assembler/config"
-	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/assembler"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
 // Sentinel errors.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
 // Common assembly format constants.

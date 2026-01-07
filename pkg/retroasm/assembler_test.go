@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/arch/m6502"
-	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
 	cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
