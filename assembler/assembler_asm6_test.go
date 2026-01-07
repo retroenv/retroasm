@@ -486,6 +486,72 @@ func TestAssemblerAsm6Rept(t *testing.T) {
 	assert.ErrorIs(t, err, errExpressionCantReferenceProgramCounter)
 }
 
+var asm6IdentifierTestCode = `
+.segment "HEADER"
+
+PPU_ADDR = $2006
+PPU_STATUS = $2002
+temp_val = $20
+
+; Test identifiers as instruction arguments
+lda PPU_STATUS    ; Absolute addressing with identifier
+sta PPU_ADDR      ; Absolute addressing with identifier
+lda temp_val      ; Absolute addressing (identifiers use absolute by default)
+sta temp_val      ; Absolute addressing (identifiers use absolute by default)
+`
+
+func TestAssemblerAsm6Identifier(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6IdentifierTestCode)
+	assert.NoError(t, err)
+	// LDA $2002 (absolute) = AD 02 20
+	// STA $2006 (absolute) = 8D 06 20
+	// LDA $0020 (absolute) = AD 20 00
+	// STA $0020 (absolute) = 8D 20 00
+	expected := []byte{0xAD, 0x02, 0x20, 0x8D, 0x06, 0x20, 0xAD, 0x20, 0x00, 0x8D, 0x20, 0x00}
+	assert.Equal(t, expected, b)
+}
+
+var asm6BranchIdentifierTestCode = `
+.segment "HEADER"
+
+loop:
+  lda #$01
+  beq done
+  bne loop
+done:
+  brk
+`
+
+func TestAssemblerAsm6BranchIdentifier(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6BranchIdentifierTestCode)
+	assert.NoError(t, err)
+	// LDA #$01 (at 0x0000) = A9 01
+	// BEQ done (at 0x0002, target 0x0006, offset +2) = F0 02
+	// BNE loop (at 0x0004, target 0x0000, offset -6) = D0 FA
+	// BRK (at 0x0006) = 00
+	expected := []byte{0xA9, 0x01, 0xF0, 0x02, 0xD0, 0xFA, 0x00}
+	assert.Equal(t, expected, b)
+}
+
+var asm6BranchOutOfRangeTestCode = `
+.segment "HEADER"
+
+start:
+.org $0000
+  lda #$01
+far_away:
+.org $0100
+  beq start    ; This should fail - too far
+`
+
+func TestAssemblerAsm6BranchOutOfRange(t *testing.T) {
+	_, err := runAsm6Test(t, unitTestConfig, asm6BranchOutOfRangeTestCode)
+	assert.NotNil(t, err, "expected error for out of range branch")
+	// Verify the error message contains useful debugging info
+	assert.Contains(t, err.Error(), "branch target")
+	assert.Contains(t, err.Error(), "too far")
+}
+
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 

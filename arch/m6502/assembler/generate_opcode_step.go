@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/retroenv/retroasm/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
@@ -12,7 +13,7 @@ import (
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	instructionInfo := m6502.Instructions[ins.Name()]
+	instructionInfo := m6502.Instructions[strings.ToLower(ins.Name())]
 	addressing := m6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
@@ -97,9 +98,11 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
 
-	b, err := assigner.RelativeOffset(value, ins.Address()+uint64(ins.Size()))
+	insAddr := ins.Address() + uint64(ins.Size())
+	b, err := assigner.RelativeOffset(value, insAddr)
 	if err != nil {
-		return fmt.Errorf("value %d exceeds byte", value)
+		diff := int64(value) - int64(insAddr)
+		return fmt.Errorf("branch target 0x%X too far from instruction at 0x%X (offset %d, limit -128..127)", value, ins.Address(), diff)
 	}
 
 	opcodes := append(ins.Opcodes(), b)

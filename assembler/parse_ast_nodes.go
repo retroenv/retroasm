@@ -213,6 +213,10 @@ func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
 	case ast.Label:
 		ins.argument = reference{name: arg.Name}
 
+	case ast.Identifier:
+		// Treat identifiers as references (symbols to be resolved)
+		ins.argument = reference{name: arg.Name}
+
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
