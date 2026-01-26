@@ -45,6 +45,39 @@ func TestAssemblerAsm6Assign(t *testing.T) {
 	assert.Equal(t, []byte{1, 2, 3, 3}, b)
 }
 
+var asm6ImmediateConstantTestCode = `
+.segment "HEADER"
+
+i=32
+
+LDA #i
+`
+
+func TestAssemblerAsm6ImmediateConstant(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6ImmediateConstantTestCode)
+	assert.NoError(t, err)
+	// LDA immediate = 0xA9, value = 32 (0x20)
+	assert.Equal(t, []byte{0xA9, 0x20}, b)
+}
+
+var asm6ImmediateConstantUnderscoreTestCode = `
+.segment "HEADER"
+
+MAX_ENTITIES = 32
+SPRITE_MASK = $FF
+
+LDA #MAX_ENTITIES
+ORA #SPRITE_MASK
+`
+
+func TestAssemblerAsm6ImmediateConstantUnderscore(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6ImmediateConstantUnderscoreTestCode)
+	assert.NoError(t, err)
+	// LDA immediate = 0xA9, value = 32 (0x20)
+	// ORA immediate = 0x09, value = 255 (0xFF)
+	assert.Equal(t, []byte{0xA9, 0x20, 0x09, 0xFF}, b)
+}
+
 var asm6IncbinTestCode = `
 .segment "HEADER"
 .incbin "test.bin"
