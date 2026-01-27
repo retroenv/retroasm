@@ -5,18 +5,18 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 
-	"github.com/retroenv/retroasm/arch/chip8"
-	"github.com/retroenv/retroasm/arch/m6502"
-	"github.com/retroenv/retroasm/assembler"
-	"github.com/retroenv/retroasm/assembler/config"
+	"github.com/retroenv/retroasm/pkg/arch/chip8"
+	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/assembler"
+	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/app"
 	"github.com/retroenv/retrogolib/arch"
-	m6502cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/buildinfo"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -224,18 +224,20 @@ func printBanner(options *optionFlags) {
 // assembleFile processes the input assembly file and generates output.
 func assembleFile(options *optionFlags, args []string) error {
 	// Read input assembly file
-	input, err := os.ReadFile(args[0])
+	inputData, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("opening input file '%s': %w", args[0], err)
 	}
 
-	// Process assembly based on CPU architecture
+	ctx := app.Context()
 	var output []byte
+
+	// Process assembly based on CPU architecture
 	switch options.cpu {
 	case cpu6502:
-		output, err = assembleM6502(options, input)
+		output, err = assembleM6502(ctx, inputData, options.config)
 	case cpuChip8:
-		output, err = assembleChip8(input)
+		output, err = assembleChip8(ctx, inputData)
 	default:
 		return errors.New("no CPU architecture specified (use -cpu flag)")
 	}
@@ -252,53 +254,39 @@ func assembleFile(options *optionFlags, args []string) error {
 	return nil
 }
 
-func assembleM6502(options *optionFlags, input []byte) ([]byte, error) {
-	cfg := m6502.New()
+func assembleM6502(ctx context.Context, inputData []byte, configFile string) ([]byte, error) {
+	// Use the retroasm API for 6502
+	asm := retroasm.New()
+	m6502Arch := m6502.New()
+	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
+	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+		return nil, fmt.Errorf("registering architecture: %w", err)
+	}
 
-	// Load configuration file if specified
-	if err := loadConfigIfSpecifiedM6502(cfg, options.config); err != nil {
+	input := &retroasm.TextInput{
+		Source:     bytes.NewReader(inputData),
+		SourceName: "input",
+		ConfigFile: configFile,
+	}
+
+	output, err := asm.AssembleText(ctx, input)
+	if err != nil {
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
-
-	ctx := app.Context()
-	if err := asm.Process(ctx, bytes.NewReader(input)); err != nil {
-		return nil, fmt.Errorf("processing assembly: %w", err)
-	}
-
-	return buf.Bytes(), nil
+	return output.Binary, nil
 }
 
-func assembleChip8(input []byte) ([]byte, error) {
+func assembleChip8(ctx context.Context, inputData []byte) ([]byte, error) {
+	// Use the old-style assembler directly for Chip-8 until retroasm API supports it
 	cfg := chip8.New()
 
 	var buf bytes.Buffer
 	asm := assembler.New(cfg, &buf)
 
-	ctx := app.Context()
-	if err := asm.Process(ctx, bytes.NewReader(input)); err != nil {
+	if err := asm.Process(ctx, bytes.NewReader(inputData)); err != nil {
 		return nil, fmt.Errorf("processing assembly: %w", err)
 	}
 
 	return buf.Bytes(), nil
-}
-
-// loadConfigIfSpecifiedM6502 loads the configuration file if one is specified.
-func loadConfigIfSpecifiedM6502(cfg *config.Config[*m6502cpu.Instruction], configPath string) error {
-	if configPath == "" {
-		return nil
-	}
-
-	cfgData, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("opening config file '%s': %w", configPath, err)
-	}
-
-	if err := cfg.ReadCa65Config(bytes.NewReader(cfgData)); err != nil {
-		return fmt.Errorf("reading config file '%s': %w", configPath, err)
-	}
-
-	return nil
 }
