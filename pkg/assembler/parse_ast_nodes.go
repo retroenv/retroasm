@@ -217,11 +217,45 @@ func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
 		// Treat identifiers as references (symbols to be resolved)
 		ins.argument = reference{name: arg.Name}
 
+	case ast.RegisterValue:
+		value, err := parseInstructionArgument(arg.Value)
+		if err != nil {
+			return nil, err
+		}
+		ins.argument = RegisterValueArgument{
+			Register: arg.Register,
+			Value:    value,
+		}
+
+	case ast.RegisterRegisterValue:
+		value, err := parseInstructionArgument(arg.Value)
+		if err != nil {
+			return nil, err
+		}
+		ins.argument = RegisterRegisterValueArgument{
+			Register1: arg.Register1,
+			Register2: arg.Register2,
+			Value:     value,
+		}
+
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
 
 	return []ast.Node{ins}, nil
+}
+
+func parseInstructionArgument(arg ast.Node) (any, error) {
+	switch v := arg.(type) {
+	case ast.Number:
+		return v.Value, nil
+	case ast.Label:
+		return reference{name: v.Name}, nil
+	case ast.Identifier:
+		return reference{name: v.Name}, nil
+	default:
+		return nil, fmt.Errorf("unexpected argument type %T", arg)
+	}
 }
 
 func parseInclude[T any](asm *parseAST[T], inc ast.Include) ([]ast.Node, error) {

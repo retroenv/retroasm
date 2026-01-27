@@ -103,7 +103,7 @@ func assembleAndDisplay(assembler retroasm.Assembler, program []ast.Node) error 
 
 // createSampleProgram demonstrates how to generate AST nodes programmatically.
 func createSampleProgram() []ast.Node {
-	var nodes []ast.Node
+	nodes := make([]ast.Node, 0, 5)
 
 	// Example: Simple sprite positioning program
 	// Equivalent to:

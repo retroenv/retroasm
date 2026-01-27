@@ -13,8 +13,21 @@ import (
 // New returns a new Chip-8 architecture configuration.
 func New() *config.Config[*chip8.Instruction] {
 	p := &archChip8[*chip8.Instruction]{}
+	segment := &config.Segment{
+		Memory: config.Memory{
+			Name:  "CHIP8",
+			Start: 0x200,
+			Size:  0xE00,
+		},
+		SegmentName:  "CODE",
+		SegmentStart: 0x200,
+	}
 	cfg := &config.Config[*chip8.Instruction]{
-		Arch: p,
+		Arch:     p,
+		Segments: map[string]*config.Segment{segment.SegmentName: segment},
+		SegmentsOrdered: []*config.Segment{
+			segment,
+		},
 	}
 	return cfg
 }

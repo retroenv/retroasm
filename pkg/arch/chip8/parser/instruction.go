@@ -40,6 +40,10 @@ func parseInstruction(parser arch.Parser, ins *chip8.Instruction) (ast.Node, err
 		return nil, errors.New("missing instruction argument")
 	}
 
+	if arg1.Type == token.LeftBracket {
+		return parseIndirectFirstArg(parser, ins)
+	}
+
 	// Check for comma (multiple arguments)
 	next1 := parser.NextToken(1)
 	if next1.Type == token.Comma {
@@ -54,15 +58,11 @@ func parseInstruction(parser arch.Parser, ins *chip8.Instruction) (ast.Node, err
 
 // nolint: gocritic
 func parseInstructionSingleArg(ins *chip8.Instruction, arg1 token.Token) (ast.Node, error) {
-	switch {
-	case arg1.Type == token.Number:
-		// Absolute address (JP addr, CALL addr, LD I, addr)
-		i, err := number.Parse(arg1.Value)
+	switch arg1.Type {
+	case token.Number, token.Identifier:
+		address, err := parseAddressArgument(arg1)
 		if err != nil {
-			return nil, fmt.Errorf("parsing number '%s': %w", arg1.Value, err)
-		}
-		if i > 0xFFF {
-			return nil, fmt.Errorf("address %d exceeds 12-bit range", i)
+			return nil, err
 		}
 
 		// Determine addressing mode
@@ -75,25 +75,7 @@ func parseInstructionSingleArg(ins *chip8.Instruction, arg1 token.Token) (ast.No
 			return nil, errors.New("invalid absolute addressing mode usage")
 		}
 
-		n := ast.NewNumber(i)
-		return ast.NewInstruction(ins.Name, int(addressing), n, nil), nil
-
-	case arg1.Type == token.Identifier:
-		// Label reference
-		label := arg1.Value
-
-		// Determine addressing mode
-		var addressing chip8.Mode
-		if hasAddressing(ins, chip8.AbsoluteAddressing) {
-			addressing = chip8.AbsoluteAddressing
-		} else if hasAddressing(ins, chip8.IAbsoluteAddressing) {
-			addressing = chip8.IAbsoluteAddressing
-		} else {
-			return nil, errors.New("invalid label addressing mode usage")
-		}
-
-		l := ast.NewLabel(label)
-		return ast.NewInstruction(ins.Name, int(addressing), l, nil), nil
+		return ast.NewInstruction(ins.Name, int(addressing), address, nil), nil
 
 	default:
 		return nil, fmt.Errorf("unsupported instruction argument type %s", arg1.Type)
@@ -117,12 +99,16 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 	isDT2 := arg2.Type == token.Identifier && strings.ToLower(arg2.Value) == "dt"
 	isK2 := arg2.Type == token.Identifier && strings.ToLower(arg2.Value) == "k"
 
-	// Check for indirect addressing [I]
-	isIndirect1 := arg1.Type == token.LeftBracket
-	isIndirect2 := arg2.Type == token.LeftBracket
+	if arg2.Type == token.LeftBracket {
+		return parseIndirectSecondArg(ins, arg1, parser)
+	}
 
-	if isIndirect1 || isIndirect2 {
-		return parseIndirectAddressing(ins, arg1, arg2, parser)
+	// Check for three-argument instructions (DRW Vx, Vy, nibble)
+	next := parser.NextToken(1)
+	if next.Type == token.Comma {
+		parser.AdvanceReadPosition(2)
+		arg3 := parser.NextToken(0)
+		return parseInstructionThreeArgs(ins, arg1, arg2, arg3)
 	}
 
 	// Handle various two-argument addressing modes
@@ -139,50 +125,37 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 
 	case isReg1 && arg2.Type == token.Number:
 		// Vx, byte - Register-value addressing
-		val, err := number.Parse(arg2.Value)
+		valueNode, err := parseByteArgument(arg2)
 		if err != nil {
-			return nil, fmt.Errorf("parsing value '%s': %w", arg2.Value, err)
-		}
-		if val > 0xFF {
-			return nil, fmt.Errorf("value %d exceeds byte range", val)
+			return nil, err
 		}
 		if !hasAddressing(ins, chip8.RegisterValueAddressing) {
 			return nil, errors.New("instruction does not support register-value addressing")
 		}
-		// Encode register and value
-		value := (uint64(reg1) << 8) | val
-		n := ast.NewNumber(value)
+		n := ast.NewRegisterValue(reg1, valueNode)
 		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
 
-	case isV0 && arg2.Type == token.Number:
+	case isV0 && (arg2.Type == token.Number || arg2.Type == token.Identifier):
 		// V0, addr - V0 + absolute addressing (JP V0, addr)
-		val, err := number.Parse(arg2.Value)
+		address, err := parseAddressArgument(arg2)
 		if err != nil {
-			return nil, fmt.Errorf("parsing address '%s': %w", arg2.Value, err)
-		}
-		if val > 0xFFF {
-			return nil, fmt.Errorf("address %d exceeds 12-bit range", val)
+			return nil, err
 		}
 		if !hasAddressing(ins, chip8.V0AbsoluteAddressing) {
 			return nil, errors.New("instruction does not support V0 + absolute addressing")
 		}
-		n := ast.NewNumber(val)
-		return ast.NewInstruction(ins.Name, int(chip8.V0AbsoluteAddressing), n, nil), nil
+		return ast.NewInstruction(ins.Name, int(chip8.V0AbsoluteAddressing), address, nil), nil
 
-	case isI && arg2.Type == token.Number:
+	case isI && (arg2.Type == token.Number || arg2.Type == token.Identifier):
 		// I, addr - I register addressing
-		val, err := number.Parse(arg2.Value)
+		address, err := parseAddressArgument(arg2)
 		if err != nil {
-			return nil, fmt.Errorf("parsing address '%s': %w", arg2.Value, err)
-		}
-		if val > 0xFFF {
-			return nil, fmt.Errorf("address %d exceeds 12-bit range", val)
+			return nil, err
 		}
 		if !hasAddressing(ins, chip8.IAbsoluteAddressing) {
 			return nil, errors.New("instruction does not support I + absolute addressing")
 		}
-		n := ast.NewNumber(val)
-		return ast.NewInstruction(ins.Name, int(chip8.IAbsoluteAddressing), n, nil), nil
+		return ast.NewInstruction(ins.Name, int(chip8.IAbsoluteAddressing), address, nil), nil
 
 	case isReg1 && isDT2:
 		// Vx, DT - Load from delay timer
@@ -240,14 +213,19 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		n := ast.NewNumber(uint64(reg2))
 		return ast.NewInstruction(ins.Name, int(chip8.IRegisterAddressing), n, nil), nil
 
-	default:
-		// Check for three-argument instructions (DRW Vx, Vy, nibble)
-		next := parser.NextToken(1)
-		if next.Type == token.Comma {
-			parser.AdvanceReadPosition(2)
-			arg3 := parser.NextToken(0)
-			return parseInstructionThreeArgs(ins, arg1, arg2, arg3)
+	case isReg1 && arg2.Type == token.Identifier:
+		// Vx, symbol - Register-value addressing with identifier
+		valueNode, err := parseByteArgument(arg2)
+		if err != nil {
+			return nil, err
 		}
+		if !hasAddressing(ins, chip8.RegisterValueAddressing) {
+			return nil, errors.New("instruction does not support register-value addressing")
+		}
+		n := ast.NewRegisterValue(reg1, valueNode)
+		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
+
+	default:
 		return nil, errors.New("unsupported addressing mode")
 	}
 }
@@ -261,85 +239,80 @@ func parseInstructionThreeArgs(ins *chip8.Instruction, arg1, arg2, arg3 token.To
 		return nil, errors.New("first two arguments must be registers")
 	}
 
-	if arg3.Type != token.Number {
-		return nil, errors.New("third argument must be a number")
+	if arg3.Type != token.Number && arg3.Type != token.Identifier {
+		return nil, errors.New("third argument must be a number or identifier")
 	}
 
-	val, err := number.Parse(arg3.Value)
+	nibble, err := parseNibbleArgument(arg3)
 	if err != nil {
-		return nil, fmt.Errorf("parsing nibble '%s': %w", arg3.Value, err)
-	}
-	if val > 0xF {
-		return nil, fmt.Errorf("nibble %d exceeds 4-bit range", val)
+		return nil, err
 	}
 
 	if !hasAddressing(ins, chip8.RegisterRegisterNibbleAddressing) {
 		return nil, errors.New("instruction does not support register-register-nibble addressing")
 	}
 
-	// Encode registers and nibble
-	value := (uint64(reg1) << 8) | (uint64(reg2) << 4) | val
-	n := ast.NewNumber(value)
+	n := ast.NewRegisterRegisterValue(reg1, reg2, nibble)
 	return ast.NewInstruction(ins.Name, int(chip8.RegisterRegisterNibbleAddressing), n, nil), nil
 }
 
-func parseIndirectAddressing(ins *chip8.Instruction, arg1, arg2 token.Token, parser arch.Parser) (ast.Node, error) {
-	// Handle [I], Vx or Vx, [I]
-	if arg1.Type == token.LeftBracket {
-		// [I], Vx - Store registers to [I]
-		iToken := parser.NextToken(-1)
-		if iToken.Type != token.Identifier || strings.ToLower(iToken.Value) != "i" {
-			return nil, errors.New("indirect addressing requires [I]")
-		}
-
-		// Skip [I] and check for ]
-		parser.AdvanceReadPosition(1)
-		rightBracket := parser.NextToken(0)
-		if rightBracket.Type != token.RightBracket {
-			return nil, errors.New("missing right bracket")
-		}
-
-		reg2, isReg2 := parseRegister(arg2)
-		if !isReg2 {
-			return nil, errors.New("second argument must be a register")
-		}
-
-		if !hasAddressing(ins, chip8.IIndirectRegisterAddressing) {
-			return nil, errors.New("instruction does not support [I], Vx addressing")
-		}
-
-		n := ast.NewNumber(uint64(reg2))
-		return ast.NewInstruction(ins.Name, int(chip8.IIndirectRegisterAddressing), n, nil), nil
+func parseIndirectFirstArg(parser arch.Parser, ins *chip8.Instruction) (ast.Node, error) {
+	// [I], Vx - Store registers to [I]
+	iToken := parser.NextToken(1)
+	if iToken.Type != token.Identifier || strings.ToLower(iToken.Value) != "i" {
+		return nil, errors.New("indirect addressing requires [I]")
 	}
 
-	if arg2.Type == token.LeftBracket {
-		// Vx, [I] - Load registers from [I]
-		reg1, isReg1 := parseRegister(arg1)
-		if !isReg1 {
-			return nil, errors.New("first argument must be a register")
-		}
-
-		parser.AdvanceReadPosition(1)
-		iToken := parser.NextToken(0)
-		if iToken.Type != token.Identifier || strings.ToLower(iToken.Value) != "i" {
-			return nil, errors.New("indirect addressing requires [I]")
-		}
-
-		parser.AdvanceReadPosition(1)
-		rightBracket := parser.NextToken(0)
-		if rightBracket.Type != token.RightBracket {
-			return nil, errors.New("missing right bracket")
-		}
-
-		if !hasAddressing(ins, chip8.RegisterIndirectIAddressing) {
-			return nil, errors.New("instruction does not support Vx, [I] addressing")
-		}
-
-		n := ast.NewNumber(uint64(reg1))
-		return ast.NewInstruction(ins.Name, int(chip8.RegisterIndirectIAddressing), n, nil), nil
+	rightBracket := parser.NextToken(2)
+	if rightBracket.Type != token.RightBracket {
+		return nil, errors.New("missing right bracket")
 	}
 
-	return nil, errors.New("invalid indirect addressing")
+	comma := parser.NextToken(3)
+	if comma.Type != token.Comma {
+		return nil, errors.New("missing comma after indirect address")
+	}
+
+	parser.AdvanceReadPosition(4)
+	arg2 := parser.NextToken(0)
+	reg2, isReg2 := parseRegister(arg2)
+	if !isReg2 {
+		return nil, errors.New("second argument must be a register")
+	}
+
+	if !hasAddressing(ins, chip8.IIndirectRegisterAddressing) {
+		return nil, errors.New("instruction does not support [I], Vx addressing")
+	}
+
+	n := ast.NewNumber(uint64(reg2))
+	return ast.NewInstruction(ins.Name, int(chip8.IIndirectRegisterAddressing), n, nil), nil
+}
+
+func parseIndirectSecondArg(ins *chip8.Instruction, arg1 token.Token, parser arch.Parser) (ast.Node, error) {
+	// Vx, [I] - Load registers from [I]
+	reg1, isReg1 := parseRegister(arg1)
+	if !isReg1 {
+		return nil, errors.New("first argument must be a register")
+	}
+
+	iToken := parser.NextToken(1)
+	if iToken.Type != token.Identifier || strings.ToLower(iToken.Value) != "i" {
+		return nil, errors.New("indirect addressing requires [I]")
+	}
+
+	rightBracket := parser.NextToken(2)
+	if rightBracket.Type != token.RightBracket {
+		return nil, errors.New("missing right bracket")
+	}
+
+	parser.AdvanceReadPosition(2)
+
+	if !hasAddressing(ins, chip8.RegisterIndirectIAddressing) {
+		return nil, errors.New("instruction does not support Vx, [I] addressing")
+	}
+
+	n := ast.NewNumber(uint64(reg1))
+	return ast.NewInstruction(ins.Name, int(chip8.RegisterIndirectIAddressing), n, nil), nil
 }
 
 func parseRegister(tok token.Token) (byte, bool) {
@@ -370,4 +343,58 @@ func parseRegister(tok token.Token) (byte, bool) {
 func hasAddressing(ins *chip8.Instruction, mode chip8.Mode) bool {
 	_, ok := ins.Addressing[mode]
 	return ok
+}
+
+func parseAddressArgument(tok token.Token) (ast.Node, error) {
+	switch tok.Type {
+	case token.Number:
+		val, err := number.Parse(tok.Value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing number '%s': %w", tok.Value, err)
+		}
+		if val > 0xFFF {
+			return nil, fmt.Errorf("address %d exceeds 12-bit range", val)
+		}
+		return ast.NewNumber(val), nil
+	case token.Identifier:
+		return ast.NewIdentifier(tok.Value), nil
+	default:
+		return nil, fmt.Errorf("unsupported address argument type %s", tok.Type)
+	}
+}
+
+func parseByteArgument(tok token.Token) (ast.Node, error) {
+	switch tok.Type {
+	case token.Number:
+		val, err := number.Parse(tok.Value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing value '%s': %w", tok.Value, err)
+		}
+		if val > 0xFF {
+			return nil, fmt.Errorf("value %d exceeds byte range", val)
+		}
+		return ast.NewNumber(val), nil
+	case token.Identifier:
+		return ast.NewIdentifier(tok.Value), nil
+	default:
+		return nil, fmt.Errorf("unsupported value argument type %s", tok.Type)
+	}
+}
+
+func parseNibbleArgument(tok token.Token) (ast.Node, error) {
+	switch tok.Type {
+	case token.Number:
+		val, err := number.Parse(tok.Value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing nibble '%s': %w", tok.Value, err)
+		}
+		if val > 0xF {
+			return nil, fmt.Errorf("nibble %d exceeds 4-bit range", val)
+		}
+		return ast.NewNumber(val), nil
+	case token.Identifier:
+		return ast.NewIdentifier(tok.Value), nil
+	default:
+		return nil, fmt.Errorf("unsupported nibble argument type %s", tok.Type)
+	}
 }

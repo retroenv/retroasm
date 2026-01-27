@@ -110,6 +110,10 @@ func validateAndProcessArchitecture(options *optionFlags) error {
 		return err
 	}
 
+	if options.cpu == "" && options.system == "" {
+		options.cpu = cpu6502
+	}
+
 	// Validate CPU if specified
 	if err := validateCPU(options); err != nil {
 		return err
@@ -271,7 +275,7 @@ func assembleM6502(ctx context.Context, inputData []byte, configFile string) ([]
 
 	output, err := asm.AssembleText(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assembling text: %w", err)
 	}
 
 	return output.Binary, nil

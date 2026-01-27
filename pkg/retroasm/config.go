@@ -1,5 +1,7 @@
 package retroasm
 
+import "maps"
+
 // DefaultConfiguration provides a basic configuration implementation.
 // It implements the Configuration interface with standard memory layout,
 // segment definitions, and symbol table management.
@@ -107,9 +109,7 @@ func (b *ConfigurationBuilder) SetSymbol(name string, value uint64) *Configurati
 func (b *ConfigurationBuilder) Build() Configuration {
 	// Return a copy to prevent further modification
 	symbols := make(map[string]uint64, len(b.config.symbols))
-	for k, v := range b.config.symbols {
-		symbols[k] = v
-	}
+	maps.Copy(symbols, b.config.symbols)
 
 	segments := make([]SegmentConfig, len(b.config.segments))
 	copy(segments, b.config.segments)

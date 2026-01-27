@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	coreasm "github.com/retroenv/retroasm/pkg/assembler"
 	retrochip8 "github.com/retroenv/retrogolib/arch/cpu/chip8"
 )
 
@@ -46,7 +47,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	case retrochip8.RegisterValueAddressing:
 		// LD Vx, byte / ADD Vx, byte / SE Vx, byte / SNE Vx, byte / RND Vx, byte
 		// Argument contains (register << 8) | value
-		if err := generateRegisterValueOpcode(ins, &opcode); err != nil {
+		if err := generateRegisterValueOpcode(assigner, ins, &opcode); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
@@ -60,7 +61,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	case retrochip8.RegisterRegisterNibbleAddressing:
 		// DRW Vx, Vy, nibble
 		// Argument contains (register1 << 8) | (register2 << 4) | nibble
-		if err := generateRegisterRegisterNibbleOpcode(ins, &opcode); err != nil {
+		if err := generateRegisterRegisterNibbleOpcode(assigner, ins, &opcode); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
@@ -101,19 +102,27 @@ func generateAbsoluteAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 	return nil
 }
 
-func generateRegisterValueOpcode(ins arch.Instruction, opcode *uint16) error {
-	value, err := getArgumentValue(ins)
-	if err != nil {
-		return err
+func generateRegisterValueOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcode *uint16) error {
+	switch arg := ins.Argument().(type) {
+	case coreasm.RegisterValueArgument:
+		value, err := resolveValue(assigner, arg.Value)
+		if err != nil {
+			return err
+		}
+		if value > 0xFF {
+			return fmt.Errorf("value %d exceeds byte range", value)
+		}
+		*opcode |= uint16((uint64(arg.Register) << 8) | value)
+		return nil
+	case uint64:
+		// Extract register (upper 4 bits) and value (lower 8 bits)
+		register := (arg >> 8) & 0xF
+		byteValue := arg & 0xFF
+		*opcode |= uint16((register << 8) | byteValue)
+		return nil
+	default:
+		return errors.New("argument is not a register-value argument")
 	}
-
-	// Extract register (upper 4 bits) and value (lower 8 bits)
-	register := (value >> 8) & 0xF
-	byteValue := value & 0xFF
-
-	// Encode register in bits 8-11 and value in bits 0-7
-	*opcode |= uint16((register << 8) | byteValue)
-	return nil
 }
 
 func generateRegisterRegisterOpcode(ins arch.Instruction, opcode *uint16) error {
@@ -131,20 +140,27 @@ func generateRegisterRegisterOpcode(ins arch.Instruction, opcode *uint16) error 
 	return nil
 }
 
-func generateRegisterRegisterNibbleOpcode(ins arch.Instruction, opcode *uint16) error {
-	value, err := getArgumentValue(ins)
-	if err != nil {
-		return err
+func generateRegisterRegisterNibbleOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcode *uint16) error {
+	switch arg := ins.Argument().(type) {
+	case coreasm.RegisterRegisterValueArgument:
+		value, err := resolveValue(assigner, arg.Value)
+		if err != nil {
+			return err
+		}
+		if value > 0xF {
+			return fmt.Errorf("nibble %d exceeds 4-bit range", value)
+		}
+		*opcode |= uint16((uint64(arg.Register1) << 8) | (uint64(arg.Register2) << 4) | value)
+		return nil
+	case uint64:
+		register1 := (arg >> 8) & 0xF
+		register2 := (arg >> 4) & 0xF
+		nibble := arg & 0xF
+		*opcode |= uint16((register1 << 8) | (register2 << 4) | nibble)
+		return nil
+	default:
+		return errors.New("argument is not a register-register-nibble argument")
 	}
-
-	// Extract registers and nibble
-	register1 := (value >> 8) & 0xF
-	register2 := (value >> 4) & 0xF
-	nibble := value & 0xF
-
-	// Encode register1 in bits 8-11, register2 in bits 4-7, nibble in bits 0-3
-	*opcode |= uint16((register1 << 8) | (register2 << 4) | nibble)
-	return nil
 }
 
 func generateSingleRegisterOpcode(ins arch.Instruction, opcode *uint16) error {
@@ -168,14 +184,17 @@ func getArgumentValue(ins arch.Instruction) (uint64, error) {
 		return 0, errors.New("missing instruction argument")
 	}
 
-	// Argument should be a number node
-	type numberNode interface {
-		Value() uint64
-	}
-
-	if numNode, ok := arg.(numberNode); ok {
-		return numNode.Value(), nil
+	if v, ok := arg.(uint64); ok {
+		return v, nil
 	}
 
 	return 0, errors.New("argument is not a number")
+}
+
+func resolveValue(assigner arch.AddressAssigner, arg any) (uint64, error) {
+	value, err := assigner.ArgumentValue(arg)
+	if err != nil {
+		return 0, fmt.Errorf("getting instruction argument: %w", err)
+	}
+	return value, nil
 }
