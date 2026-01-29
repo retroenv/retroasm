@@ -2,7 +2,7 @@
 ; Clears the screen and displays a simple pattern
 
 start:
-    cls                    ; Clear the screen
+    cls                   ; Clear the screen
     ld v0, 5              ; Load 5 into V0 (X coordinate)
     ld v1, 10             ; Load 10 into V1 (Y coordinate)
     ld i, sprite_data     ; Load sprite address into I
