@@ -3,6 +3,8 @@ package assembler
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
@@ -78,21 +80,23 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 		return arg, nil
 
 	case reference:
-		sym, err := aa.currentScope.GetSymbol(arg.name)
+		name, offset := parseReferenceOffset(arg.name)
+
+		sym, err := aa.currentScope.GetSymbol(name)
 		if err != nil {
 			return 0, fmt.Errorf("getting instruction argument: %w", err)
 		}
 
 		value, err := sym.Value(aa.currentScope)
 		if err != nil {
-			return 0, fmt.Errorf("getting symbol '%s' value: %w", arg.name, err)
+			return 0, fmt.Errorf("getting symbol '%s' value: %w", name, err)
 		}
 
 		switch v := value.(type) {
 		case int64:
-			return uint64(v), nil
+			return uint64(v) + uint64(offset), nil
 		case uint64:
-			return v, nil
+			return v + uint64(offset), nil
 		default:
 			return 0, fmt.Errorf("unexpected argument value type %T", value)
 		}
@@ -116,6 +120,19 @@ func (aa *addressAssign[T]) RelativeOffset(destination, addressAfterInstruction 
 	default:
 		return byte(256 + diff), nil
 	}
+}
+
+// parseReferenceOffset splits a reference name into a base symbol name and
+// an integer offset. It handles names like "symbol+8" or "symbol-3".
+// If no offset is present, offset is 0.
+func parseReferenceOffset(name string) (string, int64) {
+	if idx := strings.LastIndexAny(name, "+-"); idx > 0 {
+		offsetStr := name[idx:]
+		if n, err := strconv.ParseInt(offsetStr, 10, 64); err == nil {
+			return name[:idx], n
+		}
+	}
+	return name, 0
 }
 
 // ProgramCounter returns the current program counter.
