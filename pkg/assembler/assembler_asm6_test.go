@@ -529,8 +529,8 @@ temp_val = $20
 ; Test identifiers as instruction arguments
 lda PPU_STATUS    ; Absolute addressing with identifier
 sta PPU_ADDR      ; Absolute addressing with identifier
-lda temp_val      ; Absolute addressing (identifiers use absolute by default)
-sta temp_val      ; Absolute addressing (identifiers use absolute by default)
+lda temp_val      ; Zero page addressing (identifiers optimize to zero page when value fits)
+sta temp_val      ; Zero page addressing (identifiers optimize to zero page when value fits)
 `
 
 func TestAssemblerAsm6Identifier(t *testing.T) {
@@ -538,9 +538,9 @@ func TestAssemblerAsm6Identifier(t *testing.T) {
 	assert.NoError(t, err)
 	// LDA $2002 (absolute) = AD 02 20
 	// STA $2006 (absolute) = 8D 06 20
-	// LDA $0020 (absolute) = AD 20 00
-	// STA $0020 (absolute) = 8D 20 00
-	expected := []byte{0xAD, 0x02, 0x20, 0x8D, 0x06, 0x20, 0xAD, 0x20, 0x00, 0x8D, 0x20, 0x00}
+	// LDA $20 (zero page) = A5 20
+	// STA $20 (zero page) = 85 20
+	expected := []byte{0xAD, 0x02, 0x20, 0x8D, 0x06, 0x20, 0xA5, 0x20, 0x85, 0x20}
 	assert.Equal(t, expected, b)
 }
 

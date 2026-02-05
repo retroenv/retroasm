@@ -26,6 +26,18 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	// handle disambiguous addressing mode to reduce absolute addressings to
 	// zeropage ones if the used address value fits into byte
 	switch addressing {
+	case parser.AbsoluteZeroPageAddressing:
+		argument := ins.Argument()
+		value, err := assigner.ArgumentValue(argument)
+		if err != nil {
+			return 0, fmt.Errorf("getting instruction argument: %w", err)
+		}
+		if value > math.MaxUint8 {
+			ins.SetAddressing(int(m6502.AbsoluteAddressing))
+		} else {
+			ins.SetAddressing(int(m6502.ZeroPageAddressing))
+		}
+
 	case parser.XAddressing:
 		argument := ins.Argument()
 		value, err := assigner.ArgumentValue(argument)

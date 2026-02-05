@@ -125,15 +125,34 @@ func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast
 	}
 
 	var addressing m6502.AddressingMode
-	switch {
-	case ins.addressingSize != addressingZeroPage && ins.instruction.HasAddressing(m6502.AbsoluteAddressing):
+	switch ins.addressingSize {
+	case addressingAbsolute:
+		if !ins.instruction.HasAddressing(m6502.AbsoluteAddressing) {
+			return nil, errors.New("invalid absolute addressing mode usage")
+		}
 		addressing = m6502.AbsoluteAddressing
 
-	case ins.addressingSize != addressingAbsolute && ins.instruction.HasAddressing(m6502.ZeroPageAddressing):
+	case addressingZeroPage:
+		if !ins.instruction.HasAddressing(m6502.ZeroPageAddressing) {
+			return nil, errors.New("invalid zeropage addressing mode usage")
+		}
 		addressing = m6502.ZeroPageAddressing
 
-	default:
-		return nil, errors.New("invalid number addressing mode usage")
+	case addressingDefault:
+		// Use ambiguous mode - will be resolved during address assignment
+		hasAbsolute := ins.instruction.HasAddressing(m6502.AbsoluteAddressing)
+		hasZeroPage := ins.instruction.HasAddressing(m6502.ZeroPageAddressing)
+
+		switch {
+		case hasAbsolute && hasZeroPage:
+			addressing = AbsoluteZeroPageAddressing
+		case hasAbsolute:
+			addressing = m6502.AbsoluteAddressing
+		case hasZeroPage:
+			addressing = m6502.ZeroPageAddressing
+		default:
+			return nil, errors.New("instruction has no absolute or zeropage addressing modes")
+		}
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
@@ -326,13 +345,16 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 		addressing = m6502.AbsoluteAddressing
 
 	case addressingDefault:
-		if ins.instruction.HasAddressing(m6502.AbsoluteAddressing) {
-			addressing = m6502.AbsoluteAddressing
-		} else {
-			if !ins.instruction.HasAddressing(m6502.ZeroPageAddressing) {
-				return nil, errors.New("instruction has no absolute or zeropage addressing modes")
-			}
+		// Prefer zero page for values that fit in a byte
+		switch {
+		case i <= math.MaxUint8 && ins.instruction.HasAddressing(m6502.ZeroPageAddressing):
 			addressing = m6502.ZeroPageAddressing
+		case ins.instruction.HasAddressing(m6502.AbsoluteAddressing):
+			addressing = m6502.AbsoluteAddressing
+		case ins.instruction.HasAddressing(m6502.ZeroPageAddressing):
+			addressing = m6502.ZeroPageAddressing
+		default:
+			return nil, errors.New("instruction has no absolute or zeropage addressing modes")
 		}
 	}
 

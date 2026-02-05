@@ -18,8 +18,9 @@ const (
 )
 
 const (
-	XAddressing = m6502.AbsoluteXAddressing | m6502.ZeroPageXAddressing
-	YAddressing = m6502.AbsoluteYAddressing | m6502.ZeroPageYAddressing
+	AbsoluteZeroPageAddressing = m6502.AbsoluteAddressing | m6502.ZeroPageAddressing
+	XAddressing                = m6502.AbsoluteXAddressing | m6502.ZeroPageXAddressing
+	YAddressing                = m6502.AbsoluteYAddressing | m6502.ZeroPageYAddressing
 )
 
 // parseAddressSize returns the addressing mode used for an instruction based on the following
