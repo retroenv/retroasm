@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// If ...
+// If parses an .if conditional assembly directive.
 func If(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
@@ -22,46 +22,22 @@ func If(p arch.Parser) (ast.Node, error) {
 	return ast.NewIf(tokens), nil
 }
 
-// Ifdef ...
+// Ifdef parses an .ifdef directive.
 func Ifdef(p arch.Parser) (ast.Node, error) {
-	next := p.NextToken(2)
-	if next.Type.IsTerminator() {
-		return nil, errMissingParameter
-	}
-	if next.Type != token.Identifier {
-		return nil, fmt.Errorf("unsupported condition type %s", next.Type)
-	}
-
-	p.AdvanceReadPosition(2)
-	return ast.NewIfdef(next.Value), nil
+	return parseSymbolExistsDirective(p, func(s string) ast.Node { return ast.NewIfdef(s) })
 }
 
-// Ifndef ...
+// Ifndef parses an .ifndef directive.
 func Ifndef(p arch.Parser) (ast.Node, error) {
-	next := p.NextToken(2)
-	if next.Type.IsTerminator() {
-		return nil, errMissingParameter
-	}
-	if next.Type != token.Identifier {
-		return nil, fmt.Errorf("unsupported condition type %s", next.Type)
-	}
-
-	p.AdvanceReadPosition(2)
-	return ast.NewIfndef(next.Value), nil
+	return parseSymbolExistsDirective(p, func(s string) ast.Node { return ast.NewIfndef(s) })
 }
 
-// Else ...
+// Else parses an .else directive.
 func Else(p arch.Parser) (ast.Node, error) {
-	p.AdvanceReadPosition(2)
-	tok := p.NextToken(0)
-	if !tok.Type.IsTerminator() {
-		return nil, errUnexpectedParameter
-	}
-
-	return ast.NewElse(), nil
+	return parseTerminatingDirective(p, ast.NewElse())
 }
 
-// Elseif ...
+// Elseif parses an .elseif directive.
 func Elseif(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
@@ -75,13 +51,32 @@ func Elseif(p arch.Parser) (ast.Node, error) {
 	return ast.NewElseIf(tokens), nil
 }
 
-// Endif ...
+// Endif parses an .endif directive.
 func Endif(p arch.Parser) (ast.Node, error) {
+	return parseTerminatingDirective(p, ast.NewEndif())
+}
+
+func parseSymbolExistsDirective(p arch.Parser, constructor func(string) ast.Node) (ast.Node, error) {
+	next := p.NextToken(2)
+	if next.Type.IsTerminator() {
+		return nil, errMissingParameter
+	}
+	if next.Type != token.Identifier {
+		return nil, fmt.Errorf("unsupported condition type %s", next.Type)
+	}
+
+	p.AdvanceReadPosition(2)
+	return constructor(next.Value), nil
+}
+
+// parseTerminatingDirective handles directives that take no parameters
+// and expect the line to end immediately after.
+func parseTerminatingDirective(p arch.Parser, node ast.Node) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	tok := p.NextToken(0)
 	if !tok.Type.IsTerminator() {
 		return nil, errUnexpectedParameter
 	}
 
-	return ast.NewEndif(), nil
+	return node, nil
 }

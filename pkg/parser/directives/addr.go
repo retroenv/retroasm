@@ -8,42 +8,28 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Addr ...
+// Addr parses an .addr directive for full address data.
 func Addr(p arch.Parser) (ast.Node, error) {
-	addr, err := createAddressData(p)
-	if err != nil {
-		return nil, err
-	}
-	addr.ReferenceType = ast.FullAddress
-	return addr, nil
+	return createAddressData(p, ast.FullAddress)
 }
 
-// AddrHigh ...
+// AddrHigh parses a .dh directive for high address byte data.
 func AddrHigh(p arch.Parser) (ast.Node, error) {
-	addr, err := createAddressData(p)
-	if err != nil {
-		return nil, err
-	}
-	addr.ReferenceType = ast.HighAddressByte
-	return addr, nil
+	return createAddressData(p, ast.HighAddressByte)
 }
 
-// AddrLow ...
+// AddrLow parses a .dl directive for low address byte data.
 func AddrLow(p arch.Parser) (ast.Node, error) {
-	addr, err := createAddressData(p)
-	if err != nil {
-		return nil, err
-	}
-	addr.ReferenceType = ast.LowAddressByte
-	return addr, nil
+	return createAddressData(p, ast.LowAddressByte)
 }
 
-func createAddressData(p arch.Parser) (ast.Data, error) {
+func createAddressData(p arch.Parser, refType ast.ReferenceType) (ast.Data, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return ast.Data{}, errMissingParameter
 	}
 
 	data := ast.NewData(ast.AddressType, p.AddressWidth()/8)
+	data.ReferenceType = refType
 
 	p.AdvanceReadPosition(1)
 	tokens, err := readDataTokens(p, false)

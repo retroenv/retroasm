@@ -66,7 +66,8 @@ func evaluateExpressionsStep[T any](asm *Assembler[T]) error {
 // evaluateNode evaluates a node and returns whether the node should be removed.
 // This is useful for conditional nodes with an expression that does not match and
 // that wraps other nodes.
-// nolint:cyclop,funlen
+//
+//nolint:cyclop,funlen // type switch with one case per AST node type
 func evaluateNode[T any](expEval *expressionEvaluation[T], seg *segment, currentNodeIndex int, node any) (bool, error) {
 	// always handle conditional nodes
 	switch n := node.(type) {
@@ -244,28 +245,21 @@ func parseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.If) erro
 }
 
 func parseIfdefCondition[T any](expEval *expressionEvaluation[T], cond ast.Ifdef) {
-	conditionMet := true
-	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
-	if err != nil {
-		conditionMet = false
-	}
-
-	ctx := &conditionalContext{
-		processNodes: conditionMet,
-		parent:       expEval.currentContext,
-	}
-	expEval.currentContext = ctx
+	parseSymbolExistsCondition(expEval, cond.Identifier, true)
 }
 
 func parseIfndefCondition[T any](expEval *expressionEvaluation[T], cond ast.Ifndef) {
-	conditionMet := false
-	_, err := expEval.currentScope.GetSymbol(cond.Identifier)
-	if err != nil {
-		conditionMet = true
-	}
+	parseSymbolExistsCondition(expEval, cond.Identifier, false)
+}
+
+// parseSymbolExistsCondition handles both ifdef and ifndef by checking symbol
+// existence and comparing against the expected result.
+func parseSymbolExistsCondition[T any](expEval *expressionEvaluation[T], identifier string, expectDefined bool) {
+	_, err := expEval.currentScope.GetSymbol(identifier)
+	defined := err == nil
 
 	ctx := &conditionalContext{
-		processNodes: conditionMet,
+		processNodes: defined == expectDefined,
 		parent:       expEval.currentContext,
 	}
 	expEval.currentContext = ctx

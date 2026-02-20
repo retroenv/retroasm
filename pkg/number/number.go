@@ -1,11 +1,3 @@
-// Package number provides number string parsing for various number formats commonly used in assembly language.
-//
-// The package supports parsing multiple number formats including:
-//   - Decimal: 123, #123
-//   - Hexadecimal: $FF, 0xFF
-//   - Binary: %11110000, 01010101b
-//
-// Numbers can be converted to byte arrays with specific data widths for retro computer targets.
 package number
 
 import (
@@ -29,10 +21,9 @@ var (
 	ErrParseNumber                  = errors.New("failed to parse number")
 )
 
-// Constants for repeated strings.
 const (
-	UnsupportedDataWidthMsg = "unsupported data byte width %d"
-	NumberExceedsMsg        = "number %d exceeds %d byte"
+	unsupportedDataWidthMsg = "unsupported data byte width %d"
+	numberExceedsMsg        = "number %d exceeds %d byte"
 )
 
 // Parse parses a number string and returns it as uint64.
@@ -89,20 +80,20 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 	switch dataWidth {
 	case 1:
 		if i > math.MaxUint8 {
-			return fmt.Errorf("%w: "+NumberExceedsMsg, ErrNumberExceedsWidth, i, 1)
+			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 1)
 		}
 	case 2:
 		if i > math.MaxUint16 {
-			return fmt.Errorf("%w: "+NumberExceedsMsg, ErrNumberExceedsWidth, i, 2)
+			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 2)
 		}
 	case 4:
 		if i > math.MaxUint32 {
-			return fmt.Errorf("%w: "+NumberExceedsMsg, ErrNumberExceedsWidth, i, 4)
+			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 4)
 		}
 	case 8:
 
 	default:
-		return fmt.Errorf("%w: "+UnsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
+		return fmt.Errorf("%w: "+unsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}
 
 	return nil
@@ -126,44 +117,61 @@ func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
 		binary.LittleEndian.PutUint64(data, i)
 		return data, nil
 	default:
-		return nil, fmt.Errorf("%w: "+UnsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
+		return nil, fmt.Errorf("%w: "+unsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}
 }
 
-// nolint: gocognit,cyclop
 func parseCharacter(r rune, i, idx, base *int, value string, builder *strings.Builder) error {
-	switch {
-	case r == '%': // prefix
-		if *base > 0 {
-			return ErrInvalidNumberBaseCombination
-		}
-		*base = 2 // binary
+	if handled, err := parseBaseIndicator(r, i, idx, base, value); handled || err != nil {
+		return err
+	}
 
-	case r == 'b' && *base == 0 && *i+1 == len(value): // suffix
+	return parseDigit(r, *base, builder)
+}
+
+// parseBaseIndicator handles base prefix and suffix detection for number parsing.
+// Returns true if the rune was consumed as a base indicator.
+func parseBaseIndicator(r rune, i, idx, base *int, value string) (bool, error) {
+	switch {
+	case r == '%':
 		if *base > 0 {
-			return ErrInvalidNumberBaseCombination
+			return false, ErrInvalidNumberBaseCombination
 		}
-		*base = 2 // binary
+		*base = 2
+		return true, nil
+
+	case r == 'b' && *base == 0 && *i+1 == len(value):
+		*base = 2
+		return true, nil
 
 	case r == '$':
 		if *base > 0 {
-			return ErrInvalidNumberBaseCombination
+			return false, ErrInvalidNumberBaseCombination
 		}
-		*base = 16 // hex
+		*base = 16
+		return true, nil
 
 	case r == '0' && *i == 0 && len(value) > *idx+1 && (value[*idx+1] == 'x' || value[*idx+1] == 'X'):
-		*base = 16 // hex
+		*base = 16
 		*idx++
 		*i++
+		return true, nil
 
+	default:
+		return false, nil
+	}
+}
+
+func parseDigit(r rune, base int, builder *strings.Builder) error {
+	switch {
 	case unicode.IsDigit(r):
-		if *base == 2 && r > '1' {
+		if base == 2 && r > '1' {
 			return fmt.Errorf("%w: '%c'", ErrInvalidBinaryChar, r)
 		}
 		builder.WriteRune(r)
 
 	case r >= 'a' && r <= 'f':
-		if *base != 0 && *base != 16 {
+		if base != 0 && base != 16 {
 			return fmt.Errorf("%w: '%c'", ErrInvalidHexChar, r)
 		}
 		builder.WriteRune(r)

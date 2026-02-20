@@ -265,25 +265,10 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}
 
-	var argument ast.Node
-
-	// Check if the argument is an identifier (constant reference) or a number
-	if ins.arg1.Type == token.Identifier {
-		// Handle immediate identifiers like: LDA #MAX_ENTITIES
-		// The value will be resolved during opcode generation
-		argument = ast.NewIdentifier(ins.arg1.Value)
-	} else {
-		// Handle immediate numbers like: LDA #32, LDA #$FF
-		i, err := number.Parse(ins.arg1.Value)
-		if err != nil {
-			return nil, fmt.Errorf("parsing immediate argument '%s': %w", ins.arg1.Value, err)
-		}
-		if i > math.MaxUint8 {
-			return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", ins.arg1.Value)
-		}
-		argument = ast.NewNumber(i)
+	argument, err := resolveImmediateArgument(ins.arg1.Type, ins.arg1.Value)
+	if err != nil {
+		return nil, err
 	}
-
 	return ast.NewInstruction(ins.instruction.Name, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
@@ -292,32 +277,34 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}
 
-	// Save the token value before advancing, in case advancing affects the token
+	// Save the token value before advancing, in case advancing affects the token.
 	tokenValue := tok.Value
 	tokenType := tok.Type
 
 	parser.AdvanceReadPosition(2) // Skip past # and the token
 
-	var argument ast.Node
+	argument, err := resolveImmediateArgument(tokenType, tokenValue)
+	if err != nil {
+		return nil, err
+	}
+	return ast.NewInstruction(ins.instruction.Name, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+}
 
-	// Check if the token is an identifier (constant reference) or a number
+// resolveImmediateArgument parses an immediate addressing argument, returning
+// an identifier node for constant references or a number node for literals.
+func resolveImmediateArgument(tokenType token.Type, tokenValue string) (ast.Node, error) {
 	if tokenType == token.Identifier {
-		// Handle immediate identifiers like: LDA #MAX_ENTITIES
-		// The value will be resolved during opcode generation
-		argument = ast.NewIdentifier(tokenValue)
-	} else {
-		// Handle immediate numbers like: LDA #$FF (when tokenized separately)
-		i, err := number.Parse(tokenValue)
-		if err != nil {
-			return nil, fmt.Errorf("parsing immediate argument '%s': %w", tokenValue, err)
-		}
-		if i > math.MaxUint8 {
-			return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", tokenValue)
-		}
-		argument = ast.NewNumber(i)
+		return ast.NewIdentifier(tokenValue), nil
 	}
 
-	return ast.NewInstruction(ins.instruction.Name, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+	i, err := number.Parse(tokenValue)
+	if err != nil {
+		return nil, fmt.Errorf("parsing immediate argument '%s': %w", tokenValue, err)
+	}
+	if i > math.MaxUint8 {
+		return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", tokenValue)
+	}
+	return ast.NewNumber(i), nil
 }
 
 func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {

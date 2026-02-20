@@ -22,20 +22,18 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	switch addressing {
 	case m6502.ImpliedAddressing, m6502.AccumulatorAddressing:
 
-	case m6502.ImmediateAddressing:
-		if err := generateImmediateAddressingOpcode(assigner, ins); err != nil {
+	case m6502.ImmediateAddressing,
+		m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing,
+		m6502.IndirectXAddressing, m6502.IndirectYAddressing:
+
+		if err := generateByteAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
 	case m6502.AbsoluteAddressing, m6502.AbsoluteXAddressing, m6502.AbsoluteYAddressing,
 		m6502.IndirectAddressing:
-		if err := generateAbsoluteIndirectAddressingOpcode(assigner, ins); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
 
-	case m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing,
-		m6502.IndirectXAddressing, m6502.IndirectYAddressing:
-		if err := generateZeroPageAddressingOpcode(assigner, ins); err != nil {
+		if err := generateWordAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
@@ -51,7 +49,21 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func generateAbsoluteIndirectAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
+func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
+	value, err := assigner.ArgumentValue(ins.Argument())
+	if err != nil {
+		return fmt.Errorf("getting instruction argument: %w", err)
+	}
+	if value > math.MaxUint8 {
+		return fmt.Errorf("value %d exceeds byte", value)
+	}
+
+	opcodes := append(ins.Opcodes(), byte(value))
+	ins.SetOpcodes(opcodes)
+	return nil
+}
+
+func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
 	value, err := assigner.ArgumentValue(ins.Argument())
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
@@ -61,34 +73,6 @@ func generateAbsoluteIndirectAddressingOpcode(assigner arch.AddressAssigner, ins
 	}
 
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
-	ins.SetOpcodes(opcodes)
-	return nil
-}
-
-func generateZeroPageAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
-	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
-	}
-	if value > math.MaxUint8 {
-		return fmt.Errorf("value %d exceeds byte", value)
-	}
-
-	opcodes := append(ins.Opcodes(), byte(value))
-	ins.SetOpcodes(opcodes)
-	return nil
-}
-
-func generateImmediateAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
-	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
-	}
-	if value > math.MaxUint8 {
-		return fmt.Errorf("value %d exceeds byte", value)
-	}
-
-	opcodes := append(ins.Opcodes(), byte(value))
 	ins.SetOpcodes(opcodes)
 	return nil
 }

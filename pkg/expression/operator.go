@@ -85,38 +85,32 @@ func evaluateOperatorIntInt(operator token.Type, a, b int64) (any, error) {
 
 // evaluateOperatorByteInt executes an operator for type a of []byte and type b of int64.
 func evaluateOperatorByteInt(operator token.Type, a []byte, b int64) (any, error) {
+	bb := byte(b)
+	var operate func(v byte) byte
+
 	switch operator {
 	case token.Plus:
-		for i := range a {
-			a[i] += byte(b)
-		}
+		operate = func(v byte) byte { return v + bb }
 	case token.Minus:
-		for i := range a {
-			a[i] -= byte(b)
-		}
+		operate = func(v byte) byte { return v - bb }
 	case token.Asterisk:
-		for i := range a {
-			a[i] *= byte(b)
-		}
+		operate = func(v byte) byte { return v * bb }
 	case token.Percent:
-		for i := range a {
-			a[i] %= byte(b)
-		}
+		operate = func(v byte) byte { return v % bb }
 	case token.Slash:
-		for i := range a {
-			if b == 0 {
-				return nil, errDivisionByZero
-			}
-			a[i] /= byte(b)
+		if b == 0 {
+			return nil, errDivisionByZero
 		}
+		operate = func(v byte) byte { return v / bb }
 	case token.Caret:
-		for i := range a {
-			a[i] = byte(math.Pow(float64(a[i]), float64(b)))
-		}
+		operate = func(v byte) byte { return byte(math.Pow(float64(v), float64(b))) }
 	default:
 		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and int64", operator)
 	}
 
+	for i := range a {
+		a[i] = operate(a[i])
+	}
 	return a, nil
 }
 

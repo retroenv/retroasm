@@ -1,6 +1,3 @@
-// Package lexer implements a lexical analyzer that can be used for reading source and configuration files.
-// It supports tokenization of assembly language files with configurable comment prefixes and decimal prefixes.
-// The lexer handles various number formats including decimal, hexadecimal ($XX, 0xXX, XXh), and binary (%XXXXXXXX).
 package lexer
 
 import (
@@ -78,7 +75,8 @@ func (l *Lexer) NextToken() (token.Token, error) {
 
 // processRune processes the read rune and returns the token and a flag
 // whether the token is valid.
-// nolint: cyclop
+//
+//nolint:cyclop // switch with one case per rune category
 func (l *Lexer) processRune(r rune) (token.Token, bool, error) {
 	switch {
 	case r == '\n':
@@ -218,7 +216,8 @@ func (l *Lexer) readNumber(firstCharacter rune) (token.Token, error) {
 // processNumberCharacter processes a character as part of a number
 // and detects common prefixes and suffixes of number bases.
 // It returns whether the character was handled and the character was valid.
-// nolint: cyclop
+//
+//nolint:cyclop // switch with one case per number format
 func (l *Lexer) processNumberCharacter(firstCharacter, r rune, i int, isBinary, hasPrefix *bool,
 	literal *strings.Builder) (bool, bool) {
 
@@ -353,20 +352,16 @@ func (l *Lexer) readString(stringEscape rune) (token.Token, error) {
 
 // readComment reads until the end of the comment/line or file.
 func (l *Lexer) readComment(prefix rune) (token.Token, error) {
-	t := token.Token{
-		Position: l.pos,
-		Type:     token.Comment,
-		Value:    "",
-	}
-
+	pos := l.pos
+	var literal strings.Builder
+	literal.Grow(128)
 	skipPrefixes := true
 
 	for {
 		r, _, err := l.reader.ReadRune()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				t.Value = strings.TrimSpace(t.Value)
-				return t, nil
+				return l.newTokenPosition(token.Comment, strings.TrimSpace(literal.String()), pos), nil
 			}
 
 			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
@@ -383,15 +378,12 @@ func (l *Lexer) readComment(prefix rune) (token.Token, error) {
 			skipPrefixes = false
 		}
 
-		switch r {
-		case '\n':
+		if r == '\n' {
 			l.pos.NextLine()
-			t.Value = strings.TrimSpace(t.Value)
-			return t, nil
-
-		default:
-			t.Value += string(r)
+			return l.newTokenPosition(token.Comment, strings.TrimSpace(literal.String()), pos), nil
 		}
+
+		literal.WriteRune(r)
 	}
 }
 
@@ -404,7 +396,7 @@ func (l *Lexer) newToken(tokenType token.Type) token.Token {
 	}
 }
 
-// newToken returns a new token with the passed position and literal.
+// newTokenPosition returns a new token with the passed position and literal.
 func (l *Lexer) newTokenPosition(tokenType token.Type, literal string, pos token.Position) token.Token {
 	return token.Token{
 		Position: pos,

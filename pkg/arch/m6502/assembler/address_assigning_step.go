@@ -23,44 +23,10 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 
 	addressing := m6502.AddressingMode(ins.Addressing())
 
-	// handle disambiguous addressing mode to reduce absolute addressings to
-	// zeropage ones if the used address value fits into byte
-	switch addressing {
-	case parser.AbsoluteZeroPageAddressing:
-		argument := ins.Argument()
-		value, err := assigner.ArgumentValue(argument)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-		if value > math.MaxUint8 {
-			ins.SetAddressing(int(m6502.AbsoluteAddressing))
-		} else {
-			ins.SetAddressing(int(m6502.ZeroPageAddressing))
-		}
-
-	case parser.XAddressing:
-		argument := ins.Argument()
-		value, err := assigner.ArgumentValue(argument)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-		if value > math.MaxUint8 {
-			ins.SetAddressing(int(m6502.AbsoluteXAddressing))
-		} else {
-			ins.SetAddressing(int(m6502.ZeroPageXAddressing))
-		}
-
-	case parser.YAddressing:
-		argument := ins.Argument()
-		value, err := assigner.ArgumentValue(argument)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-		if value > math.MaxUint8 {
-			ins.SetAddressing(int(m6502.AbsoluteYAddressing))
-		} else {
-			ins.SetAddressing(int(m6502.ZeroPageYAddressing))
-		}
+	// Resolve disambiguous addressing modes by checking whether the argument
+	// value fits in a byte (zero page) or requires a word (absolute).
+	if err := resolveAddressingMode(assigner, ins, addressing); err != nil {
+		return 0, err
 	}
 
 	addressing = m6502.AddressingMode(ins.Addressing())
@@ -71,4 +37,32 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 
 	programCounter := pc + uint64(addressingInfo.Size)
 	return programCounter, nil
+}
+
+// disambiguousAddressing maps ambiguous addressing modes to their absolute and
+// zero page variants. The assembler resolves these during address assignment
+// based on whether the argument value fits in a byte.
+var disambiguousAddressing = map[m6502.AddressingMode][2]m6502.AddressingMode{
+	parser.AbsoluteZeroPageAddressing: {m6502.AbsoluteAddressing, m6502.ZeroPageAddressing},
+	parser.XAddressing:                {m6502.AbsoluteXAddressing, m6502.ZeroPageXAddressing},
+	parser.YAddressing:                {m6502.AbsoluteYAddressing, m6502.ZeroPageYAddressing},
+}
+
+func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction, addressing m6502.AddressingMode) error {
+	modes, ok := disambiguousAddressing[addressing]
+	if !ok {
+		return nil
+	}
+
+	value, err := assigner.ArgumentValue(ins.Argument())
+	if err != nil {
+		return fmt.Errorf("getting instruction argument: %w", err)
+	}
+
+	if value > math.MaxUint8 {
+		ins.SetAddressing(int(modes[0]))
+	} else {
+		ins.SetAddressing(int(modes[1]))
+	}
+	return nil
 }

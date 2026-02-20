@@ -114,18 +114,7 @@ func (a *defaultAssembler) AssembleAST(ctx context.Context, input *ASTInput) (*A
 	output := &AssemblyOutput{
 		Binary:  buf.Bytes(),
 		AST:     input.AST,
-		Symbols: make(map[string]Symbol, len(input.Symbols)),
-	}
-
-	for name, value := range input.Symbols {
-		output.Symbols[name] = Symbol{
-			Name:  name,
-			Value: value,
-			Type:  SymbolTypeConstant,
-			Location: SourceLocation{
-				Filename: input.SourceName,
-			},
-		}
+		Symbols: copyInputSymbols(input.Symbols, input.SourceName),
 	}
 
 	return output, nil
@@ -167,31 +156,11 @@ func (a *defaultAssembler) AssembleText(ctx context.Context, input *TextInput) (
 
 	output := &AssemblyOutput{
 		Binary:  buf.Bytes(),
-		Symbols: make(map[string]Symbol, len(input.Symbols)),
-	}
-
-	for name, value := range input.Symbols {
-		output.Symbols[name] = Symbol{
-			Name:  name,
-			Value: value,
-			Type:  SymbolTypeConstant,
-			Location: SourceLocation{
-				Filename: input.SourceName,
-			},
-		}
+		Symbols: copyInputSymbols(input.Symbols, input.SourceName),
 	}
 
 	return output, nil
 }
-
-const defaultConfig = `
-MEMORY {
-    CODE: start = $8000, size = $8000, fill = yes;
-}
-SEGMENTS {
-    CODE: load = CODE, type = rw;
-}
-`
 
 type architectureAssembler[T any] struct {
 	arch   any
@@ -204,3 +173,28 @@ func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutpu
 		Symbols: make(map[string]Symbol),
 	}, nil
 }
+
+// copyInputSymbols converts a map of symbol names to values into the output Symbol map.
+func copyInputSymbols(symbols map[string]uint64, sourceName string) map[string]Symbol {
+	result := make(map[string]Symbol, len(symbols))
+	for name, value := range symbols {
+		result[name] = Symbol{
+			Name:  name,
+			Value: value,
+			Type:  SymbolTypeConstant,
+			Location: SourceLocation{
+				Filename: sourceName,
+			},
+		}
+	}
+	return result
+}
+
+const defaultConfig = `
+MEMORY {
+    CODE: start = $8000, size = $8000, fill = yes;
+}
+SEGMENTS {
+    CODE: load = CODE, type = rw;
+}
+`
