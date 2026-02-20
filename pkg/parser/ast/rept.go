@@ -5,11 +5,16 @@ import (
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 )
 
-// Rept ...
+// Rept represents a repeat block directive (.rept).
 type Rept struct {
 	*node
 
 	Count *expression.Expression
+}
+
+// Endr represents the end of a repeat block (.endr).
+type Endr struct {
+	*node
 }
 
 // NewRept returns a new rept node.
@@ -18,11 +23,6 @@ func NewRept(count []token.Token) Rept {
 		node:  &node{},
 		Count: expression.New(count...),
 	}
-}
-
-// Endr ...
-type Endr struct {
-	*node
 }
 
 // NewEndr returns a new rept end node.

@@ -1,6 +1,6 @@
 package ast
 
-// Segment ...
+// Segment represents a code or data segment directive (.segment).
 type Segment struct {
 	*node
 

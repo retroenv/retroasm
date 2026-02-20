@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Macro ...
+// Macro parses a .macro directive for defining a reusable code block.
 func Macro(p arch.Parser) (ast.Node, error) {
 	value := p.NextToken(2)
 	if value.Type != token.Identifier {

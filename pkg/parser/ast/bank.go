@@ -1,6 +1,6 @@
 package ast
 
-// Bank ...
+// Bank represents a bank switching directive.
 type Bank struct {
 	*node
 

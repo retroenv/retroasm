@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Base ...
+// Base parses a .org or .base directive for program counter assignment.
 func Base(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	addressTokens, err := readDataTokens(p, true)

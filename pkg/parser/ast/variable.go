@@ -1,6 +1,6 @@
 package ast
 
-// Variable ...
+// Variable represents a variable reservation directive (.res, .rs).
 type Variable struct {
 	*node
 

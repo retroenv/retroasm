@@ -5,7 +5,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Segment ...
+// Segment parses a .segment directive for switching to a named segment.
 func Segment(p arch.Parser) (ast.Node, error) {
 	next := p.NextToken(2)
 	if next.Type.IsTerminator() {

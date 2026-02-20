@@ -24,7 +24,7 @@ var dataByteWidth = map[string]int{
 	"word":  2,
 }
 
-// Data ...
+// Data parses a data definition directive (.byte, .word, .db, .dw).
 func Data(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter
@@ -49,12 +49,12 @@ func Data(p arch.Parser) (ast.Node, error) {
 	return data, nil
 }
 
-// DataStorage ...
+// DataStorage parses a storage reservation directive (.dsb, .dsw).
 func DataStorage(p arch.Parser) (ast.Node, error) {
 	return readDataStorageTokens(p)
 }
 
-// Padding ...
+// Padding parses a .pad directive for padding to a target address.
 func Padding(p arch.Parser) (ast.Node, error) {
 	data, err := readDataStorageTokens(p)
 	if err != nil {
@@ -64,7 +64,7 @@ func Padding(p arch.Parser) (ast.Node, error) {
 	return addSizeProgramCounterReference(data)
 }
 
-// Align ...
+// Align parses a .align directive for address alignment.
 func Align(p arch.Parser) (ast.Node, error) {
 	data, err := readDataStorageTokens(p)
 	if err != nil {

@@ -1,6 +1,6 @@
 package ast
 
-// Error ...
+// Error represents an assembler error directive (.error).
 type Error struct {
 	*node
 

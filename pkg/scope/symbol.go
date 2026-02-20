@@ -81,8 +81,7 @@ func (sym *Symbol) Type() SymbolType {
 }
 
 // Value returns the value of the symbol, either an address for symbols of type label
-// or the value of the expression. The returned value can be of can be of type int64,
-// uint64 or []byte.
+// or the value of the expression. The returned value can be of type int64, uint64 or []byte.
 func (sym *Symbol) Value(scope *Scope) (any, error) {
 	switch sym.typ {
 	case AliasType, EquType:

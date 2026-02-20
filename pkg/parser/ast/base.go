@@ -5,7 +5,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 )
 
-// Base ...
+// Base represents a program counter assignment directive (.org, .base).
 type Base struct {
 	*node
 

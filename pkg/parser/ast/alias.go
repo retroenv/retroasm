@@ -4,7 +4,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/expression"
 )
 
-// Alias ...
+// Alias represents a symbolic name bound to an expression value.
 type Alias struct {
 	*node
 

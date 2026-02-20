@@ -1,6 +1,6 @@
 package ast
 
-// OffsetCounter ...
+// OffsetCounter represents a NESASM offset counter value set by the .rsset directive.
 type OffsetCounter struct {
 	*node
 
@@ -15,7 +15,7 @@ func NewOffsetCounter(value uint64) OffsetCounter {
 	}
 }
 
-// Copy returns a copy of the offset number node.
+// Copy returns a copy of the offset counter node.
 func (o OffsetCounter) Copy() Node {
 	return OffsetCounter{
 		node:   o.node,

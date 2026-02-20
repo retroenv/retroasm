@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// FillValue ...
+// FillValue parses a .fillvalue directive for setting the padding fill byte.
 func FillValue(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter

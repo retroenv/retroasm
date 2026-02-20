@@ -7,7 +7,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Enum ...
+// Enum parses a .enum directive for starting an enumeration block.
 func Enum(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	addressTokens, err := readDataTokens(p, true)
@@ -18,7 +18,7 @@ func Enum(p arch.Parser) (ast.Node, error) {
 	return ast.NewEnum(addressTokens), nil
 }
 
-// Ende ...
+// Ende parses a .ende directive for ending an enumeration block.
 func Ende(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	return ast.NewEnumEnd(), nil

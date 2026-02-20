@@ -9,7 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Bank ...
+// Bank parses a .bank directive for bank switching.
 func Bank(p arch.Parser) (ast.Node, error) {
 	value := p.NextToken(2)
 	if value.Type != token.Number {

@@ -4,7 +4,7 @@ import (
 	"slices"
 )
 
-// Instruction ...
+// Instruction represents a CPU instruction with its addressing mode and operand.
 type Instruction struct {
 	*node
 

@@ -32,6 +32,7 @@ type Parser interface {
 	NextToken(offset int) token.Token
 }
 
+// AddressAssigner resolves instruction arguments and computes addresses during the assembly process.
 type AddressAssigner interface {
 	// ArgumentValue returns the value of an instruction argument, either a number or a symbol value.
 	ArgumentValue(argument any) (uint64, error)
@@ -41,6 +42,7 @@ type AddressAssigner interface {
 	ProgramCounter() uint64
 }
 
+// Instruction represents an assembled instruction with its addressing mode, opcodes and address.
 type Instruction interface {
 	// Address returns the assigned start address of the instruction.
 	Address() uint64

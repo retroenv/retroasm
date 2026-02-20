@@ -1,6 +1,6 @@
 package ast
 
-// Label ...
+// Label represents a named location in the assembly program.
 type Label struct {
 	*node
 

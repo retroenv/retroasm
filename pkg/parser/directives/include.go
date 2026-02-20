@@ -10,7 +10,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Include ...
+// Include parses a file inclusion directive (.include, .incbin, .incsrc, .bin).
 func Include(p arch.Parser) (ast.Node, error) {
 	command := p.NextToken(1)
 

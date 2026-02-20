@@ -1,6 +1,6 @@
 package ast
 
-// Operator ...
+// Operator represents an arithmetic or logical operator in an expression.
 type Operator struct {
 	*node
 

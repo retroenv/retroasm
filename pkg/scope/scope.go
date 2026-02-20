@@ -1,8 +1,6 @@
 package scope
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // Scope defines a scope that contains symbols, on a global, file or function level.
 // It supports embedding child scopes by a parent relationship.
@@ -43,7 +41,7 @@ func (sc *Scope) GetSymbol(name string) (*Symbol, error) {
 	return nil, fmt.Errorf("symbol '%s' not found in scope", name)
 }
 
-// Parent returns the parent scope of the scope.
+// Parent returns the parent scope.
 func (sc *Scope) Parent() *Scope {
 	return sc.parent
 }

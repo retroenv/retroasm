@@ -1,6 +1,6 @@
 package ast
 
-// Number ...
+// Number represents a numeric literal value.
 type Number struct {
 	*node
 

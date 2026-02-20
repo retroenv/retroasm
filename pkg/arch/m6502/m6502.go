@@ -22,26 +22,23 @@ func New() *config.Config[*m6502.Instruction] {
 type arch6502[T any] struct {
 }
 
-func (_ *arch6502[T]) AddressWidth() int {
+func (ar *arch6502[T]) AddressWidth() int {
 	return 16
 }
 
-func (_ *arch6502[T]) Instruction(name string) (*m6502.Instruction, bool) {
+func (ar *arch6502[T]) Instruction(name string) (*m6502.Instruction, bool) {
 	ins, ok := m6502.Instructions[name]
 	return ins, ok
 }
 
-// nolint: wrapcheck
-func (_ *arch6502[T]) ParseIdentifier(p arch.Parser, ins *m6502.Instruction) (ast.Node, error) {
-	return parser.ParseIdentifier(p, ins)
+func (ar *arch6502[T]) ParseIdentifier(p arch.Parser, ins *m6502.Instruction) (ast.Node, error) {
+	return parser.ParseIdentifier(p, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 
-// nolint: wrapcheck
-func (_ *arch6502[T]) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
-	return assembler.AssignInstructionAddress(assigner, ins)
+func (ar *arch6502[T]) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
+	return assembler.AssignInstructionAddress(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 
-// nolint: wrapcheck
-func (_ *arch6502[T]) GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	return assembler.GenerateInstructionOpcode(assigner, ins)
+func (ar *arch6502[T]) GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
+	return assembler.GenerateInstructionOpcode(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
 }

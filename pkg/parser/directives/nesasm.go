@@ -55,7 +55,7 @@ func NesasmConfig(p arch.Parser) (ast.Node, error) {
 	return cfg, nil
 }
 
-// NesasmOffsetCounter ...
+// NesasmOffsetCounter parses a .rsset directive for setting the NESASM offset counter.
 func NesasmOffsetCounter(p arch.Parser) (ast.Node, error) {
 	value := p.NextToken(2)
 	if value.Type != token.Number {

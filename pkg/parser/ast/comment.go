@@ -1,6 +1,6 @@
 package ast
 
-// Comment ...
+// Comment represents an inline or standalone comment in the assembly source.
 type Comment struct {
 	Message string
 }

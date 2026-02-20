@@ -6,7 +6,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 )
 
-// Macro ...
+// Macro represents a macro definition with its name, parameters, and body tokens.
 type Macro struct {
 	*node
 

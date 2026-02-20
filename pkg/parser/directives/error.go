@@ -9,7 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Error ...
+// Error parses a .error directive for emitting an assembler error message.
 func Error(p arch.Parser) (ast.Node, error) {
 	msg := p.NextToken(2)
 	if msg.Type != token.Identifier {

@@ -6,7 +6,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 )
 
-// Identifier ...
+// Identifier represents an unresolved name with optional arguments, such as a macro invocation.
 type Identifier struct {
 	*node
 

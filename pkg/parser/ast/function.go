@@ -1,10 +1,15 @@
 package ast
 
-// Function ...
+// Function represents a procedure/function definition (.proc).
 type Function struct {
 	*node
 
 	Name string
+}
+
+// FunctionEnd represents the end of a procedure/function (.endproc).
+type FunctionEnd struct {
+	*node
 }
 
 // NewFunction returns a new function node.
@@ -13,11 +18,6 @@ func NewFunction(name string) Function {
 		node: &node{},
 		Name: name,
 	}
-}
-
-// FunctionEnd ...
-type FunctionEnd struct {
-	*node
 }
 
 // NewFunctionEnd returns a new function end node.

@@ -232,7 +232,7 @@ func convertCa65MemoryArea(ar *ca65Area) (*Memory, error) {
 	return mem, nil
 }
 
-// nolint:cyclop
+//nolint:cyclop // attribute switch with one case per config key
 func parseCa65MemoryArea(ar *ca65Area, mem *Memory, ignoreUnknownKeys bool) error {
 	var err error
 
@@ -286,7 +286,8 @@ func parseCa65MemoryArea(ar *ca65Area, mem *Memory, ignoreUnknownKeys bool) erro
 }
 
 // convertCa65SegmentArea converts a SEGMENTS area of the ca65 configuration to a segment type instance.
-// nolint: cyclop, funlen
+//
+//nolint:cyclop,funlen // attribute switch with one case per config key
 func convertCa65SegmentArea(ar *ca65Area, memoryNames map[string]*Memory) (*Segment, error) {
 	seg := &Segment{}
 	var err error

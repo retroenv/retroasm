@@ -7,7 +7,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Rept ...
+// Rept parses a .rept directive for defining a repeat block.
 func Rept(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	countTokens, err := readDataTokens(p, true)
@@ -18,7 +18,7 @@ func Rept(p arch.Parser) (ast.Node, error) {
 	return ast.NewRept(countTokens), nil
 }
 
-// Endr ...
+// Endr parses a .endr directive for ending a repeat block.
 func Endr(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	return ast.NewEndr(), nil

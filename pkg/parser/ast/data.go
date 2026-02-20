@@ -27,7 +27,7 @@ const (
 	DataType
 )
 
-// Data ...
+// Data represents a data definition directive (.byte, .word, .db, .dw).
 type Data struct {
 	*node
 

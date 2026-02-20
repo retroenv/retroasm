@@ -86,8 +86,9 @@ var directiveBinaryIncludes = set.NewFromSlice([]string{
 	"incbin", // asm6
 })
 
-// SetCPU ...
-// nolint: nilnil
+// SetCPU skips the .setcpu directive as it is not currently used.
+//
+//nolint:nilnil // directive is intentionally ignored
 func SetCPU(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	return nil, nil

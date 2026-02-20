@@ -193,7 +193,7 @@ func (e *Expression) evaluate(scope *scope.Scope, dataWidth int, programCounter 
 	return e.value, nil
 }
 
-// nolint: funlen, cyclop
+//nolint:funlen,cyclop // Shunting Yard algorithm with one case per token type
 func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) ([]token.Token, error) {
 	values := &stack[token.Token]{}
 	operators := &stack[token.Token]{}
@@ -209,8 +209,7 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 			}
 
 			if len(symbolTokens) > 0 {
-				// nolint: gocritic
-				items := append(nodes[:i], symbolTokens...)
+				items := append(nodes[:i], symbolTokens...) //nolint:gocritic // intentional slice reconstruction to inline symbol tokens
 				nodes = append(items, nodes[i+1:]...)
 				i--
 			}

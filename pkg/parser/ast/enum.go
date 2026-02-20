@@ -5,11 +5,16 @@ import (
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 )
 
-// Enum ...
+// Enum represents the start of an enumeration block (.enum).
 type Enum struct {
 	*node
 
 	Address *expression.Expression
+}
+
+// EnumEnd represents the end of an enumeration block (.ende).
+type EnumEnd struct {
+	*node
 }
 
 // NewEnum returns a new enum node.
@@ -18,11 +23,6 @@ func NewEnum(address []token.Token) Enum {
 		node:    &node{},
 		Address: expression.New(address...),
 	}
-}
-
-// EnumEnd ...
-type EnumEnd struct {
-	*node
 }
 
 // NewEnumEnd returns a new enum end node.

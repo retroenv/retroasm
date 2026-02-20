@@ -6,7 +6,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// ParseModifier ...
+// ParseModifier parses instruction address modifiers (+/- offset expressions).
 func ParseModifier(p arch.Parser) []ast.Modifier {
 	var modifiers []ast.Modifier
 	var operator ast.Operator

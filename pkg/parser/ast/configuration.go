@@ -4,7 +4,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/expression"
 )
 
-// ConfigurationItem ...
+// ConfigurationItem identifies a specific assembler configuration setting.
 type ConfigurationItem int
 
 const (
@@ -18,7 +18,7 @@ const (
 	ConfigFillValue
 )
 
-// Configuration ...
+// Configuration represents an assembler configuration directive (mapper, PRG, CHR, etc.).
 type Configuration struct {
 	*node
 

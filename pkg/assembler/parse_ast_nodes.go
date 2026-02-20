@@ -25,7 +25,7 @@ type parseAST[T any] struct {
 	segmentsOrder []*segment          // sorted list of all parsed segments
 }
 
-// nolint: cyclop, funlen
+//nolint:cyclop,funlen // type switch with one case per AST node type
 func parseASTNode[T any](asm *parseAST[T], node ast.Node) ([]ast.Node, error) {
 	var (
 		err   error

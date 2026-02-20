@@ -5,7 +5,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Proc ...
+// Proc parses a .proc directive for defining a named procedure.
 func Proc(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	next := p.NextToken(0)
@@ -16,7 +16,7 @@ func Proc(p arch.Parser) (ast.Node, error) {
 	return ast.NewFunction(next.Value), nil
 }
 
-// EndProc ...
+// EndProc parses a .endproc directive for ending a procedure definition.
 func EndProc(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	return ast.NewFunctionEnd(), nil

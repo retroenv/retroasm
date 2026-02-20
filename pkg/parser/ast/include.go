@@ -1,6 +1,6 @@
 package ast
 
-// Include ...
+// Include represents a file inclusion directive (.include, .incbin).
 type Include struct {
 	*node
 

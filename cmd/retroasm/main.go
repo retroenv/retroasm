@@ -35,25 +35,17 @@ var (
 // optionFlags holds command-line options and runtime configuration.
 type optionFlags struct {
 	logger *log.Logger
-
-	// File paths
 	config string
 	output string
-
-	// Architecture configuration
 	cpu    string
 	system string
-
-	// Logging configuration
-	debug bool
-	quiet bool
+	debug  bool
+	quiet  bool
 }
 
 func main() {
 	options, args := readArguments()
-	if !options.quiet {
-		printBanner(options)
-	}
+	printBanner(options)
 
 	logFields := buildLogFields(args[0], options)
 	options.logger.Info("Assembling file...", logFields...)
@@ -100,17 +92,14 @@ const (
 // Currently only supports NES system and 6502 CPU architecture.
 // If system is "nes", it defaults to 6502 CPU if no CPU is specified.
 func validateAndProcessArchitecture(options *optionFlags) error {
-	// Validate system if specified
 	if err := validateSystem(options); err != nil {
 		return err
 	}
 
-	// Validate CPU if specified
 	if err := validateCPU(options); err != nil {
 		return err
 	}
 
-	// Validate compatibility between system and CPU
 	if options.system == supportedSystem && options.cpu != "" && options.cpu != supportedCPU {
 		return fmt.Errorf("%w: NES system requires 6502 CPU architecture, got: %s", ErrIncompatibleArch, options.cpu)
 	}
@@ -167,7 +156,6 @@ func readArguments() (*optionFlags, []string) {
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	options := &optionFlags{}
 
-	// Define command-line flags
 	flags.BoolVar(&options.debug, "debug", false, "enable debug logging")
 	flags.StringVar(&options.config, "c", "", "assembler config file")
 	flags.StringVar(&options.output, "o", "", "name of the output file")
@@ -182,12 +170,10 @@ func readArguments() (*optionFlags, []string) {
 	logger := createLogger(options)
 	options.logger = logger
 
-	// Validate required arguments
 	if err != nil || len(args) == 0 || options.output == "" {
 		showUsageAndExit(options, flags)
 	}
 
-	// Validate and process architecture configuration
 	if err := validateAndProcessArchitecture(options); err != nil {
 		logger.Error("Invalid architecture configuration", log.Err(err))
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -218,7 +204,6 @@ func printBanner(options *optionFlags) {
 
 // assembleFile processes the input assembly file and generates output.
 func assembleFile(options *optionFlags, args []string) error {
-	// Create assembler and register architecture
 	asm := retroasm.New()
 	m6502Arch := m6502.New()
 	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
@@ -226,13 +211,11 @@ func assembleFile(options *optionFlags, args []string) error {
 		return fmt.Errorf("registering architecture: %w", err)
 	}
 
-	// Read input assembly file
 	inputData, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("opening input file '%s': %w", args[0], err)
 	}
 
-	// Assemble using text input
 	input := &retroasm.TextInput{
 		Source:     bytes.NewReader(inputData),
 		SourceName: args[0],
@@ -245,7 +228,6 @@ func assembleFile(options *optionFlags, args []string) error {
 		return fmt.Errorf("assembling input file '%s': %w", args[0], err)
 	}
 
-	// Write output file with appropriate permissions
 	if err = os.WriteFile(options.output, output.Binary, 0o644); err != nil {
 		return fmt.Errorf("writing output file '%s': %w", options.output, err)
 	}

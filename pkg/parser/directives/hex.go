@@ -11,7 +11,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Hex ...
+// Hex parses a .hex directive for inline hexadecimal data.
 func Hex(p arch.Parser) (ast.Node, error) {
 	if p.NextToken(2).Type.IsTerminator() {
 		return nil, errMissingParameter

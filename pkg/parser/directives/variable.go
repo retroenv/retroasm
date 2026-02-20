@@ -9,7 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
-// Res ...
+// Res parses a .res directive for reserving space for a variable.
 func Res(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	next := p.NextToken(0)
