@@ -20,14 +20,6 @@ func NewIf(condition []token.Token) If {
 	}
 }
 
-// Copy returns a copy of the if node.
-func (i If) Copy() Node {
-	return If{
-		node:      i.node,
-		Condition: i.Condition.Copy(),
-	}
-}
-
 // Ifdef ...
 type Ifdef struct {
 	*node
@@ -40,14 +32,6 @@ func NewIfdef(identifier string) Ifdef {
 	return Ifdef{
 		node:       &node{},
 		Identifier: identifier,
-	}
-}
-
-// Copy returns a copy of the ifdef node.
-func (i Ifdef) Copy() Node {
-	return Ifdef{
-		node:       i.node,
-		Identifier: i.Identifier,
 	}
 }
 
@@ -66,14 +50,6 @@ func NewIfndef(identifier string) Ifndef {
 	}
 }
 
-// Copy returns a copy of the ifndef node.
-func (i Ifndef) Copy() Node {
-	return Ifndef{
-		node:       i.node,
-		Identifier: i.Identifier,
-	}
-}
-
 // Else ...
 type Else struct {
 	*node
@@ -83,13 +59,6 @@ type Else struct {
 func NewElse() Else {
 	return Else{
 		node: &node{},
-	}
-}
-
-// Copy returns a copy of the else node.
-func (e Else) Copy() Node {
-	return Else{
-		node: e.node,
 	}
 }
 
@@ -108,14 +77,6 @@ func NewElseIf(condition []token.Token) ElseIf {
 	}
 }
 
-// Copy returns a copy of the elseif node.
-func (e ElseIf) Copy() Node {
-	return ElseIf{
-		node:      e.node,
-		Condition: e.Condition.Copy(),
-	}
-}
-
 // Endif ...
 type Endif struct {
 	*node
@@ -125,6 +86,45 @@ type Endif struct {
 func NewEndif() Endif {
 	return Endif{
 		node: &node{},
+	}
+}
+
+// Copy returns a copy of the if node.
+func (i If) Copy() Node {
+	return If{
+		node:      i.node,
+		Condition: i.Condition.Copy(),
+	}
+}
+
+// Copy returns a copy of the ifdef node.
+func (i Ifdef) Copy() Node {
+	return Ifdef{
+		node:       i.node,
+		Identifier: i.Identifier,
+	}
+}
+
+// Copy returns a copy of the ifndef node.
+func (i Ifndef) Copy() Node {
+	return Ifndef{
+		node:       i.node,
+		Identifier: i.Identifier,
+	}
+}
+
+// Copy returns a copy of the else node.
+func (e Else) Copy() Node {
+	return Else{
+		node: e.node,
+	}
+}
+
+// Copy returns a copy of the elseif node.
+func (e ElseIf) Copy() Node {
+	return ElseIf{
+		node:      e.node,
+		Condition: e.Condition.Copy(),
 	}
 }
 

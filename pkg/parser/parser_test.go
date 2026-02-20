@@ -12,7 +12,7 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-// nolint: funlen
+//nolint:funlen // table-driven test with many cases
 func TestParser_Instruction(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -44,21 +44,14 @@ func TestParser_Instruction(t *testing.T) {
 
 	for _, tt := range tests {
 		parser := New(cfg.Arch, strings.NewReader(tt.input))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
 
 		expectedNodes := tt.expected()
+		assert.Len(t, nodes, len(expectedNodes), "input: "+tt.input)
 		for i, expected := range expectedNodes {
-			assert.False(t, i >= len(nodes))
-
-			node := nodes[i]
-			assert.Equal(t, expected, node)
-		}
-
-		last := len(expectedNodes)
-		for i := last; i < len(nodes); i++ {
-			t.Errorf("unexpected node %v", nodes[i])
+			assert.Equal(t, expected, nodes[i])
 		}
 	}
 }
@@ -68,23 +61,23 @@ func TestParser_EdgeCases(t *testing.T) {
 
 	t.Run("empty input", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader(""))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
-		assert.Equal(t, 0, len(nodes))
+		assert.Empty(t, nodes)
 	})
 
 	t.Run("only whitespace", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader("   \n\t  \n"))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
-		assert.Equal(t, 0, len(nodes))
+		assert.Empty(t, nodes)
 	})
 
 	t.Run("only comments", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader("; comment\n// another comment"))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
 		// Comment nodes may be combined or filtered, check actual behavior
@@ -96,7 +89,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 	cfg := m6502Arch.New()
 
 	t.Run("context cancellation during read", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel() // Cancel immediately
 
 		parser := New(cfg.Arch, strings.NewReader("lda #$01"))
@@ -107,7 +100,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 
 	t.Run("unsupported directive", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader(".unsupported"))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		_, err := parser.TokensToAstNodes()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported directive")
@@ -115,7 +108,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 
 	t.Run("missing directive parameter", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader(".byte"))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		_, err := parser.TokensToAstNodes()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "missing parameter")
@@ -124,7 +117,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 	t.Run("unexpected token type", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader("@"))
 		// The lexer may handle @ as an illegal token before parser sees it
-		err := parser.Read(context.Background())
+		err := parser.Read(t.Context())
 		if err != nil {
 			assert.Contains(t, err.Error(), "illegal")
 		} else {
@@ -193,9 +186,9 @@ func TestParser_PreallocationBenefit(t *testing.T) {
 	// Test that pre-allocation doesn't break functionality with large programs
 	largeInput := strings.Repeat("nop\n", 1000)
 	parser := New(cfg.Arch, strings.NewReader(largeInput))
-	assert.NoError(t, parser.Read(context.Background()))
+	assert.NoError(t, parser.Read(t.Context()))
 
 	nodes, err := parser.TokensToAstNodes()
 	assert.NoError(t, err)
-	assert.Equal(t, 1000, len(nodes))
+	assert.Len(t, nodes, 1000)
 }

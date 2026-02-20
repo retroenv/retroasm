@@ -63,16 +63,10 @@ func TestDirectiveIntegration(t *testing.T) {
 
 		node, err := Data(parser)
 		assert.NoError(t, err)
-		assert.NotNil(t, node)
 
-		// Handle both value and pointer types
-		if data, ok := node.(*ast.Data); ok {
-			assert.Equal(t, ast.DataType, data.Type)
-		} else if data, ok := node.(ast.Data); ok {
-			assert.Equal(t, ast.DataType, data.Type)
-		} else {
-			t.Fatalf("Expected Data node, got %T", node)
-		}
+		data, ok := node.(ast.Data)
+		assert.True(t, ok)
+		assert.Equal(t, ast.DataType, data.Type)
 	})
 
 	t.Run("base_directive", func(t *testing.T) {
@@ -85,16 +79,10 @@ func TestDirectiveIntegration(t *testing.T) {
 
 		node, err := Base(parser)
 		assert.NoError(t, err)
-		assert.NotNil(t, node)
 
-		// Handle both value and pointer types
-		if base, ok := node.(*ast.Base); ok {
-			assert.NotNil(t, base.Address)
-		} else if base, ok := node.(ast.Base); ok {
-			assert.NotNil(t, base.Address)
-		} else {
-			t.Fatalf("Expected Base node, got %T", node)
-		}
+		base, ok := node.(ast.Base)
+		assert.True(t, ok)
+		assert.NotNil(t, base.Address)
 	})
 }
 

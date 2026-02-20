@@ -21,6 +21,60 @@ type addressAssign[T any] struct {
 	enumBackupProgramCounter uint64
 }
 
+// ArgumentValue returns the value of an instruction argument, either a number or a symbol value.
+func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
+	switch arg := argument.(type) {
+	case uint64:
+		return arg, nil
+
+	case reference:
+		name, offset := parseReferenceOffset(arg.name)
+
+		sym, err := aa.currentScope.GetSymbol(name)
+		if err != nil {
+			return 0, fmt.Errorf("getting instruction argument: %w", err)
+		}
+
+		value, err := sym.Value(aa.currentScope)
+		if err != nil {
+			return 0, fmt.Errorf("getting symbol '%s' value: %w", name, err)
+		}
+
+		switch v := value.(type) {
+		case int64:
+			return uint64(v) + uint64(offset), nil
+		case uint64:
+			return v + uint64(offset), nil
+		default:
+			return 0, fmt.Errorf("unexpected argument value type %T", value)
+		}
+
+	default:
+		return 0, fmt.Errorf("unexpected argument type %T", arg)
+	}
+}
+
+// RelativeOffset returns the relative offset between two addresses.
+func (aa *addressAssign[T]) RelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
+	diff := int64(destination) - int64(addressAfterInstruction)
+
+	switch {
+	case diff < -128 || diff > 127:
+		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
+
+	case diff >= 0:
+		return byte(diff), nil
+
+	default:
+		return byte(256 + diff), nil
+	}
+}
+
+// ProgramCounter returns the current program counter.
+func (aa *addressAssign[T]) ProgramCounter() uint64 {
+	return aa.programCounter
+}
+
 // assignAddressesStep assigns an address for every node in each scope.
 func assignAddressesStep[T any](asm *Assembler[T]) error {
 	var err error
@@ -73,55 +127,6 @@ func assignAddressesStep[T any](asm *Assembler[T]) error {
 	return nil
 }
 
-// ArgumentValue returns the value of an instruction argument, either a number or a symbol value.
-func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
-	switch arg := argument.(type) {
-	case uint64:
-		return arg, nil
-
-	case reference:
-		name, offset := parseReferenceOffset(arg.name)
-
-		sym, err := aa.currentScope.GetSymbol(name)
-		if err != nil {
-			return 0, fmt.Errorf("getting instruction argument: %w", err)
-		}
-
-		value, err := sym.Value(aa.currentScope)
-		if err != nil {
-			return 0, fmt.Errorf("getting symbol '%s' value: %w", name, err)
-		}
-
-		switch v := value.(type) {
-		case int64:
-			return uint64(v) + uint64(offset), nil
-		case uint64:
-			return v + uint64(offset), nil
-		default:
-			return 0, fmt.Errorf("unexpected argument value type %T", value)
-		}
-
-	default:
-		return 0, fmt.Errorf("unexpected argument type %T", arg)
-	}
-}
-
-// RelativeOffset returns the relative offset between two addresses.
-func (aa *addressAssign[T]) RelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
-	diff := int64(destination) - int64(addressAfterInstruction)
-
-	switch {
-	case diff < -128 || diff > 127:
-		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
-
-	case diff >= 0:
-		return byte(diff), nil
-
-	default:
-		return byte(256 + diff), nil
-	}
-}
-
 // parseReferenceOffset splits a reference name into a base symbol name and
 // an integer offset. It handles names like "symbol+8" or "symbol-3".
 // If no offset is present, offset is 0.
@@ -133,11 +138,6 @@ func parseReferenceOffset(name string) (string, int64) {
 		}
 	}
 	return name, 0
-}
-
-// ProgramCounter returns the current program counter.
-func (aa *addressAssign[T]) ProgramCounter() uint64 {
-	return aa.programCounter
 }
 
 func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {

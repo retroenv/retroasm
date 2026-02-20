@@ -69,51 +69,6 @@ func Parse(value string) (uint64, error) {
 	return i, nil
 }
 
-// nolint: gocognit,cyclop
-func parseCharacter(r rune, i, idx, base *int, value string, builder *strings.Builder) error {
-	switch {
-	case r == '%': // prefix
-		if *base > 0 {
-			return ErrInvalidNumberBaseCombination
-		}
-		*base = 2 // binary
-
-	case r == 'b' && *base == 0 && *i+1 == len(value): // suffix
-		if *base > 0 {
-			return ErrInvalidNumberBaseCombination
-		}
-		*base = 2 // binary
-
-	case r == '$':
-		if *base > 0 {
-			return ErrInvalidNumberBaseCombination
-		}
-		*base = 16 // hex
-
-	case r == '0' && *i == 0 && len(value) > *idx+1 && (value[*idx+1] == 'x' || value[*idx+1] == 'X'):
-		*base = 16 // hex
-		*idx++
-		*i++
-
-	case unicode.IsDigit(r):
-		if *base == 2 && r > '1' {
-			return fmt.Errorf("%w: '%c'", ErrInvalidBinaryChar, r)
-		}
-		builder.WriteRune(r)
-
-	case r >= 'a' && r <= 'f':
-		if *base != 0 && *base != 16 {
-			return fmt.Errorf("%w: '%c'", ErrInvalidHexChar, r)
-		}
-		builder.WriteRune(r)
-
-	default:
-		return fmt.Errorf("%w: '%c'", ErrInvalidNumberChar, r)
-	}
-
-	return nil
-}
-
 // ParseToBytes parses a number string to a byte buffer of specific byte width.
 // This is useful for parsing a word string into a byte array of 2 bytes.
 func ParseToBytes(value string, dataWidth int) ([]byte, error) {
@@ -173,4 +128,49 @@ func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("%w: "+UnsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}
+}
+
+// nolint: gocognit,cyclop
+func parseCharacter(r rune, i, idx, base *int, value string, builder *strings.Builder) error {
+	switch {
+	case r == '%': // prefix
+		if *base > 0 {
+			return ErrInvalidNumberBaseCombination
+		}
+		*base = 2 // binary
+
+	case r == 'b' && *base == 0 && *i+1 == len(value): // suffix
+		if *base > 0 {
+			return ErrInvalidNumberBaseCombination
+		}
+		*base = 2 // binary
+
+	case r == '$':
+		if *base > 0 {
+			return ErrInvalidNumberBaseCombination
+		}
+		*base = 16 // hex
+
+	case r == '0' && *i == 0 && len(value) > *idx+1 && (value[*idx+1] == 'x' || value[*idx+1] == 'X'):
+		*base = 16 // hex
+		*idx++
+		*i++
+
+	case unicode.IsDigit(r):
+		if *base == 2 && r > '1' {
+			return fmt.Errorf("%w: '%c'", ErrInvalidBinaryChar, r)
+		}
+		builder.WriteRune(r)
+
+	case r >= 'a' && r <= 'f':
+		if *base != 0 && *base != 16 {
+			return fmt.Errorf("%w: '%c'", ErrInvalidHexChar, r)
+		}
+		builder.WriteRune(r)
+
+	default:
+		return fmt.Errorf("%w: '%c'", ErrInvalidNumberChar, r)
+	}
+
+	return nil
 }

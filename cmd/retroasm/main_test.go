@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestBuildLogFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fields := buildLogFields(tt.input, tt.options)
-			assert.Equal(t, tt.expected, len(fields))
+			assert.Len(t, fields, tt.expected)
 
 			// First field should always be input
 			assert.Equal(t, "input", fields[0].Key)
@@ -81,9 +82,9 @@ func TestCreateLogger(t *testing.T) {
 			expected: log.ErrorLevel,
 		},
 		{
-			name:     "debug overrides quiet",
+			name:     "quiet overrides debug",
 			options:  &optionFlags{debug: true, quiet: true},
-			expected: log.DebugLevel,
+			expected: log.ErrorLevel,
 		},
 	}
 
@@ -91,9 +92,7 @@ func TestCreateLogger(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := createLogger(tt.options)
 			assert.NotNil(t, logger)
-
-			// Note: We can't directly access the log level from the logger,
-			// so we just ensure the logger was created successfully
+			assert.Equal(t, tt.expected, logger.Level())
 		})
 	}
 }
@@ -262,7 +261,6 @@ func TestValidateAndProcessArchitecture(t *testing.T) {
 
 func TestAssembleWithConfigFile(t *testing.T) {
 	tmpFile := createTestConfigFile(t)
-	defer func() { _ = os.Remove(tmpFile) }()
 
 	tests := []struct {
 		name        string
@@ -276,7 +274,7 @@ func TestAssembleWithConfigFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := runAssembleWithConfig(tt.configPath)
+			err := runAssembleWithConfig(t.Context(), tt.configPath)
 			if tt.expectedErr {
 				assert.Error(t, err)
 			} else {
@@ -290,15 +288,13 @@ func createTestConfigFile(t *testing.T) string {
 	t.Helper()
 	configContent := `MEMORY { CODE: start = $8000, size = $8000, fill = yes; }
 SEGMENTS { CODE: load = CODE, type = rw; }`
-	tmpFile, err := os.CreateTemp("", "test_config_*.cfg")
+	path := filepath.Join(t.TempDir(), "test_config.cfg")
+	err := os.WriteFile(path, []byte(configContent), 0o644)
 	assert.NoError(t, err)
-	_, err = tmpFile.WriteString(configContent)
-	assert.NoError(t, err)
-	assert.NoError(t, tmpFile.Close())
-	return tmpFile.Name()
+	return path
 }
 
-func runAssembleWithConfig(configPath string) error {
+func runAssembleWithConfig(ctx context.Context, configPath string) error {
 	asm := retroasm.New()
 	m6502Arch := m6502.New()
 	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
@@ -310,7 +306,7 @@ func runAssembleWithConfig(configPath string) error {
 		SourceName: "test.asm",
 		ConfigFile: configPath,
 	}
-	_, err := asm.AssembleText(context.Background(), input)
+	_, err := asm.AssembleText(ctx, input)
 	if err != nil {
 		return fmt.Errorf("assembling text: %w", err)
 	}

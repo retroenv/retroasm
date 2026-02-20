@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-// nolint: funlen
+//nolint:funlen // table-driven test with many cases
 func TestLexer(t *testing.T) {
 	tests := []struct {
 		input    string

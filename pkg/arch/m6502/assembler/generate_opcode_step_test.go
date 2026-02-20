@@ -63,7 +63,7 @@ func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, 2, len(ins.opcodes))
+			assert.Len(t, ins.opcodes, 2)
 			assert.Equal(t, byte(tt.value), ins.opcodes[1])
 		})
 	}

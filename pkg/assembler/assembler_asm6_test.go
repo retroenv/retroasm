@@ -22,7 +22,7 @@ func TestAssemblerAsm6EQU(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6EquTestCode)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{2}, b)
-	assert.Equal(t, 1, len(b))
+	assert.Len(t, b, 1)
 }
 
 var asm6AssignTestCode = `
@@ -585,21 +585,6 @@ func TestAssemblerAsm6BranchOutOfRange(t *testing.T) {
 	assert.Contains(t, err.Error(), "too far")
 }
 
-func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
-	t.Helper()
-
-	cfg := m6502.New()
-	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(testConfig)))
-
-	reader := strings.NewReader(testCode)
-	var buf bytes.Buffer
-	asm := New(cfg, &buf)
-
-	err := asm.Process(context.Background(), reader)
-	b := buf.Bytes()
-	return b, err
-}
-
 func TestAssemblerContextCancellation(t *testing.T) {
 	cfg := m6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
@@ -615,4 +600,19 @@ func TestAssemblerContextCancellation(t *testing.T) {
 	err := asm.Process(ctx, reader)
 	assert.NotNil(t, err, "expected error from cancelled context")
 	assert.ErrorIs(t, err, context.Canceled, "expected context.Canceled error")
+}
+
+func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
+	t.Helper()
+
+	cfg := m6502.New()
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(testConfig)))
+
+	reader := strings.NewReader(testCode)
+	var buf bytes.Buffer
+	asm := New(cfg, &buf)
+
+	err := asm.Process(context.Background(), reader)
+	b := buf.Bytes()
+	return b, err
 }

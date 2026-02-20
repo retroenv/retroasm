@@ -17,26 +17,16 @@ func TestNode_SetComment(t *testing.T) {
 	t.Run("set comment on instruction", func(t *testing.T) {
 		inst := NewInstruction("nop", 0, NewNumber(42), nil)
 		inst.SetComment("instruction comment")
-
-		// Verify comment was set by creating a copy and checking
-		copied := inst.Copy()
-		assert.NotNil(t, copied)
+		assert.NotNil(t, inst.Copy())
 	})
 
 	t.Run("set comment on label", func(t *testing.T) {
 		label := NewLabel("main")
 		label.SetComment("main function entry")
 
-		// Verify the comment was set
-		copied := label.Copy()
-		assert.NotNil(t, copied)
-		if copyLabel, ok := copied.(*Label); ok {
-			assert.Equal(t, "main", copyLabel.Name)
-		} else if copyLabel, ok := copied.(Label); ok {
-			assert.Equal(t, "main", copyLabel.Name)
-		} else {
-			t.Fatalf("Unexpected copy type: %T", copied)
-		}
+		copied, ok := label.Copy().(Label)
+		assert.True(t, ok)
+		assert.Equal(t, "main", copied.Name)
 	})
 }
 
@@ -44,66 +34,39 @@ func TestInstruction_Copy(t *testing.T) {
 	original := NewInstruction("lda", 1, NewNumber(42), nil)
 	original.SetComment("load accumulator")
 
-	copied := original.Copy()
-	assert.NotNil(t, copied)
-
-	// Basic functionality test - copied should not be nil and should be valid
-	if copyInst, ok := copied.(*Instruction); ok {
-		assert.Equal(t, "lda", copyInst.Name)
-		assert.Equal(t, 1, copyInst.Addressing)
-	} else {
-		// Just verify copied is not nil, don't fail on implementation details
-		t.Logf("Copy returned type %T instead of *Instruction", copied)
-	}
+	copied, ok := original.Copy().(Instruction)
+	assert.True(t, ok)
+	assert.Equal(t, "lda", copied.Name)
+	assert.Equal(t, 1, copied.Addressing)
 }
 
 func TestLabel_Copy(t *testing.T) {
 	original := NewLabel("loop")
 	original.SetComment("main loop")
 
-	copied := original.Copy()
-	assert.NotNil(t, copied)
-
-	// Handle both pointer and value returns
-	if copyLabel, ok := copied.(*Label); ok {
-		assert.Equal(t, "loop", copyLabel.Name)
-	} else if copyLabel, ok := copied.(Label); ok {
-		assert.Equal(t, "loop", copyLabel.Name)
-	} else {
-		t.Fatalf("Unexpected copy type: %T", copied)
-	}
+	copied, ok := original.Copy().(Label)
+	assert.True(t, ok)
+	assert.Equal(t, "loop", copied.Name)
 }
 
 func TestNumber_Copy(t *testing.T) {
 	original := NewNumber(255)
 
-	copied := original.Copy()
-	assert.NotNil(t, copied)
-
-	// Handle both pointer and value returns
-	if copyNum, ok := copied.(*Number); ok {
-		assert.Equal(t, uint64(255), copyNum.Value)
-	} else if copyNum, ok := copied.(Number); ok {
-		assert.Equal(t, uint64(255), copyNum.Value)
-	} else {
-		t.Fatalf("Unexpected copy type: %T", copied)
-	}
+	copied, ok := original.Copy().(Number)
+	assert.True(t, ok)
+	assert.Equal(t, uint64(255), copied.Value)
 }
 
 func TestData_Copy(t *testing.T) {
 	t.Run("data with nil values", func(t *testing.T) {
 		original := NewData(DataType, 1)
-		// Values is nil by default
 
-		copied := original.Copy()
-		assert.NotNil(t, copied)
-
-		copyData, ok := copied.(Data)
+		copied, ok := original.Copy().(Data)
 		assert.True(t, ok)
-		assert.Equal(t, DataType, copyData.Type)
-		assert.Equal(t, 1, copyData.Width)
-		assert.NotNil(t, copyData.Size) // Size is initialized in NewData
-		assert.Nil(t, copyData.Values)  // Values should remain nil
+		assert.Equal(t, DataType, copied.Type)
+		assert.Equal(t, 1, copied.Width)
+		assert.NotNil(t, copied.Size)
+		assert.Nil(t, copied.Values)
 	})
 
 	t.Run("data with values expression", func(t *testing.T) {
@@ -112,34 +75,23 @@ func TestData_Copy(t *testing.T) {
 		original.ReferenceType = FullAddress
 		original.Fill = true
 
-		copied := original.Copy()
-		assert.NotNil(t, copied)
-
-		copyData, ok := copied.(Data)
+		copied, ok := original.Copy().(Data)
 		assert.True(t, ok)
-		assert.Equal(t, AddressType, copyData.Type)
-		assert.Equal(t, 2, copyData.Width)
-		assert.Equal(t, FullAddress, copyData.ReferenceType)
-		assert.True(t, copyData.Fill)
-		assert.NotNil(t, copyData.Values)
-		assert.NotNil(t, copyData.Size)
+		assert.Equal(t, AddressType, copied.Type)
+		assert.Equal(t, 2, copied.Width)
+		assert.Equal(t, FullAddress, copied.ReferenceType)
+		assert.True(t, copied.Fill)
+		assert.NotNil(t, copied.Values)
+		assert.NotNil(t, copied.Size)
 	})
 }
 
 func TestAlias_Copy(t *testing.T) {
 	original := NewAlias("SCREEN")
 
-	copied := original.Copy()
-	assert.NotNil(t, copied)
-
-	// Handle both pointer and value returns
-	if copyAlias, ok := copied.(*Alias); ok {
-		assert.Equal(t, "SCREEN", copyAlias.Name)
-	} else if copyAlias, ok := copied.(Alias); ok {
-		assert.Equal(t, "SCREEN", copyAlias.Name)
-	} else {
-		t.Fatalf("Unexpected copy type: %T", copied)
-	}
+	copied, ok := original.Copy().(Alias)
+	assert.True(t, ok)
+	assert.Equal(t, "SCREEN", copied.Name)
 }
 
 func TestOffsetCounter_Copy(t *testing.T) {
@@ -151,7 +103,6 @@ func TestOffsetCounter_Copy(t *testing.T) {
 	assert.Equal(t, uint64(42), copyOC.Number)
 }
 
-// Test edge cases for AST node creation.
 func TestAST_EdgeCases(t *testing.T) {
 	t.Run("empty string values", func(t *testing.T) {
 		label := NewLabel("")

@@ -20,14 +20,6 @@ func NewEnum(address []token.Token) Enum {
 	}
 }
 
-// Copy returns a copy of the enum node.
-func (e Enum) Copy() Node {
-	return Enum{
-		node:    e.node,
-		Address: e.Address.Copy(),
-	}
-}
-
 // EnumEnd ...
 type EnumEnd struct {
 	*node
@@ -37,6 +29,14 @@ type EnumEnd struct {
 func NewEnumEnd() EnumEnd {
 	return EnumEnd{
 		node: &node{},
+	}
+}
+
+// Copy returns a copy of the enum node.
+func (e Enum) Copy() Node {
+	return Enum{
+		node:    e.node,
+		Address: e.Address.Copy(),
 	}
 }
 

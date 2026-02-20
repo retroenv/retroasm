@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-// nolint: funlen
+//nolint:funlen // table-driven test with many cases
 func TestParserAsm6(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -47,21 +46,14 @@ func TestParserAsm6(t *testing.T) {
 
 	for _, tt := range tests {
 		parser := New(cfg.Arch, strings.NewReader(tt.input))
-		assert.NoError(t, parser.Read(context.Background()))
+		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err, "input: "+tt.input)
 
 		expectedNodes := tt.expected()
+		assert.Len(t, nodes, len(expectedNodes), "input: "+tt.input)
 		for i, expected := range expectedNodes {
-			assert.False(t, i >= len(nodes))
-
-			node := nodes[i]
-			assert.Equal(t, expected, node, "input: "+tt.input)
-		}
-
-		last := len(expectedNodes)
-		for i := last; i < len(nodes); i++ {
-			t.Errorf("unexpected node %v", nodes[i])
+			assert.Equal(t, expected, nodes[i], "input: "+tt.input)
 		}
 	}
 }

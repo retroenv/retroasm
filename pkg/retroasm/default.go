@@ -29,6 +29,32 @@ func New() Assembler {
 	}
 }
 
+// ArchitectureAdapter adapts existing architectures to the Architecture interface.
+type ArchitectureAdapter[T any] struct {
+	arch   any
+	name   string
+	config *config.Config[T]
+}
+
+// NewArchitectureAdapter creates a new adapter for existing architectures.
+func NewArchitectureAdapter[T any](name string, arch any, cfg *config.Config[T]) Architecture {
+	return &ArchitectureAdapter[T]{
+		arch:   arch,
+		name:   name,
+		config: cfg,
+	}
+}
+
+func (a *ArchitectureAdapter[T]) Name() string      { return a.name }
+func (a *ArchitectureAdapter[T]) AddressWidth() int { return 16 }
+
+func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (ArchitectureAssembler, error) {
+	return &architectureAssembler[T]{
+		arch:   a.arch,
+		config: cfg,
+	}, nil
+}
+
 type defaultAssembler struct {
 	architectures map[string]Architecture
 	config        Configuration
@@ -166,37 +192,6 @@ SEGMENTS {
     CODE: load = CODE, type = rw;
 }
 `
-
-// ArchitectureAdapter adapts existing architectures to the Architecture interface.
-type ArchitectureAdapter[T any] struct {
-	arch   any
-	name   string
-	config *config.Config[T]
-}
-
-// NewArchitectureAdapter creates a new adapter for existing architectures.
-func NewArchitectureAdapter[T any](name string, arch any, cfg *config.Config[T]) Architecture {
-	return &ArchitectureAdapter[T]{
-		arch:   arch,
-		name:   name,
-		config: cfg,
-	}
-}
-
-func (a *ArchitectureAdapter[T]) Name() string {
-	return a.name
-}
-
-func (a *ArchitectureAdapter[T]) AddressWidth() int {
-	return 16 // 6502 default
-}
-
-func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (ArchitectureAssembler, error) {
-	return &architectureAssembler[T]{
-		arch:   a.arch,
-		config: cfg,
-	}, nil
-}
 
 type architectureAssembler[T any] struct {
 	arch   any

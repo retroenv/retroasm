@@ -24,12 +24,8 @@ func TestParseReferenceOffset(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			name, offset := parseReferenceOffset(tt.input)
-			if name != tt.wantName {
-				t.Errorf("parseReferenceOffset(%q) name = %q, want %q", tt.input, name, tt.wantName)
-			}
-			if offset != tt.wantOffset {
-				t.Errorf("parseReferenceOffset(%q) offset = %d, want %d", tt.input, offset, tt.wantOffset)
-			}
+			assert.Equal(t, tt.wantName, name)
+			assert.Equal(t, tt.wantOffset, offset)
 		})
 	}
 }

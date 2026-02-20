@@ -13,10 +13,7 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-// Test constants.
-const (
-	testFilename = "test.asm"
-)
+const testFilename = "test.asm"
 
 func TestAssemblerCreation(t *testing.T) {
 	assembler := New()
@@ -136,7 +133,7 @@ func TestASTAssembly(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := runASTAssembly(tt.input)
+			output, err := runASTAssembly(t.Context(), tt.input)
 			if tt.expectedErr != nil {
 				assert.ErrorIs(t, err, tt.expectedErr)
 				return
@@ -146,20 +143,6 @@ func TestASTAssembly(t *testing.T) {
 			assert.Equal(t, tt.expectedBinary, output.Binary)
 		})
 	}
-}
-
-func runASTAssembly(input *ASTInput) (*AssemblyOutput, error) {
-	assembler := New()
-	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := assembler.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
-		return nil, fmt.Errorf("registering architecture: %w", err)
-	}
-	output, err := assembler.AssembleAST(context.Background(), input)
-	if err != nil {
-		return nil, fmt.Errorf("assembling AST: %w", err)
-	}
-	return output, nil
 }
 
 func TestTextAssembly(t *testing.T) {
@@ -204,7 +187,7 @@ func TestTextAssembly(t *testing.T) {
 			err := assembler.RegisterArchitecture(string(arch.M6502), adapter)
 			assert.NoError(t, err)
 
-			output, err := assembler.AssembleText(context.Background(), tt.input)
+			output, err := assembler.AssembleText(t.Context(), tt.input)
 			if tt.expectedErr != nil {
 				assert.ErrorIs(t, err, tt.expectedErr)
 				return
@@ -231,7 +214,7 @@ func TestConfigurationBuilder(t *testing.T) {
 	assert.Equal(t, uint64(0x1000), symbols["test"])
 
 	segments := config.Segments()
-	assert.Equal(t, 1, len(segments))
+	assert.Len(t, segments, 1)
 	assert.Equal(t, "CODE", segments[0].Name)
 	assert.Equal(t, uint64(0x8000), segments[0].StartAddr)
 	assert.Equal(t, uint64(0x8000), segments[0].Size)
@@ -259,11 +242,11 @@ func TestSymbolHandling(t *testing.T) {
 		Symbols:    symbols,
 	}
 
-	output, err := assembler.AssembleAST(context.Background(), input)
+	output, err := assembler.AssembleAST(t.Context(), input)
 	assert.NoError(t, err)
 
 	// Check that symbols are preserved in output
-	assert.Equal(t, len(symbols), len(output.Symbols))
+	assert.Len(t, output.Symbols, len(symbols))
 
 	for name, expectedValue := range symbols {
 		symbol, exists := output.Symbols[name]
@@ -275,7 +258,6 @@ func TestSymbolHandling(t *testing.T) {
 	}
 }
 
-// TestDefaultConfiguration tests the default configuration implementation.
 func TestDefaultConfiguration(t *testing.T) {
 	config := NewDefaultConfiguration()
 	assert.NotNil(t, config)
@@ -286,11 +268,10 @@ func TestDefaultConfiguration(t *testing.T) {
 	assert.Equal(t, LittleEndian, layout.Endianness)
 
 	// Test empty segments and symbols
-	assert.Equal(t, 0, len(config.Segments()))
-	assert.Equal(t, 0, len(config.Symbols()))
+	assert.Empty(t, config.Segments())
+	assert.Empty(t, config.Symbols())
 }
 
-// TestDefaultConfigurationMutation tests configuration modification methods.
 func TestDefaultConfigurationMutation(t *testing.T) {
 	config := NewDefaultConfiguration().(*DefaultConfiguration)
 
@@ -310,7 +291,7 @@ func TestDefaultConfigurationMutation(t *testing.T) {
 	}
 	config.AddSegment(segment)
 	segments := config.Segments()
-	assert.Equal(t, 1, len(segments))
+	assert.Len(t, segments, 1)
 	assert.Equal(t, "TEST", segments[0].Name)
 
 	// Test symbol setting
@@ -319,7 +300,6 @@ func TestDefaultConfigurationMutation(t *testing.T) {
 	assert.Equal(t, uint64(0x2000), symbols["test_symbol"])
 }
 
-// TestArchitectureAdapter tests the architecture adapter functionality.
 func TestArchitectureAdapter(t *testing.T) {
 	m6502Arch := m6502.New()
 	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
@@ -338,7 +318,6 @@ func TestArchitectureAdapter(t *testing.T) {
 	assert.NotNil(t, archAssembler)
 }
 
-// TestArchitectureAssemblerImpl tests the architecture assembler implementation.
 func TestArchitectureAssemblerImpl(t *testing.T) {
 	m6502Arch := m6502.New()
 	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
@@ -360,7 +339,6 @@ func TestArchitectureAssemblerImpl(t *testing.T) {
 	assert.Equal(t, nodes, output.AST)
 }
 
-// TestErrorValues tests that error constants are properly defined.
 func TestErrorValues(t *testing.T) {
 	// Test that sentinel errors are not nil and have proper messages
 	assert.NotNil(t, ErrNilArchitecture)
@@ -375,7 +353,6 @@ func TestErrorValues(t *testing.T) {
 	assert.Equal(t, "source cannot be nil", ErrNilSource.Error())
 }
 
-// TestAssemblyOutputStructure tests the structure and types of AssemblyOutput.
 func TestAssemblyOutputStructure(t *testing.T) {
 	output := &AssemblyOutput{
 		Binary:      make([]byte, 0, 1024),
@@ -392,14 +369,13 @@ func TestAssemblyOutputStructure(t *testing.T) {
 	assert.NotNil(t, output.Segments)
 	assert.NotNil(t, output.Diagnostics)
 
-	assert.Equal(t, 0, len(output.Binary))
-	assert.Equal(t, 0, len(output.AST))
-	assert.Equal(t, 0, len(output.Symbols))
-	assert.Equal(t, 0, len(output.Segments))
-	assert.Equal(t, 0, len(output.Diagnostics))
+	assert.Empty(t, output.Binary)
+	assert.Empty(t, output.AST)
+	assert.Empty(t, output.Symbols)
+	assert.Empty(t, output.Segments)
+	assert.Empty(t, output.Diagnostics)
 }
 
-// TestSymbolTypes tests the different symbol types.
 func TestSymbolTypes(t *testing.T) {
 	// Test symbol type constants
 	assert.Equal(t, SymbolType(0), SymbolTypeLabel)
@@ -407,7 +383,6 @@ func TestSymbolTypes(t *testing.T) {
 	assert.Equal(t, SymbolType(2), SymbolTypeVariable)
 }
 
-// TestDiagnosticLevels tests the diagnostic level constants.
 func TestDiagnosticLevels(t *testing.T) {
 	// Test diagnostic level constants
 	assert.Equal(t, DiagnosticLevel(0), DiagnosticError)
@@ -415,17 +390,29 @@ func TestDiagnosticLevels(t *testing.T) {
 	assert.Equal(t, DiagnosticLevel(2), DiagnosticInfo)
 }
 
-// TestEndianness tests the endianness constants.
 func TestEndianness(t *testing.T) {
 	// Test endianness constants
 	assert.Equal(t, Endianness(0), LittleEndian)
 	assert.Equal(t, Endianness(1), BigEndian)
 }
 
-// TestSegmentTypes tests the segment type constants.
 func TestSegmentTypes(t *testing.T) {
 	// Test segment type constants
 	assert.Equal(t, SegmentType(0), SegmentTypeCode)
 	assert.Equal(t, SegmentType(1), SegmentTypeData)
 	assert.Equal(t, SegmentType(2), SegmentTypeBSS)
+}
+
+func runASTAssembly(ctx context.Context, input *ASTInput) (*AssemblyOutput, error) {
+	assembler := New()
+	m6502Arch := m6502.New()
+	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
+	if err := assembler.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+		return nil, fmt.Errorf("registering architecture: %w", err)
+	}
+	output, err := assembler.AssembleAST(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("assembling AST: %w", err)
+	}
+	return output, nil
 }
