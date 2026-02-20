@@ -57,6 +57,9 @@ func evaluateOperatorIntInt(operator token.Type, a, b int64) (any, error) {
 	case token.Asterisk:
 		return a * b, nil
 	case token.Percent:
+		if b == 0 {
+			return 0, errDivisionByZero
+		}
 		return a % b, nil
 	case token.Slash:
 		if b == 0 {
@@ -160,7 +163,7 @@ func evaluateOperatorByteByte(operator token.Type, a, b []byte) (any, error) {
 			return nil
 		}
 	default:
-		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and int64", operator)
+		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and []byte", operator)
 	}
 
 	j := 0

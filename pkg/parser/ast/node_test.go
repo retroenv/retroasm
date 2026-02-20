@@ -142,6 +142,15 @@ func TestAlias_Copy(t *testing.T) {
 	}
 }
 
+func TestOffsetCounter_Copy(t *testing.T) {
+	original := NewOffsetCounter(42)
+	assert.Equal(t, uint64(42), original.Number)
+
+	copyOC, ok := original.Copy().(OffsetCounter)
+	assert.True(t, ok)
+	assert.Equal(t, uint64(42), copyOC.Number)
+}
+
 // Test edge cases for AST node creation.
 func TestAST_EdgeCases(t *testing.T) {
 	t.Run("empty string values", func(t *testing.T) {

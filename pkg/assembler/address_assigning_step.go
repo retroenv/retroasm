@@ -58,7 +58,7 @@ func assignAddressesStep[T any](asm *Assembler[T]) error {
 				err = assignSymbolAddress(aa, n)
 
 			case *variable:
-				assignVariableAddress(aa, n)
+				aa.programCounter = assignVariableAddress(aa, n)
 
 			default:
 				return fmt.Errorf("unsupported node type %T", n)

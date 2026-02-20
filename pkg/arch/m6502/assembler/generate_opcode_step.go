@@ -28,12 +28,13 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 		}
 
 	case m6502.AbsoluteAddressing, m6502.AbsoluteXAddressing, m6502.AbsoluteYAddressing,
-		m6502.IndirectAddressing, m6502.IndirectXAddressing, m6502.IndirectYAddressing:
+		m6502.IndirectAddressing:
 		if err := generateAbsoluteIndirectAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing:
+	case m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing,
+		m6502.IndirectXAddressing, m6502.IndirectYAddressing:
 		if err := generateZeroPageAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}

@@ -2,6 +2,9 @@ package assembler
 
 import (
 	"testing"
+
+	"github.com/retroenv/retroasm/pkg/parser/ast"
+	"github.com/retroenv/retrogolib/assert"
 )
 
 func TestParseReferenceOffset(t *testing.T) {
@@ -29,4 +32,17 @@ func TestParseReferenceOffset(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAssignVariableAddress(t *testing.T) {
+	aa := addressAssign[any]{
+		programCounter: 0x200,
+	}
+	v := &variable{
+		v: ast.NewVariable("test", 4),
+	}
+
+	result := assignVariableAddress(aa, v)
+	assert.Equal(t, uint64(0x204), result)
+	assert.Equal(t, uint64(0x200), v.address)
 }

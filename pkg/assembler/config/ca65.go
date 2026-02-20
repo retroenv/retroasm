@@ -325,7 +325,9 @@ func convertCa65SegmentArea(ar *ca65Area, memoryNames map[string]*Memory) (*Segm
 
 		case "offset":
 			seg.Offset, err = number.Parse(value)
-			return nil, fmt.Errorf("parsing number '%s': %w", value, err)
+			if err != nil {
+				return nil, fmt.Errorf("parsing number '%s': %w", value, err)
+			}
 
 		case "define":
 			switch value {

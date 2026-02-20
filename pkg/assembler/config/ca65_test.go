@@ -30,3 +30,24 @@ func TestConfigReadCa65Config(t *testing.T) {
 	var cfg Config[*m6502.Instruction]
 	assert.NoError(t, cfg.ReadCa65Config(reader))
 }
+
+func TestConfigReadCa65Config_SegmentOffset(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		input := []byte(`
+MEMORY { ROM: start = $8000, size = $4000, type = ro; }
+SEGMENTS { CODE: load = ROM, type = ro, offset = $100; }
+`)
+		var cfg Config[*m6502.Instruction]
+		assert.NoError(t, cfg.ReadCa65Config(bytes.NewReader(input)))
+		assert.Equal(t, uint64(0x100), cfg.Segments["CODE"].Offset)
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		input := []byte(`
+MEMORY { ROM: start = $8000, size = $4000, type = ro; }
+SEGMENTS { CODE: load = ROM, type = ro, offset = xyz; }
+`)
+		var cfg Config[*m6502.Instruction]
+		assert.Error(t, cfg.ReadCa65Config(bytes.NewReader(input)))
+	})
+}
