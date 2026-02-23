@@ -194,10 +194,6 @@ func parseLabel[T any](asm *parseAST[T], label ast.Label) ([]ast.Node, error) {
 }
 
 func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
-	if astInstruction.Modifier != nil {
-		return nil, fmt.Errorf("unexpected modifier %v", astInstruction.Modifier)
-	}
-
 	ins := &instruction{
 		name:       astInstruction.Name,
 		addressing: astInstruction.Addressing,
@@ -208,20 +204,72 @@ func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
 	case nil:
 
 	case ast.Number:
-		ins.argument = arg.Value
+		value := arg.Value
+		if len(astInstruction.Modifier) > 0 {
+			offset, err := modifierOffset(astInstruction.Modifier)
+			if err != nil {
+				return nil, err
+			}
+			value += uint64(offset)
+		}
+		ins.argument = value
 
 	case ast.Label:
-		ins.argument = reference{name: arg.Name}
+		name, err := nameWithModifiers(arg.Name, astInstruction.Modifier)
+		if err != nil {
+			return nil, err
+		}
+		ins.argument = reference{name: name}
 
 	case ast.Identifier:
 		// Treat identifiers as references (symbols to be resolved)
-		ins.argument = reference{name: arg.Name}
+		name, err := nameWithModifiers(arg.Name, astInstruction.Modifier)
+		if err != nil {
+			return nil, err
+		}
+		ins.argument = reference{name: name}
 
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
 
 	return []ast.Node{ins}, nil
+}
+
+// modifierOffset computes the cumulative integer offset from a list of modifiers.
+func modifierOffset(modifiers []ast.Modifier) (int64, error) {
+	var offset int64
+	for _, mod := range modifiers {
+		v, err := number.Parse(mod.Value)
+		if err != nil {
+			return 0, fmt.Errorf("parsing modifier value '%s': %w", mod.Value, err)
+		}
+		switch mod.Operator.Operator {
+		case "+":
+			offset += int64(v)
+		case "-":
+			offset -= int64(v)
+		default:
+			return 0, fmt.Errorf("unsupported modifier operator '%s'", mod.Operator.Operator)
+		}
+	}
+	return offset, nil
+}
+
+// nameWithModifiers appends the combined modifier offset to a symbol name in a format
+// that parseReferenceOffset can parse (e.g. "noise+5" or "label-3").
+func nameWithModifiers(name string, modifiers []ast.Modifier) (string, error) {
+	if len(modifiers) == 0 {
+		return name, nil
+	}
+	offset, err := modifierOffset(modifiers)
+	if err != nil {
+		return "", err
+	}
+	if offset >= 0 {
+		return fmt.Sprintf("%s+%d", name, offset), nil
+	}
+	return fmt.Sprintf("%s%d", name, offset), nil // offset is negative, fmt includes '-'
 }
 
 func parseInclude[T any](asm *parseAST[T], inc ast.Include) ([]ast.Node, error) {
