@@ -19,10 +19,7 @@ var (
 	ErrUnknownRune = errors.New("unknown rune encountered")
 )
 
-const (
-	maxTokenLength = 65536
-	readLoopLimit  = 1000000
-)
+const readLoopLimit = 1000000
 
 // Lexer is the lexical analyzer.
 type Lexer struct {
@@ -235,8 +232,14 @@ func (l *Lexer) processNumberCharacter(firstCharacter, r rune, i int, isBinary, 
 	case r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F':
 		// handle immediate numbers like #$12 and #%10001000,
 		// asm6 supports .hex c0 which has no prefix for the number.
-		// the character b is disambiguous here as it can also be part of
+		// the character b is ambiguous here as it can also be part of
 		// a binary indicator suffix.
+		//
+		// If the decimal prefix (#) was used without an explicit hex prefix ($, 0x),
+		// the hex letter is likely part of an identifier name (e.g. #FIRST_SOLID).
+		if !*hasPrefix && l.cfg.DecimalPrefix != 0 && firstCharacter == l.cfg.DecimalPrefix {
+			return false, false
+		}
 		literal.WriteRune(r)
 		return false, true
 
@@ -282,8 +285,7 @@ func (l *Lexer) addHexPrefix(builder *strings.Builder) {
 		}
 	}
 
-	builder.WriteRune('0') // prepend 0x hex prefix
-	builder.WriteRune('x')
+	builder.WriteString("0x") // prepend hex prefix
 	builder.WriteString(literal[numberStart:])
 }
 
@@ -343,6 +345,7 @@ func (l *Lexer) readString(stringEscape rune) (token.Token, error) {
 		// write all characters until the string delimiter was found and is not escaped
 		// by using \ for the previous character
 		if r != stringEscape || previousRune == '\\' {
+			previousRune = r
 			continue
 		}
 

@@ -15,6 +15,9 @@ func TestLexer(t *testing.T) {
 		expected []token.Token
 	}{
 		{`"test"`, []token.Token{{Type: token.Identifier, Value: `"test"`}}},
+		{`"he said \"hi\""`, []token.Token{{Type: token.Identifier, Value: `"he said \"hi\""`}}},
+		{`"a\"b\"c"`, []token.Token{{Type: token.Identifier, Value: `"a\"b\"c"`}}},
+		{`"escaped \\"`, []token.Token{{Type: token.Identifier, Value: `"escaped \\"`}}},
 		{"", nil},
 		{"rti", []token.Token{{Type: token.Identifier, Value: "rti"}}},
 		{"label:", []token.Token{
@@ -67,6 +70,28 @@ func TestLexer(t *testing.T) {
 			{Type: token.Number, Value: "#%10001000"},
 		}},
 		{"3c", []token.Token{{Type: token.Number, Value: "3c"}}},
+		// decimal prefix without hex prefix stops at hex letters (identifier, not number)
+		{"lda #FIRST_SOLID", []token.Token{
+			{Type: token.Identifier, Value: "lda"},
+			{Type: token.Number, Value: "#"},
+			{Type: token.Identifier, Value: "FIRST_SOLID"},
+		}},
+		{"lda #FADE", []token.Token{
+			{Type: token.Identifier, Value: "lda"},
+			{Type: token.Number, Value: "#"},
+			{Type: token.Identifier, Value: "FADE"},
+		}},
+		// decimal prefix with hex prefix still consumes hex letters
+		{"lda #$FF", []token.Token{
+			{Type: token.Identifier, Value: "lda"},
+			{Type: token.Number, Value: "#$FF"},
+		}},
+		// decimal prefix with digit followed by hex letter stops at the letter
+		{"lda #1F", []token.Token{
+			{Type: token.Identifier, Value: "lda"},
+			{Type: token.Number, Value: "#1"},
+			{Type: token.Identifier, Value: "F"},
+		}},
 	}
 
 	cfg := Config{

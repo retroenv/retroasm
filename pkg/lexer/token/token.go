@@ -111,7 +111,7 @@ var toToken = map[rune]Type{
 	'^': Caret,
 }
 
-// Token defines a token with position in the stream, its type and a optional value.
+// Token defines a token with position in the stream, its type and an optional value.
 type Token struct {
 	Position Position
 	Type     Type
