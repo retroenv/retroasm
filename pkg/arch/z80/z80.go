@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	z80assembler "github.com/retroenv/retroasm/pkg/arch/z80/assembler"
 	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
@@ -24,7 +25,6 @@ type architecture struct {
 }
 
 var (
-	errAddressAssignNotImplemented    = errors.New("z80 address assignment not implemented")
 	errOpcodeGenerationNotImplemented = errors.New("z80 opcode generation not implemented")
 )
 
@@ -47,8 +47,8 @@ func (ar *architecture) AddressWidth() int {
 	return 16
 }
 
-func (ar *architecture) AssignInstructionAddress(_ arch.AddressAssigner, _ arch.Instruction) (uint64, error) {
-	return 0, errAddressAssignNotImplemented
+func (ar *architecture) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
+	return z80assembler.AssignInstructionAddress(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 
 func (ar *architecture) GenerateInstructionOpcode(_ arch.AddressAssigner, _ arch.Instruction) error {
