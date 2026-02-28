@@ -1,346 +1,254 @@
-# Z80 Architecture Support Plan
+# Z80 Architecture Support Plan (Revised)
 
 ## Overview
 
-This document outlines the plan for adding Z80 assembler support to retroasm. The Z80 is a 16-bit address bus / 8-bit data bus processor used in the ZX Spectrum, Amstrad CPC, MSX computers, Game Boy (modified Z80), and Sega Master System/Game Gear.
+This plan adds Z80 assembler support to retroasm with an implementation order that matches the current codebase constraints. It focuses on a working, testable assembler path first, then CLI/system expansion.
 
-retrogolib already provides comprehensive Z80 CPU definitions including instruction tables, addressing modes, register parameters, opcode maps (base + CB/DD/ED/FD prefixed), and bidirectional opcode/instruction lookup. This plan focuses exclusively on the retroasm assembler-side implementation.
+## Scope
 
-## Key Differences from 6502
+### In Scope (first implementation)
 
-The Z80 presents several challenges not present in the 6502 implementation:
+- Z80 architecture support in `pkg/arch/z80`
+- Parsing Zilog-style core syntax (`LD A,42`, `JP NZ,label`, `BIT 3,A`, `(IX+5)`)
+- End-to-end assembly pipeline support (parse -> address assign -> opcode generation)
+- CPU flag `-cpu z80` in CLI
+- System flag compatibility for systems currently known by retrogolib (`generic`, `zx-spectrum`, `gameboy`)
 
-| Aspect | 6502 | Z80 |
-|--------|------|-----|
-| **Address width** | 16-bit | 16-bit |
-| **Instruction lookup** | `map[string]*Instruction` by name | Multiple `*Instruction` vars per mnemonic (e.g., `LdImm8`, `LdReg8`, `LdReg16`, `LdIndirect`, `LdExtended`) |
-| **Opcode prefixes** | None | CB, DD, ED, FD prefix bytes |
-| **Max opcode size** | 3 bytes | 4 bytes (prefix + opcode + 2 operand bytes) |
-| **Register operands** | Accumulator only | 8-bit regs (A,B,C,D,E,H,L), 16-bit pairs (BC,DE,HL,SP,AF,IX,IY) |
-| **Addressing modes** | 13 modes | 8 modes with register variants via `RegisterOpcodes` and `RegisterPairOpcodes` |
-| **Instruction variants** | 1 Instruction per mnemonic | Many: same mnemonic maps to different `*Instruction` based on operands |
-| **Conditions** | Implicit in instruction name (BEQ, BNE) | Explicit condition codes as operands (JP NZ,nn / JR C,e) |
-| **Bit operations** | None | BIT/SET/RES with bit number + register |
-| **I/O ports** | Memory-mapped only | Dedicated IN/OUT with port addressing |
-| **Index registers** | None | IX, IY with displacement (IX+d, IY+d) |
+### Out of Scope (initially)
 
-### Instruction Disambiguation Challenge
+- Full assembler dialect compatibility beyond baseline Zilog syntax
+- New systems not currently modeled in retrogolib system enum (`msx`, `sms`)
+- Game Boy specific instruction behavior differences beyond accepted Z80 subset
 
-The most significant difference is instruction disambiguation. The 6502 has a simple `Instructions map[string]*Instruction` where each mnemonic maps to exactly one Instruction struct. The Z80 has multiple Instruction structs per mnemonic:
+## Codebase Reality Checks (must be reflected in plan)
 
-- `LD` alone maps to: `LdImm8`, `LdReg8`, `LdReg16`, `LdIndirect`, `LdExtended`, `LdIndirectImm`, `LdSp`, plus DD/ED/FD-prefixed variants
-- `INC` maps to: `IncReg8`, `IncReg16`, `IncIndirect`, plus DD-prefixed variants
-- `ADD` maps to: `AddA`, `AddHl`, plus DD-prefixed variants
-- `JP` maps to: `JpAbs`, `JpCond`, `JpIndirect`
+1. `ast.Instruction` currently has one `Argument` field. Z80 needs multi-operand semantics.
+2. `pkg/assembler/parse_ast_nodes.go` only accepts `nil`, `ast.Number`, `ast.Label`, `ast.Identifier` for instruction arguments.
+3. `addressAssign.ArgumentValue` resolves only scalar/reference values. Z80 needs structured operand metadata.
+4. `cmd/retroasm/main.go` and `pkg/retroasm/default.go` are effectively hard-wired to 6502/NES behavior today.
+5. retrogolib opcode sources are:
+   - `z80.Opcodes`
+   - `z80.EDOpcodes`
+   - `z80.DDOpcodes`
+   - `z80.FDOpcodes`
+   - CB, DDCB, and FDCB families are exposed via instruction vars (not a standalone `OpcodesCB` array).
 
-The parser must determine which Instruction struct to use based on the operand types parsed from the token stream.
+## Architecture Decisions
 
-## Architecture
+### 1) Keep `arch.Architecture[T]` unchanged
 
-### Package Structure
-
-```
-pkg/arch/z80/
-├── z80.go                    # Architecture adapter (implements arch.Architecture[T])
-├── parser/
-│   ├── instruction.go        # Z80 instruction parsing and operand analysis
-│   ├── register.go           # Register name parsing and classification
-│   ├── addressing.go         # Addressing mode determination
-│   └── resolver.go           # Instruction disambiguation (mnemonic + operands → *Instruction)
-└── assembler/
-    ├── address_assigning_step.go   # Z80-specific address assignment
-    └── generate_opcode_step.go     # Z80-specific opcode generation (including prefixes)
-```
-
-### Type Parameter
-
-The `arch.Architecture[T]` generic interface requires a type parameter. For the 6502, `T` is `*m6502.Instruction`. For the Z80, `T` cannot simply be `*z80.Instruction` because a single mnemonic maps to multiple Instruction vars.
-
-**Approach**: Define a Z80-specific wrapper type that represents a resolved instruction lookup result:
+No interface change required. Z80 uses `T = *InstructionGroup`:
 
 ```go
-// InstructionGroup holds all z80.Instruction variants that share a mnemonic.
 type InstructionGroup struct {
     Name     string
     Variants []*z80.Instruction
 }
 ```
 
-The `Architecture.Instruction(name string)` method returns an `InstructionGroup` containing all variants for that mnemonic. The parser's `ParseIdentifier` then disambiguates by examining operands.
+### 2) Add type-safe Z80 operand payload
 
-### Instruction Lookup Table
+Do not encode operands as strings. Use a typed Z80 argument model that can represent:
 
-Build a `map[string]*InstructionGroup` at init time by iterating the `z80.Opcodes` array (and CB/DD/ED/FD arrays) and grouping by `Instruction.Name`. This avoids hardcoding the mapping and stays synchronized with retrogolib.
+- register and condition params (`z80.RegisterParam`)
+- optional immediate/address/relative/displacement expression nodes
+- bit index for bit operations
 
-## Implementation Phases
+This payload is stored in `ast.Instruction.Argument` and converted in `parse_ast_nodes` to assembler-internal data.
 
-### Phase 1: Core Z80 Architecture Adapter
+### 3) Build instruction groups from opcode tables plus manual CB-family additions
 
-**Files**: `pkg/arch/z80/z80.go`
+Group instruction pointers by mnemonic, deduplicated by pointer identity:
 
-Implement the `arch.Architecture[*InstructionGroup]` interface:
+- from `Opcodes`, `EDOpcodes`, `DDOpcodes`, `FDOpcodes`
+- plus `CBRlc`, `CBRrc`, `CBRl`, `CBRr`, `CBSla`, `CBSra`, `CBSll`, `CBSrl`, `CBBit`, `CBRes`, `CBSet`
+- plus `DdcbShift`, `DdcbBit`, `DdcbRes`, `DdcbSet`, `FdcbShift`, `FdcbBit`, `FdcbRes`, `FdcbSet`
 
-- `AddressWidth() int` → returns 16
-- `Instruction(name string) (*InstructionGroup, bool)` → lookup in instruction group map
-- `ParseIdentifier(p arch.Parser, ins *InstructionGroup) (ast.Node, error)` → delegate to parser package
-- `AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error)` → delegate to assembler package
-- `GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error` → delegate to assembler package
+## Phased Implementation
 
-Build the instruction group map from `z80.Opcodes`, `z80.OpcodesCB`, `z80.OpcodesDD`, `z80.OpcodesED`, `z80.OpcodesFD`.
+## Phase 0: Foundation and Plumbing
 
-### Phase 2: Register and Operand Parsing
+Files:
 
-**Files**: `pkg/arch/z80/parser/register.go`
+- `pkg/parser/ast/` (new operand node type(s))
+- `pkg/assembler/parse_ast_nodes.go`
 
-Parse register names from tokens and classify them:
+Tasks:
 
-- **8-bit registers**: A, B, C, D, E, H, L, I, R
-- **16-bit register pairs**: AF, BC, DE, HL, SP, IX, IY
-- **Indirect registers**: (HL), (BC), (DE), (SP), (IX+d), (IY+d)
-- **Condition codes**: NZ, Z, NC, C, PO, PE, P, M
-- **Shadow registers**: AF' (EX AF,AF')
+- Add AST node(s) for multi-operand instruction arguments.
+- Extend AST-to-assembler conversion to accept the new Z80 operand node(s).
+- Keep 6502 behavior unchanged.
 
-Map parsed register names to `z80.RegisterParam` constants.
+Definition of done:
 
-Handle the `C` ambiguity: `C` is both a register and a condition code. Context determines meaning:
-- `JP C,nn` → condition code
-- `LD A,C` → register
-- `IN A,(C)` → port register
+- Existing tests remain green.
+- New unit tests prove multi-operand payload survives parse -> assembler node conversion.
 
-### Phase 3: Instruction Parser
+## Phase 1: Z80 Architecture Adapter
 
-**Files**: `pkg/arch/z80/parser/instruction.go`, `pkg/arch/z80/parser/addressing.go`, `pkg/arch/z80/parser/resolver.go`
+Files:
 
-Parse Z80 instruction syntax and resolve to specific `*z80.Instruction` + operand data.
+- `pkg/arch/z80/z80.go`
 
-#### Operand Patterns to Recognize
+Tasks:
 
-1. **No operands**: `NOP`, `HALT`, `RET`, `EI`, `DI`, `EXX`, `CCF`, `SCF`, `CPL`, `DAA`, `RLA`, `RRA`, `RLCA`, `RRCA`
-2. **Single register**: `INC B`, `DEC HL`, `PUSH BC`, `POP DE`
-3. **Single immediate**: `RST 08H`, `IM 1`
-4. **Single address/label**: `JP nn`, `CALL nn`, `JR e`
-5. **Condition + address**: `JP NZ,nn`, `CALL Z,nn`, `JR NC,e`, `RET Z`
-6. **Register, register**: `LD A,B`, `ADD A,C`, `EX DE,HL`
-7. **Register, immediate**: `LD A,42`, `LD BC,1234h`, `ADD A,5`
-8. **Register, indirect**: `LD A,(HL)`, `LD B,(IX+5)`
-9. **Register, address**: `LD A,(nn)`, `LD HL,(nn)`
-10. **Indirect, register**: `LD (HL),A`, `LD (IX+5),B`
-11. **Indirect, immediate**: `LD (HL),n`
-12. **Address, register**: `LD (nn),A`, `LD (nn),HL`
-13. **Bit, register**: `BIT 3,A`, `SET 5,(HL)`, `RES 0,B`
-14. **Port, register / register, port**: `OUT (n),A`, `IN A,(n)`, `OUT (C),A`, `IN A,(C)`
+- Implement `arch.Architecture[*InstructionGroup]`:
+  - `AddressWidth() int` -> `16`
+  - `Instruction(name string) (*InstructionGroup, bool)`
+  - `ParseIdentifier(...)`
+  - `AssignInstructionAddress(...)`
+  - `GenerateInstructionOpcode(...)`
+- Build and cache instruction groups at init.
 
-#### Disambiguation Strategy
+Definition of done:
 
-After parsing operands, match against instruction variants:
+- Package compiles.
+- Instruction lookup resolves known mnemonics with non-empty variants.
 
-```
-resolve(mnemonic, dst_operand, src_operand) → *z80.Instruction
-```
+## Phase 2: Operand Classifier + Resolver
 
-1. Parse the mnemonic to get the `InstructionGroup`
-2. Parse first operand (if any) → classify as register/immediate/indirect/condition/address/bit
-3. Parse second operand (if any) → classify similarly
-4. Match the operand pattern against each variant's `Addressing`, `RegisterOpcodes`, and `RegisterPairOpcodes` maps
-5. Return the matching variant or error
+Files:
 
-#### AST Node Representation
+- `pkg/arch/z80/parser/register.go`
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/resolver.go`
 
-Reuse existing `ast.Instruction` node. The `Addressing` field stores the Z80 addressing mode. The `Argument` field stores the operand(s). For two-operand instructions, a new AST node or a pair-wrapper may be needed.
+Tasks:
 
-**Option A**: Store a `z80.RegisterParam` (or pair) in the Argument, encoding the full operand selection. The opcode generator can then look up `RegisterOpcodes[param]` or `RegisterPairOpcodes[[2]RegisterParam{dst, src}]` directly.
+- Parse and classify registers/conditions/indirect/indexed forms.
+- Resolve `C` ambiguity by mnemonic+position context (condition list vs register).
+- Resolve mnemonic+operands -> exact `*z80.Instruction` variant + selected param(s).
 
-**Option B**: Extend `ast.Instruction` to support two arguments. This is cleaner but requires modifying shared AST code.
+Minimum instruction slice for first green path:
 
-**Recommended**: Option A for the initial implementation — it avoids modifying shared code and maps directly to the retrogolib lookup structures. Store a struct with the resolved `RegisterParam` value(s) plus any immediate/address value as the Argument.
+- implied (`NOP`, `RET`)
+- reg/reg (`LD A,B`)
+- reg/immediate (`LD A,n`, `LD HL,nn`)
+- relative jump (`JR e`, `JR NZ,e`)
+- extended jump/call (`JP nn`, `JP NZ,nn`, `CALL nn`)
 
-### Phase 4: Address Assignment
+Definition of done:
 
-**Files**: `pkg/arch/z80/assembler/address_assigning_step.go`
+- Parser unit tests pass for the minimum slice.
+- Resolver deterministically returns one variant or a clear error.
 
-Assign addresses to Z80 instructions:
+## Phase 3: Address Assignment
 
-1. Look up instruction size from the resolved `OpcodeInfo.Size`
-2. Handle prefix bytes: CB/DD/ED/FD prefixed instructions are larger
-3. Handle IX+d/IY+d displacement byte (adds 1 byte to size)
-4. For relative jumps (JR, DJNZ): size is always 2
+Files:
 
-No addressing mode disambiguation is needed (unlike 6502's zero-page vs absolute) because Z80 instruction sizes are determined by the opcode, not the operand value.
+- `pkg/arch/z80/assembler/address_assigning_step.go`
 
-### Phase 5: Opcode Generation
+Tasks:
 
-**Files**: `pkg/arch/z80/assembler/generate_opcode_step.go`
+- Set instruction address from program counter.
+- Determine size from resolved opcode info (not from operand value heuristics).
+- Store finalized size/addressing for opcode generation.
 
-Generate machine code bytes for each instruction:
+Definition of done:
 
-1. **Prefix emission**: If `OpcodeInfo.Prefix != 0`, emit the prefix byte first
-2. **Opcode emission**: Emit `OpcodeInfo.Opcode`
-3. **Operand emission** (varies by addressing mode):
-   - `ImpliedAddressing`: no operand bytes
-   - `RegisterAddressing`: no operand bytes (register encoded in opcode)
-   - `ImmediateAddressing` (8-bit): 1 operand byte
-   - `ImmediateAddressing` (16-bit): 2 operand bytes (little-endian)
-   - `ExtendedAddressing`: 2 address bytes (little-endian)
-   - `RegisterIndirectAddressing`: no operand bytes (except IX+d/IY+d: 1 displacement byte)
-   - `RelativeAddressing`: 1 signed offset byte (calculated from PC after instruction)
-   - `BitAddressing`: no extra bytes (bit encoded in opcode)
-   - `PortAddressing`: 1 port byte (for immediate port addressing)
+- Address assignment tests pass for 1/2/3/4-byte instructions.
 
-#### Relative Jump Offset Calculation
+## Phase 4: Opcode Generation (Core)
 
-Same principle as 6502 but the Z80 offset is relative to the address after the instruction (PC + 2 for all relative jumps):
+Files:
 
-```
-offset = target_address - (instruction_address + 2)
+- `pkg/arch/z80/assembler/generate_opcode_step.go`
+
+Tasks:
+
+- Emit opcode bytes using resolved instruction metadata.
+- Support prefix chains:
+  - none
+  - single-prefix (`CB`, `DD`, `ED`, `FD`)
+  - two-prefix indexed bit forms (`DD CB d op`, `FD CB d op`)
+- Emit operand bytes for immediate/extended/relative/displacement forms.
+- Relative offsets use:
+
+```text
+offset = target - (ins.Address() + ins.Size())
 ```
 
-Range: -128 to +127 (signed byte).
+Definition of done:
 
-### Phase 6: CLI and Configuration Integration
+- Opcode tests pass for baseline matrix below.
 
-**Files**: `cmd/retroasm/main.go`, `pkg/assembler/config/`
+Baseline verification matrix:
 
-1. Register Z80 architecture in CLI alongside 6502
-2. Add system mappings:
-   - `zx-spectrum` → Z80
-   - `msx` → Z80
-   - `gameboy` → Z80 (note: Game Boy has a modified Z80 — may need a separate adapter later)
-   - `sms` → Z80 (Sega Master System)
-3. Add default memory configurations for each target system:
-   - ZX Spectrum: 48K/128K memory layout
-   - MSX: slot-based memory mapping
-   - Game Boy: ROM banks + RAM
-4. Update CLI flags: `-cpu z80`, `-system zx-spectrum`
+- `NOP` -> `00`
+- `LD BC,$1234` -> `01 34 12`
+- `LD A,42` -> `3E 2A`
+- `JR label` forward/backward in range
+- `BIT 3,A` -> `CB 5F`
+- `LD A,(IX+5)` and `LD (IY-3),A`
 
-### Phase 7: Assembler Format Support
+## Phase 5: Extended Instruction Coverage
 
-Determine which assembly syntax to support initially. Common Z80 assemblers:
+Tasks:
 
-| Assembler | Syntax Style | Notes |
-|-----------|-------------|-------|
-| **Zilog standard** | `LD A,42` | Official Z80 notation |
-| **PASMO** | Zilog-compatible | Popular cross-assembler |
-| **z80asm** | Zilog-compatible | Common in ZX Spectrum community |
-| **RGBASM** | Game Boy specific | Modified syntax for GB |
-| **WLA-DX** | Multi-architecture | Supports Z80 among others |
-| **SjASMPlus** | Extended Zilog | Structs, LUA scripting |
+- Expand resolver/opcode coverage to all instruction families in grouped variants.
+- Add CB/ED/DD/FD family coverage and edge conditions.
+- Decide and implement behavior for undocumented ops (include or reject explicitly).
 
-**Initial target**: Zilog standard syntax (compatible with PASMO/z80asm). This covers the majority of Z80 assembly code.
+Definition of done:
 
-Key syntax elements:
-- `;` for comments (already supported)
-- `$` or `0x` or `nnnnH` for hex numbers
-- `%` or `0b` or `nnnnB` for binary numbers
-- Register names are case-insensitive
-- Parentheses for indirect addressing: `(HL)`, `(nn)`
-- `+`/`-` displacement: `(IX+5)`, `(IY-3)`
+- Coverage tests generated from instruction groups ensure no silent gaps in supported subset.
 
-### Phase 8: Testing
+## Phase 6: CLI and Runtime Integration
 
-#### Unit Tests
+Files:
 
-- `pkg/arch/z80/parser/`: Test parsing of all operand patterns
-- `pkg/arch/z80/assembler/`: Test opcode generation for all addressing modes
-- Register disambiguation tests (C register vs C condition)
-- IX/IY displacement parsing
-- Prefix byte emission
+- `cmd/retroasm/main.go`
+- `pkg/retroasm/default.go` (or equivalent architecture selection path)
 
-#### Integration Tests
+Tasks:
 
-Create test assembly files in `tests/z80/`:
+- Add `z80` CPU option in validation logic.
+- Allow `-system gameboy`, `-system zx-spectrum`, and `-system generic` for Z80 mode.
+- Remove hard-coded m6502 assembly path so selected architecture is actually used.
 
-```asm
-; tests/z80/basic.asm - Basic Z80 instruction test
-    ORG $0000
+Definition of done:
 
-    LD A, 42        ; immediate load
-    LD B, A         ; register-to-register
-    LD HL, $1234    ; 16-bit immediate
-    LD (HL), A      ; indirect store
-    LD A, (HL)      ; indirect load
-    ADD A, B        ; register arithmetic
-    SUB 10          ; immediate arithmetic
-    JP $0100        ; absolute jump
-    JR loop         ; relative jump
-    CALL $0200      ; subroutine call
-    RET             ; return
-    PUSH BC         ; stack push
-    POP DE          ; stack pop
-    BIT 3, A        ; bit test
-    SET 5, (HL)     ; bit set
-    RES 0, B        ; bit reset
-    RL C            ; rotate (CB-prefixed)
-    IN A, ($FE)     ; port input
-    OUT ($FE), A    ; port output
-```
+- CLI can assemble a small Z80 input end-to-end.
+- Existing 6502 CLI behavior remains unchanged.
 
-#### Opcode Verification Tests
+## Testing Strategy
 
-For each instruction variant, verify the exact byte sequence against known-good assembler output. Use the `z80.Opcodes` table as the reference:
+## Unit Tests
 
-```go
-func TestOpcodeGeneration(t *testing.T) {
-    tests := []struct {
-        source   string
-        expected []byte
-    }{
-        {"NOP", []byte{0x00}},
-        {"LD BC,$1234", []byte{0x01, 0x34, 0x12}},
-        {"INC B", []byte{0x04}},
-        {"LD A,42", []byte{0x3E, 0x2A}},
-        {"BIT 3,A", []byte{0xCB, 0x5F}},
-        // ... comprehensive table
-    }
-}
-```
+- parser classification and resolver (including `C` condition/register ambiguity)
+- address assignment for mixed instruction sizes
+- opcode generation for each addressing family
 
-## Dependencies
+## Integration Tests
 
-### retrogolib Requirements
+- `tests/z80/basic.asm` core instruction smoke test
+- `tests/z80/indexed.asm` IX/IY displacement coverage
+- `tests/z80/branches.asm` relative range/overflow checks
 
-The following retrogolib Z80 exports are used:
+## Regression Requirements
 
-- `z80.Instruction` struct and all instruction variables
-- `z80.AddressingMode` constants
-- `z80.RegisterParam` constants
-- `z80.OpcodeInfo` struct
-- `z80.Opcodes` array (base opcodes)
-- `z80.OpcodesCB`, `z80.OpcodesDD`, `z80.OpcodesED`, `z80.OpcodesFD` arrays
-- `z80.BranchingInstructions` set
+- Every bug fix adds a focused regression test.
+- Use `github.com/retroenv/retrogolib/assert`.
+- Use `t.Context()` in tests.
 
-### retroasm Core Changes
-
-Minimal changes expected to core assembler code:
-
-1. **No changes to `arch.Architecture[T]` interface** — the generic design handles Z80 naturally
-2. **No changes to the 6-step pipeline** — all Z80-specific logic lives in the arch adapter
-3. **Possible AST extension**: If two-operand support requires a new node type (Phase 3, Option B), add it to `parser/ast/`
-4. **Lexer consideration**: Verify parentheses `()` and `+`/`-` in `(IX+d)` are tokenized correctly. The existing lexer handles parentheses and operators, so this should work without changes.
-
-## Risks and Mitigations
+## Key Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Instruction disambiguation complexity | High | Build comprehensive test table against z80.Opcodes; start with common instructions, add edge cases incrementally |
-| `C` register/condition ambiguity | Medium | Use context-aware parsing: condition codes only valid after JP/JR/CALL/RET |
-| IX/IY displacement parsing | Medium | Careful lexer integration for `(IX+expr)` syntax |
-| Prefixed opcode emission | Medium | Validate prefix byte handling against z80.OpcodeInfo.Prefix field |
-| Game Boy Z80 variant differences | Low | Defer Game Boy-specific handling to a later phase; focus on standard Z80 first |
-| retrogolib Z80 instruction completeness | Low | retrogolib already has comprehensive Z80 support including CB/DD/ED/FD prefixed instructions |
+| Multi-operand AST mismatch with current pipeline | High | Implement Phase 0 first; do not start resolver/opcode work before it |
+| Wrong opcode table assumptions (CB vs ED/DD/FD) | High | Use actual retrogolib exports and add tests for table completeness |
+| Prefix-chain bugs (`DD CB`, `FD CB`) | High | Explicit encoding path and dedicated integration cases |
+| CLI still ignores selected architecture | High | Make architecture selection refactor explicit in Phase 6 |
+| Ambiguous operand parsing (`C`, `(IX+d)`) | Medium | Context-aware parser rules + table-driven tests |
 
-## Suggested Implementation Order
+## Recommended Execution Order
 
-1. **Phase 1**: Z80 architecture adapter skeleton — get it registered and compiling
-2. **Phase 2**: Register parsing — foundational for everything else
-3. **Phase 3**: Instruction parser for implied/register-only instructions (NOP, HALT, INC B, LD A,B)
-4. **Phase 5**: Opcode generation for the same simple instructions — enables end-to-end testing early
-5. **Phase 4**: Address assignment
-6. **Phase 3 continued**: Extend parser to immediate, extended, relative, indirect addressing
-7. **Phase 5 continued**: Extend opcode generation for remaining addressing modes
-8. **Phase 3 continued**: CB/DD/ED/FD prefixed instruction parsing
-9. **Phase 5 continued**: Prefixed opcode generation
-10. **Phase 6**: CLI integration
-11. **Phase 7**: Assembler format tuning
-12. **Phase 8**: Comprehensive testing
+1. Phase 0 (AST/assembler plumbing)
+2. Phase 1 (adapter + instruction grouping)
+3. Phase 2 (parser/resolver minimum slice)
+4. Phase 3 (address assignment)
+5. Phase 4 (opcode generation core)
+6. Phase 5 (coverage expansion)
+7. Phase 6 (CLI/runtime integration)
 
-This order prioritizes getting a minimal end-to-end flow working early, then expanding instruction coverage incrementally.
+This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.
