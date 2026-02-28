@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
@@ -25,7 +26,6 @@ type architecture struct {
 var (
 	errAddressAssignNotImplemented    = errors.New("z80 address assignment not implemented")
 	errOpcodeGenerationNotImplemented = errors.New("z80 opcode generation not implemented")
-	errParserNotImplemented           = errors.New("z80 parser not implemented")
 )
 
 // New returns a new Z80 architecture configuration.
@@ -60,8 +60,8 @@ func (ar *architecture) Instruction(name string) (*InstructionGroup, bool) {
 	return group, ok
 }
 
-func (ar *architecture) ParseIdentifier(_ arch.Parser, _ *InstructionGroup) (ast.Node, error) {
-	return nil, errParserNotImplemented
+func (ar *architecture) ParseIdentifier(p arch.Parser, ins *InstructionGroup) (ast.Node, error) {
+	return z80parser.ParseIdentifier(p, ins.Name, ins.Variants) //nolint:wrapcheck // thin delegation to sub-package
 }
 
 func buildInstructionGroups() map[string]*InstructionGroup {
