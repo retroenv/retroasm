@@ -7,6 +7,11 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
+type testTypedInstructionArgument struct {
+	register string
+	width    int
+}
+
 func TestModifierOffset(t *testing.T) { //nolint:funlen
 	tests := []struct {
 		name       string
@@ -222,6 +227,54 @@ func TestParseInstruction(t *testing.T) { //nolint:funlen
 			ins: ast.NewInstruction("jmp", 0, ast.NewLabel("label"), []ast.Modifier{
 				{Operator: ast.NewOperator("*"), Value: "2"},
 			}),
+			wantErr: true,
+		},
+		{
+			name: "typed argument without modifiers",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewInstructionArgument(testTypedInstructionArgument{register: "a", width: 8}),
+				nil,
+			),
+			wantArg: testTypedInstructionArgument{register: "a", width: 8},
+		},
+		{
+			name: "typed argument with modifiers returns error",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewInstructionArgument(testTypedInstructionArgument{register: "a", width: 8}),
+				[]ast.Modifier{{Operator: ast.NewOperator("+"), Value: "1"}},
+			),
+			wantErr: true,
+		},
+		{
+			name: "multi operand argument conversion",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewInstructionArguments(
+					ast.NewInstructionArgument(testTypedInstructionArgument{register: "a", width: 8}),
+					ast.NewNumber(0x2A),
+					ast.NewLabel("target"),
+				),
+				nil,
+			),
+			wantArg: []any{
+				testTypedInstructionArgument{register: "a", width: 8},
+				uint64(0x2A),
+				reference{name: "target"},
+			},
+		},
+		{
+			name: "multi operand with modifiers returns error",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewInstructionArguments(ast.NewNumber(1), ast.NewNumber(2)),
+				[]ast.Modifier{{Operator: ast.NewOperator("+"), Value: "1"}},
+			),
 			wantErr: true,
 		},
 	}

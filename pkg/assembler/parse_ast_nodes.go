@@ -25,6 +25,8 @@ type parseAST[T any] struct {
 	segmentsOrder []*segment          // sorted list of all parsed segments
 }
 
+var errNilInstructionArgument = errors.New("instruction argument cannot be nil")
+
 //nolint:cyclop,funlen // type switch with one case per AST node type
 func parseASTNode[T any](asm *parseAST[T], node ast.Node) ([]ast.Node, error) {
 	var (
@@ -200,40 +202,80 @@ func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
 		argument:   astInstruction.Argument,
 	}
 
-	switch arg := astInstruction.Argument.(type) {
-	case nil:
+	if astInstruction.Argument == nil {
+		return []ast.Node{ins}, nil
+	}
 
+	argument, err := convertInstructionArgument(astInstruction.Argument, astInstruction.Modifier)
+	if err != nil {
+		return nil, fmt.Errorf("converting instruction argument: %w", err)
+	}
+	ins.argument = argument
+
+	return []ast.Node{ins}, nil
+}
+
+func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (any, error) {
+	if argument == nil {
+		return nil, errNilInstructionArgument
+	}
+
+	switch arg := argument.(type) {
 	case ast.Number:
 		value := arg.Value
-		if len(astInstruction.Modifier) > 0 {
-			offset, err := modifierOffset(astInstruction.Modifier)
+		if len(modifiers) > 0 {
+			offset, err := modifierOffset(modifiers)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("applying number modifiers: %w", err)
 			}
 			value += uint64(offset)
 		}
-		ins.argument = value
+		return value, nil
 
 	case ast.Label:
-		name, err := nameWithModifiers(arg.Name, astInstruction.Modifier)
+		name, err := nameWithModifiers(arg.Name, modifiers)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("applying label modifiers: %w", err)
 		}
-		ins.argument = reference{name: name}
+		return reference{name: name}, nil
 
 	case ast.Identifier:
 		// Treat identifiers as references (symbols to be resolved)
-		name, err := nameWithModifiers(arg.Name, astInstruction.Modifier)
+		name, err := nameWithModifiers(arg.Name, modifiers)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("applying identifier modifiers: %w", err)
 		}
-		ins.argument = reference{name: name}
+		return reference{name: name}, nil
+
+	case ast.InstructionArgument:
+		if len(modifiers) > 0 {
+			return nil, errors.New("modifiers are not supported for typed instruction arguments")
+		}
+		return arg.Value, nil
+
+	case ast.InstructionArguments:
+		return convertInstructionArgumentList(arg, modifiers)
 
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
+}
 
-	return []ast.Node{ins}, nil
+func convertInstructionArgumentList(arguments ast.InstructionArguments, modifiers []ast.Modifier) ([]any, error) {
+	if len(modifiers) > 0 {
+		return nil, errors.New("modifiers are not supported for multi-operand instruction arguments")
+	}
+
+	values := make([]any, 0, len(arguments.Values))
+	for _, operand := range arguments.Values {
+		value, err := convertInstructionArgument(operand, nil)
+		if err != nil {
+			return nil, fmt.Errorf("converting multi-operand argument item: %w", err)
+		}
+		values = append(values, value)
+	}
+
+	return values, nil
 }
 
 // modifierOffset computes the cumulative integer offset from a list of modifiers.

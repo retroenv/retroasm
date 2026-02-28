@@ -4,6 +4,12 @@
 
 This plan adds Z80 assembler support to retroasm with an implementation order that matches the current codebase constraints. It focuses on a working, testable assembler path first, then CLI/system expansion.
 
+## Progress
+
+- Completed on February 28, 2026: Phase 0 (AST/assembler plumbing for typed and multi-operand instruction arguments).
+- Completed on February 28, 2026: Phase 1 (Z80 architecture adapter and instruction grouping).
+- Next implementation target: Phase 2 (operand classifier and resolver).
+
 ## Scope
 
 ### In Scope (first implementation)
@@ -23,7 +29,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 ## Codebase Reality Checks (must be reflected in plan)
 
 1. `ast.Instruction` currently has one `Argument` field. Z80 needs multi-operand semantics.
-2. `pkg/assembler/parse_ast_nodes.go` only accepts `nil`, `ast.Number`, `ast.Label`, `ast.Identifier` for instruction arguments.
+2. `pkg/assembler/parse_ast_nodes.go` now accepts scalar arguments (`ast.Number`, `ast.Label`, `ast.Identifier`) and typed/multi-operand wrappers (`ast.InstructionArgument`, `ast.InstructionArguments`).
 3. `addressAssign.ArgumentValue` resolves only scalar/reference values. Z80 needs structured operand metadata.
 4. `cmd/retroasm/main.go` and `pkg/retroasm/default.go` are effectively hard-wired to 6502/NES behavior today.
 5. retrogolib opcode sources are:
@@ -32,6 +38,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
    - `z80.DDOpcodes`
    - `z80.FDOpcodes`
    - CB, DDCB, and FDCB families are exposed via instruction vars (not a standalone `OpcodesCB` array).
+6. `pkg/arch/z80/z80.go` now provides an architecture adapter with mnemonic grouping lookup and placeholder parse/address/opcode hooks for later phases.
 
 ## Architecture Decisions
 
@@ -66,7 +73,7 @@ Group instruction pointers by mnemonic, deduplicated by pointer identity:
 
 ## Phased Implementation
 
-## Phase 0: Foundation and Plumbing
+## Phase 0: Foundation and Plumbing (Completed)
 
 Files:
 
@@ -79,12 +86,13 @@ Tasks:
 - Extend AST-to-assembler conversion to accept the new Z80 operand node(s).
 - Keep 6502 behavior unchanged.
 
-Definition of done:
+Completed result:
 
-- Existing tests remain green.
-- New unit tests prove multi-operand payload survives parse -> assembler node conversion.
+- Added AST node types for typed arguments and multi-operand argument lists.
+- Extended AST-to-assembler conversion to accept and preserve typed/multi-operand argument payloads.
+- Added unit tests for copy behavior and parse conversion paths.
 
-## Phase 1: Z80 Architecture Adapter
+## Phase 1: Z80 Architecture Adapter (Completed)
 
 Files:
 
@@ -104,6 +112,13 @@ Definition of done:
 
 - Package compiles.
 - Instruction lookup resolves known mnemonics with non-empty variants.
+
+Completed result:
+
+- Added `pkg/arch/z80/z80.go` implementing `arch.Architecture[*InstructionGroup]`.
+- Added instruction group indexing from `Opcodes`, `EDOpcodes`, `DDOpcodes`, `FDOpcodes`.
+- Added explicit CB and indexed-bit instruction family inclusion for complete mnemonic grouping.
+- Added `pkg/arch/z80/z80_test.go` coverage for lookup behavior, case-insensitive keys, and presence of CB/indexed-bit variants.
 
 ## Phase 2: Operand Classifier + Resolver
 
