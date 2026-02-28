@@ -2,7 +2,6 @@
 package z80
 
 import (
-	"errors"
 	"slices"
 	"strings"
 
@@ -23,10 +22,6 @@ type InstructionGroup struct {
 type architecture struct {
 	instructionGroups map[string]*InstructionGroup
 }
-
-var (
-	errOpcodeGenerationNotImplemented = errors.New("z80 opcode generation not implemented")
-)
 
 // New returns a new Z80 architecture configuration.
 func New() *config.Config[*InstructionGroup] {
@@ -51,8 +46,8 @@ func (ar *architecture) AssignInstructionAddress(assigner arch.AddressAssigner, 
 	return z80assembler.AssignInstructionAddress(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 
-func (ar *architecture) GenerateInstructionOpcode(_ arch.AddressAssigner, _ arch.Instruction) error {
-	return errOpcodeGenerationNotImplemented
+func (ar *architecture) GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
+	return z80assembler.GenerateInstructionOpcode(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 
 func (ar *architecture) Instruction(name string) (*InstructionGroup, bool) {

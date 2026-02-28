@@ -8,7 +8,10 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 
 - Completed on February 28, 2026: Phase 0 (AST/assembler plumbing for typed and multi-operand instruction arguments).
 - Completed on February 28, 2026: Phase 1 (Z80 architecture adapter and instruction grouping).
-- Next implementation target: Phase 2 (operand classifier and resolver).
+- Completed on February 28, 2026: Phase 2 (operand classifier and resolver minimum slice).
+- Completed on February 28, 2026: Phase 3 (address assignment).
+- Completed on February 28, 2026: Phase 4 (opcode generation core).
+- Next implementation target: Phase 5 (extended instruction coverage).
 
 ## Scope
 
@@ -38,7 +41,10 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
    - `z80.DDOpcodes`
    - `z80.FDOpcodes`
    - CB, DDCB, and FDCB families are exposed via instruction vars (not a standalone `OpcodesCB` array).
-6. `pkg/arch/z80/z80.go` now provides an architecture adapter with mnemonic grouping lookup and placeholder parse/address/opcode hooks for later phases.
+6. `pkg/arch/z80/z80.go` now provides an architecture adapter with mnemonic grouping lookup, parser delegation, address assignment delegation, and opcode generation delegation.
+7. `pkg/arch/z80/parser/` now resolves the minimum instruction slice and emits typed `ResolvedInstruction` payloads via `ast.InstructionArgument`.
+8. `pkg/arch/z80/assembler/address_assigning_step.go` now computes instruction size from resolved opcode metadata (including prefixed 4-byte opcodes), without operand-value size heuristics.
+9. `pkg/arch/z80/assembler/generate_opcode_step.go` now emits opcode bytes for core addressing families, including single-prefix (`CB`, `DD`, `ED`, `FD`) and indexed bit prefix chains (`DD CB`, `FD CB`).
 
 ## Architecture Decisions
 
@@ -120,7 +126,7 @@ Completed result:
 - Added explicit CB and indexed-bit instruction family inclusion for complete mnemonic grouping.
 - Added `pkg/arch/z80/z80_test.go` coverage for lookup behavior, case-insensitive keys, and presence of CB/indexed-bit variants.
 
-## Phase 2: Operand Classifier + Resolver
+## Phase 2: Operand Classifier + Resolver (Completed)
 
 Files:
 
@@ -147,7 +153,15 @@ Definition of done:
 - Parser unit tests pass for the minimum slice.
 - Resolver deterministically returns one variant or a clear error.
 
-## Phase 3: Address Assignment
+Completed result:
+
+- Added `pkg/arch/z80/parser/register.go` with register and condition parameter classification, including `C` ambiguity handling via candidate sets.
+- Added `pkg/arch/z80/parser/resolver.go` to resolve variants for the minimum operand patterns and produce typed `ResolvedInstruction` payloads.
+- Added `pkg/arch/z80/parser/instruction.go` to parse 0/1/2 operand forms and build `ast.Instruction` nodes with typed arguments.
+- Wired `pkg/arch/z80/z80.go` `ParseIdentifier` to delegate to the Z80 parser package.
+- Added parser unit tests covering the minimum slice (`NOP`, `RET`, `LD A,B`, `LD A,n`, `LD HL,nn`, `JR`, `JR NZ`, `JP`, `JP NZ`, `CALL`) and error cases.
+
+## Phase 3: Address Assignment (Completed)
 
 Files:
 
@@ -163,7 +177,13 @@ Definition of done:
 
 - Address assignment tests pass for 1/2/3/4-byte instructions.
 
-## Phase 4: Opcode Generation (Core)
+Completed result:
+
+- Added `pkg/arch/z80/assembler/address_assigning_step.go` with resolved-argument decoding and opcode-info based size/address assignment.
+- Added `pkg/arch/z80/assembler/address_assigning_step_test.go` covering 1/2/3/4-byte instruction sizes and expected error paths.
+- Wired `pkg/arch/z80/z80.go` `AssignInstructionAddress` to delegate to the Z80 assembler package.
+
+## Phase 4: Opcode Generation (Core) (Completed)
 
 Files:
 
@@ -193,8 +213,21 @@ Baseline verification matrix:
 - `LD BC,$1234` -> `01 34 12`
 - `LD A,42` -> `3E 2A`
 - `JR label` forward/backward in range
+- `JR NZ,label` -> conditional relative form
 - `BIT 3,A` -> `CB 5F`
-- `LD A,(IX+5)` and `LD (IY-3),A`
+- `LD IX,$1234` -> `DD 21 34 12`
+- `BIT 3,(IX+5)` -> `DD CB 05 5E`
+
+Completed result:
+
+- Added `pkg/arch/z80/assembler/generate_opcode_step.go` with opcode byte emission for implied, register, immediate, extended, relative, register-indirect, and port addressing forms.
+- Added explicit handling for bit-operation opcode synthesis:
+  - CB bit family (`BIT/RES/SET b,r`) opcode construction from bit index and register code.
+  - Indexed bit prefix chains (`DD CB d op` / `FD CB d op`) with displacement and synthesized final opcode.
+- Added `pkg/arch/z80/assembler/generate_opcode_step_test.go` coverage for core encodings and error paths (missing operands, invalid bit index, and relative-range failures).
+- Updated `pkg/arch/z80/assembler/address_assigning_step.go` opcode lookup fallback so instructions with register parameters but addressing-based opcode maps (for example, CB/indexed-bit families) resolve correctly.
+- Extended `pkg/assembler/address_assigning_step.go` argument value resolution to support `ast.Number`, `ast.Label`, and `ast.Identifier` nodes used by typed Z80 operand payloads.
+- Wired `pkg/arch/z80/z80.go` `GenerateInstructionOpcode` to delegate to the Z80 assembler package.
 
 ## Phase 5: Extended Instruction Coverage
 

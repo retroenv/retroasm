@@ -61,7 +61,6 @@ func opcodeInfoForResolvedInstruction(resolved z80parser.ResolvedInstruction) (c
 		if info, addressing, ok := opcodeInfoFromRegisterOperands(resolved); ok {
 			return info, addressing, nil
 		}
-		return cpuz80.OpcodeInfo{}, cpuz80.NoAddressing, errOpcodeNotFound
 	}
 
 	if info, addressing, ok := opcodeInfoFromAddressing(resolved); ok {
@@ -109,6 +108,7 @@ func opcodeInfoFromAddressing(resolved z80parser.ResolvedInstruction) (cpuz80.Op
 		if ok {
 			return info, resolved.Addressing, true
 		}
+		return cpuz80.OpcodeInfo{}, cpuz80.NoAddressing, false
 	}
 
 	if len(resolved.Instruction.Addressing) == 1 {

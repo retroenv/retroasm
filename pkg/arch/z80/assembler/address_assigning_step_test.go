@@ -2,21 +2,86 @@ package assembler
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 	"github.com/retroenv/retrogolib/assert"
 )
 
 type mockAssigner struct {
-	pc uint64
+	pc              uint64
+	relativeErr     error
+	relativeOffsets map[[2]uint64]byte
+	values          map[string]uint64
 }
 
-func (m *mockAssigner) ArgumentValue(_ any) (uint64, error)      { return 0, nil }
-func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
-func (m *mockAssigner) ProgramCounter() uint64                   { return m.pc }
+func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
+	switch value := argument.(type) {
+	case uint64:
+		return value, nil
+	case int:
+		return uint64(value), nil
+	case ast.Number:
+		return value.Value, nil
+	case ast.Label:
+		if m.values == nil {
+			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
+		}
+		resolved, ok := m.values[value.Name]
+		if !ok {
+			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
+		}
+		return resolved, nil
+	case ast.Identifier:
+		if m.values == nil {
+			return 0, fmt.Errorf("value for identifier '%s' not configured", value.Name)
+		}
+		resolved, ok := m.values[value.Name]
+		if !ok {
+			return 0, fmt.Errorf("value for identifier '%s' not configured", value.Name)
+		}
+		return resolved, nil
+	case string:
+		if m.values == nil {
+			return 0, fmt.Errorf("value for symbol '%s' not configured", value)
+		}
+		resolved, ok := m.values[value]
+		if !ok {
+			return 0, fmt.Errorf("value for symbol '%s' not configured", value)
+		}
+		return resolved, nil
+	default:
+		return 0, fmt.Errorf("unsupported argument type %T", argument)
+	}
+}
+
+func (m *mockAssigner) RelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
+	if m.relativeErr != nil {
+		return 0, m.relativeErr
+	}
+	if m.relativeOffsets != nil {
+		key := [2]uint64{destination, addressAfterInstruction}
+		if value, ok := m.relativeOffsets[key]; ok {
+			return value, nil
+		}
+	}
+
+	diff := int64(destination) - int64(addressAfterInstruction)
+	switch {
+	case diff < -128 || diff > 127:
+		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
+	case diff >= 0:
+		return byte(diff), nil
+	default:
+		return byte(256 + diff), nil
+	}
+}
+
+func (m *mockAssigner) ProgramCounter() uint64 { return m.pc }
 
 type mockInstruction struct {
 	name       string

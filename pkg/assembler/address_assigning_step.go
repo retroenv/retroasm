@@ -27,6 +27,9 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 	case uint64:
 		return arg, nil
 
+	case ast.Number:
+		return arg.Value, nil
+
 	case reference:
 		name, offset := parseReferenceOffset(arg.name)
 
@@ -48,6 +51,12 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 		default:
 			return 0, fmt.Errorf("unexpected argument value type %T", value)
 		}
+
+	case ast.Label:
+		return aa.ArgumentValue(reference{name: arg.Name})
+
+	case ast.Identifier:
+		return aa.ArgumentValue(reference{name: arg.Name})
 
 	default:
 		return 0, fmt.Errorf("unexpected argument type %T", arg)
