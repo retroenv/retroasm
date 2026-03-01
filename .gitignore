@@ -24,18 +24,4 @@ tests/*
 /retroasm
 
 !tests/z80/
-tests/z80/*
-!tests/z80/basic.asm
-!tests/z80/indexed.asm
-!tests/z80/branches.asm
-!tests/z80/branches_overflow.asm
-!tests/z80/io_extended.asm
-!tests/z80/offsets.asm
-!tests/z80/offsets_chained.asm
-!tests/z80/expressions.asm
-!tests/z80/compatibility.asm
-!tests/z80/indexed_boundaries.asm
-!tests/z80/profile_strict_documented.asm
-!tests/z80/profile_gameboy_subset.asm
-!tests/z80/profile_strict_documented_rejects.asm
-!tests/z80/profile_gameboy_subset_rejects.asm
+!tests/z80/*.asm

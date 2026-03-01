@@ -11,7 +11,6 @@ import (
 )
 
 var (
-	errNilResolvedInstruction  = errors.New("resolved instruction is nil")
 	errUnsupportedArgumentType = errors.New("unsupported z80 argument type")
 	errMissingInstruction      = errors.New("resolved instruction details are missing")
 	errOpcodeNotFound          = errors.New("opcode mapping not found")
@@ -39,17 +38,11 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 }
 
 func resolvedInstruction(argument any) (z80parser.ResolvedInstruction, error) {
-	switch resolved := argument.(type) {
-	case z80parser.ResolvedInstruction:
-		return resolved, nil
-	case *z80parser.ResolvedInstruction:
-		if resolved == nil {
-			return z80parser.ResolvedInstruction{}, errNilResolvedInstruction
-		}
-		return *resolved, nil
-	default:
+	resolved, ok := argument.(z80parser.ResolvedInstruction)
+	if !ok {
 		return z80parser.ResolvedInstruction{}, fmt.Errorf("%w: %T", errUnsupportedArgumentType, argument)
 	}
+	return resolved, nil
 }
 
 func opcodeInfoForResolvedInstruction(resolved z80parser.ResolvedInstruction) (cpuz80.OpcodeInfo, cpuz80.AddressingMode, error) {

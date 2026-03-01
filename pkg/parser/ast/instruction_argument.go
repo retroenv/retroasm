@@ -1,7 +1,5 @@
 package ast
 
-import "slices"
-
 // InstructionArgument stores an architecture-specific typed instruction argument value.
 type InstructionArgument struct {
 	*node
@@ -49,6 +47,6 @@ func (a InstructionArguments) Copy() Node {
 
 	return InstructionArguments{
 		node:   a.node,
-		Values: slices.Clone(values),
+		Values: values,
 	}
 }

@@ -33,6 +33,28 @@ The planned implementation scope is complete. Ongoing improvements are increment
 
 1. Expand compatibility corpus over time as new edge cases are discovered.
 
+## Post-Implementation Review
+
+Code review of the branch against this plan found the following items. Items marked **(fixed)** were addressed during review.
+
+### Code Cleanup (Fixed)
+
+1. **(fixed)** `InstructionArguments.Copy()` in `pkg/parser/ast/instruction_argument.go` had a redundant `slices.Clone` call — the local slice built by the `make+append` loop was already a fresh copy. Removed the redundant clone and the now-unused `slices` import.
+2. **(fixed)** `.gitignore` used per-file allowlist entries for every Z80 fixture. Simplified to `!tests/z80/*.asm` — new fixtures no longer require a gitignore edit.
+3. **(fixed)** `resolvedInstruction()` in `pkg/arch/z80/assembler/address_assigning_step.go` had a dead `*z80parser.ResolvedInstruction` pointer branch — only value types ever flow through. Simplified to a single type assertion and removed the unused `errNilResolvedInstruction` sentinel.
+4. **(fixed)** `anyResolvedInstruction` type alias in `pkg/arch/z80/assembler/generate_opcode_step.go` added no semantic value over using `z80parser.ResolvedInstruction` directly. Removed and replaced all occurrences with the concrete type.
+
+### Observations (No Action Required)
+
+5. **`architectureAssembler[T]` in `pkg/retroasm/default.go`** is a stub — its `AssembleAST` method returns nodes unchanged. It exists to satisfy the public `Architecture.CreateAssembler` interface and is covered by tests. It is not used in the actual assembly path (which goes through `resolveArchitectureConfig` + type switch). This is acceptable as a public API contract but should be revisited if the library API evolves.
+6. **`resolveArchitectureConfig` multi-architecture fallback** (prefer "6502" when multiple architectures are registered) is currently unreachable because the CLI only ever registers one architecture. The branch exists as forward-looking plumbing.
+7. **`defaultCPUBySystem["generic"]` maps to `cpuZ80`** — a user passing `-system generic` without `-cpu` gets Z80. This is a deliberate UX decision but could surprise users expecting a CPU-agnostic default. Worth revisiting if more architectures are added.
+8. **Code duplication between Z80 and 6502 is low.** Both architectures share the `arch.Architecture[T]` interface and the shared assembler pipeline. The implementations are legitimately different: m6502 re-resolves addressing via opcode table lookup; Z80 reads pre-resolved metadata. No refactoring needed.
+9. **The resolver at 1153 lines** (`pkg/arch/z80/parser/resolver.go`) is the largest single file. Its 8-pass two-operand resolution chain is well-organized — each pass has a clear responsibility. The complexity is inherent to Z80's operand disambiguation, not a design issue.
+10. **No new TODO comments** were introduced by the branch. All TODOs in the codebase are pre-existing on main.
+11. **No compiler errors** exist on this branch. The `range over int` patterns flagged by static analysis are pre-existing on main and compile correctly under Go 1.22+.
+12. **All 21 test packages pass.** The combination of unit tests, exhaustive opcode coverage tests, fuzz/property tests, and integration fixtures provides thorough defense in depth.
+
 ## Scope
 
 ### In Scope (first implementation)
@@ -793,36 +815,18 @@ Completed result:
 - Use `github.com/retroenv/retrogolib/assert`.
 - Use `t.Context()` in tests.
 
-## Key Risks and Mitigations
+## Key Risks (Retrospective)
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Multi-operand AST mismatch with current pipeline | High | Implement Phase 0 first; do not start resolver/opcode work before it |
-| Wrong opcode table assumptions (CB vs ED/DD/FD) | High | Use actual retrogolib exports and add tests for table completeness |
-| Prefix-chain bugs (`DD CB`, `FD CB`) | High | Explicit encoding path and dedicated integration cases |
-| CLI still ignores selected architecture | High | Make architecture selection refactor explicit in Phase 6 |
-| Ambiguous operand parsing (`C`, `(IX+d)`) | Medium | Context-aware parser rules + table-driven tests |
+All identified risks were mitigated during implementation:
 
-## Recommended Execution Order
+| Risk | Mitigation Applied | Outcome |
+|------|-------------------|---------|
+| Multi-operand AST mismatch with current pipeline | Phase 0 implemented first; typed `InstructionArgument`/`InstructionArguments` nodes carry payloads through existing single-`Argument` field | No pipeline changes required |
+| Wrong opcode table assumptions (CB vs ED/DD/FD) | Used actual retrogolib exports; Phase 5 coverage test enumerates all variants from all tables | Zero silent gaps in supported instruction set |
+| Prefix-chain bugs (`DD CB`, `FD CB`) | Explicit 4-byte encoding path in `buildIndexedBitOpcode`; dedicated fixtures with boundary displacements | Correctly encodes all indexed-bit families |
+| CLI still ignores selected architecture | Phase 6 replaced hard-coded m6502 path with CPU-selected architecture registration | Both `6502` and `z80` work end-to-end via CLI |
+| Ambiguous operand parsing (`C`, `(IX+d)`) | Context-aware candidate sets + 8-pass resolver chain + table-driven tests + fuzz harness | Deterministic resolution with diagnostic errors on mismatch |
 
-1. Phase 0 (AST/assembler plumbing)
-2. Phase 1 (adapter + instruction grouping)
-3. Phase 2 (parser/resolver minimum slice)
-4. Phase 3 (address assignment)
-5. Phase 4 (opcode generation core)
-6. Phase 5 (coverage expansion)
-7. Phase 6 (CLI/runtime integration)
-8. Phase 7 (fixture-based integration regression)
-9. Phase 8 (indexed/parenthesized operand parser completion)
-10. Phase 9 (extended indirect/register and port I/O operand resolution)
-11. Phase 10 (tokenized offset operand parsing)
-12. Phase 11 (chained tokenized offset operand parsing)
-13. Phase 12 (expression-backed operand values and displacements)
-14. Phase 13 (profile strictness and undocumented-op policy)
-15. Phase 14 (parser/resolver diagnostic quality pass)
-16. Phase 15 (robustness and compatibility expansion)
-17. Phase 16 (indexed boundary compatibility corpus expansion)
-18. Phase 17 (profile compatibility fixture expansion)
-19. Phase 18 (profile rejection fixture expansion)
+## Execution Order
 
-This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.
+All 19 phases (0-18) were implemented in the planned order. The strategy of getting a minimal end-to-end path working early (Phases 0-7) then scaling coverage (Phases 8-18) proved effective — each phase built on verified foundations.

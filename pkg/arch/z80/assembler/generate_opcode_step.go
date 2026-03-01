@@ -45,7 +45,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 func buildOpcodeBytes(
 	assigner arch.AddressAssigner,
 	ins arch.Instruction,
-	resolved anyResolvedInstruction,
+	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 	addressing cpuz80.AddressingMode,
 ) ([]byte, error) {
@@ -83,7 +83,7 @@ func buildOpcodeBytes(
 
 func appendImmediateOperand(
 	assigner arch.AddressAssigner,
-	resolved anyResolvedInstruction,
+	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 	opcodes []byte,
 ) ([]byte, error) {
@@ -118,7 +118,7 @@ func appendImmediateOperand(
 	}
 }
 
-func appendExtendedOperand(assigner arch.AddressAssigner, resolved anyResolvedInstruction, opcodes []byte) ([]byte, error) {
+func appendExtendedOperand(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, opcodes []byte) ([]byte, error) {
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func appendExtendedOperand(assigner arch.AddressAssigner, resolved anyResolvedIn
 
 func appendOptionalByteOperand(
 	assigner arch.AddressAssigner,
-	resolved anyResolvedInstruction,
+	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 	opcodes []byte,
 ) ([]byte, error) {
@@ -157,7 +157,7 @@ func appendOptionalByteOperand(
 func appendRelativeOperand(
 	assigner arch.AddressAssigner,
 	ins arch.Instruction,
-	resolved anyResolvedInstruction,
+	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 	opcodes []byte,
 ) ([]byte, error) {
@@ -183,7 +183,7 @@ func baseOpcodeBytes(opcodeInfo cpuz80.OpcodeInfo) []byte {
 	return append(opcodes, opcodeInfo.Opcode)
 }
 
-func buildBitOpcode(assigner arch.AddressAssigner, resolved anyResolvedInstruction, opcodeInfo cpuz80.OpcodeInfo) ([]byte, error) {
+func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, opcodeInfo cpuz80.OpcodeInfo) ([]byte, error) {
 	opcodes := make([]byte, 0, 2)
 	opcodes = append(opcodes, opcodeInfo.Prefix)
 
@@ -207,7 +207,7 @@ func buildBitOpcode(assigner arch.AddressAssigner, resolved anyResolvedInstructi
 
 func buildIndexedBitOpcode(
 	assigner arch.AddressAssigner,
-	resolved anyResolvedInstruction,
+	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 ) ([]byte, error) {
 
@@ -244,9 +244,7 @@ func buildIndexedBitOpcode(
 	return []byte{opcodeInfo.Prefix, cpuz80.PrefixCB, byte(displacement), opcode}, nil
 }
 
-type anyResolvedInstruction = z80parser.ResolvedInstruction
-
-func resolvedOperandValue(assigner arch.AddressAssigner, resolved anyResolvedInstruction, index int) (uint64, error) {
+func resolvedOperandValue(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, index int) (uint64, error) {
 	if index < 0 || index >= len(resolved.OperandValues) {
 		return 0, fmt.Errorf("%w: operand index %d", errMissingOperand, index)
 	}
@@ -258,7 +256,7 @@ func resolvedOperandValue(assigner arch.AddressAssigner, resolved anyResolvedIns
 	return value, nil
 }
 
-func bitRegisterCode(resolved anyResolvedInstruction) (byte, error) {
+func bitRegisterCode(resolved z80parser.ResolvedInstruction) (byte, error) {
 	target := cpuz80.RegHLIndirect
 	if len(resolved.RegisterParams) > 0 {
 		target = resolved.RegisterParams[len(resolved.RegisterParams)-1]
