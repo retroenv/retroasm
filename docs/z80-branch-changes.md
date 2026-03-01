@@ -460,3 +460,145 @@ Layer 1: Shared assembler extensions (pkg/assembler/ + pkg/parser/ast/)
 ```
 
 **Layer 1 changes are fully extractable to main** without pulling in any Z80-specific code. They make the pipeline generic enough to support any multi-operand architecture.
+
+---
+
+## 5. Extraction Plan
+
+### Goal
+
+Merge only the architecture-agnostic improvements to `main` first, keeping the Z80 packages on the feature branch until they are ready to ship. This keeps `main` buildable and all tests green at every step.
+
+### PR 1 — Shared AST extensions (Layer 1, part A)
+
+**Files:**
+- `pkg/parser/ast/expression.go` *(new)*
+- `pkg/parser/ast/instruction_argument.go` *(new)*
+- `pkg/parser/ast/instruction_argument_test.go` *(new)*
+- `pkg/parser/ast/node_test.go` *(add `TestExpression_Copy`)*
+
+**What it does:** Adds three new AST node types (`Expression`, `InstructionArgument`, `InstructionArguments`) with `Copy()` implementations and tests. No changes to any existing node or file.
+
+**Risk:** None. Pure additions. No existing code is modified.
+
+**Verification:** `go test ./pkg/parser/ast/...`
+
+---
+
+### PR 2 — Shared assembler extensions (Layer 1, part B)
+
+Depends on: PR 1
+
+**Files:**
+- `pkg/assembler/parse_ast_nodes.go` *(extended argument conversion)*
+- `pkg/assembler/parse_ast_nodes_test.go` *(new test cases)*
+- `pkg/assembler/address_assigning_step.go` *(new argument value types + overflow-safe arithmetic)*
+- `pkg/assembler/address_assigning_step_test.go` *(new expression tests)*
+- `pkg/assembler/generate_opcode_step.go` *(context propagation fix)*
+
+**What it does:**
+- Extends `convertInstructionArgument` to handle `ast.InstructionArgument` and `ast.InstructionArguments`.
+- Extends `ArgumentValue` to handle `ast.Number`, `ast.Label`, `ast.Identifier`, and `ast.Expression`.
+- Adds `argumentExpressionValue` for expression evaluation with PC context.
+- Adds `addressWidth()` helper.
+- Replaces unchecked offset arithmetic with `applyInt64Offset`/`applyUint64Offset`.
+- Propagates `arch` and `programCounter` into the `addressAssign` used during opcode generation.
+
+**Risk:** Low. The 6502 path is exercised by the existing test suite. The new cases in the type switches are additive. The arithmetic refactor is guarded by the existing test coverage of reference-offset resolution.
+
+**Verification:** `go test ./pkg/assembler/...`
+
+---
+
+### PR 3 — retroasm library dispatch refactor (Layer 2)
+
+Depends on: PR 2
+
+**Constraint:** `pkg/retroasm/default.go` currently imports `archz80` directly for the type-switch dispatch. This import must be removed before the file can land on `main` without the Z80 package.
+
+**Required change:** Replace the two architecture-specific type-switch cases with a single interface-based dispatch. The `configAny() any` method on `ArchitectureAdapter[T]` is already in place; the assembly helpers `assembleASTWithConfig[T]` and `assembleTextWithConfig[T]` are already generic. What is needed is a way to call them without knowing the concrete type `T` at the call site.
+
+**Approach:** Introduce a `configAssembler` interface with a single method and have `ArchitectureAdapter[T]` implement it:
+
+```go
+// assembleASTFunc and assembleTextFunc are closures captured at adapter creation.
+type configAssembler interface {
+    assembleAST(ctx context.Context, nodes []ast.Node, baseAddr uint64) ([]byte, error)
+    assembleText(ctx context.Context, source io.Reader, configFile string) ([]byte, error)
+}
+```
+
+`ArchitectureAdapter[T].CreateAssembler` (or a new unexported method) returns a `configAssembler` backed by its `*config.Config[T]`, calling the generic helpers directly. The `assembleASTWithArchitecture` and `assembleTextWithArchitecture` methods then use `adapterConfig` → cast to `configAssembler` instead of a type switch, eliminating the `archz80` import entirely.
+
+**Files to modify for main:**
+- `pkg/retroasm/default.go` *(remove archz80 import; add configAssembler interface)*
+- `pkg/retroasm/assembler.go` *(no change required)*
+
+**Files to update on the z80 branch after PR 3 merges:**
+- Rebase `z80_support` onto the new `main`; update `ArchitectureAdapter` and `NewArchitectureAdapter` calls if the interface changed.
+
+**Verification:** `go test ./pkg/retroasm/...` on both `main` and the rebased branch.
+
+---
+
+### PR 4 — Z80 architecture package (Layer 3)
+
+Depends on: PR 3 merged and branch rebased
+
+**Files (all new):**
+- `pkg/arch/z80/z80.go`
+- `pkg/arch/z80/z80_test.go`
+- `pkg/arch/z80/options.go`
+- `pkg/arch/z80/parser/doc.go`
+- `pkg/arch/z80/parser/register.go`
+- `pkg/arch/z80/parser/register_test.go`
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `pkg/arch/z80/parser/mock_parser_test.go`
+- `pkg/arch/z80/parser/fuzz_test.go`
+- `pkg/arch/z80/parser/profile_test.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/assembler/doc.go`
+- `pkg/arch/z80/assembler/address_assigning_step.go`
+- `pkg/arch/z80/assembler/address_assigning_step_test.go`
+- `pkg/arch/z80/assembler/generate_opcode_step.go`
+- `pkg/arch/z80/assembler/generate_opcode_step_test.go`
+- `pkg/arch/z80/assembler/coverage_test.go`
+- `pkg/arch/z80/profile/doc.go`
+- `pkg/arch/z80/profile/profile.go`
+- `pkg/arch/z80/profile/profile_test.go`
+
+**Risk:** Self-contained new package. Does not modify any existing file. All existing tests remain green.
+
+**Verification:** `go test ./pkg/arch/z80/...`
+
+---
+
+### PR 5 — CLI and integration tests (Layer 4)
+
+Depends on: PR 4
+
+**Files:**
+- `.gitignore` *(tests/* change + Z80 fixture allowlist)*
+- `cmd/retroasm/main.go` *(multi-architecture validation, `-z80-profile` flag, `registerArchitectureForCPU`)*
+- `cmd/retroasm/main_test.go` *(extended validation matrix)*
+- `cmd/retroasm/z80_fixture_test.go` *(new)*
+- `tests/z80/*.asm` *(14 fixture files)*
+
+**Risk:** The CLI changes are additive (new flags, new CPU option). Existing `-cpu 6502 -system nes` behaviour is preserved by the `setDefaultArchitecture` fast-path (when no flags are given, defaults to 6502/nes). The only observable change to existing users is that `-cpu` and `-system` now default to `""` instead of `"6502"` and `"nes"` — both are functionally equivalent because `setDefaultArchitecture` fills them in before any validation.
+
+**Verification:** `go test ./cmd/retroasm/...` including all 14 Z80 fixture tests and the extended main_test.go matrix.
+
+---
+
+### Summary Table
+
+| PR | Branch from | Merges to | Files changed | Risk | Green gate |
+|----|------------|-----------|--------------|------|-----------|
+| 1 | `z80_support` | `main` | 4 | None | `./pkg/parser/ast/...` |
+| 2 | `z80_support` | `main` | 5 | Low | `./pkg/assembler/...` |
+| 3 | `z80_support` (after refactor) | `main` | 1–2 | Low | `./pkg/retroasm/...` |
+| 4 | rebased `z80_support` | `main` | 21 | None | `./pkg/arch/z80/...` |
+| 5 | rebased `z80_support` | `main` | 5 + 14 | Low | `./cmd/retroasm/...` |
+
+Each PR leaves `main` fully buildable and all tests green.
