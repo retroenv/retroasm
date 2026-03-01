@@ -1,0 +1,3 @@
+.segment "CODE"
+
+    sll a

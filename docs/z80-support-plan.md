@@ -23,9 +23,11 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on March 1, 2026: Phase 14 (parser/resolver diagnostic quality pass).
 - Completed on March 1, 2026: Phase 15 (robustness and compatibility expansion).
 - Completed on March 1, 2026: Phase 16 (indexed boundary compatibility corpus expansion).
+- Completed on March 1, 2026: Phase 17 (profile compatibility fixture expansion).
+- Completed on March 1, 2026: Phase 18 (profile rejection fixture expansion).
 - Next implementation target: none (all planned phases completed).
 
-## What Is Missing (Post-Phase 16)
+## What Is Missing (Post-Phase 18)
 
 The planned implementation scope is complete. Ongoing improvements are incremental:
 
@@ -73,6 +75,8 @@ The planned implementation scope is complete. Ongoing improvements are increment
 17. Z80 resolver diagnostics now include targeted ambiguity guidance and expected addressing-family hints for common operand mismatch failures.
 18. Z80 test coverage now includes parser fuzz/property determinism checks, opcode boundary matrices, and compatibility-focused fixture assembly.
 19. Compatibility fixture coverage now includes indexed displacement edge encodings and indexed CB-family bit operation boundaries.
+20. Compatibility fixtures now include profile-specific positive assembly corpora for `strict-documented` and `gameboy-z80-subset`.
+21. Compatibility fixtures now include profile-specific negative assembly corpora that assert deterministic rejection diagnostics.
 
 ## Architecture Decisions
 
@@ -699,6 +703,62 @@ Completed result:
 - Added expected byte matrix and test case wiring in `cmd/retroasm/z80_fixture_test.go`.
 - Updated `.gitignore` allowlist for `tests/z80/indexed_boundaries.asm`.
 
+## Phase 17: Profile Compatibility Fixture Expansion (Completed)
+
+Files:
+
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/profile_strict_documented.asm`
+- `tests/z80/profile_gameboy_subset.asm`
+- `.gitignore`
+
+Tasks:
+
+- Add profile-targeted positive fixtures that assert successful assembly under non-default Z80 profiles.
+- Add expected byte assertions for strict-documented and gameboy subset profile fixture assembly.
+- Reuse fixture-driven assembly path (rather than inline snippets) for compatibility corpus growth.
+
+Definition of done:
+
+- `strict-documented` fixture assembles successfully and emits expected bytes.
+- `gameboy-z80-subset` fixture assembles successfully and emits expected bytes.
+- New profile fixtures are tracked in repository allowlist and executed in regression tests.
+
+Completed result:
+
+- Added `tests/z80/profile_strict_documented.asm` covering a documented CB-family path (`bit 3,a`) and relative control flow.
+- Added `tests/z80/profile_gameboy_subset.asm` covering profile-safe base instructions (`nop`, `ld a,n`, `jr nz,e`).
+- Added expected byte matrices and `TestAssembleZ80ProfileFixtures` in `cmd/retroasm/z80_fixture_test.go`.
+- Updated `.gitignore` fixture allowlist for both new profile fixtures.
+
+## Phase 18: Profile Rejection Fixture Expansion (Completed)
+
+Files:
+
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/profile_strict_documented_rejects.asm`
+- `tests/z80/profile_gameboy_subset_rejects.asm`
+- `.gitignore`
+
+Tasks:
+
+- Add fixture-driven negative profile corpus sources that intentionally violate profile rules.
+- Assert deterministic error diagnostics for strict-documented and gameboy-z80-subset rejection paths.
+- Keep profile regression checks aligned with fixture-driven assembly flow (not only inline snippets).
+
+Definition of done:
+
+- strict-documented rejection fixture fails with `undocumented` + profile-name diagnostics.
+- gameboy-z80-subset rejection fixture fails with profile-compatibility diagnostics.
+- Rejection fixtures are tracked and executed via test suite.
+
+Completed result:
+
+- Added `tests/z80/profile_strict_documented_rejects.asm` using `sll a` to validate strict documented profile rejection.
+- Added `tests/z80/profile_gameboy_subset_rejects.asm` using `in a,($12)` to validate gameboy subset profile rejection.
+- Added `TestAssembleZ80ProfileFixtures_Rejects` in `cmd/retroasm/z80_fixture_test.go` with error-substring assertions.
+- Updated `.gitignore` fixture allowlist for both rejection fixtures.
+
 ## Testing Strategy
 
 ## Unit Tests
@@ -721,6 +781,10 @@ Completed result:
 - `tests/z80/expressions.asm` expression-backed operand and indexed displacement coverage (`target+delta`, `table+index`, `(ix+disp)`)
 - `tests/z80/compatibility.asm` mixed control-flow and expression compatibility fixture
 - `tests/z80/indexed_boundaries.asm` indexed displacement boundary and indexed CB-family bit/res/set coverage
+- `tests/z80/profile_strict_documented.asm` strict-documented profile positive fixture coverage
+- `tests/z80/profile_gameboy_subset.asm` gameboy-z80-subset profile positive fixture coverage
+- `tests/z80/profile_strict_documented_rejects.asm` strict-documented profile negative fixture coverage
+- `tests/z80/profile_gameboy_subset_rejects.asm` gameboy-z80-subset profile negative fixture coverage
 - `cmd/retroasm/z80_fixture_test.go` profile-gated assembly checks for default, strict-documented, and gameboy-z80-subset behavior
 
 ## Regression Requirements
@@ -758,5 +822,7 @@ Completed result:
 15. Phase 14 (parser/resolver diagnostic quality pass)
 16. Phase 15 (robustness and compatibility expansion)
 17. Phase 16 (indexed boundary compatibility corpus expansion)
+18. Phase 17 (profile compatibility fixture expansion)
+19. Phase 18 (profile rejection fixture expansion)
 
 This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.

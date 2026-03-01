@@ -35,3 +35,7 @@ tests/z80/*
 !tests/z80/expressions.asm
 !tests/z80/compatibility.asm
 !tests/z80/indexed_boundaries.asm
+!tests/z80/profile_strict_documented.asm
+!tests/z80/profile_gameboy_subset.asm
+!tests/z80/profile_strict_documented_rejects.asm
+!tests/z80/profile_gameboy_subset_rejects.asm

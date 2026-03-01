@@ -95,6 +95,16 @@ var z80FixtureExpected = map[string][]byte{
 		0xDD, 0xCB, 0xFF, 0xDE,
 		0xC9,
 	},
+	"profile_strict_documented.asm": {
+		0x00,
+		0xCB, 0x5F,
+		0x20, 0xFB,
+	},
+	"profile_gameboy_subset.asm": {
+		0x00,
+		0x3E, 0x2A,
+		0x20, 0xFB,
+	},
 }
 
 func TestAssembleZ80Fixtures(t *testing.T) {
@@ -118,6 +128,74 @@ func TestAssembleZ80Fixtures(t *testing.T) {
 			output, err := assembleZ80Fixture(t, tt.fixture)
 			assert.NoError(t, err)
 			assert.Equal(t, z80FixtureExpected[tt.fixture], output)
+		})
+	}
+}
+
+func TestAssembleZ80ProfileFixtures(t *testing.T) {
+	tests := []struct {
+		name      string
+		fixture   string
+		profile   string
+		expectBin []byte
+	}{
+		{
+			name:      "strict documented profile fixture",
+			fixture:   "profile_strict_documented.asm",
+			profile:   z80profile.StrictDocumented.String(),
+			expectBin: z80FixtureExpected["profile_strict_documented.asm"],
+		},
+		{
+			name:      "gameboy subset profile fixture",
+			fixture:   "profile_gameboy_subset.asm",
+			profile:   z80profile.GameBoySubset.String(),
+			expectBin: z80FixtureExpected["profile_gameboy_subset.asm"],
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := assembleZ80FixtureWithProfile(t, tt.fixture, tt.profile)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectBin, output)
+		})
+	}
+}
+
+func TestAssembleZ80ProfileFixtures_Rejects(t *testing.T) {
+	tests := []struct {
+		name       string
+		fixture    string
+		profile    string
+		errorParts []string
+	}{
+		{
+			name:    "strict documented rejects undocumented fixture",
+			fixture: "profile_strict_documented_rejects.asm",
+			profile: z80profile.StrictDocumented.String(),
+			errorParts: []string{
+				"undocumented",
+				z80profile.StrictDocumented.String(),
+			},
+		},
+		{
+			name:    "gameboy subset rejects io fixture",
+			fixture: "profile_gameboy_subset_rejects.asm",
+			profile: z80profile.GameBoySubset.String(),
+			errorParts: []string{
+				"outside profile",
+				z80profile.GameBoySubset.String(),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := assembleZ80FixtureWithProfile(t, tt.fixture, tt.profile)
+			assert.Error(t, err)
+			for _, part := range tt.errorParts {
+				assert.ErrorContains(t, err, part)
+			}
 		})
 	}
 }
@@ -174,6 +252,12 @@ func TestAssembleZ80Profiles(t *testing.T) {
 
 func assembleZ80Fixture(t *testing.T, fixture string) ([]byte, error) {
 	t.Helper()
+
+	return assembleZ80FixtureWithProfile(t, fixture, z80profile.Default.String())
+}
+
+func assembleZ80FixtureWithProfile(t *testing.T, fixture, profileName string) ([]byte, error) {
+	t.Helper()
 	sourcePath := z80FixturePath(t, fixture)
 	source, err := os.ReadFile(sourcePath)
 	if err != nil {
@@ -181,7 +265,7 @@ func assembleZ80Fixture(t *testing.T, fixture string) ([]byte, error) {
 	}
 
 	asm := retroasm.New()
-	if err := registerArchitectureForCPU(asm, cpuZ80, z80profile.Default.String()); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuZ80, profileName); err != nil {
 		return nil, fmt.Errorf("registering z80 architecture: %w", err)
 	}
 
