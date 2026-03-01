@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/expression"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -55,6 +56,19 @@ func TestNumber_Copy(t *testing.T) {
 	copied, ok := original.Copy().(Number)
 	assert.True(t, ok)
 	assert.Equal(t, uint64(255), copied.Value)
+}
+
+func TestExpression_Copy(t *testing.T) {
+	original := NewExpression(
+		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{Type: token.Plus},
+		token.Token{Type: token.Number, Value: "1"},
+	)
+
+	copied, ok := original.Copy().(Expression)
+	assert.True(t, ok)
+	assert.NotNil(t, copied.Value)
+	assert.Len(t, copied.Value.Tokens(), 3)
 }
 
 func TestData_Copy(t *testing.T) {
