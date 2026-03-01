@@ -87,6 +87,14 @@ var z80FixtureExpected = map[string][]byte{
 		0xC9,
 		0x10, 0x20, 0x30,
 	},
+	"indexed_boundaries.asm": {
+		0xDD, 0x7E, 0x80,
+		0xFD, 0x77, 0x7F,
+		0xDD, 0xCB, 0x7F, 0x46,
+		0xFD, 0xCB, 0x80, 0xBE,
+		0xDD, 0xCB, 0xFF, 0xDE,
+		0xC9,
+	},
 }
 
 func TestAssembleZ80Fixtures(t *testing.T) {
@@ -102,6 +110,7 @@ func TestAssembleZ80Fixtures(t *testing.T) {
 		{name: "chained offset expressions", fixture: "offsets_chained.asm"},
 		{name: "symbolic expressions", fixture: "expressions.asm"},
 		{name: "compatibility control-flow and expressions", fixture: "compatibility.asm"},
+		{name: "indexed displacement boundaries", fixture: "indexed_boundaries.asm"},
 	}
 
 	for _, tt := range tests {

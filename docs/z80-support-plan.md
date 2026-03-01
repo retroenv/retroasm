@@ -21,14 +21,15 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on March 1, 2026: Phase 12 (expression-backed operand values and displacement support).
 - Completed on March 1, 2026: Phase 13 (profile strictness and undocumented-op policy).
 - Completed on March 1, 2026: Phase 14 (parser/resolver diagnostic quality pass).
-- Next implementation target: Phase 15 (robustness and compatibility expansion).
+- Completed on March 1, 2026: Phase 15 (robustness and compatibility expansion).
+- Completed on March 1, 2026: Phase 16 (indexed boundary compatibility corpus expansion).
+- Next implementation target: none (all planned phases completed).
 
-## What Is Missing (Post-Phase 14)
+## What Is Missing (Post-Phase 16)
 
-The assembler path is now functional and broadly covered, but these gaps remain for a production-ready Z80 frontend:
+The planned implementation scope is complete. Ongoing improvements are incremental:
 
-1. Robustness testing can be strengthened.
-   - Missing: fuzz/property tests and a wider compatibility fixture corpus.
+1. Expand compatibility corpus over time as new edge cases are discovered.
 
 ## Scope
 
@@ -70,6 +71,8 @@ The assembler path is now functional and broadly covered, but these gaps remain 
 15. Z80 instruction operands and indexed displacements now support expression-backed AST values, including mixed symbolic arithmetic (for example `target+delta`, `table+index`, `ix+disp`).
 16. Z80 architecture now supports profile-driven validation (`default`, `strict-documented`, `gameboy-z80-subset`) through `pkg/arch/z80/profile` and CLI flag `-z80-profile`.
 17. Z80 resolver diagnostics now include targeted ambiguity guidance and expected addressing-family hints for common operand mismatch failures.
+18. Z80 test coverage now includes parser fuzz/property determinism checks, opcode boundary matrices, and compatibility-focused fixture assembly.
+19. Compatibility fixture coverage now includes indexed displacement edge encodings and indexed CB-family bit operation boundaries.
 
 ## Architecture Decisions
 
@@ -631,14 +634,14 @@ Completed result:
   - indexed load direction mismatch.
 - Added regression tests in `pkg/arch/z80/parser/instruction_test.go` that assert message quality for representative failure inputs.
 
-## Phase 15: Robustness and Compatibility Expansion (Planned)
+## Phase 15: Robustness and Compatibility Expansion (Completed)
 
 Files:
 
-- `pkg/arch/z80/parser/*_test.go`
-- `pkg/arch/z80/assembler/*_test.go`
+- `pkg/arch/z80/parser/fuzz_test.go`
+- `pkg/arch/z80/assembler/generate_opcode_step_test.go`
 - `cmd/retroasm/z80_fixture_test.go`
-- `tests/z80/*` (new compatibility fixtures)
+- `tests/z80/compatibility.asm`
 
 Tasks:
 
@@ -652,13 +655,59 @@ Definition of done:
 - Fixture matrix covers all critical operand categories and boundary conditions.
 - No regressions across existing Z80 and 6502 test suites.
 
+Completed result:
+
+- Added parser fuzz/property determinism coverage in `pkg/arch/z80/parser/fuzz_test.go`:
+  - fuzzed operand-token streams across core mnemonics (`ld`, `jp`, `bit`, `in`, `out`),
+  - asserted deterministic success/error outcomes and error messages for identical token streams.
+- Added opcode boundary matrix coverage in `pkg/arch/z80/assembler/generate_opcode_step_test.go` for:
+  - relative branches at `-128` / `+127` limits,
+  - indexed displacements at `0x00` / `0xFF`,
+  - port immediates at `0x00` / `0xFF`,
+  - extended addresses at `0x0000` / `0xFFFF`.
+- Added compatibility-style integration fixture `tests/z80/compatibility.asm` with expected bytes in `cmd/retroasm/z80_fixture_test.go` to exercise mixed control flow and expression-backed addressing in one source.
+- Updated `.gitignore` fixture allowlist for `tests/z80/compatibility.asm`.
+
+## Phase 16: Indexed Boundary Compatibility Corpus Expansion (Completed)
+
+Files:
+
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/indexed_boundaries.asm`
+- `.gitignore`
+
+Tasks:
+
+- Add a compatibility fixture focused on indexed displacement boundary values (`-128`, `+127`).
+- Cover indexed CB-family opcode forms (`BIT/RES/SET`) at displacement edges to guard prefix-chain regressions.
+- Extend fixture expectations and integration test matrix to include the new compatibility source.
+
+Definition of done:
+
+- Fixture assembles successfully under default Z80 profile.
+- Emitted bytes match expected opcodes for all indexed boundary cases.
+- Fixture is tracked in repository test corpus and executed by existing fixture regression test.
+
+Completed result:
+
+- Added `tests/z80/indexed_boundaries.asm` covering:
+  - `ld a,(ix-128)`,
+  - `ld (iy+127),a`,
+  - `bit 0,(ix+127)`,
+  - `res 7,(iy-128)`,
+  - `set 3,(ix-1)`.
+- Added expected byte matrix and test case wiring in `cmd/retroasm/z80_fixture_test.go`.
+- Updated `.gitignore` allowlist for `tests/z80/indexed_boundaries.asm`.
+
 ## Testing Strategy
 
 ## Unit Tests
 
 - parser classification and resolver (including `C` condition/register ambiguity)
+- parser fuzz/property determinism across operand token forms and variant sets
 - address assignment for mixed instruction sizes
 - opcode generation for each addressing family
+- opcode boundary matrices (relative, displacement, port, extended values)
 
 ## Integration Tests
 
@@ -670,6 +719,8 @@ Definition of done:
 - `tests/z80/offsets.asm` tokenized offset operand coverage (`label+n`, `(label+n)`, `($nn+n)`)
 - `tests/z80/offsets_chained.asm` chained tokenized offset coverage (`label+n-m`, `(label+n-m)`, `($nn+n-m)`)
 - `tests/z80/expressions.asm` expression-backed operand and indexed displacement coverage (`target+delta`, `table+index`, `(ix+disp)`)
+- `tests/z80/compatibility.asm` mixed control-flow and expression compatibility fixture
+- `tests/z80/indexed_boundaries.asm` indexed displacement boundary and indexed CB-family bit/res/set coverage
 - `cmd/retroasm/z80_fixture_test.go` profile-gated assembly checks for default, strict-documented, and gameboy-z80-subset behavior
 
 ## Regression Requirements
@@ -706,5 +757,6 @@ Definition of done:
 14. Phase 13 (profile strictness and undocumented-op policy)
 15. Phase 14 (parser/resolver diagnostic quality pass)
 16. Phase 15 (robustness and compatibility expansion)
+17. Phase 16 (indexed boundary compatibility corpus expansion)
 
 This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.

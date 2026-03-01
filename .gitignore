@@ -34,3 +34,4 @@ tests/z80/*
 !tests/z80/offsets_chained.asm
 !tests/z80/expressions.asm
 !tests/z80/compatibility.asm
+!tests/z80/indexed_boundaries.asm
