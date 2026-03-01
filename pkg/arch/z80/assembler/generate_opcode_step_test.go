@@ -179,3 +179,133 @@ func TestGenerateInstructionOpcode_Errors(t *testing.T) { //nolint:funlen
 		})
 	}
 }
+
+func TestGenerateInstructionOpcode_BoundaryMatrix(t *testing.T) { //nolint:funlen
+	tests := []struct {
+		name     string
+		address  uint64
+		resolved z80parser.ResolvedInstruction
+		want     []byte
+	}{
+		{
+			name:    "jp nn minimum extended address",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.ExtendedAddressing,
+				Instruction:   cpuz80.JpAbs,
+				OperandValues: []ast.Node{ast.NewNumber(0x0000)},
+			},
+			want: []byte{0xC3, 0x00, 0x00},
+		},
+		{
+			name:    "jp nn maximum extended address",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.ExtendedAddressing,
+				Instruction:   cpuz80.JpAbs,
+				OperandValues: []ast.Node{ast.NewNumber(0xFFFF)},
+			},
+			want: []byte{0xC3, 0xFF, 0xFF},
+		},
+		{
+			name:    "in a,(n) minimum port",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.PortAddressing,
+				Instruction:   cpuz80.InPort,
+				OperandValues: []ast.Node{ast.NewNumber(0x00)},
+			},
+			want: []byte{0xDB, 0x00},
+		},
+		{
+			name:    "in a,(n) maximum port",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.PortAddressing,
+				Instruction:   cpuz80.InPort,
+				OperandValues: []ast.Node{ast.NewNumber(0xFF)},
+			},
+			want: []byte{0xDB, 0xFF},
+		},
+		{
+			name:    "out (n),a minimum port",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.PortAddressing,
+				Instruction:   cpuz80.OutPort,
+				OperandValues: []ast.Node{ast.NewNumber(0x00)},
+			},
+			want: []byte{0xD3, 0x00},
+		},
+		{
+			name:    "out (n),a maximum port",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.PortAddressing,
+				Instruction:   cpuz80.OutPort,
+				OperandValues: []ast.Node{ast.NewNumber(0xFF)},
+			},
+			want: []byte{0xD3, 0xFF},
+		},
+		{
+			name:    "ld a,(ix+0) minimum displacement",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:     cpuz80.RegisterIndirectAddressing,
+				Instruction:    cpuz80.DdLdAIXd,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
+				OperandValues:  []ast.Node{ast.NewNumber(0x00)},
+			},
+			want: []byte{0xDD, 0x7E, 0x00},
+		},
+		{
+			name:    "ld a,(ix-1) maximum unsigned displacement byte",
+			address: 0x8000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:     cpuz80.RegisterIndirectAddressing,
+				Instruction:    cpuz80.DdLdAIXd,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
+				OperandValues:  []ast.Node{ast.NewNumber(0xFF)},
+			},
+			want: []byte{0xDD, 0x7E, 0xFF},
+		},
+		{
+			name:    "jr relative positive boundary +127",
+			address: 0x1000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.RelativeAddressing,
+				Instruction:   cpuz80.JrRel,
+				OperandValues: []ast.Node{ast.NewNumber(0x1081)},
+			},
+			want: []byte{0x18, 0x7F},
+		},
+		{
+			name:    "jr relative negative boundary -128",
+			address: 0x1000,
+			resolved: z80parser.ResolvedInstruction{
+				Addressing:    cpuz80.RelativeAddressing,
+				Instruction:   cpuz80.JrRel,
+				OperandValues: []ast.Node{ast.NewNumber(0x0F82)},
+			},
+			want: []byte{0x18, 0x80},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assigner := &mockAssigner{
+				pc: tt.address,
+			}
+			ins := &mockInstruction{
+				name:     "boundary",
+				address:  tt.address,
+				argument: tt.resolved,
+			}
+
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, ins.Opcodes())
+			assert.Equal(t, len(tt.want), ins.Size())
+		})
+	}
+}

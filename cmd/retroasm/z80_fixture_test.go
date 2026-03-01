@@ -79,6 +79,14 @@ var z80FixtureExpected = map[string][]byte{
 		0x00,
 		0x10, 0x20, 0x30,
 	},
+	"compatibility.asm": {
+		0x20, 0x03,
+		0xC3, 0x0A, 0x80,
+		0x3A, 0x0C, 0x80,
+		0x10, 0xF6,
+		0xC9,
+		0x10, 0x20, 0x30,
+	},
 }
 
 func TestAssembleZ80Fixtures(t *testing.T) {
@@ -93,6 +101,7 @@ func TestAssembleZ80Fixtures(t *testing.T) {
 		{name: "offset expressions", fixture: "offsets.asm"},
 		{name: "chained offset expressions", fixture: "offsets_chained.asm"},
 		{name: "symbolic expressions", fixture: "expressions.asm"},
+		{name: "compatibility control-flow and expressions", fixture: "compatibility.asm"},
 	}
 
 	for _, tt := range tests {
