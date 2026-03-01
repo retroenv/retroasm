@@ -120,6 +120,35 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			wantValueType:  ast.Label{},
 			wantValueNode:  ast.NewLabel("target"),
 		},
+		{
+			name:           "bit value first register",
+			mnemonic:       cpuz80.BitName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "bit"}, {Type: token.Number, Value: "3"}, {Type: token.Comma}, {Type: token.Identifier, Value: "a"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.CBBit},
+			wantVariant:    cpuz80.CBBit,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValueType:  ast.Number{},
+			wantValueNode:  ast.NewNumber(3),
+		},
+		{
+			name:           "im numeric register opcode variant",
+			mnemonic:       cpuz80.ImName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "im"}, {Type: token.Number, Value: "1"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.EdIm0, cpuz80.EdIm1, cpuz80.EdIm2},
+			wantVariant:    cpuz80.EdIm1,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegIM1},
+		},
+		{
+			name:           "rst numeric register opcode variant",
+			mnemonic:       cpuz80.RstName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "rst"}, {Type: token.Number, Value: "$38"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.Rst},
+			wantVariant:    cpuz80.Rst,
+			wantAddressing: cpuz80.ImpliedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegRst38},
+		},
 	}
 
 	for _, tt := range tests {

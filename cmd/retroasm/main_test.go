@@ -8,9 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/retroasm"
-	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/assert"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -104,7 +102,7 @@ func TestValidateSystem(t *testing.T) {
 		name        string
 		options     *optionFlags
 		expectedErr error
-		expectCPU   string
+		expectSys   string
 	}{
 		{
 			name:        "empty system",
@@ -115,23 +113,13 @@ func TestValidateSystem(t *testing.T) {
 			name:        "valid nes system",
 			options:     &optionFlags{system: "nes", logger: logger},
 			expectedErr: nil,
+			expectSys:   systemNES,
 		},
 		{
-			name:        "valid nes system with cpu default",
-			options:     &optionFlags{system: "nes", debug: true, logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "nes system with existing cpu",
-			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "unsupported system",
+			name:        "valid gameboy system",
 			options:     &optionFlags{system: "gameboy", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
+			expectedErr: nil,
+			expectSys:   systemGameBoy,
 		},
 		{
 			name:        "invalid system",
@@ -150,8 +138,8 @@ func TestValidateSystem(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			if tt.expectCPU != "" {
-				assert.Equal(t, tt.expectCPU, tt.options.cpu)
+			if tt.expectSys != "" {
+				assert.Equal(t, tt.expectSys, tt.options.system)
 			}
 		})
 	}
@@ -174,8 +162,13 @@ func TestValidateCPU(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name:        "unsupported cpu",
+			name:        "valid z80 cpu",
 			options:     &optionFlags{cpu: "z80"},
+			expectedErr: nil,
+		},
+		{
+			name:        "unsupported cpu",
+			options:     &optionFlags{cpu: "x86"},
 			expectedErr: ErrUnsupportedCPU,
 		},
 		{
@@ -198,51 +191,18 @@ func TestValidateCPU(t *testing.T) {
 	}
 }
 
+type architectureValidationCase struct {
+	name        string
+	options     *optionFlags
+	expectedErr error
+	expectCPU   string
+	expectSys   string
+}
+
 func TestValidateAndProcessArchitecture(t *testing.T) {
 	logger := log.NewTestLogger(t)
 
-	tests := []struct {
-		name        string
-		options     *optionFlags
-		expectedErr error
-		expectCPU   string
-	}{
-		{
-			name:        "no architecture specified",
-			options:     &optionFlags{logger: logger},
-			expectedErr: nil,
-		},
-		{
-			name:        "valid nes system defaults to 6502",
-			options:     &optionFlags{system: "nes", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "valid 6502 cpu only",
-			options:     &optionFlags{cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "valid nes and 6502 combination",
-			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "incompatible nes and z80",
-			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
-			expectedErr: ErrUnsupportedCPU, // CPU validation fails first
-		},
-		{
-			name:        "unsupported system",
-			options:     &optionFlags{system: "gameboy", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
-		},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range architectureValidationCases(logger) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateAndProcessArchitecture(tt.options)
 			if tt.expectedErr != nil {
@@ -255,6 +215,101 @@ func TestValidateAndProcessArchitecture(t *testing.T) {
 			if tt.expectCPU != "" {
 				assert.Equal(t, tt.expectCPU, tt.options.cpu)
 			}
+			if tt.expectSys != "" {
+				assert.Equal(t, tt.expectSys, tt.options.system)
+			}
+		})
+	}
+}
+
+func architectureValidationCases(logger *log.Logger) []architectureValidationCase {
+	return []architectureValidationCase{
+		{
+			name:        "no architecture specified",
+			options:     &optionFlags{logger: logger},
+			expectedErr: nil,
+			expectCPU:   cpu6502,
+			expectSys:   systemNES,
+		},
+		{
+			name:        "valid nes system defaults to 6502",
+			options:     &optionFlags{system: "nes", logger: logger},
+			expectedErr: nil,
+			expectCPU:   cpu6502,
+			expectSys:   systemNES,
+		},
+		{
+			name:        "valid 6502 cpu defaults to nes",
+			options:     &optionFlags{cpu: "6502", logger: logger},
+			expectedErr: nil,
+			expectCPU:   cpu6502,
+			expectSys:   systemNES,
+		},
+		{
+			name:        "valid nes and 6502 combination",
+			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
+			expectedErr: nil,
+			expectCPU:   cpu6502,
+			expectSys:   systemNES,
+		},
+		{
+			name:        "z80 cpu defaults to generic",
+			options:     &optionFlags{cpu: "z80", logger: logger},
+			expectedErr: nil,
+			expectCPU:   cpuZ80,
+			expectSys:   systemGeneric,
+		},
+		{
+			name:        "gameboy system defaults to z80",
+			options:     &optionFlags{system: "gameboy", logger: logger},
+			expectedErr: nil,
+			expectCPU:   cpuZ80,
+			expectSys:   systemGameBoy,
+		},
+		{
+			name:        "incompatible nes and z80",
+			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
+			expectedErr: ErrIncompatibleArch,
+		},
+		{
+			name:        "unsupported system",
+			options:     &optionFlags{system: "dos", logger: logger},
+			expectedErr: ErrUnsupportedSystem,
+		},
+	}
+}
+
+func TestRegisterArchitectureForCPU(t *testing.T) {
+	tests := []struct {
+		name        string
+		cpu         string
+		expectedErr error
+	}{
+		{
+			name: "register 6502",
+			cpu:  cpu6502,
+		},
+		{
+			name: "register z80",
+			cpu:  cpuZ80,
+		},
+		{
+			name:        "unsupported cpu",
+			cpu:         "x86",
+			expectedErr: ErrUnsupportedCPU,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			asm := retroasm.New()
+			err := registerArchitectureForCPU(asm, tt.cpu)
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.expectedErr)
+				return
+			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -264,17 +319,20 @@ func TestAssembleWithConfigFile(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		cpu         string
 		configPath  string
 		expectedErr bool
 	}{
-		{"empty config path uses default", "", false},
-		{"valid config file", tmpFile, false},
-		{"non-existent config file", "nonexistent.cfg", true},
+		{"default config 6502", cpu6502, "", false},
+		{"default config z80", cpuZ80, "", false},
+		{"valid config file 6502", cpu6502, tmpFile, false},
+		{"valid config file z80", cpuZ80, tmpFile, false},
+		{"non-existent config file", cpu6502, "nonexistent.cfg", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := runAssembleWithConfig(t.Context(), tt.configPath)
+			err := runAssembleWithConfig(t.Context(), tt.cpu, tt.configPath)
 			if tt.expectedErr {
 				assert.Error(t, err)
 			} else {
@@ -294,11 +352,9 @@ SEGMENTS { CODE: load = CODE, type = rw; }`
 	return path
 }
 
-func runAssembleWithConfig(ctx context.Context, configPath string) error {
+func runAssembleWithConfig(ctx context.Context, cpuName, configPath string) error {
 	asm := retroasm.New()
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuName); err != nil {
 		return fmt.Errorf("registering architecture: %w", err)
 	}
 	input := &retroasm.TextInput{

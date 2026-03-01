@@ -88,20 +88,26 @@ func appendImmediateOperand(
 	opcodes []byte,
 ) ([]byte, error) {
 
-	value, err := resolvedOperandValue(assigner, resolved, 0)
-	if err != nil {
-		return nil, err
-	}
-
 	remaining := int(opcodeInfo.Size) - len(opcodes)
 	switch remaining {
+	case 0:
+		return opcodes, nil
+
 	case 1:
+		value, err := resolvedOperandValue(assigner, resolved, 0)
+		if err != nil {
+			return nil, err
+		}
 		if value > math.MaxUint8 {
 			return nil, fmt.Errorf("immediate value %d exceeds byte", value)
 		}
 		return append(opcodes, byte(value)), nil
 
 	case 2:
+		value, err := resolvedOperandValue(assigner, resolved, 0)
+		if err != nil {
+			return nil, err
+		}
 		if value > math.MaxUint16 {
 			return nil, fmt.Errorf("immediate value %d exceeds word", value)
 		}

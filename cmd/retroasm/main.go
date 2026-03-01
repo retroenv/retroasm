@@ -1,6 +1,6 @@
 // Package main implements retroasm, a retro computer assembler.
 // It provides command-line interface for assembling retro computer code,
-// currently supporting NES/6502 architecture with ca65-compatible configuration.
+// supporting 6502 and Z80 architectures with ca65-compatible configuration.
 package main
 
 import (
@@ -9,8 +9,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/app"
 	"github.com/retroenv/retrogolib/arch"
@@ -84,14 +86,57 @@ func createLogger(options *optionFlags) *log.Logger {
 
 // Supported architectures and systems.
 const (
-	supportedCPU    = "6502"
-	supportedSystem = "nes"
+	cpu6502 = string(arch.M6502)
+	cpuZ80  = string(arch.Z80)
+
+	systemNES        = string(arch.NES)
+	systemGeneric    = string(arch.Generic)
+	systemGameBoy    = string(arch.GameBoy)
+	systemZXSpectrum = string(arch.ZXSpectrum)
 )
 
-// validateAndProcessArchitecture validates the CPU and system flags and applies defaults.
-// Currently only supports NES system and 6502 CPU architecture.
-// If system is "nes", it defaults to 6502 CPU if no CPU is specified.
+var supportedSystemsByCPU = map[string]map[string]struct{}{
+	cpu6502: {
+		systemNES:     {},
+		systemGeneric: {},
+	},
+	cpuZ80: {
+		systemGeneric:    {},
+		systemGameBoy:    {},
+		systemZXSpectrum: {},
+	},
+}
+
+var defaultSystemByCPU = map[string]string{
+	cpu6502: systemNES,
+	cpuZ80:  systemGeneric,
+}
+
+var defaultCPUBySystem = map[string]string{
+	systemNES:        cpu6502,
+	systemGeneric:    cpuZ80,
+	systemGameBoy:    cpuZ80,
+	systemZXSpectrum: cpuZ80,
+}
+
+var supportedSystems = map[string]struct{}{
+	systemNES:        {},
+	systemGeneric:    {},
+	systemGameBoy:    {},
+	systemZXSpectrum: {},
+}
+
+// validateAndProcessArchitecture validates CPU/system flags, applies defaults, and enforces compatibility.
 func validateAndProcessArchitecture(options *optionFlags) error {
+	options.cpu = strings.ToLower(strings.TrimSpace(options.cpu))
+	options.system = strings.ToLower(strings.TrimSpace(options.system))
+
+	if options.cpu == "" && options.system == "" {
+		options.cpu = cpu6502
+		options.system = systemNES
+		return nil
+	}
+
 	if err := validateSystem(options); err != nil {
 		return err
 	}
@@ -100,8 +145,28 @@ func validateAndProcessArchitecture(options *optionFlags) error {
 		return err
 	}
 
-	if options.system == supportedSystem && options.cpu != "" && options.cpu != supportedCPU {
-		return fmt.Errorf("%w: NES system requires 6502 CPU architecture, got: %s", ErrIncompatibleArch, options.cpu)
+	if options.cpu == "" && options.system != "" {
+		defaultCPU, ok := defaultCPUBySystem[options.system]
+		if !ok {
+			return fmt.Errorf("%w: no default CPU for system '%s'", ErrIncompatibleArch, options.system)
+		}
+		options.cpu = defaultCPU
+	}
+
+	if options.system == "" && options.cpu != "" {
+		defaultSystem, ok := defaultSystemByCPU[options.cpu]
+		if !ok {
+			return fmt.Errorf("%w: no default system for CPU '%s'", ErrIncompatibleArch, options.cpu)
+		}
+		options.system = defaultSystem
+	}
+
+	compatibleSystems, ok := supportedSystemsByCPU[options.cpu]
+	if !ok {
+		return fmt.Errorf("%w: %s (supported: %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpuZ80)
+	}
+	if _, ok := compatibleSystems[options.system]; !ok {
+		return fmt.Errorf("%w: cpu '%s' is not compatible with system '%s'", ErrIncompatibleArch, options.cpu, options.system)
 	}
 
 	return nil
@@ -114,20 +179,28 @@ func validateSystem(options *optionFlags) error {
 
 	sys, ok := arch.SystemFromString(options.system)
 	if !ok {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedSystem, options.system, supportedSystem)
+		return fmt.Errorf(
+			"%w: %s (supported: %s, %s, %s, %s)",
+			ErrUnsupportedSystem,
+			options.system,
+			systemNES,
+			systemGeneric,
+			systemGameBoy,
+			systemZXSpectrum,
+		)
 	}
+	options.system = string(sys)
 
-	// Currently only support NES system
-	if sys != arch.NES {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedSystem, sys, supportedSystem)
-	}
-
-	// If system is NES and no CPU specified, default to 6502
-	if sys == arch.NES && options.cpu == "" {
-		options.cpu = supportedCPU
-		if options.debug {
-			options.logger.Debug("Defaulting to 6502 CPU for NES system")
-		}
+	if _, ok := supportedSystems[options.system]; !ok {
+		return fmt.Errorf(
+			"%w: %s (supported: %s, %s, %s, %s)",
+			ErrUnsupportedSystem,
+			options.system,
+			systemNES,
+			systemGeneric,
+			systemGameBoy,
+			systemZXSpectrum,
+		)
 	}
 
 	return nil
@@ -140,12 +213,12 @@ func validateCPU(options *optionFlags) error {
 
 	cpu, ok := arch.FromString(options.cpu)
 	if !ok {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedCPU, options.cpu, supportedCPU)
+		return fmt.Errorf("%w: %s (supported: %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpuZ80)
 	}
+	options.cpu = string(cpu)
 
-	// Currently only support 6502 CPU
-	if cpu != arch.M6502 {
-		return fmt.Errorf("%w: %s (only '%s' is currently supported)", ErrUnsupportedCPU, cpu, supportedCPU)
+	if cpu != arch.M6502 && cpu != arch.Z80 {
+		return fmt.Errorf("%w: %s (supported: %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpuZ80)
 	}
 
 	return nil
@@ -159,8 +232,8 @@ func readArguments() (*optionFlags, []string) {
 	flags.BoolVar(&options.debug, "debug", false, "enable debug logging")
 	flags.StringVar(&options.config, "c", "", "assembler config file")
 	flags.StringVar(&options.output, "o", "", "name of the output file")
-	flags.StringVar(&options.cpu, "cpu", "6502", "target CPU architecture (6502)")
-	flags.StringVar(&options.system, "system", "nes", "target system (nes)")
+	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, z80)")
+	flags.StringVar(&options.system, "system", "", "target system (nes, generic, gameboy, zx-spectrum)")
 	flags.BoolVar(&options.quiet, "q", false, "perform operations quietly")
 
 	err := flags.Parse(os.Args[1:])
@@ -205,10 +278,9 @@ func printBanner(options *optionFlags) {
 // assembleFile processes the input assembly file and generates output.
 func assembleFile(options *optionFlags, args []string) error {
 	asm := retroasm.New()
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
-		return fmt.Errorf("registering architecture: %w", err)
+
+	if err := registerArchitectureForCPU(asm, options.cpu); err != nil {
+		return fmt.Errorf("registering architecture '%s': %w", options.cpu, err)
 	}
 
 	inputData, err := os.ReadFile(args[0])
@@ -233,4 +305,27 @@ func assembleFile(options *optionFlags, args []string) error {
 	}
 
 	return nil
+}
+
+func registerArchitectureForCPU(asm retroasm.Assembler, cpuName string) error {
+	switch cpuName {
+	case cpu6502:
+		cfg := m6502.New()
+		adapter := retroasm.NewArchitectureAdapter(cpu6502, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpu6502, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpu6502, err)
+		}
+		return nil
+
+	case cpuZ80:
+		cfg := archz80.New()
+		adapter := retroasm.NewArchitectureAdapter(cpuZ80, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpuZ80, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpuZ80, err)
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("%w: %s", ErrUnsupportedCPU, cpuName)
+	}
 }

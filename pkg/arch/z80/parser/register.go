@@ -37,6 +37,19 @@ var conditionParamByName = map[string]cpuz80.RegisterParam{
 	"z":  cpuz80.RegCondZ,
 }
 
+var registerParamsByNumber = map[uint64][]cpuz80.RegisterParam{
+	0x00: {cpuz80.RegRst00, cpuz80.RegIM0},
+	0x01: {cpuz80.RegIM1},
+	0x02: {cpuz80.RegIM2},
+	0x08: {cpuz80.RegRst08},
+	0x10: {cpuz80.RegRst10},
+	0x18: {cpuz80.RegRst18},
+	0x20: {cpuz80.RegRst20},
+	0x28: {cpuz80.RegRst28},
+	0x30: {cpuz80.RegRst30},
+	0x38: {cpuz80.RegRst38},
+}
+
 func registerCandidatesForIdentifier(value string) []cpuz80.RegisterParam {
 	value = strings.ToLower(value)
 
@@ -53,6 +66,17 @@ func registerCandidatesForIdentifier(value string) []cpuz80.RegisterParam {
 func registerOnlyCandidate(value string) (cpuz80.RegisterParam, bool) {
 	registerParam, ok := registerParamByName[strings.ToLower(value)]
 	return registerParam, ok
+}
+
+func registerCandidatesForNumber(value uint64) []cpuz80.RegisterParam {
+	candidates, ok := registerParamsByNumber[value]
+	if !ok {
+		return nil
+	}
+
+	result := make([]cpuz80.RegisterParam, len(candidates))
+	copy(result, candidates)
+	return result
 }
 
 func containsRegisterParam(params []cpuz80.RegisterParam, target cpuz80.RegisterParam) bool {

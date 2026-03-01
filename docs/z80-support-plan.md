@@ -11,7 +11,9 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on February 28, 2026: Phase 2 (operand classifier and resolver minimum slice).
 - Completed on February 28, 2026: Phase 3 (address assignment).
 - Completed on February 28, 2026: Phase 4 (opcode generation core).
-- Next implementation target: Phase 5 (extended instruction coverage).
+- Completed on February 28, 2026: Phase 5 (extended instruction coverage).
+- Completed on March 1, 2026: Phase 6 (CLI/runtime integration).
+- Next implementation target: None (all planned phases completed).
 
 ## Scope
 
@@ -34,7 +36,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 1. `ast.Instruction` currently has one `Argument` field. Z80 needs multi-operand semantics.
 2. `pkg/assembler/parse_ast_nodes.go` now accepts scalar arguments (`ast.Number`, `ast.Label`, `ast.Identifier`) and typed/multi-operand wrappers (`ast.InstructionArgument`, `ast.InstructionArguments`).
 3. `addressAssign.ArgumentValue` resolves only scalar/reference values. Z80 needs structured operand metadata.
-4. `cmd/retroasm/main.go` and `pkg/retroasm/default.go` are effectively hard-wired to 6502/NES behavior today.
+4. `cmd/retroasm/main.go` now validates and defaults CPU/system combinations for both 6502 and Z80, and `pkg/retroasm/default.go` now assembles using the registered architecture config rather than a hard-wired m6502 path.
 5. retrogolib opcode sources are:
    - `z80.Opcodes`
    - `z80.EDOpcodes`
@@ -45,6 +47,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 7. `pkg/arch/z80/parser/` now resolves the minimum instruction slice and emits typed `ResolvedInstruction` payloads via `ast.InstructionArgument`.
 8. `pkg/arch/z80/assembler/address_assigning_step.go` now computes instruction size from resolved opcode metadata (including prefixed 4-byte opcodes), without operand-value size heuristics.
 9. `pkg/arch/z80/assembler/generate_opcode_step.go` now emits opcode bytes for core addressing families, including single-prefix (`CB`, `DD`, `ED`, `FD`) and indexed bit prefix chains (`DD CB`, `FD CB`).
+10. Phase 5 coverage tests now generate resolved instructions from the Z80 opcode variant inventory (`Opcodes`, `EDOpcodes`, `DDOpcodes`, `FDOpcodes`, plus CB/indexed-bit families) to guard against silent encoding gaps.
 
 ## Architecture Decisions
 
@@ -229,7 +232,7 @@ Completed result:
 - Extended `pkg/assembler/address_assigning_step.go` argument value resolution to support `ast.Number`, `ast.Label`, and `ast.Identifier` nodes used by typed Z80 operand payloads.
 - Wired `pkg/arch/z80/z80.go` `GenerateInstructionOpcode` to delegate to the Z80 assembler package.
 
-## Phase 5: Extended Instruction Coverage
+## Phase 5: Extended Instruction Coverage (Completed)
 
 Tasks:
 
@@ -241,7 +244,24 @@ Definition of done:
 
 - Coverage tests generated from instruction groups ensure no silent gaps in supported subset.
 
-## Phase 6: CLI and Runtime Integration
+Completed result:
+
+- Added metadata-driven opcode coverage test `pkg/arch/z80/assembler/coverage_test.go` that:
+  - enumerates instruction variants from `Opcodes`, `EDOpcodes`, `DDOpcodes`, `FDOpcodes`, and explicit CB/indexed-bit families,
+  - synthesizes a valid `ResolvedInstruction` per variant,
+  - validates both address assignment and opcode generation for every variant.
+- Expanded resolver matching in `pkg/arch/z80/parser/resolver.go`:
+  - added value-first register operand support (`BIT/RES/SET b,r` style),
+  - added numeric register-opcode support (`IM n`, `RST n` style).
+- Added numeric register candidate mapping in `pkg/arch/z80/parser/register.go` for interrupt modes and restart vectors.
+- Added parser tests covering the new resolver paths:
+  - `BIT 3,A`
+  - `IM 1`
+  - `RST $38`
+- Fixed immediate-opcode emission in `pkg/arch/z80/assembler/generate_opcode_step.go` to handle zero-byte immediate payload forms used by `IM` register-opcode variants.
+- Undocumented opcode behavior is now explicit: undocumented instruction variants are included and assembled when present in retrogolib opcode metadata.
+
+## Phase 6: CLI and Runtime Integration (Completed)
 
 Files:
 
@@ -258,6 +278,23 @@ Definition of done:
 
 - CLI can assemble a small Z80 input end-to-end.
 - Existing 6502 CLI behavior remains unchanged.
+
+Completed result:
+
+- Updated `cmd/retroasm/main.go` architecture validation to support both CPU modes:
+  - `-cpu 6502` and `-cpu z80`
+  - compatible systems per CPU with explicit incompatibility errors
+  - defaults: `6502 -> nes`, `z80 -> generic`, and system-driven CPU defaults for `nes`, `gameboy`, `zx-spectrum`, and `generic`
+- Updated CLI flag help text to include Z80/system options.
+- Replaced hard-coded m6502 registration in CLI assembly path with CPU-selected architecture registration (`6502` or `z80`).
+- Updated `pkg/retroasm/default.go` runtime assembly path to:
+  - resolve config from registered architecture adapters,
+  - assemble with either m6502 or Z80 config types,
+  - keep backward-compatible m6502 fallback when no architecture is registered.
+- Added/updated tests in `cmd/retroasm/main_test.go` for:
+  - extended CPU/system validation matrix,
+  - CPU-specific architecture registration,
+  - assembly with config file for both 6502 and Z80.
 
 ## Testing Strategy
 

@@ -70,6 +70,12 @@ func resolveSingleOperand(variants []*cpuz80.Instruction, operand rawOperand) (*
 		return nil, fmt.Errorf("%w: unsupported single operand type %s", errUnsupportedOperandPattern, operand.token.Type)
 	}
 
+	if numberValue, numberOK := value.(ast.Number); numberOK {
+		if result := resolveSingleNumericRegisterOperand(variants, numberValue.Value); result != nil {
+			return result, nil
+		}
+	}
+
 	for _, variant := range variants {
 		if len(variant.RegisterOpcodes) > 0 || len(variant.RegisterPairOpcodes) > 0 {
 			continue
@@ -123,6 +129,14 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 	}
 
 	result, matched, err := resolveRegisterValueOperands(variants, operand1.token, operand2.token)
+	if err != nil {
+		return nil, err
+	}
+	if matched {
+		return result, nil
+	}
+
+	result, matched, err = resolveValueRegisterOperands(variants, operand1.token, operand2.token)
 	if err != nil {
 		return nil, err
 	}
@@ -203,6 +217,119 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, token1, token2
 	}
 
 	return nil, false, nil
+}
+
+func resolveValueRegisterOperands(variants []*cpuz80.Instruction, token1, token2 token.Token) (*ResolvedInstruction, bool, error) {
+	if token2.Type != token.Identifier {
+		return nil, false, nil
+	}
+
+	value, ok, err := parseValueOperand(token1)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	candidates := registerCandidatesForIdentifier(token2.Value)
+	for _, variant := range variants {
+		addressing, ok := selectValueFirstAddressing(variant)
+		if !ok {
+			continue
+		}
+
+		for _, candidate := range candidates {
+			if !supportsValueFirstRegister(variant, candidate) {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     addressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{candidate},
+				OperandValues:  []ast.Node{value},
+			}, true, nil
+		}
+	}
+
+	return nil, false, nil
+}
+
+func resolveSingleNumericRegisterOperand(variants []*cpuz80.Instruction, value uint64) *ResolvedInstruction {
+	candidates := registerCandidatesForNumber(value)
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	for _, variant := range variants {
+		if len(variant.RegisterOpcodes) == 0 {
+			continue
+		}
+
+		for _, candidate := range candidates {
+			if _, ok := variant.RegisterOpcodes[candidate]; !ok {
+				continue
+			}
+
+			addressing := cpuz80.NoAddressing
+			if len(variant.Addressing) == 1 {
+				for mode := range variant.Addressing {
+					addressing = mode
+				}
+			}
+			if addressing == cpuz80.NoAddressing && variant.HasAddressing(cpuz80.ImpliedAddressing) {
+				addressing = cpuz80.ImpliedAddressing
+			}
+			if addressing == cpuz80.NoAddressing {
+				addressing = cpuz80.RegisterAddressing
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     addressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{candidate},
+			}
+		}
+	}
+
+	return nil
+}
+
+func selectValueFirstAddressing(variant *cpuz80.Instruction) (cpuz80.AddressingMode, bool) {
+	switch {
+	case variant.HasAddressing(cpuz80.BitAddressing):
+		return cpuz80.BitAddressing, true
+	case variant.HasAddressing(cpuz80.RegisterAddressing):
+		return cpuz80.RegisterAddressing, true
+	default:
+		return cpuz80.NoAddressing, false
+	}
+}
+
+func supportsValueFirstRegister(variant *cpuz80.Instruction, register cpuz80.RegisterParam) bool {
+	if _, ok := variant.RegisterOpcodes[register]; ok {
+		return true
+	}
+
+	if isBitOperation(variant) {
+		return isBitTargetRegister(register)
+	}
+
+	return false
+}
+
+func isBitOperation(variant *cpuz80.Instruction) bool {
+	return variant == cpuz80.CBBit || variant == cpuz80.CBRes || variant == cpuz80.CBSet
+}
+
+func isBitTargetRegister(register cpuz80.RegisterParam) bool {
+	switch register {
+	case cpuz80.RegB, cpuz80.RegC, cpuz80.RegD, cpuz80.RegE, cpuz80.RegH, cpuz80.RegL, cpuz80.RegHLIndirect, cpuz80.RegA:
+		return true
+	default:
+		return false
+	}
 }
 
 func selectValueAddressing(variant *cpuz80.Instruction) (cpuz80.AddressingMode, bool) {
