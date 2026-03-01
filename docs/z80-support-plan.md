@@ -15,7 +15,9 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on March 1, 2026: Phase 6 (CLI/runtime integration).
 - Completed on March 1, 2026: Phase 7 (integration fixtures and regression harness).
 - Completed on March 1, 2026: Phase 8 (indexed and parenthesized operand parsing).
-- Next implementation target: None (all planned phases completed).
+- Completed on March 1, 2026: Phase 9 (extended indirect/register and port I/O operand resolution).
+- Completed on March 1, 2026: Phase 10 (tokenized offset operand parsing for value and parenthesized forms).
+- Next implementation target: None (all planned phases completed through Phase 10).
 
 ## Scope
 
@@ -51,6 +53,8 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 9. `pkg/arch/z80/assembler/generate_opcode_step.go` now emits opcode bytes for core addressing families, including single-prefix (`CB`, `DD`, `ED`, `FD`) and indexed bit prefix chains (`DD CB`, `FD CB`).
 10. Phase 5 coverage tests now generate resolved instructions from the Z80 opcode variant inventory (`Opcodes`, `EDOpcodes`, `DDOpcodes`, `FDOpcodes`, plus CB/indexed-bit families) to guard against silent encoding gaps.
 11. Z80 parser operand handling now supports parenthesized indirect/register forms and indexed displacement forms used by IX/IY instruction families.
+12. Z80 resolver matching now supports parenthesized extended indirect/register transfer forms (`ld r,(nn)`, `ld (nn),r`) and both port I/O families (`in a,(n)` / `out (n),a` and `in r,(c)` / `out (c),r`) with opcode-direction disambiguation for ambiguous `ld` variants.
+13. Z80 operand parsing now supports tokenized offset expressions for instruction values and parenthesized values (`label+1`, `label-1`, `(label+1)`, `($10+1)`), while preserving indexed IX/IY displacement parsing.
 
 ## Architecture Decisions
 
@@ -379,6 +383,91 @@ Completed result:
   - indexed-bit and indexed-LD resolution.
 - Expanded `tests/z80/indexed.asm` and updated `cmd/retroasm/z80_fixture_test.go` expected bytes to validate end-to-end indexed parsing and opcode emission.
 
+## Phase 9: Extended Indirect/Register and Port I/O Operand Resolution (Completed)
+
+Files:
+
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/io_extended.asm`
+- `.gitignore`
+
+Tasks:
+
+- Extend resolver matching for parenthesized extended-indirect register transfer forms:
+  - `ld r,(nn)` and `ld (nn),r` for accumulator and register-pair forms.
+- Add explicit opcode-direction checks for ambiguous extended `ld` register keys so load/store variants are selected deterministically.
+- Extend resolver matching for port I/O operand families:
+  - immediate port forms: `in a,(n)` and `out (n),a`,
+  - C-register port forms: `in r,(c)` and `out (c),r`.
+- Add parser regression coverage and end-to-end fixture coverage for the new operand forms.
+
+Definition of done:
+
+- Parser unit tests resolve extended-indirect and port I/O operand forms to correct instruction variants.
+- Invalid immediate-port forms (for example `out (n),b`) are rejected with parser errors.
+- End-to-end fixture assembly emits expected bytes for extended-indirect and port I/O instructions.
+
+Completed result:
+
+- Updated `pkg/arch/z80/parser/resolver.go` with dedicated resolver passes for:
+  - extended register/memory transfers (`ld r,(nn)` and `ld (nn),r`),
+  - immediate-port forms (`in a,(n)`, `out (n),a`),
+  - C-port register forms (`in r,(c)`, `out (c),r`).
+- Added extended `ld` direction filtering so register-key collisions resolve to the correct opcode family (`load` vs `store`) based on operand order.
+- Added a parenthesized-immediate guard in register+value matching to avoid misclassifying `ld r,(nn)` as immediate addressing.
+- Expanded `pkg/arch/z80/parser/instruction_test.go` with success cases for:
+  - `ld a,($1234)`, `ld ($2345),a`,
+  - `ld bc,($3456)`, `ld ($4567),bc`,
+  - `in a,($12)`, `out ($34),a`,
+  - `in b,(c)`, `out (c),e`,
+  and an error regression for `out ($34),b`.
+- Added `tests/z80/io_extended.asm` and expected fixture bytes in `cmd/retroasm/z80_fixture_test.go` for integrated runtime-path verification.
+- Updated `.gitignore` to include the new Z80 fixture file.
+
+## Phase 10: Tokenized Offset Operand Parsing (Completed)
+
+Files:
+
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/offsets.asm`
+- `.gitignore`
+
+Tasks:
+
+- Extend operand parsing for tokenized offset forms in value positions:
+  - `label+n` / `label-n` as `Identifier +/- Number` token sequences.
+- Extend parenthesized value operand parsing to accept offset forms:
+  - `(label+n)` / `(label-n)` and `($nn+n)` / `($nn-n)`.
+- Keep IX/IY indexed parsing behavior unchanged by routing `(ix+d)` / `(iy+d)` through indexed displacement logic.
+- Add parser and fixture regressions to verify runtime assembly output for the new forms.
+
+Definition of done:
+
+- Parser resolves tokenized offset operands without requiring compact lexer tokens.
+- Parenthesized offset values are accepted for extended and port-addressing forms.
+- Invalid offset syntax (non-numeric offset after `+`/`-`) returns parser errors.
+- End-to-end fixture assembly validates byte output for offset-based operands.
+
+Completed result:
+
+- Updated `pkg/arch/z80/parser/instruction.go` to parse offset token sequences for both unparenthesized and parenthesized value operands.
+- Added dedicated parsing helpers for:
+  - numeric offset composition on number bases,
+  - symbolic offset composition on label bases,
+  - parenthesized offset operands with closing-parenthesis validation.
+- Preserved indexed register displacement behavior by keeping `(ix+d)` / `(iy+d)` routed to indexed parsing before generic parenthesized-offset handling.
+- Expanded `pkg/arch/z80/parser/instruction_test.go` with coverage for:
+  - `jp target+2`,
+  - `ld a,(table+1)`,
+  - `in a,($10+1)`,
+  - invalid `target+next` offset syntax.
+- Added `tests/z80/offsets.asm` and expected bytes in `cmd/retroasm/z80_fixture_test.go` for end-to-end regression coverage.
+- Updated `.gitignore` to include the new Z80 offset fixture file.
+
 ## Testing Strategy
 
 ## Unit Tests
@@ -393,6 +482,8 @@ Completed result:
 - `tests/z80/indexed.asm` IX/IY indexed operand syntax + prefixed opcode coverage (`DD`, `FD`, `ED`)
 - `tests/z80/branches.asm` relative and absolute control-flow encoding checks
 - `tests/z80/branches_overflow.asm` relative branch out-of-range regression check
+- `tests/z80/io_extended.asm` extended indirect register transfer and port I/O coverage (`LD (nn),r` / `LD r,(nn)`, `IN/OUT`)
+- `tests/z80/offsets.asm` tokenized offset operand coverage (`label+n`, `(label+n)`, `($nn+n)`)
 
 ## Regression Requirements
 
@@ -421,5 +512,7 @@ Completed result:
 7. Phase 6 (CLI/runtime integration)
 8. Phase 7 (fixture-based integration regression)
 9. Phase 8 (indexed/parenthesized operand parser completion)
+10. Phase 9 (extended indirect/register and port I/O operand resolution)
+11. Phase 10 (tokenized offset operand parsing)
 
 This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.

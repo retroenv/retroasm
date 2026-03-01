@@ -94,6 +94,15 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			wantValues:     []ast.Node{ast.NewLabel("target")},
 		},
 		{
+			name:           "jp absolute with tokenized plus offset",
+			mnemonic:       cpuz80.JpName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "jp"}, {Type: token.Identifier, Value: "target"}, {Type: token.Plus}, {Type: token.Number, Value: "2"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
+			wantVariant:    cpuz80.JpAbs,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantValues:     []ast.Node{ast.NewLabel("target+2")},
+		},
+		{
 			name:           "jp conditional with c uses condition code",
 			mnemonic:       cpuz80.JpName,
 			tokens:         []token.Token{{Type: token.Identifier, Value: "jp"}, {Type: token.Identifier, Value: "c"}, {Type: token.Comma}, {Type: token.Identifier, Value: "target"}, {Type: token.EOL}},
@@ -111,6 +120,185 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			wantVariant:    cpuz80.Call,
 			wantAddressing: cpuz80.ExtendedAddressing,
 			wantValues:     []ast.Node{ast.NewLabel("target")},
+		},
+		{
+			name:     "ld a,(nn) extended load",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$1234"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdImm8, cpuz80.LdExtended},
+			wantVariant:    cpuz80.LdExtended,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
+			wantValues:     []ast.Node{ast.NewNumber(0x1234)},
+		},
+		{
+			name:     "ld a,(label+n) extended load",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "table"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "1"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdImm8, cpuz80.LdExtended},
+			wantVariant:    cpuz80.LdExtended,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
+			wantValues:     []ast.Node{ast.NewLabel("table+1")},
+		},
+		{
+			name:     "ld (nn),a extended store",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$2345"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.LdExtended},
+			wantVariant:    cpuz80.LdExtended,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegStoreExtA},
+			wantValues:     []ast.Node{ast.NewNumber(0x2345)},
+		},
+		{
+			name:     "ld bc,(nn) extended load register pair",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "bc"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$3456"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg16, cpuz80.EdLdBcNn},
+			wantVariant:    cpuz80.EdLdBcNn,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegBC},
+			wantValues:     []ast.Node{ast.NewNumber(0x3456)},
+		},
+		{
+			name:     "ld (nn),bc extended store register pair",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$4567"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "bc"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg16, cpuz80.EdLdNnBc},
+			wantVariant:    cpuz80.EdLdNnBc,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegBC},
+			wantValues:     []ast.Node{ast.NewNumber(0x4567)},
+		},
+		{
+			name:     "in a,(n) immediate port",
+			mnemonic: cpuz80.InName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "in"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$12"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.InPort, cpuz80.EdInAC},
+			wantVariant:    cpuz80.InPort,
+			wantAddressing: cpuz80.PortAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(0x12)},
+		},
+		{
+			name:     "in a,(n+m) immediate port",
+			mnemonic: cpuz80.InName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "in"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$10"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "1"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.InPort, cpuz80.EdInAC},
+			wantVariant:    cpuz80.InPort,
+			wantAddressing: cpuz80.PortAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(0x11)},
+		},
+		{
+			name:     "out (n),a immediate port",
+			mnemonic: cpuz80.OutName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "out"},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$34"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.OutPort, cpuz80.EdOutCA},
+			wantVariant:    cpuz80.OutPort,
+			wantAddressing: cpuz80.PortAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(0x34)},
+		},
+		{
+			name:     "in b,(c) port c register form",
+			mnemonic: cpuz80.InName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "in"},
+				{Type: token.Identifier, Value: "b"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "c"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.InPort, cpuz80.EdInBC},
+			wantVariant:    cpuz80.EdInBC,
+			wantAddressing: cpuz80.PortAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegB},
+		},
+		{
+			name:     "out (c),e port c register form",
+			mnemonic: cpuz80.OutName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "out"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "c"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "e"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.OutPort, cpuz80.EdOutCE},
+			wantVariant:    cpuz80.EdOutCE,
+			wantAddressing: cpuz80.PortAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegE},
 		},
 		{
 			name:           "bit value first register",
@@ -300,12 +488,30 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 }
 
 func TestParseIdentifier_Errors(t *testing.T) {
-	tests := []struct {
-		name     string
-		mnemonic string
-		tokens   []token.Token
-		variants []*cpuz80.Instruction
-	}{
+	for _, tt := range parseIdentifierErrorCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := newMockParser(tt.tokens...)
+			_, err := ParseIdentifier(parser, tt.mnemonic, tt.variants)
+			assert.Error(t, err)
+		})
+	}
+}
+
+type parseIdentifierErrorCase struct {
+	name     string
+	mnemonic string
+	tokens   []token.Token
+	variants []*cpuz80.Instruction
+}
+
+func parseIdentifierErrorCases() []parseIdentifierErrorCase {
+	cases := parseIdentifierErrorCasesBase()
+	cases = append(cases, parseIdentifierErrorCasesPortAndOffset()...)
+	return cases
+}
+
+func parseIdentifierErrorCasesBase() []parseIdentifierErrorCase {
+	return []parseIdentifierErrorCase{
 		{
 			name:     "missing second operand after comma",
 			mnemonic: cpuz80.LdName,
@@ -346,12 +552,35 @@ func TestParseIdentifier_Errors(t *testing.T) {
 			variants: []*cpuz80.Instruction{cpuz80.DdJpIX},
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parser := newMockParser(tt.tokens...)
-			_, err := ParseIdentifier(parser, tt.mnemonic, tt.variants)
-			assert.Error(t, err)
-		})
+func parseIdentifierErrorCasesPortAndOffset() []parseIdentifierErrorCase {
+	return []parseIdentifierErrorCase{
+		{
+			name:     "out immediate with non-a register is invalid",
+			mnemonic: cpuz80.OutName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "out"},
+				{Type: token.LeftParentheses},
+				{Type: token.Number, Value: "$34"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "b"},
+				{Type: token.EOL},
+			},
+			variants: []*cpuz80.Instruction{cpuz80.OutPort, cpuz80.EdOutCB},
+		},
+		{
+			name:     "offset operator requires numeric value",
+			mnemonic: cpuz80.JpName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "jp"},
+				{Type: token.Identifier, Value: "target"},
+				{Type: token.Plus},
+				{Type: token.Identifier, Value: "next"},
+				{Type: token.EOL},
+			},
+			variants: []*cpuz80.Instruction{cpuz80.JpAbs},
+		},
 	}
 }

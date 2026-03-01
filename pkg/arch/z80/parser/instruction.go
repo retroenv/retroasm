@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -60,6 +61,13 @@ func parseOperand(parser arch.Parser) (rawOperand, error) {
 
 	switch tok.Type {
 	case token.Number, token.Identifier:
+		offsetOperand, matched, err := parseOffsetOperand(parser, tok)
+		if err != nil {
+			return rawOperand{}, err
+		}
+		if matched {
+			return offsetOperand, nil
+		}
 		return rawOperand{token: tok}, nil
 	case token.LeftParentheses:
 		return parseParenthesizedOperand(parser)
@@ -110,7 +118,11 @@ func parseParenthesizedIdentifierOperand(parser arch.Parser, identifier token.To
 		}, nil
 
 	case token.Plus, token.Minus:
-		return parseIndexedOperand(parser, identifier.Value, next.Type)
+		if _, ok := indexedIndirectRegister(identifier.Value); ok {
+			return parseIndexedOperand(parser, identifier.Value, next.Type)
+		}
+
+		return parseParenthesizedOffsetOperand(parser, identifier, next.Type)
 
 	default:
 		return rawOperand{}, fmt.Errorf("unsupported parenthesized identifier form near '%s'", identifier.Value)
@@ -148,23 +160,31 @@ func parseEmbeddedIndexedIdentifier(value string) (rawOperand, bool, error) {
 }
 
 func parseParenthesizedValueOperand(parser arch.Parser, valueToken token.Token) (rawOperand, error) {
-	if parser.NextToken(2).Type != token.RightParentheses {
+	next := parser.NextToken(2)
+
+	switch next.Type {
+	case token.RightParentheses:
+		parser.AdvanceReadPosition(2)
+
+		value, ok, err := parseValueOperand(valueToken)
+		if err != nil {
+			return rawOperand{}, err
+		}
+		if !ok {
+			return rawOperand{}, fmt.Errorf("unsupported parenthesized value '%s'", valueToken.Value)
+		}
+
+		return rawOperand{
+			parenthesized: true,
+			value:         value,
+		}, nil
+
+	case token.Plus, token.Minus:
+		return parseParenthesizedOffsetOperand(parser, valueToken, next.Type)
+
+	default:
 		return rawOperand{}, errors.New("missing closing parenthesis")
 	}
-	parser.AdvanceReadPosition(2)
-
-	value, ok, err := parseValueOperand(valueToken)
-	if err != nil {
-		return rawOperand{}, err
-	}
-	if !ok {
-		return rawOperand{}, fmt.Errorf("unsupported parenthesized value '%s'", valueToken.Value)
-	}
-
-	return rawOperand{
-		parenthesized: true,
-		value:         value,
-	}, nil
 }
 
 func parseIndexedOperand(parser arch.Parser, base string, operator token.Type) (rawOperand, error) {
@@ -195,33 +215,126 @@ func parseIndexedOperand(parser arch.Parser, base string, operator token.Type) (
 	}, nil
 }
 
-func parseIndexedDisplacement(displacement token.Token, operator token.Type) (ast.Node, error) {
-	valueNode, ok, err := parseValueOperand(displacement)
+func parseOffsetOperand(parser arch.Parser, base token.Token) (rawOperand, bool, error) {
+	operator := parser.NextToken(1).Type
+	if operator != token.Plus && operator != token.Minus {
+		return rawOperand{}, false, nil
+	}
+
+	offsetToken := parser.NextToken(2)
+	if offsetToken.Type != token.Number {
+		return rawOperand{}, false, fmt.Errorf("expected numeric offset after '%s', got %s", operator, offsetToken.Type)
+	}
+
+	value, err := parseOffsetValue(base, operator, offsetToken)
 	if err != nil {
-		return nil, err
+		return rawOperand{}, false, err
+	}
+
+	parser.AdvanceReadPosition(2)
+	return rawOperand{value: value}, true, nil
+}
+
+func parseParenthesizedOffsetOperand(parser arch.Parser, base token.Token, operator token.Type) (rawOperand, error) {
+	offsetToken := parser.NextToken(3)
+	if offsetToken.Type != token.Number {
+		return rawOperand{}, fmt.Errorf("expected numeric offset in parenthesized operand, got %s", offsetToken.Type)
+	}
+	if parser.NextToken(4).Type != token.RightParentheses {
+		return rawOperand{}, errors.New("missing closing parenthesis")
+	}
+
+	value, err := parseOffsetValue(base, operator, offsetToken)
+	if err != nil {
+		return rawOperand{}, err
+	}
+
+	parser.AdvanceReadPosition(4)
+	return rawOperand{
+		parenthesized: true,
+		value:         value,
+	}, nil
+}
+
+func parseOffsetValue(base token.Token, operator token.Type, offsetToken token.Token) (ast.Node, error) {
+	offset, err := parseNumericToken(offsetToken)
+	if err != nil {
+		return nil, fmt.Errorf("parsing offset value '%s': %w", offsetToken.Value, err)
+	}
+
+	switch base.Type {
+	case token.Identifier:
+		if offset == 0 {
+			return ast.NewLabel(base.Value), nil
+		}
+
+		if operator == token.Plus {
+			return ast.NewLabel(fmt.Sprintf("%s+%d", base.Value, offset)), nil
+		}
+		return ast.NewLabel(fmt.Sprintf("%s-%d", base.Value, offset)), nil
+
+	case token.Number:
+		baseValue, err := parseNumericToken(base)
+		if err != nil {
+			return nil, fmt.Errorf("parsing base value '%s': %w", base.Value, err)
+		}
+
+		switch operator {
+		case token.Plus:
+			if baseValue > math.MaxUint64-offset {
+				return nil, fmt.Errorf("numeric offset overflow: %d + %d", baseValue, offset)
+			}
+			return ast.NewNumber(baseValue + offset), nil
+		case token.Minus:
+			if baseValue < offset {
+				return nil, fmt.Errorf("numeric offset underflow: %d - %d", baseValue, offset)
+			}
+			return ast.NewNumber(baseValue - offset), nil
+		default:
+			return nil, fmt.Errorf("unsupported offset operator %s", operator)
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported offset base token type %s", base.Type)
+	}
+}
+
+func parseNumericToken(tok token.Token) (uint64, error) {
+	valueNode, ok, err := parseValueOperand(tok)
+	if err != nil {
+		return 0, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("invalid indexed displacement '%s'", displacement.Value)
+		return 0, fmt.Errorf("unsupported numeric token '%s'", tok.Value)
 	}
 
 	numberValue, ok := valueNode.(ast.Number)
 	if !ok {
-		return nil, fmt.Errorf("invalid indexed displacement type %T", valueNode)
+		return 0, fmt.Errorf("unsupported numeric token type %T", valueNode)
 	}
-	if numberValue.Value > 0xFF {
-		return nil, fmt.Errorf("indexed displacement %d exceeds byte", numberValue.Value)
+
+	return numberValue.Value, nil
+}
+
+func parseIndexedDisplacement(displacement token.Token, operator token.Type) (ast.Node, error) {
+	value, err := parseNumericToken(displacement)
+	if err != nil {
+		return nil, fmt.Errorf("invalid indexed displacement '%s': %w", displacement.Value, err)
+	}
+	if value > 0xFF {
+		return nil, fmt.Errorf("indexed displacement %d exceeds byte", value)
 	}
 
 	if operator == token.Plus {
-		return numberValue, nil
+		return ast.NewNumber(value), nil
 	}
 
-	if numberValue.Value > 0x80 {
-		return nil, fmt.Errorf("indexed negative displacement %d exceeds signed byte range", numberValue.Value)
+	if value > 0x80 {
+		return nil, fmt.Errorf("indexed negative displacement %d exceeds signed byte range", value)
 	}
-	if numberValue.Value == 0 {
+	if value == 0 {
 		return ast.NewNumber(0), nil
 	}
 
-	return ast.NewNumber(0x100 - numberValue.Value), nil
+	return ast.NewNumber(0x100 - value), nil
 }

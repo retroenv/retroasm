@@ -148,7 +148,28 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 		return result, nil
 	}
 
-	result, matched := resolveRegisterIndexedOperands(variants, operand1, operand2)
+	result, matched, err := resolveExtendedRegisterMemoryOperands(variants, operand1, operand2)
+	if err != nil {
+		return nil, err
+	}
+	if matched {
+		return result, nil
+	}
+
+	result, matched = resolvePortRegisterOperands(variants, operand1, operand2)
+	if matched {
+		return result, nil
+	}
+
+	result, matched, err = resolvePortImmediateOperands(variants, operand1, operand2)
+	if err != nil {
+		return nil, err
+	}
+	if matched {
+		return result, nil
+	}
+
+	result, matched = resolveRegisterIndexedOperands(variants, operand1, operand2)
 	if matched {
 		return result, nil
 	}
@@ -158,7 +179,7 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 		return result, nil
 	}
 
-	result, matched, err := resolveRegisterValueOperands(variants, operand1, operand2)
+	result, matched, err = resolveRegisterValueOperands(variants, operand1, operand2)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +256,9 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, oper
 		if !ok {
 			continue
 		}
+		if operand2.parenthesized && addressing == cpuz80.ImmediateAddressing {
+			continue
+		}
 
 		for _, candidate := range candidates {
 			if _, ok := variant.RegisterOpcodes[candidate]; !ok {
@@ -251,6 +275,246 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, oper
 	}
 
 	return nil, false, nil
+}
+
+func resolveExtendedRegisterMemoryOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+	if operand1.displacement != nil || operand2.displacement != nil {
+		return nil, false, nil
+	}
+
+	result, matched, err := resolveRegisterFromExtendedMemory(variants, operand1, operand2)
+	if matched || err != nil {
+		return result, matched, err
+	}
+
+	return resolveExtendedMemoryFromRegister(variants, operand1, operand2)
+}
+
+func resolvePortImmediateOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+	if operand1.displacement != nil || operand2.displacement != nil {
+		return nil, false, nil
+	}
+
+	result, matched, err := resolvePortImmediateValueRegister(variants, operand1, operand2)
+	if matched || err != nil {
+		return result, matched, err
+	}
+
+	return resolvePortImmediateRegisterValue(variants, operand1, operand2)
+}
+
+func resolveRegisterFromExtendedMemory(variants []*cpuz80.Instruction, registerOperand, valueOperand rawOperand) (*ResolvedInstruction, bool, error) {
+	if !valueOperand.parenthesized {
+		return nil, false, nil
+	}
+
+	candidates := operandRegisterCandidates(registerOperand)
+	if len(candidates) == 0 {
+		return nil, false, nil
+	}
+
+	value, ok, err := operandValue(valueOperand)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.ExtendedAddressing) {
+			continue
+		}
+
+		for _, candidate := range candidates {
+			for _, resolvedParam := range extendedRegisterParamCandidates(candidate, true) {
+				opcodeInfo, ok := variant.RegisterOpcodes[resolvedParam]
+				if !ok {
+					continue
+				}
+				if !matchesExtendedLoadDirection(variant, opcodeInfo.Opcode, true) {
+					continue
+				}
+
+				return &ResolvedInstruction{
+					Addressing:     cpuz80.ExtendedAddressing,
+					Instruction:    variant,
+					RegisterParams: []cpuz80.RegisterParam{resolvedParam},
+					OperandValues:  []ast.Node{value},
+				}, true, nil
+			}
+		}
+	}
+
+	return nil, false, nil
+}
+
+func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOperand, registerOperand rawOperand) (*ResolvedInstruction, bool, error) {
+	if !valueOperand.parenthesized {
+		return nil, false, nil
+	}
+
+	candidates := operandRegisterCandidates(registerOperand)
+	if len(candidates) == 0 {
+		return nil, false, nil
+	}
+
+	value, ok, err := operandValue(valueOperand)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.ExtendedAddressing) {
+			continue
+		}
+
+		for _, candidate := range candidates {
+			for _, resolvedParam := range extendedRegisterParamCandidates(candidate, false) {
+				opcodeInfo, ok := variant.RegisterOpcodes[resolvedParam]
+				if !ok {
+					continue
+				}
+				if !matchesExtendedLoadDirection(variant, opcodeInfo.Opcode, false) {
+					continue
+				}
+
+				return &ResolvedInstruction{
+					Addressing:     cpuz80.ExtendedAddressing,
+					Instruction:    variant,
+					RegisterParams: []cpuz80.RegisterParam{resolvedParam},
+					OperandValues:  []ast.Node{value},
+				}, true, nil
+			}
+
+			if candidate != cpuz80.RegHL || len(variant.RegisterOpcodes) != 0 {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:    cpuz80.ExtendedAddressing,
+				Instruction:   variant,
+				OperandValues: []ast.Node{value},
+			}, true, nil
+		}
+	}
+
+	return nil, false, nil
+}
+
+func resolvePortImmediateValueRegister(variants []*cpuz80.Instruction, valueOperand, registerOperand rawOperand) (*ResolvedInstruction, bool, error) {
+	if !valueOperand.parenthesized {
+		return nil, false, nil
+	}
+
+	registerCandidates := operandRegisterCandidates(registerOperand)
+	if !containsRegisterParam(registerCandidates, cpuz80.RegA) {
+		return nil, false, nil
+	}
+
+	value, ok, err := operandValue(valueOperand)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.PortAddressing) || len(variant.RegisterOpcodes) != 0 {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:    cpuz80.PortAddressing,
+			Instruction:   variant,
+			OperandValues: []ast.Node{value},
+		}, true, nil
+	}
+
+	return nil, false, nil
+}
+
+func resolvePortImmediateRegisterValue(variants []*cpuz80.Instruction, registerOperand, valueOperand rawOperand) (*ResolvedInstruction, bool, error) {
+	if !valueOperand.parenthesized {
+		return nil, false, nil
+	}
+
+	registerCandidates := operandRegisterCandidates(registerOperand)
+	if !containsRegisterParam(registerCandidates, cpuz80.RegA) {
+		return nil, false, nil
+	}
+
+	value, ok, err := operandValue(valueOperand)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.PortAddressing) || len(variant.RegisterOpcodes) != 0 {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:    cpuz80.PortAddressing,
+			Instruction:   variant,
+			OperandValues: []ast.Node{value},
+		}, true, nil
+	}
+
+	return nil, false, nil
+}
+
+func resolvePortRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
+	if operand1.displacement != nil || operand2.displacement != nil {
+		return nil, false
+	}
+
+	if isPortCOperand(operand2) {
+		candidates := operandRegisterCandidates(operand1)
+		for _, variant := range variants {
+			if !variant.HasAddressing(cpuz80.PortAddressing) || len(variant.RegisterOpcodes) == 0 {
+				continue
+			}
+			for _, candidate := range candidates {
+				if _, ok := variant.RegisterOpcodes[candidate]; !ok {
+					continue
+				}
+				return &ResolvedInstruction{
+					Addressing:     cpuz80.PortAddressing,
+					Instruction:    variant,
+					RegisterParams: []cpuz80.RegisterParam{candidate},
+				}, true
+			}
+		}
+	}
+
+	if isPortCOperand(operand1) {
+		candidates := operandRegisterCandidates(operand2)
+		for _, variant := range variants {
+			if !variant.HasAddressing(cpuz80.PortAddressing) || len(variant.RegisterOpcodes) == 0 {
+				continue
+			}
+			for _, candidate := range candidates {
+				if _, ok := variant.RegisterOpcodes[candidate]; !ok {
+					continue
+				}
+				return &ResolvedInstruction{
+					Addressing:     cpuz80.PortAddressing,
+					Instruction:    variant,
+					RegisterParams: []cpuz80.RegisterParam{candidate},
+				}, true
+			}
+		}
+	}
+
+	return nil, false
 }
 
 func resolveRegisterIndexedOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
@@ -546,6 +810,35 @@ func matchesIndexedLoadDirection(variant *cpuz80.Instruction, opcode byte, regis
 	return opcode&0xF8 == 0x70
 }
 
+func matchesExtendedLoadDirection(variant *cpuz80.Instruction, opcode byte, registerFirst bool) bool {
+	if variant.Name != cpuz80.LdName {
+		return true
+	}
+
+	if registerFirst {
+		return opcode&0x0F == 0x0B || opcode == 0x2A || opcode == 0x3A
+	}
+
+	return opcode&0x0F == 0x03 || opcode == 0x22 || opcode == 0x32
+}
+
+func extendedRegisterParamCandidates(register cpuz80.RegisterParam, registerFirst bool) []cpuz80.RegisterParam {
+	switch register {
+	case cpuz80.RegA:
+		if registerFirst {
+			return []cpuz80.RegisterParam{cpuz80.RegLoadExtA, cpuz80.RegA}
+		}
+		return []cpuz80.RegisterParam{cpuz80.RegStoreExtA, cpuz80.RegA}
+	case cpuz80.RegHL:
+		if registerFirst {
+			return []cpuz80.RegisterParam{cpuz80.RegLoadExtHL, cpuz80.RegHL}
+		}
+		return []cpuz80.RegisterParam{cpuz80.RegHL}
+	default:
+		return []cpuz80.RegisterParam{register}
+	}
+}
+
 func operandValue(operand rawOperand) (ast.Node, bool, error) {
 	if operand.value != nil {
 		return operand.value, true, nil
@@ -595,6 +888,14 @@ func operandIndexedRegister(operand rawOperand) (cpuz80.RegisterParam, bool) {
 	}
 
 	return cpuz80.RegNone, false
+}
+
+func isPortCOperand(operand rawOperand) bool {
+	if !operand.parenthesized || operand.value != nil || operand.displacement != nil {
+		return false
+	}
+
+	return containsRegisterParam(operandRegisterCandidates(operand), cpuz80.RegC)
 }
 
 func parseValueOperand(tok token.Token) (ast.Node, bool, error) {
