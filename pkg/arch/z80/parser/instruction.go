@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
@@ -15,6 +16,17 @@ var errMissingOperand = errors.New("missing operand")
 
 // ParseIdentifier parses a Z80 instruction and resolves the matching instruction variant.
 func ParseIdentifier(parser arch.Parser, mnemonic string, variants []*cpuz80.Instruction) (ast.Node, error) {
+	return ParseIdentifierWithProfile(parser, mnemonic, variants, profile.Default)
+}
+
+// ParseIdentifierWithProfile parses a Z80 instruction and enforces the selected profile.
+func ParseIdentifierWithProfile(
+	parser arch.Parser,
+	mnemonic string,
+	variants []*cpuz80.Instruction,
+	profileKind profile.Kind,
+) (ast.Node, error) {
+
 	operands, err := parseOperands(parser)
 	if err != nil {
 		return nil, fmt.Errorf("parsing operands: %w", err)
@@ -23,6 +35,15 @@ func ParseIdentifier(parser arch.Parser, mnemonic string, variants []*cpuz80.Ins
 	resolved, err := resolveInstruction(variants, operands)
 	if err != nil {
 		return nil, fmt.Errorf("resolving instruction '%s': %w", mnemonic, err)
+	}
+
+	if err := profile.ValidateInstruction(
+		profileKind,
+		resolved.Instruction,
+		resolved.Addressing,
+		resolved.RegisterParams,
+	); err != nil {
+		return nil, fmt.Errorf("validating profile '%s': %w", profileKind.String(), err)
 	}
 
 	argument := ast.NewInstructionArgument(*resolved)

@@ -19,17 +19,15 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on March 1, 2026: Phase 10 (tokenized offset operand parsing for value and parenthesized forms).
 - Completed on March 1, 2026: Phase 11 (chained tokenized offset operand parsing).
 - Completed on March 1, 2026: Phase 12 (expression-backed operand values and displacement support).
-- Next implementation target: Phase 13 (profile strictness and undocumented-op policy).
+- Completed on March 1, 2026: Phase 13 (profile strictness and undocumented-op policy).
+- Completed on March 1, 2026: Phase 14 (parser/resolver diagnostic quality pass).
+- Next implementation target: Phase 15 (robustness and compatibility expansion).
 
-## What Is Missing (Post-Phase 11)
+## What Is Missing (Post-Phase 14)
 
 The assembler path is now functional and broadly covered, but these gaps remain for a production-ready Z80 frontend:
 
-1. Target profile strictness is not explicit.
-   - Missing: optional strict validation for profile-specific instruction subsets (`z80`, `gameboy-z80-subset`) and undocumented-op policies.
-2. Error diagnostics are still parser-internal rather than user-optimized.
-   - Missing: richer, context-aware error messages for common ambiguity/operand failures.
-3. Robustness testing can be strengthened.
+1. Robustness testing can be strengthened.
    - Missing: fuzz/property tests and a wider compatibility fixture corpus.
 
 ## Scope
@@ -70,6 +68,8 @@ The assembler path is now functional and broadly covered, but these gaps remain 
 13. Z80 operand parsing now supports tokenized offset expressions for instruction values and parenthesized values (`label+1`, `label-1`, `(label+1)`, `($10+1)`), while preserving indexed IX/IY displacement parsing.
 14. Z80 operand parsing now supports chained tokenized offset expressions (`label+3-1`, `(label+3-1)`, `($10+3-1)`) with accumulation overflow/underflow validation.
 15. Z80 instruction operands and indexed displacements now support expression-backed AST values, including mixed symbolic arithmetic (for example `target+delta`, `table+index`, `ix+disp`).
+16. Z80 architecture now supports profile-driven validation (`default`, `strict-documented`, `gameboy-z80-subset`) through `pkg/arch/z80/profile` and CLI flag `-z80-profile`.
+17. Z80 resolver diagnostics now include targeted ambiguity guidance and expected addressing-family hints for common operand mismatch failures.
 
 ## Architecture Decisions
 
@@ -561,14 +561,15 @@ Completed result:
 - Added end-to-end expression fixture `tests/z80/expressions.asm` with expected output in `cmd/retroasm/z80_fixture_test.go`.
 - Updated `.gitignore` fixture allowlist with `tests/z80/expressions.asm`.
 
-## Phase 13: Profile Strictness and Undocumented-Op Policy (Planned)
+## Phase 13: Profile Strictness and Undocumented-Op Policy (Completed)
 
 Files:
 
 - `cmd/retroasm/main.go`
+- `pkg/arch/z80/options.go`
 - `pkg/arch/z80/z80.go`
-- `pkg/arch/z80/parser/resolver.go`
-- `pkg/arch/z80/profile/*` (new package, if needed)
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/profile/profile.go`
 - `cmd/retroasm/main_test.go`
 - `cmd/retroasm/z80_fixture_test.go`
 
@@ -584,13 +585,27 @@ Definition of done:
 - Unsupported-by-profile instructions fail with clear errors.
 - Default profile behavior remains unchanged.
 
-## Phase 14: Parser/Resolver Diagnostic Quality Pass (Planned)
+Completed result:
+
+- Added a new type-safe `pkg/arch/z80/profile` package with:
+  - profile parsing (`default`, `strict-documented`, `gameboy-z80-subset`),
+  - validation gates for undocumented opcodes,
+  - gameboy subset gating for unsupported prefixes/mnemonics.
+- Added Z80 architecture options in `pkg/arch/z80/options.go` and wired profile selection through `pkg/arch/z80/z80.go`.
+- Updated parser entry points in `pkg/arch/z80/parser/instruction.go` to enforce profile checks at resolution time.
+- Added CLI flag `-z80-profile` in `cmd/retroasm/main.go`, including normalization/defaulting and CPU/profile compatibility validation.
+- Expanded regression coverage in:
+  - `pkg/arch/z80/profile/profile_test.go`,
+  - `pkg/arch/z80/parser/profile_test.go`,
+  - `cmd/retroasm/main_test.go`,
+  - `cmd/retroasm/z80_fixture_test.go`.
+
+## Phase 14: Parser/Resolver Diagnostic Quality Pass (Completed)
 
 Files:
 
-- `pkg/arch/z80/parser/instruction.go`
 - `pkg/arch/z80/parser/resolver.go`
-- `pkg/arch/z80/parser/*_test.go`
+- `pkg/arch/z80/parser/instruction_test.go`
 
 Tasks:
 
@@ -605,6 +620,16 @@ Definition of done:
 
 - High-frequency parse/resolution failures produce deterministic, specific messages.
 - Existing success-path behavior remains unchanged.
+
+Completed result:
+
+- Updated `pkg/arch/z80/parser/resolver.go` to replace generic no-match failures with diagnostic-aware errors.
+- Added expected addressing-family hints to resolver mismatch messages for faster user recovery.
+- Added focused diagnostics for the three high-confusion cases:
+  - condition vs register `c` ambiguity,
+  - immediate vs addressed/parenthesized form mismatch,
+  - indexed load direction mismatch.
+- Added regression tests in `pkg/arch/z80/parser/instruction_test.go` that assert message quality for representative failure inputs.
 
 ## Phase 15: Robustness and Compatibility Expansion (Planned)
 
@@ -645,7 +670,7 @@ Definition of done:
 - `tests/z80/offsets.asm` tokenized offset operand coverage (`label+n`, `(label+n)`, `($nn+n)`)
 - `tests/z80/offsets_chained.asm` chained tokenized offset coverage (`label+n-m`, `(label+n-m)`, `($nn+n-m)`)
 - `tests/z80/expressions.asm` expression-backed operand and indexed displacement coverage (`target+delta`, `table+index`, `(ix+disp)`)
-- Planned: additional compatibility fixtures for strict profile behavior and unsupported-op diagnostics
+- `cmd/retroasm/z80_fixture_test.go` profile-gated assembly checks for default, strict-documented, and gameboy-z80-subset behavior
 
 ## Regression Requirements
 

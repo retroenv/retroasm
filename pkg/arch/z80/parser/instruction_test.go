@@ -622,6 +622,91 @@ func TestParseIdentifier_Errors(t *testing.T) {
 	}
 }
 
+func TestParseIdentifier_DiagnosticMessageConditionCAmbiguity(t *testing.T) {
+	assertDiagnosticError(t, diagnosticCase{
+		mnemonic: cpuz80.JpName,
+		tokens: []token.Token{
+			{Type: token.Identifier, Value: "jp"},
+			{Type: token.Identifier, Value: "c"},
+			{Type: token.Comma},
+			{Type: token.LeftParentheses},
+			{Type: token.Identifier, Value: "hl"},
+			{Type: token.RightParentheses},
+			{Type: token.EOL},
+		},
+		variants: []*cpuz80.Instruction{
+			cpuz80.JpCond,
+			cpuz80.JpAbs,
+			cpuz80.JpIndirect,
+			cpuz80.DdJpIX,
+			cpuz80.FdJpIY,
+		},
+		errorContain: []string{"ambiguous operand 'c'", "carry condition or register c"},
+	})
+}
+
+func TestParseIdentifier_DiagnosticMessageImmediateVsAddressed(t *testing.T) {
+	assertDiagnosticError(t, diagnosticCase{
+		mnemonic: cpuz80.InName,
+		tokens: []token.Token{
+			{Type: token.Identifier, Value: "in"},
+			{Type: token.Identifier, Value: "a"},
+			{Type: token.Comma},
+			{Type: token.Number, Value: "$12"},
+			{Type: token.EOL},
+		},
+		variants: []*cpuz80.Instruction{
+			cpuz80.InPort,
+			cpuz80.EdInAC,
+		},
+		errorContain: []string{"immediate vs addressed operand mismatch", "parenthesized forms"},
+	})
+}
+
+func TestParseIdentifier_DiagnosticMessageIndexedLoadDirection(t *testing.T) {
+	assertDiagnosticError(t, diagnosticCase{
+		mnemonic: cpuz80.LdName,
+		tokens: []token.Token{
+			{Type: token.Identifier, Value: "ld"},
+			{Type: token.LeftParentheses},
+			{Type: token.Identifier, Value: "ix"},
+			{Type: token.Plus},
+			{Type: token.Number, Value: "1"},
+			{Type: token.RightParentheses},
+			{Type: token.Comma},
+			{Type: token.Identifier, Value: "ix"},
+			{Type: token.EOL},
+		},
+		variants: []*cpuz80.Instruction{
+			cpuz80.LdReg8,
+			cpuz80.DdLdIXdA,
+			cpuz80.FdLdIYdA,
+			cpuz80.DdLdAIXd,
+			cpuz80.FdLdAIYd,
+		},
+		errorContain: []string{"indexed load direction mismatch", "ld r,(ix+d|iy+d)"},
+	})
+}
+
+type diagnosticCase struct {
+	mnemonic     string
+	tokens       []token.Token
+	variants     []*cpuz80.Instruction
+	errorContain []string
+}
+
+func assertDiagnosticError(t *testing.T, tc diagnosticCase) {
+	t.Helper()
+
+	parser := newMockParser(tc.tokens...)
+	_, err := ParseIdentifier(parser, tc.mnemonic, tc.variants)
+	assert.Error(t, err)
+
+	for _, fragment := range tc.errorContain {
+		assert.ErrorContains(t, err, fragment)
+	}
+}
+
 type parseIdentifierErrorCase struct {
 	name     string
 	mnemonic string

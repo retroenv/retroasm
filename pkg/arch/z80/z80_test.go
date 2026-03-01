@@ -3,12 +3,20 @@ package z80
 import (
 	"testing"
 
+	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 	"github.com/retroenv/retrogolib/assert"
 )
 
 func TestNew(t *testing.T) {
 	cfg := New()
+	assert.NotNil(t, cfg)
+	assert.NotNil(t, cfg.Arch)
+	assert.Equal(t, 16, cfg.Arch.AddressWidth())
+}
+
+func TestNew_WithProfile(t *testing.T) {
+	cfg := New(WithProfile(z80profile.StrictDocumented))
 	assert.NotNil(t, cfg)
 	assert.NotNil(t, cfg.Arch)
 	assert.Equal(t, 16, cfg.Arch.AddressWidth())

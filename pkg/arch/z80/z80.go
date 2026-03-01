@@ -8,6 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch"
 	z80assembler "github.com/retroenv/retroasm/pkg/arch/z80/assembler"
 	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
+	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
@@ -21,20 +22,24 @@ type InstructionGroup struct {
 
 type architecture struct {
 	instructionGroups map[string]*InstructionGroup
+	profile           z80profile.Kind
 }
 
 // New returns a new Z80 architecture configuration.
-func New() *config.Config[*InstructionGroup] {
-	p := newArchitecture()
+func New(opts ...Option) *config.Config[*InstructionGroup] {
+	settings := resolveOptions(opts)
+
+	p := newArchitecture(settings)
 	cfg := &config.Config[*InstructionGroup]{
 		Arch: p,
 	}
 	return cfg
 }
 
-func newArchitecture() *architecture {
+func newArchitecture(settings options) *architecture {
 	return &architecture{
 		instructionGroups: buildInstructionGroups(),
+		profile:           settings.profile,
 	}
 }
 
@@ -56,7 +61,7 @@ func (ar *architecture) Instruction(name string) (*InstructionGroup, bool) {
 }
 
 func (ar *architecture) ParseIdentifier(p arch.Parser, ins *InstructionGroup) (ast.Node, error) {
-	return z80parser.ParseIdentifier(p, ins.Name, ins.Variants) //nolint:wrapcheck // thin delegation to sub-package
+	return z80parser.ParseIdentifierWithProfile(p, ins.Name, ins.Variants, ar.profile) //nolint:wrapcheck // thin delegation to sub-package
 }
 
 func buildInstructionGroups() map[string]*InstructionGroup {

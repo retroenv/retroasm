@@ -13,6 +13,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
+	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/app"
 	"github.com/retroenv/retrogolib/arch"
@@ -36,13 +37,14 @@ var (
 
 // optionFlags holds command-line options and runtime configuration.
 type optionFlags struct {
-	logger *log.Logger
-	config string
-	output string
-	cpu    string
-	system string
-	debug  bool
-	quiet  bool
+	logger     *log.Logger
+	config     string
+	output     string
+	cpu        string
+	system     string
+	z80Profile string
+	debug      bool
+	quiet      bool
 }
 
 func main() {
@@ -68,6 +70,9 @@ func buildLogFields(input string, options *optionFlags) []log.Field {
 	}
 	if options.system != "" {
 		fields = append(fields, log.String("system", options.system))
+	}
+	if options.cpu == cpuZ80 && options.z80Profile != "" {
+		fields = append(fields, log.String("z80_profile", options.z80Profile))
 	}
 	return fields
 }
@@ -128,12 +133,8 @@ var supportedSystems = map[string]struct{}{
 
 // validateAndProcessArchitecture validates CPU/system flags, applies defaults, and enforces compatibility.
 func validateAndProcessArchitecture(options *optionFlags) error {
-	options.cpu = strings.ToLower(strings.TrimSpace(options.cpu))
-	options.system = strings.ToLower(strings.TrimSpace(options.system))
-
-	if options.cpu == "" && options.system == "" {
-		options.cpu = cpu6502
-		options.system = systemNES
+	z80ProfileRequested := normalizeArchitectureOptions(options)
+	if setDefaultArchitecture(options, z80ProfileRequested) {
 		return nil
 	}
 
@@ -145,6 +146,39 @@ func validateAndProcessArchitecture(options *optionFlags) error {
 		return err
 	}
 
+	if err := applyDerivedArchitectureDefaults(options, z80ProfileRequested); err != nil {
+		return err
+	}
+	if err := validateArchitectureCompatibility(options); err != nil {
+		return err
+	}
+
+	if err := validateZ80Profile(options, z80ProfileRequested); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func normalizeArchitectureOptions(options *optionFlags) bool {
+	options.cpu = strings.ToLower(strings.TrimSpace(options.cpu))
+	options.system = strings.ToLower(strings.TrimSpace(options.system))
+	options.z80Profile = strings.ToLower(strings.TrimSpace(options.z80Profile))
+	return options.z80Profile != ""
+}
+
+func setDefaultArchitecture(options *optionFlags, z80ProfileRequested bool) bool {
+	if options.cpu != "" || options.system != "" || z80ProfileRequested {
+		return false
+	}
+
+	options.cpu = cpu6502
+	options.system = systemNES
+	options.z80Profile = z80profile.Default.String()
+	return true
+}
+
+func applyDerivedArchitectureDefaults(options *optionFlags, z80ProfileRequested bool) error {
 	if options.cpu == "" && options.system != "" {
 		defaultCPU, ok := defaultCPUBySystem[options.system]
 		if !ok {
@@ -161,10 +195,20 @@ func validateAndProcessArchitecture(options *optionFlags) error {
 		options.system = defaultSystem
 	}
 
+	if options.cpu == "" && options.system == "" && z80ProfileRequested {
+		options.cpu = cpuZ80
+		options.system = defaultSystemByCPU[cpuZ80]
+	}
+
+	return nil
+}
+
+func validateArchitectureCompatibility(options *optionFlags) error {
 	compatibleSystems, ok := supportedSystemsByCPU[options.cpu]
 	if !ok {
 		return fmt.Errorf("%w: %s (supported: %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpuZ80)
 	}
+
 	if _, ok := compatibleSystems[options.system]; !ok {
 		return fmt.Errorf("%w: cpu '%s' is not compatible with system '%s'", ErrIncompatibleArch, options.cpu, options.system)
 	}
@@ -224,6 +268,30 @@ func validateCPU(options *optionFlags) error {
 	return nil
 }
 
+func validateZ80Profile(options *optionFlags, requested bool) error {
+	profileKind, err := z80profile.Parse(options.z80Profile)
+	if err != nil {
+		return fmt.Errorf("parsing z80 profile: %w", err)
+	}
+
+	options.z80Profile = profileKind.String()
+	if options.cpu == cpuZ80 {
+		return nil
+	}
+
+	if requested && profileKind != z80profile.Default {
+		return fmt.Errorf(
+			"%w: z80 profile '%s' requires cpu '%s'",
+			ErrIncompatibleArch,
+			options.z80Profile,
+			cpuZ80,
+		)
+	}
+
+	options.z80Profile = z80profile.Default.String()
+	return nil
+}
+
 // readArguments parses command-line arguments and validates configuration.
 func readArguments() (*optionFlags, []string) {
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -234,6 +302,12 @@ func readArguments() (*optionFlags, []string) {
 	flags.StringVar(&options.output, "o", "", "name of the output file")
 	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, z80)")
 	flags.StringVar(&options.system, "system", "", "target system (nes, generic, gameboy, zx-spectrum)")
+	flags.StringVar(
+		&options.z80Profile,
+		"z80-profile",
+		"",
+		"z80 instruction profile (default, strict-documented, gameboy-z80-subset)",
+	)
 	flags.BoolVar(&options.quiet, "q", false, "perform operations quietly")
 
 	err := flags.Parse(os.Args[1:])
@@ -279,7 +353,7 @@ func printBanner(options *optionFlags) {
 func assembleFile(options *optionFlags, args []string) error {
 	asm := retroasm.New()
 
-	if err := registerArchitectureForCPU(asm, options.cpu); err != nil {
+	if err := registerArchitectureForCPU(asm, options.cpu, options.z80Profile); err != nil {
 		return fmt.Errorf("registering architecture '%s': %w", options.cpu, err)
 	}
 
@@ -307,7 +381,7 @@ func assembleFile(options *optionFlags, args []string) error {
 	return nil
 }
 
-func registerArchitectureForCPU(asm retroasm.Assembler, cpuName string) error {
+func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName string) error {
 	switch cpuName {
 	case cpu6502:
 		cfg := m6502.New()
@@ -318,7 +392,12 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName string) error {
 		return nil
 
 	case cpuZ80:
-		cfg := archz80.New()
+		profileKind, err := z80profile.Parse(z80ProfileName)
+		if err != nil {
+			return fmt.Errorf("parsing z80 profile: %w", err)
+		}
+
+		cfg := archz80.New(archz80.WithProfile(profileKind))
 		adapter := retroasm.NewArchitectureAdapter(cpuZ80, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpuZ80, adapter); err != nil {
 			return fmt.Errorf("registering architecture '%s': %w", cpuZ80, err)

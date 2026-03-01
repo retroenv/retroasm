@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
+	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/assert"
 )
@@ -108,6 +110,50 @@ func TestAssembleZ80Fixtures_RelativeOverflow(t *testing.T) {
 	assert.ErrorContains(t, err, "relative offset")
 }
 
+func TestAssembleZ80Profiles(t *testing.T) {
+	t.Run("default profile allows undocumented sll", func(t *testing.T) {
+		output, err := assembleZ80SourceWithProfile(
+			t,
+			".segment \"CODE\"\nsll a",
+			z80profile.Default.String(),
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{0xCB, 0x37}, output)
+	})
+
+	t.Run("strict documented rejects undocumented sll", func(t *testing.T) {
+		_, err := assembleZ80SourceWithProfile(
+			t,
+			".segment \"CODE\"\nsll a",
+			z80profile.StrictDocumented.String(),
+		)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "undocumented")
+		assert.ErrorContains(t, err, z80profile.StrictDocumented.String())
+	})
+
+	t.Run("gameboy subset rejects ix instructions", func(t *testing.T) {
+		_, err := assembleZ80SourceWithProfile(
+			t,
+			".segment \"CODE\"\nld ix,$1234",
+			z80profile.GameBoySubset.String(),
+		)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "gameboy-z80-subset")
+		assert.ErrorContains(t, err, "unsupported prefix")
+	})
+
+	t.Run("gameboy subset rejects in/out", func(t *testing.T) {
+		_, err := assembleZ80SourceWithProfile(
+			t,
+			".segment \"CODE\"\nin a,($12)",
+			z80profile.GameBoySubset.String(),
+		)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "outside profile")
+	})
+}
+
 func assembleZ80Fixture(t *testing.T, fixture string) ([]byte, error) {
 	t.Helper()
 	sourcePath := z80FixturePath(t, fixture)
@@ -117,7 +163,7 @@ func assembleZ80Fixture(t *testing.T, fixture string) ([]byte, error) {
 	}
 
 	asm := retroasm.New()
-	if err := registerArchitectureForCPU(asm, cpuZ80); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuZ80, z80profile.Default.String()); err != nil {
 		return nil, fmt.Errorf("registering z80 architecture: %w", err)
 	}
 
@@ -128,6 +174,26 @@ func assembleZ80Fixture(t *testing.T, fixture string) ([]byte, error) {
 	output, err := asm.AssembleText(t.Context(), input)
 	if err != nil {
 		return nil, fmt.Errorf("assembling fixture '%s': %w", fixture, err)
+	}
+
+	return output.Binary, nil
+}
+
+func assembleZ80SourceWithProfile(t *testing.T, source, profileName string) ([]byte, error) {
+	t.Helper()
+
+	asm := retroasm.New()
+	if err := registerArchitectureForCPU(asm, cpuZ80, profileName); err != nil {
+		return nil, fmt.Errorf("registering z80 architecture: %w", err)
+	}
+
+	input := &retroasm.TextInput{
+		Source:     strings.NewReader(source),
+		SourceName: "inline_z80_fixture.asm",
+	}
+	output, err := asm.AssembleText(t.Context(), input)
+	if err != nil {
+		return nil, fmt.Errorf("assembling z80 source: %w", err)
 	}
 
 	return output.Binary, nil
