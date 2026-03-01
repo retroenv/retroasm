@@ -37,6 +37,16 @@ var conditionParamByName = map[string]cpuz80.RegisterParam{
 	"z":  cpuz80.RegCondZ,
 }
 
+var indirectRegisterParamsByName = map[string][]cpuz80.RegisterParam{
+	"bc": {cpuz80.RegBCIndirect},
+	"c":  {cpuz80.RegC},
+	"de": {cpuz80.RegDEIndirect},
+	"hl": {cpuz80.RegHLIndirect},
+	"ix": {cpuz80.RegIX},
+	"iy": {cpuz80.RegIY},
+	"sp": {cpuz80.RegSPIndirect},
+}
+
 var registerParamsByNumber = map[uint64][]cpuz80.RegisterParam{
 	0x00: {cpuz80.RegRst00, cpuz80.RegIM0},
 	0x01: {cpuz80.RegIM1},
@@ -77,6 +87,28 @@ func registerCandidatesForNumber(value uint64) []cpuz80.RegisterParam {
 	result := make([]cpuz80.RegisterParam, len(candidates))
 	copy(result, candidates)
 	return result
+}
+
+func registerCandidatesForIndirectIdentifier(value string) []cpuz80.RegisterParam {
+	candidates, ok := indirectRegisterParamsByName[strings.ToLower(value)]
+	if !ok {
+		return nil
+	}
+
+	result := make([]cpuz80.RegisterParam, len(candidates))
+	copy(result, candidates)
+	return result
+}
+
+func indexedIndirectRegister(value string) (cpuz80.RegisterParam, bool) {
+	switch strings.ToLower(value) {
+	case "ix":
+		return cpuz80.RegIXIndirect, true
+	case "iy":
+		return cpuz80.RegIYIndirect, true
+	default:
+		return cpuz80.RegNone, false
+	}
 }
 
 func containsRegisterParam(params []cpuz80.RegisterParam, target cpuz80.RegisterParam) bool {

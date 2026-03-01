@@ -78,3 +78,74 @@ func TestRegisterCandidatesForNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestRegisterCandidatesForIndirectIdentifier(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      string
+		wantParams []cpuz80.RegisterParam
+	}{
+		{
+			name:       "hl indirect",
+			value:      "hl",
+			wantParams: []cpuz80.RegisterParam{cpuz80.RegHLIndirect},
+		},
+		{
+			name:       "ix parenthesized maps to ix register",
+			value:      "ix",
+			wantParams: []cpuz80.RegisterParam{cpuz80.RegIX},
+		},
+		{
+			name:       "port c parenthesized",
+			value:      "c",
+			wantParams: []cpuz80.RegisterParam{cpuz80.RegC},
+		},
+		{
+			name:       "unknown indirect",
+			value:      "loop",
+			wantParams: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := registerCandidatesForIndirectIdentifier(tt.value)
+			assert.Equal(t, tt.wantParams, params)
+		})
+	}
+}
+
+func TestIndexedIndirectRegister(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     string
+		wantParam cpuz80.RegisterParam
+		wantOK    bool
+	}{
+		{
+			name:      "ix indexed",
+			value:     "ix",
+			wantParam: cpuz80.RegIXIndirect,
+			wantOK:    true,
+		},
+		{
+			name:      "iy indexed",
+			value:     "iy",
+			wantParam: cpuz80.RegIYIndirect,
+			wantOK:    true,
+		},
+		{
+			name:   "unsupported indexed register",
+			value:  "hl",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			param, ok := indexedIndirectRegister(tt.value)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.wantParam, param)
+		})
+	}
+}

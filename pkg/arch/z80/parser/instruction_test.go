@@ -9,7 +9,7 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
+func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 	tests := []struct {
 		name           string
 		mnemonic       string
@@ -18,8 +18,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 		wantVariant    *cpuz80.Instruction
 		wantAddressing cpuz80.AddressingMode
 		wantRegister   []cpuz80.RegisterParam
-		wantValueType  any
-		wantValueNode  ast.Node
+		wantValues     []ast.Node
 	}{
 		{
 			name:           "nop implied",
@@ -54,8 +53,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			wantVariant:    cpuz80.LdImm8,
 			wantAddressing: cpuz80.ImmediateAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
-			wantValueType:  ast.Number{},
-			wantValueNode:  ast.NewNumber(42),
+			wantValues:     []ast.Node{ast.NewNumber(42)},
 		},
 		{
 			name:           "ld hl immediate 16-bit value",
@@ -65,8 +63,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			wantVariant:    cpuz80.LdReg16,
 			wantAddressing: cpuz80.ImmediateAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegHL},
-			wantValueType:  ast.Number{},
-			wantValueNode:  ast.NewNumber(0x1234),
+			wantValues:     []ast.Node{ast.NewNumber(0x1234)},
 		},
 		{
 			name:           "jr relative",
@@ -75,8 +72,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			variants:       []*cpuz80.Instruction{cpuz80.JrCond, cpuz80.JrRel},
 			wantVariant:    cpuz80.JrRel,
 			wantAddressing: cpuz80.RelativeAddressing,
-			wantValueType:  ast.Label{},
-			wantValueNode:  ast.NewLabel("loop"),
+			wantValues:     []ast.Node{ast.NewLabel("loop")},
 		},
 		{
 			name:           "jr conditional relative",
@@ -86,8 +82,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			wantVariant:    cpuz80.JrCond,
 			wantAddressing: cpuz80.RelativeAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegCondNZ},
-			wantValueType:  ast.Label{},
-			wantValueNode:  ast.NewLabel("loop"),
+			wantValues:     []ast.Node{ast.NewLabel("loop")},
 		},
 		{
 			name:           "jp absolute",
@@ -96,8 +91,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
 			wantVariant:    cpuz80.JpAbs,
 			wantAddressing: cpuz80.ExtendedAddressing,
-			wantValueType:  ast.Label{},
-			wantValueNode:  ast.NewLabel("target"),
+			wantValues:     []ast.Node{ast.NewLabel("target")},
 		},
 		{
 			name:           "jp conditional with c uses condition code",
@@ -107,8 +101,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			wantVariant:    cpuz80.JpCond,
 			wantAddressing: cpuz80.ExtendedAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegCondC},
-			wantValueType:  ast.Label{},
-			wantValueNode:  ast.NewLabel("target"),
+			wantValues:     []ast.Node{ast.NewLabel("target")},
 		},
 		{
 			name:           "call absolute",
@@ -117,8 +110,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			variants:       []*cpuz80.Instruction{cpuz80.CallCond, cpuz80.Call},
 			wantVariant:    cpuz80.Call,
 			wantAddressing: cpuz80.ExtendedAddressing,
-			wantValueType:  ast.Label{},
-			wantValueNode:  ast.NewLabel("target"),
+			wantValues:     []ast.Node{ast.NewLabel("target")},
 		},
 		{
 			name:           "bit value first register",
@@ -128,8 +120,136 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			wantVariant:    cpuz80.CBBit,
 			wantAddressing: cpuz80.RegisterAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
-			wantValueType:  ast.Number{},
-			wantValueNode:  ast.NewNumber(3),
+			wantValues:     []ast.Node{ast.NewNumber(3)},
+		},
+		{
+			name:     "ld a indexed ix displacement",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "5"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdAIXd, cpuz80.FdLdAIYd},
+			wantVariant:    cpuz80.DdLdAIXd,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{ast.NewNumber(5)},
+		},
+		{
+			name:     "ld indexed iy displacement a",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "iy"},
+				{Type: token.Minus},
+				{Type: token.Number, Value: "2"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdIXdA, cpuz80.FdLdIYdA},
+			wantVariant:    cpuz80.FdLdIYdA,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{ast.NewNumber(0xFE)},
+		},
+		{
+			name:     "ld indexed iy compact minus form a",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "iy-2"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdIXdA, cpuz80.FdLdIYdA},
+			wantVariant:    cpuz80.FdLdIYdA,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{ast.NewNumber(0xFE)},
+		},
+		{
+			name:     "bit value first indexed ix",
+			mnemonic: cpuz80.BitName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "bit"},
+				{Type: token.Number, Value: "3"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "5"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.CBBit, cpuz80.DdcbBit, cpuz80.FdcbBit},
+			wantVariant:    cpuz80.DdcbBit,
+			wantAddressing: cpuz80.BitAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegHLIndirect},
+			wantValues:     []ast.Node{ast.NewNumber(3), ast.NewNumber(5)},
+		},
+		{
+			name:     "bit value first indexed iy compact minus form",
+			mnemonic: cpuz80.BitName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "bit"},
+				{Type: token.Number, Value: "2"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "iy-1"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.CBBit, cpuz80.DdcbBit, cpuz80.FdcbBit},
+			wantVariant:    cpuz80.FdcbBit,
+			wantAddressing: cpuz80.BitAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegHLIndirect},
+			wantValues:     []ast.Node{ast.NewNumber(2), ast.NewNumber(0xFF)},
+		},
+		{
+			name:     "jp ix indirect",
+			mnemonic: cpuz80.JpName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "jp"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.JpAbs, cpuz80.JpIndirect, cpuz80.DdJpIX, cpuz80.FdJpIY},
+			wantVariant:    cpuz80.DdJpIX,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegIX},
+		},
+		{
+			name:     "inc indexed ix displacement",
+			mnemonic: cpuz80.IncName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "inc"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "1"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.IncIndirect, cpuz80.DdIncIXd, cpuz80.FdIncIYd},
+			wantVariant:    cpuz80.DdIncIXd,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegIXIndirect},
+			wantValues:     []ast.Node{ast.NewNumber(1)},
 		},
 		{
 			name:           "im numeric register opcode variant",
@@ -170,14 +290,11 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen
 			assert.Equal(t, tt.wantVariant, resolved.Instruction)
 			assert.Equal(t, tt.wantAddressing, resolved.Addressing)
 			assert.Equal(t, tt.wantRegister, resolved.RegisterParams)
-
-			if tt.wantValueType == nil {
+			if len(tt.wantValues) == 0 {
 				assert.Empty(t, resolved.OperandValues)
 				return
 			}
-
-			assert.Len(t, resolved.OperandValues, 1)
-			assert.Equal(t, tt.wantValueNode, resolved.OperandValues[0])
+			assert.Equal(t, tt.wantValues, resolved.OperandValues)
 		})
 	}
 }
@@ -200,6 +317,33 @@ func TestParseIdentifier_Errors(t *testing.T) {
 			mnemonic: cpuz80.JpName,
 			tokens:   []token.Token{{Type: token.Identifier, Value: "jp"}, {Type: token.Number, Value: "1"}, {Type: token.Comma}, {Type: token.Number, Value: "2"}, {Type: token.EOL}},
 			variants: []*cpuz80.Instruction{cpuz80.JpAbs, cpuz80.JpCond},
+		},
+		{
+			name:     "unsupported indexed base register",
+			mnemonic: cpuz80.BitName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "bit"},
+				{Type: token.Number, Value: "3"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "hl"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "1"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants: []*cpuz80.Instruction{cpuz80.CBBit, cpuz80.DdcbBit},
+		},
+		{
+			name:     "missing closing parenthesis",
+			mnemonic: cpuz80.JpName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "jp"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.EOL},
+			},
+			variants: []*cpuz80.Instruction{cpuz80.DdJpIX},
 		},
 	}
 

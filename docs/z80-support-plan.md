@@ -14,6 +14,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on February 28, 2026: Phase 5 (extended instruction coverage).
 - Completed on March 1, 2026: Phase 6 (CLI/runtime integration).
 - Completed on March 1, 2026: Phase 7 (integration fixtures and regression harness).
+- Completed on March 1, 2026: Phase 8 (indexed and parenthesized operand parsing).
 - Next implementation target: None (all planned phases completed).
 
 ## Scope
@@ -49,6 +50,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 8. `pkg/arch/z80/assembler/address_assigning_step.go` now computes instruction size from resolved opcode metadata (including prefixed 4-byte opcodes), without operand-value size heuristics.
 9. `pkg/arch/z80/assembler/generate_opcode_step.go` now emits opcode bytes for core addressing families, including single-prefix (`CB`, `DD`, `ED`, `FD`) and indexed bit prefix chains (`DD CB`, `FD CB`).
 10. Phase 5 coverage tests now generate resolved instructions from the Z80 opcode variant inventory (`Opcodes`, `EDOpcodes`, `DDOpcodes`, `FDOpcodes`, plus CB/indexed-bit families) to guard against silent encoding gaps.
+11. Z80 parser operand handling now supports parenthesized indirect/register forms and indexed displacement forms used by IX/IY instruction families.
 
 ## Architecture Decisions
 
@@ -332,6 +334,51 @@ Completed result:
   - prefix-heavy instruction path (`indexed.asm`),
   - control-flow branch/call/jump path (`branches.asm`).
 
+## Phase 8: Indexed and Parenthesized Operand Parsing (Completed)
+
+Files:
+
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/parser/register.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `pkg/arch/z80/parser/register_test.go`
+- `tests/z80/indexed.asm`
+- `cmd/retroasm/z80_fixture_test.go`
+
+Tasks:
+
+- Extend operand parsing beyond scalar tokens to support:
+  - parenthesized indirect operands (`(hl)`, `(ix)`, `(iy)`),
+  - indexed displacement operands (`(ix+d)`, `(iy+d)`),
+  - compact lexer forms where negative displacement is tokenized as one identifier (`(iy-1)`).
+- Extend resolver matching for indexed forms:
+  - `r,(ix+d)` / `r,(iy+d)`,
+  - `(ix+d),r` / `(iy+d),r`,
+  - `bit n,(ix+d)` / `bit n,(iy+d)`.
+- Disambiguate IX/IY indexed LD direction for opcodes sharing the same register key by validating opcode layout against operand order.
+
+Definition of done:
+
+- Parser unit tests cover parenthesized/indexed success and error paths.
+- End-to-end fixture assembly accepts IX/IY indexed syntax and emits expected bytes.
+- Existing non-indexed Z80 parsing behavior remains green.
+
+Completed result:
+
+- Updated `pkg/arch/z80/parser/instruction.go` to parse multi-token operand forms and produce typed indexed/parenthesized operand payloads.
+- Updated `pkg/arch/z80/parser/register.go` with explicit indirect-register candidate helpers and indexed-base mapping.
+- Updated `pkg/arch/z80/parser/resolver.go` to:
+  - resolve indexed register/memory operand combinations,
+  - resolve indexed bit family forms with displacement propagation,
+  - prioritize indexed register forms before generic register+value matching,
+  - enforce correct LD indexed direction selection (`LD r,(IX/IY+d)` vs `LD (IX/IY+d),r`).
+- Added parser unit coverage in `pkg/arch/z80/parser/instruction_test.go` and `pkg/arch/z80/parser/register_test.go` for:
+  - `(ix+5)`, `(iy-2)`, compact `(iy-1)` tokenization,
+  - `JP (IX)`,
+  - indexed-bit and indexed-LD resolution.
+- Expanded `tests/z80/indexed.asm` and updated `cmd/retroasm/z80_fixture_test.go` expected bytes to validate end-to-end indexed parsing and opcode emission.
+
 ## Testing Strategy
 
 ## Unit Tests
@@ -343,7 +390,7 @@ Completed result:
 ## Integration Tests
 
 - `tests/z80/basic.asm` core instruction smoke test
-- `tests/z80/indexed.asm` IX/IY + prefixed opcode coverage (`DD`, `FD`, `ED`)
+- `tests/z80/indexed.asm` IX/IY indexed operand syntax + prefixed opcode coverage (`DD`, `FD`, `ED`)
 - `tests/z80/branches.asm` relative and absolute control-flow encoding checks
 - `tests/z80/branches_overflow.asm` relative branch out-of-range regression check
 
@@ -373,5 +420,6 @@ Completed result:
 6. Phase 5 (coverage expansion)
 7. Phase 6 (CLI/runtime integration)
 8. Phase 7 (fixture-based integration regression)
+9. Phase 8 (indexed/parenthesized operand parser completion)
 
 This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.

@@ -22,6 +22,12 @@ type ResolvedInstruction struct {
 
 type rawOperand struct {
 	token token.Token
+
+	value        ast.Node
+	displacement ast.Node
+
+	parenthesized  bool
+	registerParams []cpuz80.RegisterParam
 }
 
 func resolveInstruction(variants []*cpuz80.Instruction, operands []rawOperand) (*ResolvedInstruction, error) {
@@ -56,13 +62,11 @@ func resolveNoOperand(variants []*cpuz80.Instruction) (*ResolvedInstruction, err
 }
 
 func resolveSingleOperand(variants []*cpuz80.Instruction, operand rawOperand) (*ResolvedInstruction, error) {
-	if operand.token.Type == token.Identifier {
-		if result := resolveSingleIdentifierOperand(variants, operand.token.Value); result != nil {
-			return result, nil
-		}
+	if result := resolveSingleRegisterOperand(variants, operand); result != nil {
+		return result, nil
 	}
 
-	value, ok, err := parseValueOperand(operand.token)
+	value, ok, err := operandValue(operand)
 	if err != nil {
 		return nil, err
 	}
@@ -96,26 +100,42 @@ func resolveSingleOperand(variants []*cpuz80.Instruction, operand rawOperand) (*
 	return nil, errors.New("no single-value variant matched")
 }
 
-func resolveSingleIdentifierOperand(variants []*cpuz80.Instruction, operand string) *ResolvedInstruction {
-	candidates := registerCandidatesForIdentifier(operand)
+func resolveSingleRegisterOperand(variants []*cpuz80.Instruction, operand rawOperand) *ResolvedInstruction {
+	candidates := operandRegisterCandidates(operand)
+	if len(candidates) == 0 {
+		return nil
+	}
+
 	for _, variant := range variants {
-		if !variant.HasAddressing(cpuz80.ImpliedAddressing) && !variant.HasAddressing(cpuz80.RegisterAddressing) {
+		if len(variant.RegisterOpcodes) == 0 {
 			continue
 		}
+
+		addressing, ok := selectRegisterAddressing(variant, operand.parenthesized)
+		if !ok {
+			continue
+		}
+
 		for _, candidate := range candidates {
-			if _, ok := variant.RegisterOpcodes[candidate]; !ok {
+			opcodeInfo, ok := variant.RegisterOpcodes[candidate]
+			if !ok {
 				continue
 			}
 
-			addressing := cpuz80.RegisterAddressing
-			if variant.HasAddressing(cpuz80.ImpliedAddressing) {
-				addressing = cpuz80.ImpliedAddressing
+			if !prefixMatchesIndexedBase(opcodeInfo.Prefix, operand) {
+				continue
+			}
+
+			operandValues := make([]ast.Node, 0, 1)
+			if operand.displacement != nil {
+				operandValues = append(operandValues, operand.displacement)
 			}
 
 			return &ResolvedInstruction{
 				Addressing:     addressing,
 				Instruction:    variant,
 				RegisterParams: []cpuz80.RegisterParam{candidate},
+				OperandValues:  operandValues,
 			}
 		}
 	}
@@ -124,11 +144,21 @@ func resolveSingleIdentifierOperand(variants []*cpuz80.Instruction, operand stri
 }
 
 func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, error) {
-	if result := resolveRegisterPairOperands(variants, operand1.token, operand2.token); result != nil {
+	if result := resolveRegisterPairOperands(variants, operand1, operand2); result != nil {
 		return result, nil
 	}
 
-	result, matched, err := resolveRegisterValueOperands(variants, operand1.token, operand2.token)
+	result, matched := resolveRegisterIndexedOperands(variants, operand1, operand2)
+	if matched {
+		return result, nil
+	}
+
+	result, matched = resolveIndexedRegisterOperands(variants, operand1, operand2)
+	if matched {
+		return result, nil
+	}
+
+	result, matched, err := resolveRegisterValueOperands(variants, operand1, operand2)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +166,7 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 		return result, nil
 	}
 
-	result, matched, err = resolveValueRegisterOperands(variants, operand1.token, operand2.token)
+	result, matched, err = resolveValueRegisterOperands(variants, operand1, operand2)
 	if err != nil {
 		return nil, err
 	}
@@ -147,47 +177,52 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 	return nil, errors.New("no two-operand variant matched")
 }
 
-func resolveRegisterPairOperands(variants []*cpuz80.Instruction, token1, token2 token.Token) *ResolvedInstruction {
-	if token1.Type != token.Identifier || token2.Type != token.Identifier {
+func resolveRegisterPairOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+	if operand1.displacement != nil || operand2.displacement != nil {
 		return nil
 	}
 
-	register1, ok := registerOnlyCandidate(token1.Value)
-	if !ok {
+	candidates1 := operandRegisterOnlyCandidates(operand1)
+	if len(candidates1) == 0 {
 		return nil
 	}
 
-	register2, ok := registerOnlyCandidate(token2.Value)
-	if !ok {
+	candidates2 := operandRegisterOnlyCandidates(operand2)
+	if len(candidates2) == 0 {
 		return nil
 	}
 
 	for _, variant := range variants {
-		if _, ok := variant.RegisterPairOpcodes[[2]cpuz80.RegisterParam{register1, register2}]; !ok {
-			continue
-		}
+		for _, register1 := range candidates1 {
+			for _, register2 := range candidates2 {
+				if _, ok := variant.RegisterPairOpcodes[[2]cpuz80.RegisterParam{register1, register2}]; !ok {
+					continue
+				}
 
-		addressing := cpuz80.RegisterAddressing
-		if variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
-			addressing = cpuz80.RegisterIndirectAddressing
-		}
+				addressing := cpuz80.RegisterAddressing
+				if variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+					addressing = cpuz80.RegisterIndirectAddressing
+				}
 
-		return &ResolvedInstruction{
-			Addressing:     addressing,
-			Instruction:    variant,
-			RegisterParams: []cpuz80.RegisterParam{register1, register2},
+				return &ResolvedInstruction{
+					Addressing:     addressing,
+					Instruction:    variant,
+					RegisterParams: []cpuz80.RegisterParam{register1, register2},
+				}
+			}
 		}
 	}
 
 	return nil
 }
 
-func resolveRegisterValueOperands(variants []*cpuz80.Instruction, token1, token2 token.Token) (*ResolvedInstruction, bool, error) {
-	if token1.Type != token.Identifier {
+func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+	candidates := operandRegisterCandidates(operand1)
+	if len(candidates) == 0 {
 		return nil, false, nil
 	}
 
-	value, ok, err := parseValueOperand(token2)
+	value, ok, err := operandValue(operand2)
 	if err != nil {
 		return nil, false, err
 	}
@@ -195,7 +230,6 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, token1, token2
 		return nil, false, nil
 	}
 
-	candidates := registerCandidatesForIdentifier(token1.Value)
 	for _, variant := range variants {
 		addressing, ok := selectValueAddressing(variant)
 		if !ok {
@@ -219,12 +253,96 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, token1, token2
 	return nil, false, nil
 }
 
-func resolveValueRegisterOperands(variants []*cpuz80.Instruction, token1, token2 token.Token) (*ResolvedInstruction, bool, error) {
-	if token2.Type != token.Identifier {
-		return nil, false, nil
+func resolveRegisterIndexedOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
+	if operand2.displacement == nil {
+		return nil, false
 	}
 
-	value, ok, err := parseValueOperand(token1)
+	indexedRegister, ok := operandIndexedRegister(operand2)
+	if !ok {
+		return nil, false
+	}
+
+	candidates := operandRegisterCandidates(operand1)
+	if len(candidates) == 0 {
+		return nil, false
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+			continue
+		}
+
+		for _, candidate := range candidates {
+			opcodeInfo, ok := variant.RegisterOpcodes[candidate]
+			if !ok {
+				continue
+			}
+			if !matchesIndexedRegisterPrefix(indexedRegister, opcodeInfo.Prefix) {
+				continue
+			}
+			if !matchesIndexedLoadDirection(variant, opcodeInfo.Opcode, true) {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     cpuz80.RegisterIndirectAddressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{candidate},
+				OperandValues:  []ast.Node{operand2.displacement},
+			}, true
+		}
+	}
+
+	return nil, false
+}
+
+func resolveIndexedRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
+	if operand1.displacement == nil {
+		return nil, false
+	}
+
+	indexedRegister, ok := operandIndexedRegister(operand1)
+	if !ok {
+		return nil, false
+	}
+
+	candidates := operandRegisterCandidates(operand2)
+	if len(candidates) == 0 {
+		return nil, false
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+			continue
+		}
+
+		for _, candidate := range candidates {
+			opcodeInfo, ok := variant.RegisterOpcodes[candidate]
+			if !ok {
+				continue
+			}
+			if !matchesIndexedRegisterPrefix(indexedRegister, opcodeInfo.Prefix) {
+				continue
+			}
+			if !matchesIndexedLoadDirection(variant, opcodeInfo.Opcode, false) {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     cpuz80.RegisterIndirectAddressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{candidate},
+				OperandValues:  []ast.Node{operand1.displacement},
+			}, true
+		}
+	}
+
+	return nil, false
+}
+
+func resolveValueRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+	value, ok, err := operandValue(operand1)
 	if err != nil {
 		return nil, false, err
 	}
@@ -232,7 +350,11 @@ func resolveValueRegisterOperands(variants []*cpuz80.Instruction, token1, token2
 		return nil, false, nil
 	}
 
-	candidates := registerCandidatesForIdentifier(token2.Value)
+	candidates := operandRegisterCandidates(operand2)
+	if len(candidates) == 0 {
+		return nil, false, nil
+	}
+
 	for _, variant := range variants {
 		addressing, ok := selectValueFirstAddressing(variant)
 		if !ok {
@@ -240,15 +362,21 @@ func resolveValueRegisterOperands(variants []*cpuz80.Instruction, token1, token2
 		}
 
 		for _, candidate := range candidates {
-			if !supportsValueFirstRegister(variant, candidate) {
+			resolvedRegister, ok := resolveValueFirstRegister(variant, candidate)
+			if !ok {
 				continue
+			}
+
+			operandValues := []ast.Node{value}
+			if operand2.displacement != nil {
+				operandValues = append(operandValues, operand2.displacement)
 			}
 
 			return &ResolvedInstruction{
 				Addressing:     addressing,
 				Instruction:    variant,
-				RegisterParams: []cpuz80.RegisterParam{candidate},
-				OperandValues:  []ast.Node{value},
+				RegisterParams: []cpuz80.RegisterParam{resolvedRegister},
+				OperandValues:  operandValues,
 			}, true, nil
 		}
 	}
@@ -307,20 +435,38 @@ func selectValueFirstAddressing(variant *cpuz80.Instruction) (cpuz80.AddressingM
 	}
 }
 
-func supportsValueFirstRegister(variant *cpuz80.Instruction, register cpuz80.RegisterParam) bool {
+func resolveValueFirstRegister(variant *cpuz80.Instruction, register cpuz80.RegisterParam) (cpuz80.RegisterParam, bool) {
 	if _, ok := variant.RegisterOpcodes[register]; ok {
-		return true
+		return register, true
 	}
 
 	if isBitOperation(variant) {
-		return isBitTargetRegister(register)
+		if isBitTargetRegister(register) {
+			return register, true
+		}
+
+		switch {
+		case register == cpuz80.RegIXIndirect && isDdcbBitOperation(variant):
+			return cpuz80.RegHLIndirect, true
+		case register == cpuz80.RegIYIndirect && isFdcbBitOperation(variant):
+			return cpuz80.RegHLIndirect, true
+		}
 	}
 
-	return false
+	return cpuz80.RegNone, false
 }
 
 func isBitOperation(variant *cpuz80.Instruction) bool {
-	return variant == cpuz80.CBBit || variant == cpuz80.CBRes || variant == cpuz80.CBSet
+	return variant == cpuz80.CBBit || variant == cpuz80.CBRes || variant == cpuz80.CBSet ||
+		isDdcbBitOperation(variant) || isFdcbBitOperation(variant)
+}
+
+func isDdcbBitOperation(variant *cpuz80.Instruction) bool {
+	return variant == cpuz80.DdcbBit || variant == cpuz80.DdcbRes || variant == cpuz80.DdcbSet
+}
+
+func isFdcbBitOperation(variant *cpuz80.Instruction) bool {
+	return variant == cpuz80.FdcbBit || variant == cpuz80.FdcbRes || variant == cpuz80.FdcbSet
 }
 
 func isBitTargetRegister(register cpuz80.RegisterParam) bool {
@@ -343,6 +489,112 @@ func selectValueAddressing(variant *cpuz80.Instruction) (cpuz80.AddressingMode, 
 	default:
 		return cpuz80.NoAddressing, false
 	}
+}
+
+func selectRegisterAddressing(variant *cpuz80.Instruction, parenthesized bool) (cpuz80.AddressingMode, bool) {
+	if parenthesized && variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+		return cpuz80.RegisterIndirectAddressing, true
+	}
+	if parenthesized && variant.HasAddressing(cpuz80.PortAddressing) {
+		return cpuz80.PortAddressing, true
+	}
+	if variant.HasAddressing(cpuz80.RegisterAddressing) {
+		return cpuz80.RegisterAddressing, true
+	}
+	if variant.HasAddressing(cpuz80.ImpliedAddressing) {
+		return cpuz80.ImpliedAddressing, true
+	}
+
+	if len(variant.Addressing) == 1 {
+		for addressing := range variant.Addressing {
+			return addressing, true
+		}
+	}
+
+	return cpuz80.NoAddressing, false
+}
+
+func prefixMatchesIndexedBase(prefix byte, operand rawOperand) bool {
+	indexedRegister, ok := operandIndexedRegister(operand)
+	if !ok {
+		return true
+	}
+
+	return matchesIndexedRegisterPrefix(indexedRegister, prefix)
+}
+
+func matchesIndexedRegisterPrefix(indexedRegister cpuz80.RegisterParam, prefix byte) bool {
+	switch indexedRegister {
+	case cpuz80.RegIXIndirect:
+		return prefix == cpuz80.PrefixDD
+	case cpuz80.RegIYIndirect:
+		return prefix == cpuz80.PrefixFD
+	default:
+		return false
+	}
+}
+
+func matchesIndexedLoadDirection(variant *cpuz80.Instruction, opcode byte, registerFirst bool) bool {
+	if variant.Name != cpuz80.LdName {
+		return true
+	}
+
+	if registerFirst {
+		return opcode&0x07 == 0x06
+	}
+
+	return opcode&0xF8 == 0x70
+}
+
+func operandValue(operand rawOperand) (ast.Node, bool, error) {
+	if operand.value != nil {
+		return operand.value, true, nil
+	}
+
+	return parseValueOperand(operand.token)
+}
+
+func operandRegisterCandidates(operand rawOperand) []cpuz80.RegisterParam {
+	if len(operand.registerParams) > 0 {
+		return operand.registerParams
+	}
+
+	if operand.token.Type == token.Identifier {
+		return registerCandidatesForIdentifier(operand.token.Value)
+	}
+
+	return nil
+}
+
+func operandRegisterOnlyCandidates(operand rawOperand) []cpuz80.RegisterParam {
+	if len(operand.registerParams) > 0 {
+		return operand.registerParams
+	}
+
+	if operand.token.Type != token.Identifier {
+		return nil
+	}
+
+	registerParam, ok := registerOnlyCandidate(operand.token.Value)
+	if !ok {
+		return nil
+	}
+	return []cpuz80.RegisterParam{registerParam}
+}
+
+func operandIndexedRegister(operand rawOperand) (cpuz80.RegisterParam, bool) {
+	if operand.displacement == nil {
+		return cpuz80.RegNone, false
+	}
+
+	for _, candidate := range operandRegisterCandidates(operand) {
+		switch candidate {
+		case cpuz80.RegIXIndirect, cpuz80.RegIYIndirect:
+			return candidate, true
+		}
+	}
+
+	return cpuz80.RegNone, false
 }
 
 func parseValueOperand(tok token.Token) (ast.Node, bool, error) {
