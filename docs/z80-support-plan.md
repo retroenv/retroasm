@@ -13,6 +13,7 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on February 28, 2026: Phase 4 (opcode generation core).
 - Completed on February 28, 2026: Phase 5 (extended instruction coverage).
 - Completed on March 1, 2026: Phase 6 (CLI/runtime integration).
+- Completed on March 1, 2026: Phase 7 (integration fixtures and regression harness).
 - Next implementation target: None (all planned phases completed).
 
 ## Scope
@@ -296,6 +297,41 @@ Completed result:
   - CPU-specific architecture registration,
   - assembly with config file for both 6502 and Z80.
 
+## Phase 7: Integration Fixtures and Regression Harness (Completed)
+
+Files:
+
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/basic.asm`
+- `tests/z80/indexed.asm`
+- `tests/z80/branches.asm`
+- `tests/z80/branches_overflow.asm`
+
+Tasks:
+
+- Add fixture-driven Z80 integration tests that parse and assemble real source files through the runtime architecture path.
+- Verify byte-accurate output for core, prefixed, and branch/control-flow samples.
+- Add a regression fixture that intentionally exceeds relative-branch range and assert the assembler returns an error.
+
+Definition of done:
+
+- `go test ./cmd/retroasm` assembles fixture sources end-to-end with `-cpu z80` architecture registration.
+- Expected bytes are asserted for passing fixtures.
+- Out-of-range relative branch fixture fails with a clear error.
+
+Completed result:
+
+- Added fixture-based integration tests in `cmd/retroasm/z80_fixture_test.go` that:
+  - read source files from `tests/z80` using a dynamic project-root path (no hardcoded absolute paths),
+  - register Z80 architecture via the same runtime registration path used by CLI logic,
+  - assemble fixtures through `retroasm.AssembleText`,
+  - assert exact output bytes for `basic.asm`, `indexed.asm`, and `branches.asm`.
+- Added `branches_overflow.asm` regression fixture and assertion that assembly fails with a relative-offset range error.
+- Added fixture inputs for:
+  - core smoke path (`basic.asm`),
+  - prefix-heavy instruction path (`indexed.asm`),
+  - control-flow branch/call/jump path (`branches.asm`).
+
 ## Testing Strategy
 
 ## Unit Tests
@@ -307,8 +343,9 @@ Completed result:
 ## Integration Tests
 
 - `tests/z80/basic.asm` core instruction smoke test
-- `tests/z80/indexed.asm` IX/IY displacement coverage
-- `tests/z80/branches.asm` relative range/overflow checks
+- `tests/z80/indexed.asm` IX/IY + prefixed opcode coverage (`DD`, `FD`, `ED`)
+- `tests/z80/branches.asm` relative and absolute control-flow encoding checks
+- `tests/z80/branches_overflow.asm` relative branch out-of-range regression check
 
 ## Regression Requirements
 
@@ -335,5 +372,6 @@ Completed result:
 5. Phase 4 (opcode generation core)
 6. Phase 5 (coverage expansion)
 7. Phase 6 (CLI/runtime integration)
+8. Phase 7 (fixture-based integration regression)
 
 This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.

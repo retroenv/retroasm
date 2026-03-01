@@ -20,5 +20,12 @@ coverage.txt
 *.nes
 docs/
 dist/
-tests/
+tests/*
 /retroasm
+
+!tests/z80/
+tests/z80/*
+!tests/z80/basic.asm
+!tests/z80/indexed.asm
+!tests/z80/branches.asm
+!tests/z80/branches_overflow.asm
