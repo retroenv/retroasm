@@ -3,6 +3,7 @@ package assembler
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,9 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 	case uint64:
 		return arg, nil
 
+	case ast.Number:
+		return arg.Value, nil
+
 	case reference:
 		name, offset := parseReferenceOffset(arg.name)
 
@@ -42,12 +46,28 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 
 		switch v := value.(type) {
 		case int64:
-			return uint64(v) + uint64(offset), nil
+			adjusted, err := applyInt64Offset(v, offset)
+			if err != nil {
+				return 0, err
+			}
+			if adjusted < 0 {
+				return 0, fmt.Errorf("reference '%s' resolved to negative value %d", arg.name, adjusted)
+			}
+			return uint64(adjusted), nil
 		case uint64:
-			return v + uint64(offset), nil
+			return applyUint64Offset(v, offset)
 		default:
 			return 0, fmt.Errorf("unexpected argument value type %T", value)
 		}
+
+	case ast.Label:
+		return aa.ArgumentValue(reference{name: arg.Name})
+
+	case ast.Identifier:
+		return aa.ArgumentValue(reference{name: arg.Name})
+
+	case ast.Expression:
+		return aa.argumentExpressionValue(arg)
 
 	default:
 		return 0, fmt.Errorf("unexpected argument type %T", arg)
@@ -73,6 +93,47 @@ func (aa *addressAssign[T]) RelativeOffset(destination, addressAfterInstruction 
 // ProgramCounter returns the current program counter.
 func (aa *addressAssign[T]) ProgramCounter() uint64 {
 	return aa.programCounter
+}
+
+func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (uint64, error) {
+	if exprNode.Value == nil {
+		return 0, errors.New("expression argument value is nil")
+	}
+
+	width := aa.addressWidth()
+
+	var (
+		value any
+		err   error
+	)
+
+	if exprNode.Value.IsEvaluatedAtAddressAssign() {
+		value, err = exprNode.Value.EvaluateAtProgramCounter(aa.currentScope, width, aa.programCounter)
+	} else {
+		value, err = exprNode.Value.Evaluate(aa.currentScope, width)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("evaluating expression argument: %w", err)
+	}
+
+	switch v := value.(type) {
+	case int64:
+		if v < 0 {
+			return 0, fmt.Errorf("expression result %d is negative", v)
+		}
+		return uint64(v), nil
+	case uint64:
+		return v, nil
+	default:
+		return 0, fmt.Errorf("unexpected expression result type %T", value)
+	}
+}
+
+func (aa *addressAssign[T]) addressWidth() int {
+	if aa.arch == nil {
+		return 16
+	}
+	return aa.arch.AddressWidth()
 }
 
 // assignAddressesStep assigns an address for every node in each scope.
@@ -138,6 +199,33 @@ func parseReferenceOffset(name string) (string, int64) {
 		}
 	}
 	return name, 0
+}
+
+func applyInt64Offset(base, offset int64) (int64, error) {
+	if (offset > 0 && base > math.MaxInt64-offset) ||
+		(offset < 0 && base < math.MinInt64-offset) {
+
+		return 0, fmt.Errorf("offset overflow for base %d and offset %d", base, offset)
+	}
+
+	return base + offset, nil
+}
+
+func applyUint64Offset(base uint64, offset int64) (uint64, error) {
+	if offset >= 0 {
+		delta := uint64(offset)
+		if base > math.MaxUint64-delta {
+			return 0, fmt.Errorf("offset overflow for base %d and offset %d", base, offset)
+		}
+		return base + delta, nil
+	}
+
+	delta := uint64(-offset)
+	if base < delta {
+		return 0, fmt.Errorf("offset underflow for base %d and offset %d", base, offset)
+	}
+
+	return base - delta, nil
 }
 
 func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {

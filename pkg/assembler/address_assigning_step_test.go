@@ -3,7 +3,9 @@ package assembler
 import (
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	"github.com/retroenv/retroasm/pkg/scope"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -41,4 +43,31 @@ func TestAssignVariableAddress(t *testing.T) {
 	result := assignVariableAddress(aa, v)
 	assert.Equal(t, uint64(0x204), result)
 	assert.Equal(t, uint64(0x200), v.address)
+}
+
+func TestAddressAssign_ArgumentValueExpression(t *testing.T) {
+	aa := addressAssign[any]{
+		currentScope:   scope.New(nil),
+		programCounter: 0x200,
+	}
+
+	t.Run("evaluates arithmetic expression", func(t *testing.T) {
+		value, err := aa.ArgumentValue(ast.NewExpression(
+			token.Token{Type: token.Number, Value: "1"},
+			token.Token{Type: token.Plus},
+			token.Token{Type: token.Number, Value: "2"},
+		))
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(3), value)
+	})
+
+	t.Run("evaluates program counter expression", func(t *testing.T) {
+		value, err := aa.ArgumentValue(ast.NewExpression(
+			token.Token{Type: token.Number, Value: "$"},
+			token.Token{Type: token.Plus},
+			token.Token{Type: token.Number, Value: "1"},
+		))
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(0x201), value)
+	})
 }

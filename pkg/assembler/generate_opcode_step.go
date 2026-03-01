@@ -27,7 +27,9 @@ func generateOpcodesStep[T any](asm *Assembler[T]) error {
 
 			case *instruction:
 				assigner := &addressAssign[T]{
-					currentScope: currentScope,
+					arch:           arch,
+					currentScope:   currentScope,
+					programCounter: n.Address(),
 				}
 				if err := arch.GenerateInstructionOpcode(assigner, n); err != nil {
 					return fmt.Errorf("generating instruction node opcode: %w", err)
