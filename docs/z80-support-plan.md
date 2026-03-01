@@ -17,7 +17,20 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on March 1, 2026: Phase 8 (indexed and parenthesized operand parsing).
 - Completed on March 1, 2026: Phase 9 (extended indirect/register and port I/O operand resolution).
 - Completed on March 1, 2026: Phase 10 (tokenized offset operand parsing for value and parenthesized forms).
-- Next implementation target: None (all planned phases completed through Phase 10).
+- Completed on March 1, 2026: Phase 11 (chained tokenized offset operand parsing).
+- Completed on March 1, 2026: Phase 12 (expression-backed operand values and displacement support).
+- Next implementation target: Phase 13 (profile strictness and undocumented-op policy).
+
+## What Is Missing (Post-Phase 11)
+
+The assembler path is now functional and broadly covered, but these gaps remain for a production-ready Z80 frontend:
+
+1. Target profile strictness is not explicit.
+   - Missing: optional strict validation for profile-specific instruction subsets (`z80`, `gameboy-z80-subset`) and undocumented-op policies.
+2. Error diagnostics are still parser-internal rather than user-optimized.
+   - Missing: richer, context-aware error messages for common ambiguity/operand failures.
+3. Robustness testing can be strengthened.
+   - Missing: fuzz/property tests and a wider compatibility fixture corpus.
 
 ## Scope
 
@@ -55,6 +68,8 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 11. Z80 parser operand handling now supports parenthesized indirect/register forms and indexed displacement forms used by IX/IY instruction families.
 12. Z80 resolver matching now supports parenthesized extended indirect/register transfer forms (`ld r,(nn)`, `ld (nn),r`) and both port I/O families (`in a,(n)` / `out (n),a` and `in r,(c)` / `out (c),r`) with opcode-direction disambiguation for ambiguous `ld` variants.
 13. Z80 operand parsing now supports tokenized offset expressions for instruction values and parenthesized values (`label+1`, `label-1`, `(label+1)`, `($10+1)`), while preserving indexed IX/IY displacement parsing.
+14. Z80 operand parsing now supports chained tokenized offset expressions (`label+3-1`, `(label+3-1)`, `($10+3-1)`) with accumulation overflow/underflow validation.
+15. Z80 instruction operands and indexed displacements now support expression-backed AST values, including mixed symbolic arithmetic (for example `target+delta`, `table+index`, `ix+disp`).
 
 ## Architecture Decisions
 
@@ -468,6 +483,150 @@ Completed result:
 - Added `tests/z80/offsets.asm` and expected bytes in `cmd/retroasm/z80_fixture_test.go` for end-to-end regression coverage.
 - Updated `.gitignore` to include the new Z80 offset fixture file.
 
+## Phase 11: Chained Tokenized Offset Operand Parsing (Completed)
+
+Files:
+
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/offsets_chained.asm`
+- `.gitignore`
+
+Tasks:
+
+- Extend tokenized offset parsing from single-term offsets to chained additive/subtractive terms:
+  - `label+3-1`,
+  - `(label+3-1)`,
+  - `($10+3-1)`.
+- Reuse chained offset parsing for both plain and parenthesized value operands.
+- Validate offset term parsing errors for invalid forms (missing numeric term after `+`/`-`).
+- Add parser and integration fixture regressions for chained-offset assembly output.
+
+Definition of done:
+
+- Parser accepts chained `+/-` numeric offset terms on identifier and numeric bases.
+- Parenthesized chained offsets resolve correctly for extended and port-addressing instruction forms.
+- Invalid chained offset syntax returns deterministic parser errors.
+- End-to-end fixture assembly validates expected bytes for chained offset source.
+
+Completed result:
+
+- Updated `pkg/arch/z80/parser/instruction.go` to parse and accumulate chained `+/- number` offset terms.
+- Reused accumulated offset handling across both unparenthesized and parenthesized operand parsing paths.
+- Added range checks for signed offset accumulation and numeric base overflow/underflow.
+- Expanded `pkg/arch/z80/parser/instruction_test.go` coverage for:
+  - `jp target+3-1`,
+  - `ld a,(table+3-1)`,
+  - `in a,($10+3-1)`,
+  - invalid `target+` trailing-operator syntax.
+- Added `tests/z80/offsets_chained.asm` and expected fixture bytes in `cmd/retroasm/z80_fixture_test.go`.
+- Updated `.gitignore` to include the chained-offset fixture file.
+
+## Phase 12: Expression-Backed Operand Values and Displacements (Completed)
+
+Files:
+
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/assembler/address_assigning_step.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/expressions.asm`
+
+Tasks:
+
+- Replace token-only instruction operand value handling with expression-backed values where needed.
+- Support richer operand expressions in instruction contexts:
+  - `jp target+other`,
+  - `ld a,(table+index)`,
+  - `(ix+label-$)` style displacement expressions (if representable safely in current pipeline).
+- Ensure address assignment can evaluate these expressions via scope symbols without string-encoded offsets.
+- Preserve existing fast paths for simple literal/register operands.
+
+Definition of done:
+
+- Instruction operands can carry and resolve expression AST payloads, not only labels/numbers.
+- Existing offset-chain syntax keeps working unchanged.
+- New expression fixture assembles with expected bytes and no regressions in current fixtures.
+
+Completed result:
+
+- Added AST expression operand node support in `pkg/parser/ast/expression.go` and copy coverage in `pkg/parser/ast/node_test.go`.
+- Updated `pkg/arch/z80/parser/instruction.go` to emit expression-backed operand values for non-trivial value expressions and parenthesized expressions.
+- Extended indexed displacement parsing to accept expression displacements (for example `(ix+disp)`), while preserving numeric fast paths.
+- Updated `pkg/assembler/address_assigning_step.go` to evaluate `ast.Expression` operands during argument resolution, including `$` program-counter expressions.
+- Updated generic opcode generation setup in `pkg/assembler/generate_opcode_step.go` so expression evaluation has architecture width and instruction address context.
+- Expanded parser tests in `pkg/arch/z80/parser/instruction_test.go` for symbolic expressions in jump/extended/port/indexed-displacement forms.
+- Added end-to-end expression fixture `tests/z80/expressions.asm` with expected output in `cmd/retroasm/z80_fixture_test.go`.
+- Updated `.gitignore` fixture allowlist with `tests/z80/expressions.asm`.
+
+## Phase 13: Profile Strictness and Undocumented-Op Policy (Planned)
+
+Files:
+
+- `cmd/retroasm/main.go`
+- `pkg/arch/z80/z80.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/profile/*` (new package, if needed)
+- `cmd/retroasm/main_test.go`
+- `cmd/retroasm/z80_fixture_test.go`
+
+Tasks:
+
+- Add explicit Z80 profile selection (for example: default, strict documented-only, gameboy-subset).
+- Enforce profile-specific opcode acceptance at resolver or opcode generation boundary.
+- Keep current default behavior backward compatible.
+
+Definition of done:
+
+- CLI/profile config can enable strict profile validation.
+- Unsupported-by-profile instructions fail with clear errors.
+- Default profile behavior remains unchanged.
+
+## Phase 14: Parser/Resolver Diagnostic Quality Pass (Planned)
+
+Files:
+
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/parser/*_test.go`
+
+Tasks:
+
+- Replace generic resolution failures with actionable diagnostics that include expected operand families.
+- Add focused errors for top confusion points:
+  - condition vs register `c`,
+  - immediate vs indirect/addressed forms,
+  - indexed vs non-indexed load direction conflicts.
+- Add regression tests that assert message quality for representative failure cases.
+
+Definition of done:
+
+- High-frequency parse/resolution failures produce deterministic, specific messages.
+- Existing success-path behavior remains unchanged.
+
+## Phase 15: Robustness and Compatibility Expansion (Planned)
+
+Files:
+
+- `pkg/arch/z80/parser/*_test.go`
+- `pkg/arch/z80/assembler/*_test.go`
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/*` (new compatibility fixtures)
+
+Tasks:
+
+- Add fuzz/property tests for parser operand forms and resolver variant selection.
+- Expand fixture corpus with compatibility-style sources (including tricky expression and control-flow cases).
+- Add matrix assertions for boundary values (relative branches, displacements, port values, extended addresses).
+
+Definition of done:
+
+- Fuzz/property tests run in CI without flakiness.
+- Fixture matrix covers all critical operand categories and boundary conditions.
+- No regressions across existing Z80 and 6502 test suites.
+
 ## Testing Strategy
 
 ## Unit Tests
@@ -484,6 +643,9 @@ Completed result:
 - `tests/z80/branches_overflow.asm` relative branch out-of-range regression check
 - `tests/z80/io_extended.asm` extended indirect register transfer and port I/O coverage (`LD (nn),r` / `LD r,(nn)`, `IN/OUT`)
 - `tests/z80/offsets.asm` tokenized offset operand coverage (`label+n`, `(label+n)`, `($nn+n)`)
+- `tests/z80/offsets_chained.asm` chained tokenized offset coverage (`label+n-m`, `(label+n-m)`, `($nn+n-m)`)
+- `tests/z80/expressions.asm` expression-backed operand and indexed displacement coverage (`target+delta`, `table+index`, `(ix+disp)`)
+- Planned: additional compatibility fixtures for strict profile behavior and unsupported-op diagnostics
 
 ## Regression Requirements
 
@@ -514,5 +676,10 @@ Completed result:
 9. Phase 8 (indexed/parenthesized operand parser completion)
 10. Phase 9 (extended indirect/register and port I/O operand resolution)
 11. Phase 10 (tokenized offset operand parsing)
+12. Phase 11 (chained tokenized offset operand parsing)
+13. Phase 12 (expression-backed operand values and displacements)
+14. Phase 13 (profile strictness and undocumented-op policy)
+15. Phase 14 (parser/resolver diagnostic quality pass)
+16. Phase 15 (robustness and compatibility expansion)
 
 This order gets a small but real end-to-end Z80 path working early, then scales coverage safely.

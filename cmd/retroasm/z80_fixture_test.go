@@ -69,6 +69,14 @@ var z80FixtureExpected = map[string][]byte{
 		0x00,
 		0x11, 0x22, 0x33, 0x44, 0x55,
 	},
+	"expressions.asm": {
+		0xC3, 0x0E, 0x80,
+		0x3A, 0x0E, 0x80,
+		0x32, 0x0F, 0x80,
+		0xDD, 0x7E, 0x01,
+		0x00,
+		0x10, 0x20, 0x30,
+	},
 }
 
 func TestAssembleZ80Fixtures(t *testing.T) {
@@ -82,6 +90,7 @@ func TestAssembleZ80Fixtures(t *testing.T) {
 		{name: "io and extended forms", fixture: "io_extended.asm"},
 		{name: "offset expressions", fixture: "offsets.asm"},
 		{name: "chained offset expressions", fixture: "offsets_chained.asm"},
+		{name: "symbolic expressions", fixture: "expressions.asm"},
 	}
 
 	for _, tt := range tests {

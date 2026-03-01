@@ -100,7 +100,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
 			wantVariant:    cpuz80.JpAbs,
 			wantAddressing: cpuz80.ExtendedAddressing,
-			wantValues:     []ast.Node{ast.NewLabel("target+2")},
+			wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "target"}, token.Token{Type: token.Plus}, token.Token{Type: token.Number, Value: "2"})},
 		},
 		{
 			name:           "jp absolute with chained offsets",
@@ -109,7 +109,24 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
 			wantVariant:    cpuz80.JpAbs,
 			wantAddressing: cpuz80.ExtendedAddressing,
-			wantValues:     []ast.Node{ast.NewLabel("target+2")},
+			wantValues: []ast.Node{
+				expressionNode(
+					token.Token{Type: token.Identifier, Value: "target"},
+					token.Token{Type: token.Plus},
+					token.Token{Type: token.Number, Value: "3"},
+					token.Token{Type: token.Minus},
+					token.Token{Type: token.Number, Value: "1"},
+				),
+			},
+		},
+		{
+			name:           "jp absolute with symbolic expression",
+			mnemonic:       cpuz80.JpName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "jp"}, {Type: token.Identifier, Value: "target"}, {Type: token.Plus}, {Type: token.Identifier, Value: "delta"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
+			wantVariant:    cpuz80.JpAbs,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "target"}, token.Token{Type: token.Plus}, token.Token{Type: token.Identifier, Value: "delta"})},
 		},
 		{
 			name:           "jp conditional with c uses condition code",
@@ -166,7 +183,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			wantVariant:    cpuz80.LdExtended,
 			wantAddressing: cpuz80.ExtendedAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
-			wantValues:     []ast.Node{ast.NewLabel("table+1")},
+			wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "table"}, token.Token{Type: token.Plus}, token.Token{Type: token.Number, Value: "1"})},
 		},
 		{
 			name:     "ld a,(label+n-m) extended load",
@@ -188,7 +205,35 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			wantVariant:    cpuz80.LdExtended,
 			wantAddressing: cpuz80.ExtendedAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
-			wantValues:     []ast.Node{ast.NewLabel("table+2")},
+			wantValues: []ast.Node{
+				expressionNode(
+					token.Token{Type: token.Identifier, Value: "table"},
+					token.Token{Type: token.Plus},
+					token.Token{Type: token.Number, Value: "3"},
+					token.Token{Type: token.Minus},
+					token.Token{Type: token.Number, Value: "1"},
+				),
+			},
+		},
+		{
+			name:     "ld a,(label+index) extended load",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "table"},
+				{Type: token.Plus},
+				{Type: token.Identifier, Value: "index"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdImm8, cpuz80.LdExtended},
+			wantVariant:    cpuz80.LdExtended,
+			wantAddressing: cpuz80.ExtendedAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
+			wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "table"}, token.Token{Type: token.Plus}, token.Token{Type: token.Identifier, Value: "index"})},
 		},
 		{
 			name:     "ld (nn),a extended store",
@@ -278,7 +323,7 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			variants:       []*cpuz80.Instruction{cpuz80.InPort, cpuz80.EdInAC},
 			wantVariant:    cpuz80.InPort,
 			wantAddressing: cpuz80.PortAddressing,
-			wantValues:     []ast.Node{ast.NewNumber(0x11)},
+			wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Number, Value: "$10"}, token.Token{Type: token.Plus}, token.Token{Type: token.Number, Value: "1"})},
 		},
 		{
 			name:     "in a,(n+m-k) immediate port",
@@ -299,7 +344,15 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			variants:       []*cpuz80.Instruction{cpuz80.InPort, cpuz80.EdInAC},
 			wantVariant:    cpuz80.InPort,
 			wantAddressing: cpuz80.PortAddressing,
-			wantValues:     []ast.Node{ast.NewNumber(0x12)},
+			wantValues: []ast.Node{
+				expressionNode(
+					token.Token{Type: token.Number, Value: "$10"},
+					token.Token{Type: token.Plus},
+					token.Token{Type: token.Number, Value: "3"},
+					token.Token{Type: token.Minus},
+					token.Token{Type: token.Number, Value: "1"},
+				),
+			},
 		},
 		{
 			name:     "out (n),a immediate port",
@@ -381,6 +434,26 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			wantAddressing: cpuz80.RegisterIndirectAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
 			wantValues:     []ast.Node{ast.NewNumber(5)},
+		},
+		{
+			name:     "ld a indexed ix symbolic displacement",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.Plus},
+				{Type: token.Identifier, Value: "disp"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdAIXd, cpuz80.FdLdAIYd},
+			wantVariant:    cpuz80.DdLdAIXd,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "disp"})},
 		},
 		{
 			name:     "ld indexed iy displacement a",
@@ -623,13 +696,14 @@ func parseIdentifierErrorCasesPortAndOffset() []parseIdentifierErrorCase {
 			variants: []*cpuz80.Instruction{cpuz80.OutPort, cpuz80.EdOutCB},
 		},
 		{
-			name:     "offset operator requires numeric value",
+			name:     "offset expression missing operator between values",
 			mnemonic: cpuz80.JpName,
 			tokens: []token.Token{
 				{Type: token.Identifier, Value: "jp"},
 				{Type: token.Identifier, Value: "target"},
 				{Type: token.Plus},
 				{Type: token.Identifier, Value: "next"},
+				{Type: token.Identifier, Value: "extra"},
 				{Type: token.EOL},
 			},
 			variants: []*cpuz80.Instruction{cpuz80.JpAbs},
@@ -646,4 +720,8 @@ func parseIdentifierErrorCasesPortAndOffset() []parseIdentifierErrorCase {
 			variants: []*cpuz80.Instruction{cpuz80.JpAbs},
 		},
 	}
+}
+
+func expressionNode(tokens ...token.Token) ast.Node {
+	return ast.NewExpression(tokens...)
 }
