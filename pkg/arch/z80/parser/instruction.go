@@ -216,62 +216,60 @@ func parseIndexedOperand(parser arch.Parser, base string, operator token.Type) (
 }
 
 func parseOffsetOperand(parser arch.Parser, base token.Token) (rawOperand, bool, error) {
-	operator := parser.NextToken(1).Type
-	if operator != token.Plus && operator != token.Minus {
+	offset, consumed, err := parseOffsetTerms(parser, 1)
+	if err != nil {
+		return rawOperand{}, false, err
+	}
+	if consumed == 0 {
 		return rawOperand{}, false, nil
 	}
 
-	offsetToken := parser.NextToken(2)
-	if offsetToken.Type != token.Number {
-		return rawOperand{}, false, fmt.Errorf("expected numeric offset after '%s', got %s", operator, offsetToken.Type)
-	}
-
-	value, err := parseOffsetValue(base, operator, offsetToken)
+	value, err := parseOffsetValue(base, offset)
 	if err != nil {
 		return rawOperand{}, false, err
 	}
 
-	parser.AdvanceReadPosition(2)
+	parser.AdvanceReadPosition(consumed)
 	return rawOperand{value: value}, true, nil
 }
 
 func parseParenthesizedOffsetOperand(parser arch.Parser, base token.Token, operator token.Type) (rawOperand, error) {
-	offsetToken := parser.NextToken(3)
-	if offsetToken.Type != token.Number {
-		return rawOperand{}, fmt.Errorf("expected numeric offset in parenthesized operand, got %s", offsetToken.Type)
+	offset, consumed, err := parseOffsetTerms(parser, 2)
+	if err != nil {
+		return rawOperand{}, err
 	}
-	if parser.NextToken(4).Type != token.RightParentheses {
+	if consumed == 0 {
+		return rawOperand{}, fmt.Errorf("expected numeric offset in parenthesized operand after '%s'", operator)
+	}
+
+	closingOffset := 2 + consumed
+	if parser.NextToken(closingOffset).Type != token.RightParentheses {
 		return rawOperand{}, errors.New("missing closing parenthesis")
 	}
 
-	value, err := parseOffsetValue(base, operator, offsetToken)
+	value, err := parseOffsetValue(base, offset)
 	if err != nil {
 		return rawOperand{}, err
 	}
 
-	parser.AdvanceReadPosition(4)
+	parser.AdvanceReadPosition(closingOffset)
 	return rawOperand{
 		parenthesized: true,
 		value:         value,
 	}, nil
 }
 
-func parseOffsetValue(base token.Token, operator token.Type, offsetToken token.Token) (ast.Node, error) {
-	offset, err := parseNumericToken(offsetToken)
-	if err != nil {
-		return nil, fmt.Errorf("parsing offset value '%s': %w", offsetToken.Value, err)
-	}
-
+func parseOffsetValue(base token.Token, offset int64) (ast.Node, error) {
 	switch base.Type {
 	case token.Identifier:
 		if offset == 0 {
 			return ast.NewLabel(base.Value), nil
 		}
 
-		if operator == token.Plus {
+		if offset > 0 {
 			return ast.NewLabel(fmt.Sprintf("%s+%d", base.Value, offset)), nil
 		}
-		return ast.NewLabel(fmt.Sprintf("%s-%d", base.Value, offset)), nil
+		return ast.NewLabel(fmt.Sprintf("%s-%d", base.Value, -offset)), nil
 
 	case token.Number:
 		baseValue, err := parseNumericToken(base)
@@ -279,23 +277,61 @@ func parseOffsetValue(base token.Token, operator token.Type, offsetToken token.T
 			return nil, fmt.Errorf("parsing base value '%s': %w", base.Value, err)
 		}
 
-		switch operator {
-		case token.Plus:
-			if baseValue > math.MaxUint64-offset {
-				return nil, fmt.Errorf("numeric offset overflow: %d + %d", baseValue, offset)
+		if offset >= 0 {
+			delta := uint64(offset)
+			if baseValue > math.MaxUint64-delta {
+				return nil, fmt.Errorf("numeric offset overflow: %d + %d", baseValue, delta)
 			}
-			return ast.NewNumber(baseValue + offset), nil
-		case token.Minus:
-			if baseValue < offset {
-				return nil, fmt.Errorf("numeric offset underflow: %d - %d", baseValue, offset)
-			}
-			return ast.NewNumber(baseValue - offset), nil
-		default:
-			return nil, fmt.Errorf("unsupported offset operator %s", operator)
+			return ast.NewNumber(baseValue + delta), nil
 		}
+
+		delta := uint64(-offset)
+		if baseValue < delta {
+			return nil, fmt.Errorf("numeric offset underflow: %d - %d", baseValue, delta)
+		}
+		return ast.NewNumber(baseValue - delta), nil
 
 	default:
 		return nil, fmt.Errorf("unsupported offset base token type %s", base.Type)
+	}
+}
+
+func parseOffsetTerms(parser arch.Parser, startOffset int) (int64, int, error) {
+	totalOffset := int64(0)
+	consumed := 0
+
+	for {
+		operator := parser.NextToken(startOffset + consumed).Type
+		if operator != token.Plus && operator != token.Minus {
+			return totalOffset, consumed, nil
+		}
+
+		valueToken := parser.NextToken(startOffset + consumed + 1)
+		if valueToken.Type != token.Number {
+			return 0, 0, fmt.Errorf("expected numeric offset after '%s', got %s", operator, valueToken.Type)
+		}
+
+		value, err := parseNumericToken(valueToken)
+		if err != nil {
+			return 0, 0, fmt.Errorf("parsing offset value '%s': %w", valueToken.Value, err)
+		}
+		if value > math.MaxInt64 {
+			return 0, 0, fmt.Errorf("offset value %d exceeds signed range", value)
+		}
+
+		delta := int64(value)
+		if operator == token.Minus {
+			delta = -delta
+		}
+
+		if (delta > 0 && totalOffset > math.MaxInt64-delta) ||
+			(delta < 0 && totalOffset < math.MinInt64-delta) {
+
+			return 0, 0, fmt.Errorf("offset accumulation overflow with delta %d", delta)
+		}
+
+		totalOffset += delta
+		consumed += 2
 	}
 }
 

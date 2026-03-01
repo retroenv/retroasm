@@ -31,3 +31,4 @@ tests/z80/*
 !tests/z80/branches_overflow.asm
 !tests/z80/io_extended.asm
 !tests/z80/offsets.asm
+!tests/z80/offsets_chained.asm
