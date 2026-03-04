@@ -1,6 +1,6 @@
 # Branch `z80_support` vs `main` — Detailed Change Summary
 
-50 files changed, ~7100 insertions, ~160 deletions across three categories:
+44 files changed, ~8300 insertions, ~150 deletions across three categories:
 1. **Shared infrastructure** — changes to existing packages needed by any architecture
 2. **Z80 implementation** — new packages under `pkg/arch/z80/`
 3. **Tests and fixtures** — new test files and assembly fixture sources
@@ -315,29 +315,44 @@ Operand parsing covers:
 
 ### `pkg/arch/z80/parser/resolver.go`
 
-Resolves (mnemonic + parsed operands) → exact `*cpuz80.Instruction` variant + selected parameters.
+Resolves (mnemonic + parsed operands) → exact `*cpuz80.Instruction` variant + selected parameters. ~1665 lines, 60+ functions.
 
-**Single-operand pass** handles:
-- Implied (zero operands)
-- Register/condition single operand
-- Numeric single operand (IM n, RST n)
-- Value single operand (JP nn, CALL nn, JR e, LD r,n)
+**Zero-operand resolution** (`resolveNoOperand`):
+- Two-pass: first prefers variants without `RegisterOpcodes`, then allows them (needed for NEG, RETN which have undocumented register variants but are used without operands).
 
-**Two-operand passes** (executed in order):
-1. `resolveRegisterPairOperands` — reg-reg pairs (`LD A,B`)
-2. `resolveExtendedRegisterMemoryOperands` — `LD r,(nn)` / `LD (nn),r`
-3. `resolvePortRegisterOperands` — `IN r,(C)` / `OUT (C),r`
-4. `resolvePortImmediateOperands` — `IN A,(n)` / `OUT (n),A`
-5. `resolveRegisterIndexedOperands` — `LD r,(IX+d)` / `BIT n,(IX+d)`
-6. `resolveIndexedRegisterOperands` — `LD (IX+d),r`
-7. `resolveRegisterValueOperands` — `LD r,n`
-8. `resolveValueRegisterOperands` — `BIT/RES/SET b,r`
+**Single-operand resolution** (`resolveSingleOperand` → `resolveSingleRegisterOperand`):
+- Register/condition single operand via `matchRegisterOpcodeVariant`
+- Parenthesized indirect fallback via `resolveParenthesizedIndirect` (e.g., `JP (HL)`)
+- Indexed single operand fallback via `resolveIndexedSingleOperand` (e.g., `SUB (IX+d)` matching via prefix)
+- Numeric single operand (IM n, RST n) via `resolveSingleNumericRegisterOperand`
+- Value single operand (JP nn, CALL nn, JR e) with two-pass: first prefers variants without `RegisterOpcodes`, then allows them (needed for `SUB n`)
 
-Direction disambiguation for `LD` indexed variants uses opcode-bit pattern analysis (`matchesIndexedLoadDirection`, `matchesExtendedLoadDirection`).
+**Two-operand resolution** (`resolveTwoOperands` + `resolveTwoOperandsFallback`):
 
-Diagnostic errors for three high-confusion cases:
-- `C` condition vs register
-- Immediate vs parenthesized/indirect form
+Executed in order, split across two functions to satisfy cyclomatic complexity limits:
+
+1. `resolveRegisterPairOperands` — reg-reg pairs via `RegisterPairOpcodes` (`LD A,B`)
+2. `resolveAluRegisterPairOperands` — two-register ALU ops where second operand is the `RegisterOpcodes` key (`ADD A,B`, `ADD HL,BC`, `ADD IX,BC`, `SBC HL,BC`); skips LD instructions; uses `firstOperandMatchesPrefix` for IX/IY prefix matching
+3. `resolveIndirectLoadStoreOperands` — parenthesized indirect register ↔ direct register (`LD A,(HL)`, `LD (HL),A`, `LD A,(BC)`); uses `hasIndirectRegisterParam` to skip port `(C)` operands; delegates to `matchIndirectLoadStoreKeys` for key matching and `resolveStackPointerIndirectVariant` for `EX (SP),HL/IX/IY` fallback
+4. `resolveIndirectImmediateOperands` — parenthesized register + immediate value (`LD (HL),n` via `resolveIndirectRegisterImmediate`; `LD (IX+d),n` / `LD (IY+d),n` via `resolveIndexedImmediate`); skips when operand2 is a register (prevents matching `LD (IY-2),A`)
+5. `resolveSpecialRegisterPairOperands` — explicit register pairs via `specialRegisterPairs` lookup table (`LD I,A`, `LD A,R`, `LD SP,HL`, `LD SP,IX`, `LD SP,IY`, `EX DE,HL`, `EX AF,AF'`)
+6. `resolveExtendedRegisterMemoryOperands` — `LD r,(nn)` / `LD (nn),r` with HL preference (`resolveExtendedHLStore` prefers shorter 3-byte encoding over 4-byte ED-prefixed)
+7. `resolvePortRegisterOperands` — `IN r,(C)` / `OUT (C),r`
+8. `resolvePortImmediateOperands` — `IN A,(n)` / `OUT (n),A`
+9. `resolveRegisterIndexedOperands` — `LD r,(IX+d)` / `BIT n,(IX+d)`
+10. `resolveIndexedRegisterOperands` — `LD (IX+d),r`
+11. `resolveRegisterValueOperands` — `LD r,n`, `ADD A,n`; for non-LD ALU instructions with implicit accumulator (`ADD A,42`), omits `RegisterParams` so opcode generator uses `Addressing` map instead of `RegisterOpcodes[RegA]`
+12. `resolveValueRegisterOperands` — `BIT/RES/SET b,r`
+
+**Key helper tables:**
+- `specialRegisterPairs` — maps `[2]RegisterParam` → `*Instruction` for 9 special register pair instructions
+- `indirectRegisterKeys` / `hlLoadRegisterParam` — builds candidate `RegisterOpcodes` keys for indirect register operations
+
+**Direction disambiguation** for `LD` indexed variants uses opcode-bit pattern analysis (`matchesIndexedLoadDirection`, `matchesExtendedLoadDirection`).
+
+**Diagnostic errors** for three high-confusion cases:
+- `C` condition vs register ambiguity
+- Immediate vs parenthesized/indirect form mismatch
 - Indexed load direction mismatch
 
 ### `pkg/arch/z80/assembler/address_assigning_step.go`
@@ -365,12 +380,14 @@ Addressing-family byte emission:
 | Family | Bytes emitted |
 |--------|--------------|
 | `Implied`, `Register`, `Bit` | prefix (if any) + opcode |
-| `Immediate` | prefix+opcode + 1 or 2 operand bytes |
+| `Immediate` (1 operand) | prefix+opcode + 1-byte or 2-byte LE operand |
+| `Immediate` (2 operands) | prefix+opcode + displacement byte + immediate byte (e.g., `LD (IX+d),n`) |
 | `Extended` | prefix+opcode + 2-byte LE address |
 | `Relative` | prefix+opcode + signed 1-byte offset (`target - (addr + size)`) |
 | `RegisterIndirect`, `Port` | prefix+opcode + optional 1 operand byte |
 
 Special cases:
+- **Two-byte immediate**: `appendImmediateOperand` detects when `OperandValues` has 2+ entries and writes each as a separate byte (displacement + immediate), rather than treating as a single 16-bit LE value
 - **CB bit family** (`BIT/RES/SET b,r`): `buildBitOpcode` → `[CB, base + (bit<<3) + regCode]`
 - **Indexed bit family** (`BIT n,(IX/IY+d)`): `buildIndexedBitOpcode` → `[prefix, CB, displacement, base + (bit<<3) + regCode]`
 
@@ -404,12 +421,12 @@ Undocumented opcode detection uses:
 | `pkg/arch/z80/assembler/address_assigning_step_test.go` | `assembler` | 1/2/3/4-byte instruction size assignment, error paths |
 | `pkg/arch/z80/assembler/generate_opcode_step_test.go` | `assembler` | Core opcode emission matrix, boundary values (relative ±128/127, displacement 0x00/0xFF, port 0x00/0xFF, address 0x0000/0xFFFF), error paths |
 | `pkg/arch/z80/assembler/coverage_test.go` | `assembler` | Exhaustive: synthesises a valid `ResolvedInstruction` per opcode variant from all tables; validates address assignment + opcode generation for every variant |
-| `pkg/arch/z80/parser/instruction_test.go` | `parser` | 800+ lines; covers all operand forms, error cases, diagnostic message quality assertions |
+| `pkg/arch/z80/parser/instruction_test.go` | `parser` | ~1190 lines; covers all operand forms, all resolver paths (NEG/RETN implied, SUB immediate, ALU register pairs, indirect load/store, indirect immediate, special register pairs, indexed fallbacks, RegA stripping), error cases, diagnostic message quality assertions |
 | `pkg/arch/z80/parser/register_test.go` | `parser` | Register/condition/indirect/indexed classification table coverage |
 | `pkg/arch/z80/parser/fuzz_test.go` | `parser` | Property-based determinism: same token stream → same success/error outcome |
 | `pkg/arch/z80/parser/profile_test.go` | `parser` | Profile-gated instruction acceptance/rejection at parser level |
 | `pkg/arch/z80/profile/profile_test.go` | `profile` | Parse/validation for all three profiles |
-| `cmd/retroasm/z80_fixture_test.go` | `main` | End-to-end fixture assembly with byte-accurate assertions |
+| `cmd/retroasm/z80_fixture_test.go` | `main` | End-to-end fixture assembly with byte-accurate assertions; `TestAssembleZ80ResolverPaths` (54 inline assembly tests covering all resolver paths with binary output verification against z80asm reference); profile acceptance/rejection tests |
 
 ### Modified test files
 
@@ -441,7 +458,23 @@ Undocumented opcode detection uses:
 
 ---
 
-## 4. Dependency Relationships
+## 4. retrogolib Changes (External Dependency)
+
+The branch uses a `replace` directive in `go.mod` pointing to a local checkout of `retrogolib`. The following changes were made to `retrogolib/arch/cpu/z80/`:
+
+| File | Change |
+|------|--------|
+| `instruction_dd.go` | Added `DdLdSpIX` variant (`LD SP,IX`, DD F9) |
+| `instruction_fd.go` | Added `FdLdSpIY` variant (`LD SP,IY`, FD F9) |
+| `emulation_dd.go` | Added `ddLdSpIX` emulation function |
+| `emulation_fd.go` | Added `fdLdSpIY` emulation function |
+| `opcode.go` | Added DD 0xF9 and FD 0xF9 opcode table entries |
+
+These retrogolib changes must be merged/released before the `replace` directive can be removed from `go.mod`.
+
+---
+
+## 5. Dependency Relationships
 
 Changes can be separated into these layers (each depends only on layers below it):
 
