@@ -46,11 +46,25 @@ func resolveInstruction(variants []*cpuz80.Instruction, operands []rawOperand) (
 }
 
 func resolveNoOperand(variants []*cpuz80.Instruction) (*ResolvedInstruction, error) {
+	// First pass: prefer variants without register opcodes.
 	for _, variant := range variants {
 		if !variant.HasAddressing(cpuz80.ImpliedAddressing) {
 			continue
 		}
 		if len(variant.RegisterOpcodes) > 0 || len(variant.RegisterPairOpcodes) > 0 {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:  cpuz80.ImpliedAddressing,
+			Instruction: variant,
+		}, nil
+	}
+
+	// Second pass: allow variants with register opcodes (e.g., NEG, RETN have
+	// undocumented register variants but are used without operands).
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.ImpliedAddressing) {
 			continue
 		}
 
@@ -82,11 +96,27 @@ func resolveSingleOperand(variants []*cpuz80.Instruction, operand rawOperand) (*
 		}
 	}
 
+	// First pass: prefer variants without register opcodes.
 	for _, variant := range variants {
 		if len(variant.RegisterOpcodes) > 0 || len(variant.RegisterPairOpcodes) > 0 {
 			continue
 		}
 
+		addressing, ok := selectValueAddressing(variant)
+		if !ok {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:    addressing,
+			Instruction:   variant,
+			OperandValues: []ast.Node{value},
+		}, nil
+	}
+
+	// Second pass: allow variants with register opcodes (e.g., SUB n has
+	// RegisterOpcodes for register variants but also ImmediateAddressing).
+	for _, variant := range variants {
 		addressing, ok := selectValueAddressing(variant)
 		if !ok {
 			continue
@@ -108,6 +138,28 @@ func resolveSingleRegisterOperand(variants []*cpuz80.Instruction, operand rawOpe
 		return nil
 	}
 
+	if result := matchRegisterOpcodeVariant(variants, operand, candidates); result != nil {
+		return result
+	}
+
+	// Fallback: match parenthesized indirect register against Addressing map
+	// for variants without RegisterOpcodes (e.g., JP (HL), INC (HL)).
+	if operand.parenthesized && operand.displacement == nil {
+		if result := resolveParenthesizedIndirect(variants); result != nil {
+			return result
+		}
+	}
+
+	// Fallback: for indexed operands (ix+d/iy+d), match via prefix in
+	// RegisterOpcodes (e.g., SUB (IX+d) uses DD prefix with RegA as key).
+	if operand.displacement != nil {
+		return resolveIndexedSingleOperand(variants, operand)
+	}
+
+	return nil
+}
+
+func matchRegisterOpcodeVariant(variants []*cpuz80.Instruction, operand rawOperand, candidates []cpuz80.RegisterParam) *ResolvedInstruction {
 	for _, variant := range variants {
 		if len(variant.RegisterOpcodes) == 0 {
 			continue
@@ -123,7 +175,6 @@ func resolveSingleRegisterOperand(variants []*cpuz80.Instruction, operand rawOpe
 			if !ok {
 				continue
 			}
-
 			if !prefixMatchesIndexedBase(opcodeInfo.Prefix, operand) {
 				continue
 			}
@@ -141,6 +192,50 @@ func resolveSingleRegisterOperand(variants []*cpuz80.Instruction, operand rawOpe
 			}
 		}
 	}
+	return nil
+}
+
+func resolveParenthesizedIndirect(variants []*cpuz80.Instruction) *ResolvedInstruction {
+	for _, variant := range variants {
+		if len(variant.RegisterOpcodes) != 0 {
+			continue
+		}
+		if !variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:  cpuz80.RegisterIndirectAddressing,
+			Instruction: variant,
+		}
+	}
+	return nil
+}
+
+func resolveIndexedSingleOperand(variants []*cpuz80.Instruction, operand rawOperand) *ResolvedInstruction {
+	indexedRegister, ok := operandIndexedRegister(operand)
+	if !ok {
+		return nil
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+			continue
+		}
+
+		for param, opcodeInfo := range variant.RegisterOpcodes {
+			if !matchesIndexedRegisterPrefix(indexedRegister, opcodeInfo.Prefix) {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     cpuz80.RegisterIndirectAddressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{param},
+				OperandValues:  []ast.Node{operand.displacement},
+			}
+		}
+	}
 
 	return nil
 }
@@ -149,52 +244,47 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 	if result := resolveRegisterPairOperands(variants, operand1, operand2); result != nil {
 		return result, nil
 	}
-
-	result, matched, err := resolveExtendedRegisterMemoryOperands(variants, operand1, operand2)
-	if err != nil {
-		return nil, err
+	if result := resolveAluRegisterPairOperands(variants, operand1, operand2); result != nil {
+		return result, nil
 	}
-	if matched {
+	if result := resolveIndirectLoadStoreOperands(variants, operand1, operand2); result != nil {
 		return result, nil
 	}
 
-	result, matched = resolvePortRegisterOperands(variants, operand1, operand2)
-	if matched {
+	if result, matched, err := resolveIndirectImmediateOperands(variants, operand1, operand2); err != nil || matched {
+		return result, err
+	}
+	if result := resolveSpecialRegisterPairOperands(variants, operand1, operand2); result != nil {
 		return result, nil
 	}
 
-	result, matched, err = resolvePortImmediateOperands(variants, operand1, operand2)
-	if err != nil {
-		return nil, err
+	return resolveTwoOperandsFallback(variants, operand1, operand2)
+}
+
+func resolveTwoOperandsFallback(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, error) {
+	if result, matched, err := resolveExtendedRegisterMemoryOperands(variants, operand1, operand2); err != nil || matched {
+		return result, err
 	}
-	if matched {
+
+	if result, matched := resolvePortRegisterOperands(variants, operand1, operand2); matched {
+		return result, nil
+	}
+	if result, matched, err := resolvePortImmediateOperands(variants, operand1, operand2); err != nil || matched {
+		return result, err
+	}
+
+	if result, matched := resolveRegisterIndexedOperands(variants, operand1, operand2); matched {
+		return result, nil
+	}
+	if result, matched := resolveIndexedRegisterOperands(variants, operand1, operand2); matched {
 		return result, nil
 	}
 
-	result, matched = resolveRegisterIndexedOperands(variants, operand1, operand2)
-	if matched {
-		return result, nil
+	if result, matched, err := resolveRegisterValueOperands(variants, operand1, operand2); err != nil || matched {
+		return result, err
 	}
-
-	result, matched = resolveIndexedRegisterOperands(variants, operand1, operand2)
-	if matched {
-		return result, nil
-	}
-
-	result, matched, err = resolveRegisterValueOperands(variants, operand1, operand2)
-	if err != nil {
-		return nil, err
-	}
-	if matched {
-		return result, nil
-	}
-
-	result, matched, err = resolveValueRegisterOperands(variants, operand1, operand2)
-	if err != nil {
-		return nil, err
-	}
-	if matched {
-		return result, nil
+	if result, matched, err := resolveValueRegisterOperands(variants, operand1, operand2); err != nil || matched {
+		return result, err
 	}
 
 	return nil, diagnoseTwoOperandMismatch(variants, operand1, operand2)
@@ -239,6 +329,381 @@ func resolveRegisterPairOperands(variants []*cpuz80.Instruction, operand1, opera
 	return nil
 }
 
+// resolveAluRegisterPairOperands handles two-register ALU operations where the
+// second operand is the RegisterOpcodes key (e.g., ADD A,B; ADD HL,BC; ADD IX,BC).
+func resolveAluRegisterPairOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+	if operand1.parenthesized || operand2.parenthesized || operand1.displacement != nil || operand2.displacement != nil {
+		return nil
+	}
+
+	candidates1 := operandRegisterOnlyCandidates(operand1)
+	candidates2 := operandRegisterOnlyCandidates(operand2)
+	if len(candidates1) == 0 || len(candidates2) == 0 {
+		return nil
+	}
+
+	for _, variant := range variants {
+		if len(variant.RegisterOpcodes) == 0 || variant.Name == cpuz80.LdName {
+			continue
+		}
+
+		for _, c2 := range candidates2 {
+			opcodeInfo, ok := variant.RegisterOpcodes[c2]
+			if !ok {
+				continue
+			}
+
+			for _, c1 := range candidates1 {
+				if !firstOperandMatchesPrefix(c1, opcodeInfo.Prefix) {
+					continue
+				}
+
+				addressing := cpuz80.RegisterAddressing
+				if variant.HasAddressing(cpuz80.RegisterAddressing) {
+					addressing = cpuz80.RegisterAddressing
+				}
+
+				return &ResolvedInstruction{
+					Addressing:     addressing,
+					Instruction:    variant,
+					RegisterParams: []cpuz80.RegisterParam{c2},
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// resolveIndirectLoadStoreOperands handles patterns where one operand is a
+// parenthesized indirect register and the other is a direct register
+// (e.g., LD A,(HL); LD (HL),A; LD A,(BC); LD (BC),A; EX (SP),IX).
+func resolveIndirectLoadStoreOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+	if operand1.displacement != nil || operand2.displacement != nil {
+		return nil
+	}
+
+	var regOp, indOp rawOperand
+	var isLoad bool
+	switch {
+	case operand2.parenthesized && !operand1.parenthesized:
+		regOp, indOp = operand1, operand2
+		isLoad = true
+	case operand1.parenthesized && !operand2.parenthesized:
+		regOp, indOp = operand2, operand1
+		isLoad = false
+	default:
+		return nil
+	}
+
+	regCandidates := operandRegisterOnlyCandidates(regOp)
+	indCandidates := operandRegisterCandidates(indOp)
+	if len(regCandidates) == 0 || len(indCandidates) == 0 {
+		return nil
+	}
+
+	// Skip if the indirect operand is (c) — handled by port register resolver.
+	if !hasIndirectRegisterParam(indCandidates) {
+		return nil
+	}
+
+	keys := indirectRegisterKeys(regCandidates, indCandidates, isLoad)
+	if result := matchIndirectLoadStoreKeys(variants, keys); result != nil {
+		return result
+	}
+
+	// Fallback: Addressing-only variants for EX (SP),HL/IX/IY.
+	// Only match when the indirect operand is (sp).
+	if containsRegisterParam(indCandidates, cpuz80.RegSPIndirect) {
+		return resolveStackPointerIndirectVariant(variants)
+	}
+
+	return nil
+}
+
+func matchIndirectLoadStoreKeys(variants []*cpuz80.Instruction, keys []cpuz80.RegisterParam) *ResolvedInstruction {
+	for _, variant := range variants {
+		if len(variant.RegisterOpcodes) == 0 {
+			continue
+		}
+
+		for _, key := range keys {
+			if _, ok := variant.RegisterOpcodes[key]; !ok {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     indirectLoadStoreAddressing(variant),
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{key},
+			}
+		}
+	}
+	return nil
+}
+
+func resolveStackPointerIndirectVariant(variants []*cpuz80.Instruction) *ResolvedInstruction {
+	for _, variant := range variants {
+		if len(variant.RegisterOpcodes) != 0 {
+			continue
+		}
+		if !variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:  cpuz80.RegisterIndirectAddressing,
+			Instruction: variant,
+		}
+	}
+	return nil
+}
+
+func indirectLoadStoreAddressing(variant *cpuz80.Instruction) cpuz80.AddressingMode {
+	if variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+		return cpuz80.RegisterIndirectAddressing
+	}
+	if variant.HasAddressing(cpuz80.RegisterAddressing) {
+		return cpuz80.RegisterAddressing
+	}
+	return cpuz80.RegisterIndirectAddressing
+}
+
+// resolveIndirectImmediateOperands handles instructions where operand1 is a
+// parenthesized register (or indexed) and operand2 is an immediate value
+// (e.g., LD (HL),n; LD (IX+d),n; LD (IY+d),n).
+func resolveIndirectImmediateOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+	if !operand1.parenthesized {
+		return nil, false, nil
+	}
+
+	// Skip if operand2 is a register, not an immediate value.
+	if len(operandRegisterCandidates(operand2)) > 0 {
+		return nil, false, nil
+	}
+
+	value, ok, err := operandValue(operand2)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	// Case 1: LD (HL),n — uses RegisterIndirectAddressing without RegisterOpcodes.
+	if operand1.displacement == nil {
+		if result := resolveIndirectRegisterImmediate(variants, value); result != nil {
+			return result, true, nil
+		}
+		return nil, false, nil
+	}
+
+	// Case 2: LD (IX+d),n / LD (IY+d),n — uses ImmediateAddressing with displacement.
+	result := resolveIndexedImmediate(variants, operand1, value)
+	return result, result != nil, nil
+}
+
+func resolveIndirectRegisterImmediate(variants []*cpuz80.Instruction, value ast.Node) *ResolvedInstruction {
+	for _, variant := range variants {
+		if len(variant.RegisterOpcodes) != 0 {
+			continue
+		}
+		if !variant.HasAddressing(cpuz80.RegisterIndirectAddressing) {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:    cpuz80.RegisterIndirectAddressing,
+			Instruction:   variant,
+			OperandValues: []ast.Node{value},
+		}
+	}
+	return nil
+}
+
+func resolveIndexedImmediate(variants []*cpuz80.Instruction, operand1 rawOperand, value ast.Node) *ResolvedInstruction {
+	indexedRegister, ok := operandIndexedRegister(operand1)
+	if !ok {
+		return nil
+	}
+
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.ImmediateAddressing) {
+			continue
+		}
+
+		for param, opcodeInfo := range variant.RegisterOpcodes {
+			if !matchesIndexedRegisterPrefix(indexedRegister, opcodeInfo.Prefix) {
+				continue
+			}
+			// Only match displacement+immediate variants (keyed by RegImm8
+			// or RegIYIndirect), not 16-bit immediate loads (keyed by RegIX/RegIY).
+			if param == cpuz80.RegIX || param == cpuz80.RegIY {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     cpuz80.ImmediateAddressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{param},
+				OperandValues:  []ast.Node{operand1.displacement, value},
+			}
+		}
+	}
+
+	return nil
+}
+
+// resolveSpecialRegisterPairOperands handles explicit register-pair patterns
+// that cannot be resolved generically (e.g., LD SP,HL; LD I,A; LD A,I;
+// LD R,A; LD A,R; EX DE,HL).
+func resolveSpecialRegisterPairOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+	if operand1.parenthesized || operand2.parenthesized || operand1.displacement != nil || operand2.displacement != nil {
+		return nil
+	}
+
+	candidates1 := operandRegisterOnlyCandidates(operand1)
+	candidates2 := operandRegisterOnlyCandidates(operand2)
+	if len(candidates1) == 0 || len(candidates2) == 0 {
+		return nil
+	}
+
+	for _, c1 := range candidates1 {
+		for _, c2 := range candidates2 {
+			variant, ok := specialRegisterPairs[[2]cpuz80.RegisterParam{c1, c2}]
+			if !ok {
+				continue
+			}
+			if !containsVariant(variants, variant) {
+				continue
+			}
+
+			addressing := cpuz80.RegisterAddressing
+			if variant.HasAddressing(cpuz80.RegisterAddressing) {
+				addressing = cpuz80.RegisterAddressing
+			} else if variant.HasAddressing(cpuz80.ImpliedAddressing) {
+				addressing = cpuz80.ImpliedAddressing
+			}
+
+			registerKey := c1
+			if _, ok := variant.RegisterOpcodes[c1]; !ok {
+				registerKey = c2
+			}
+			if _, ok := variant.RegisterOpcodes[registerKey]; !ok {
+				return &ResolvedInstruction{
+					Addressing:  addressing,
+					Instruction: variant,
+				}
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     addressing,
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{registerKey},
+			}
+		}
+	}
+
+	return nil
+}
+
+var specialRegisterPairs = map[[2]cpuz80.RegisterParam]*cpuz80.Instruction{
+	{cpuz80.RegI, cpuz80.RegA}:   cpuz80.EdLdIA,
+	{cpuz80.RegR, cpuz80.RegA}:   cpuz80.EdLdRA,
+	{cpuz80.RegA, cpuz80.RegI}:   cpuz80.EdLdAI,
+	{cpuz80.RegA, cpuz80.RegR}:   cpuz80.EdLdAR,
+	{cpuz80.RegSP, cpuz80.RegHL}: cpuz80.LdSp,
+	{cpuz80.RegSP, cpuz80.RegIX}: cpuz80.DdLdSpIX,
+	{cpuz80.RegSP, cpuz80.RegIY}: cpuz80.FdLdSpIY,
+	{cpuz80.RegDE, cpuz80.RegHL}: cpuz80.ExDeHl,
+	{cpuz80.RegAF, cpuz80.RegAF}: cpuz80.ExAf,
+}
+
+// firstOperandMatchesPrefix checks if a register used as the first operand
+// in a two-register instruction matches the expected prefix for the variant.
+func firstOperandMatchesPrefix(register cpuz80.RegisterParam, prefix byte) bool {
+	switch register {
+	case cpuz80.RegIX, cpuz80.RegIXIndirect:
+		return prefix == cpuz80.PrefixDD
+	case cpuz80.RegIY, cpuz80.RegIYIndirect:
+		return prefix == cpuz80.PrefixFD
+	default:
+		return prefix == 0x00 || prefix == cpuz80.PrefixED
+	}
+}
+
+// indirectRegisterKeys builds candidate RegisterOpcodes keys for an indirect
+// register operation based on the register operands and direction.
+func indirectRegisterKeys(regCandidates, indCandidates []cpuz80.RegisterParam, isLoad bool) []cpuz80.RegisterParam {
+	var keys []cpuz80.RegisterParam
+
+	for _, reg := range regCandidates {
+		for _, ind := range indCandidates {
+			if isLoad {
+				if mapped, ok := hlLoadRegisterParam(reg, ind); ok {
+					keys = append(keys, mapped)
+				}
+			} else {
+				if ind == cpuz80.RegHLIndirect {
+					keys = append(keys, reg)
+				}
+				keys = append(keys, ind)
+				keys = append(keys, reg)
+			}
+		}
+	}
+
+	return keys
+}
+
+// hlLoadRegisterParam maps a destination register and indirect source to
+// the special RegisterParam used in LdReg8/LdIndirect RegisterOpcodes.
+func hlLoadRegisterParam(reg, ind cpuz80.RegisterParam) (cpuz80.RegisterParam, bool) {
+	if ind == cpuz80.RegHLIndirect {
+		switch reg {
+		case cpuz80.RegB:
+			return cpuz80.RegLoadHLB, true
+		case cpuz80.RegC:
+			return cpuz80.RegLoadHLC, true
+		case cpuz80.RegD:
+			return cpuz80.RegLoadHLD, true
+		case cpuz80.RegE:
+			return cpuz80.RegLoadHLE, true
+		case cpuz80.RegH:
+			return cpuz80.RegLoadHLH, true
+		case cpuz80.RegL:
+			return cpuz80.RegLoadHLL, true
+		case cpuz80.RegA:
+			return cpuz80.RegLoadHLA, true
+		}
+	}
+	if ind == cpuz80.RegBCIndirect && reg == cpuz80.RegA {
+		return cpuz80.RegLoadBC, true
+	}
+	if ind == cpuz80.RegDEIndirect && reg == cpuz80.RegA {
+		return cpuz80.RegLoadDE, true
+	}
+
+	return cpuz80.RegNone, false
+}
+
+// hasIndirectRegisterParam returns true if any candidate is a known indirect
+// register (HLIndirect, BCIndirect, DEIndirect, SPIndirect, IX, IY).
+func hasIndirectRegisterParam(candidates []cpuz80.RegisterParam) bool {
+	for _, c := range candidates {
+		switch c {
+		case cpuz80.RegHLIndirect, cpuz80.RegBCIndirect, cpuz80.RegDEIndirect,
+			cpuz80.RegSPIndirect, cpuz80.RegIX, cpuz80.RegIY:
+			return true
+		}
+	}
+	return false
+}
+
+func containsVariant(variants []*cpuz80.Instruction, target *cpuz80.Instruction) bool {
+	return slices.Contains(variants, target)
+}
+
 func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
 	candidates := operandRegisterCandidates(operand1)
 	if len(candidates) == 0 {
@@ -267,11 +732,27 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, oper
 				continue
 			}
 
+			// For indexed+immediate (e.g., LD (IX+d),n), include displacement
+			// before the immediate value in OperandValues.
+			operandValues := make([]ast.Node, 0, 2)
+			if operand1.displacement != nil {
+				operandValues = append(operandValues, operand1.displacement)
+			}
+			operandValues = append(operandValues, value)
+
+			// For ALU instructions (non-LD) where the first operand is the implicit
+			// accumulator (RegA), omit RegisterParams so the opcode generator uses
+			// the Addressing map (e.g., ADD A,n → 0xC6 not 0x87).
+			var regParams []cpuz80.RegisterParam
+			if candidate != cpuz80.RegA || addressing != cpuz80.ImmediateAddressing || variant.Name == cpuz80.LdName {
+				regParams = []cpuz80.RegisterParam{candidate}
+			}
+
 			return &ResolvedInstruction{
 				Addressing:     addressing,
 				Instruction:    variant,
-				RegisterParams: []cpuz80.RegisterParam{candidate},
-				OperandValues:  []ast.Node{value},
+				RegisterParams: regParams,
+				OperandValues:  operandValues,
 			}, true, nil
 		}
 	}
@@ -369,6 +850,14 @@ func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOper
 		return nil, false, nil
 	}
 
+	// For HL stores, prefer shorter Addressing-only encoding (e.g., LdExtended
+	// opcode 0x22, 3 bytes) over ED-prefixed RegisterOpcodes (e.g., EdLdNnHl, 4 bytes).
+	if containsRegisterParam(candidates, cpuz80.RegHL) {
+		if result := resolveExtendedHLStore(variants, value); result != nil {
+			return result, true, nil
+		}
+	}
+
 	for _, variant := range variants {
 		if !variant.HasAddressing(cpuz80.ExtendedAddressing) {
 			continue
@@ -405,6 +894,29 @@ func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOper
 	}
 
 	return nil, false, nil
+}
+
+func resolveExtendedHLStore(variants []*cpuz80.Instruction, value ast.Node) *ResolvedInstruction {
+	for _, variant := range variants {
+		if !variant.HasAddressing(cpuz80.ExtendedAddressing) {
+			continue
+		}
+		if _, hasRegHL := variant.RegisterOpcodes[cpuz80.RegHL]; hasRegHL {
+			continue
+		}
+
+		addrInfo := variant.Addressing[cpuz80.ExtendedAddressing]
+		if !matchesExtendedLoadDirection(variant, addrInfo.Opcode, false) {
+			continue
+		}
+
+		return &ResolvedInstruction{
+			Addressing:    cpuz80.ExtendedAddressing,
+			Instruction:   variant,
+			OperandValues: []ast.Node{value},
+		}
+	}
+	return nil
 }
 
 func resolvePortImmediateValueRegister(variants []*cpuz80.Instruction, valueOperand, registerOperand rawOperand) (*ResolvedInstruction, bool, error) {

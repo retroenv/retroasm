@@ -582,6 +582,385 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 			wantAddressing: cpuz80.ImpliedAddressing,
 			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegRst38},
 		},
+
+		// --- New resolver path tests ---
+
+		// resolveNoOperand second pass: implied with RegisterOpcodes (NEG, RETN).
+		{
+			name:           "neg implied with register opcodes",
+			mnemonic:       cpuz80.NegName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "neg"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.EdNeg},
+			wantVariant:    cpuz80.EdNeg,
+			wantAddressing: cpuz80.ImpliedAddressing,
+		},
+		{
+			name:           "retn implied with register opcodes",
+			mnemonic:       cpuz80.RetnName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "retn"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.EdRetn},
+			wantVariant:    cpuz80.EdRetn,
+			wantAddressing: cpuz80.ImpliedAddressing,
+		},
+
+		// resolveSingleOperand second pass: value addressing with RegisterOpcodes (SUB n).
+		{
+			name:           "sub immediate value",
+			mnemonic:       cpuz80.SubName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "sub"}, {Type: token.Number, Value: "$01"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.SubA},
+			wantVariant:    cpuz80.SubA,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(0x01)},
+		},
+
+		// resolveSingleRegisterOperand indexed fallback: SUB (IX+d).
+		{
+			name:     "sub indexed ix displacement",
+			mnemonic: cpuz80.SubName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "sub"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "3"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.SubA, cpuz80.DdSubAIXd, cpuz80.FdSubAIYd},
+			wantVariant:    cpuz80.DdSubAIXd,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{ast.NewNumber(3)},
+		},
+
+		// resolveAluRegisterPairOperands: ADD A,B (two-register ALU).
+		{
+			name:           "add a,b two register alu",
+			mnemonic:       cpuz80.AddName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "add"}, {Type: token.Identifier, Value: "a"}, {Type: token.Comma}, {Type: token.Identifier, Value: "b"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.AddA, cpuz80.AddHl},
+			wantVariant:    cpuz80.AddA,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegB},
+		},
+
+		// resolveAluRegisterPairOperands: ADD HL,BC.
+		{
+			name:           "add hl,bc register pair alu",
+			mnemonic:       cpuz80.AddName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "add"}, {Type: token.Identifier, Value: "hl"}, {Type: token.Comma}, {Type: token.Identifier, Value: "bc"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.AddA, cpuz80.AddHl, cpuz80.DdAddIXBc},
+			wantVariant:    cpuz80.AddHl,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegBC},
+		},
+
+		// resolveAluRegisterPairOperands: ADD IX,BC.
+		{
+			name:           "add ix,bc prefix alu",
+			mnemonic:       cpuz80.AddName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "add"}, {Type: token.Identifier, Value: "ix"}, {Type: token.Comma}, {Type: token.Identifier, Value: "bc"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.AddA, cpuz80.AddHl, cpuz80.DdAddIXBc},
+			wantVariant:    cpuz80.DdAddIXBc,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegBC},
+		},
+
+		// resolveAluRegisterPairOperands: SBC HL,BC.
+		{
+			name:           "sbc hl,bc register pair alu",
+			mnemonic:       cpuz80.SbcName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "sbc"}, {Type: token.Identifier, Value: "hl"}, {Type: token.Comma}, {Type: token.Identifier, Value: "bc"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.SbcA, cpuz80.EdSbcHlBc},
+			wantVariant:    cpuz80.EdSbcHlBc,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegBC},
+		},
+
+		// resolveIndirectLoadStoreOperands: LD A,(HL).
+		{
+			name:     "ld a,(hl) indirect load",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "hl"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdImm8, cpuz80.LdReg8, cpuz80.LdIndirect},
+			wantVariant:    cpuz80.LdReg8,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadHLA},
+		},
+
+		// resolveIndirectLoadStoreOperands: LD (HL),A.
+		{
+			name:     "ld (hl),a indirect store",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "hl"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.LdIndirect, cpuz80.LdIndirectImm},
+			wantVariant:    cpuz80.LdIndirect,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+		},
+
+		// resolveIndirectLoadStoreOperands: LD A,(BC).
+		{
+			name:     "ld a,(bc) indirect load",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.Comma},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "bc"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdImm8, cpuz80.LdIndirect},
+			wantVariant:    cpuz80.LdIndirect,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadBC},
+		},
+
+		// resolveIndirectImmediateOperands: LD (HL),n.
+		{
+			name:     "ld (hl),n indirect immediate",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "hl"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Number, Value: "$42"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.LdIndirect, cpuz80.LdIndirectImm},
+			wantVariant:    cpuz80.LdIndirectImm,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(0x42)},
+		},
+
+		// resolveIndirectImmediateOperands: LD (IX+d),n.
+		{
+			name:     "ld (ix+d),n indexed immediate",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "ix"},
+				{Type: token.Plus},
+				{Type: token.Number, Value: "5"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Number, Value: "$42"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdIXdN, cpuz80.FdLdIYdN, cpuz80.DdLdIXdA, cpuz80.FdLdIYdA},
+			wantVariant:    cpuz80.DdLdIXdN,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegImm8},
+			wantValues:     []ast.Node{ast.NewNumber(5), ast.NewNumber(0x42)},
+		},
+
+		// resolveIndirectImmediateOperands: LD (IY-d),n.
+		{
+			name:     "ld (iy-d),n indexed immediate",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "iy"},
+				{Type: token.Minus},
+				{Type: token.Number, Value: "8"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Number, Value: "$99"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdIXdN, cpuz80.FdLdIYdN, cpuz80.DdLdIXdA, cpuz80.FdLdIYdA},
+			wantVariant:    cpuz80.FdLdIYdN,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegIYIndirect},
+			wantValues:     []ast.Node{ast.NewNumber(0xF8), ast.NewNumber(0x99)},
+		},
+
+		// resolveSpecialRegisterPairOperands: LD I,A.
+		{
+			name:           "ld i,a special register pair",
+			mnemonic:       cpuz80.LdName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ld"}, {Type: token.Identifier, Value: "i"}, {Type: token.Comma}, {Type: token.Identifier, Value: "a"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.EdLdIA},
+			wantVariant:    cpuz80.EdLdIA,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegI},
+		},
+
+		// resolveSpecialRegisterPairOperands: LD A,R.
+		{
+			name:           "ld a,r special register pair",
+			mnemonic:       cpuz80.LdName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ld"}, {Type: token.Identifier, Value: "a"}, {Type: token.Comma}, {Type: token.Identifier, Value: "r"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.EdLdAR},
+			wantVariant:    cpuz80.EdLdAR,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+		},
+
+		// resolveSpecialRegisterPairOperands: LD SP,HL.
+		{
+			name:           "ld sp,hl special register pair",
+			mnemonic:       cpuz80.LdName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ld"}, {Type: token.Identifier, Value: "sp"}, {Type: token.Comma}, {Type: token.Identifier, Value: "hl"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg16, cpuz80.LdSp, cpuz80.DdLdSpIX, cpuz80.FdLdSpIY},
+			wantVariant:    cpuz80.LdSp,
+			wantAddressing: cpuz80.RegisterAddressing,
+		},
+
+		// resolveSpecialRegisterPairOperands: LD SP,IX.
+		{
+			name:           "ld sp,ix special register pair",
+			mnemonic:       cpuz80.LdName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ld"}, {Type: token.Identifier, Value: "sp"}, {Type: token.Comma}, {Type: token.Identifier, Value: "ix"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg16, cpuz80.LdSp, cpuz80.DdLdSpIX, cpuz80.FdLdSpIY},
+			wantVariant:    cpuz80.DdLdSpIX,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegIX},
+		},
+
+		// resolveSpecialRegisterPairOperands: LD SP,IY.
+		{
+			name:           "ld sp,iy special register pair",
+			mnemonic:       cpuz80.LdName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ld"}, {Type: token.Identifier, Value: "sp"}, {Type: token.Comma}, {Type: token.Identifier, Value: "iy"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg16, cpuz80.LdSp, cpuz80.DdLdSpIX, cpuz80.FdLdSpIY},
+			wantVariant:    cpuz80.FdLdSpIY,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegIY},
+		},
+
+		// resolveSpecialRegisterPairOperands: EX DE,HL.
+		{
+			name:           "ex de,hl special register pair",
+			mnemonic:       cpuz80.ExName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ex"}, {Type: token.Identifier, Value: "de"}, {Type: token.Comma}, {Type: token.Identifier, Value: "hl"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.ExDeHl, cpuz80.ExAf, cpuz80.ExSp, cpuz80.DdExSpIX, cpuz80.FdExSpIY},
+			wantVariant:    cpuz80.ExDeHl,
+			wantAddressing: cpuz80.ImpliedAddressing,
+		},
+
+		// resolveSpecialRegisterPairOperands: EX AF,AF.
+		{
+			name:           "ex af,af special register pair",
+			mnemonic:       cpuz80.ExName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ex"}, {Type: token.Identifier, Value: "af"}, {Type: token.Comma}, {Type: token.Identifier, Value: "af"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.ExDeHl, cpuz80.ExAf, cpuz80.ExSp},
+			wantVariant:    cpuz80.ExAf,
+			wantAddressing: cpuz80.ImpliedAddressing,
+		},
+
+		// resolveIndirectLoadStoreOperands fallback: EX (SP),HL.
+		{
+			name:     "ex (sp),hl indirect load store fallback",
+			mnemonic: cpuz80.ExName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ex"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "sp"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "hl"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.ExDeHl, cpuz80.ExAf, cpuz80.ExSp, cpuz80.DdExSpIX, cpuz80.FdExSpIY},
+			wantVariant:    cpuz80.ExSp,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+		},
+
+		// resolveRegisterValueOperands: ADD A,42 (ALU RegA stripping).
+		{
+			name:           "add a,n alu immediate strips rega",
+			mnemonic:       cpuz80.AddName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "add"}, {Type: token.Identifier, Value: "a"}, {Type: token.Comma}, {Type: token.Number, Value: "42"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.AddA, cpuz80.AddHl},
+			wantVariant:    cpuz80.AddA,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(42)},
+		},
+
+		// resolveRegisterValueOperands: LD A,42 preserves RegisterParams.
+		{
+			name:           "ld a,n preserves register param",
+			mnemonic:       cpuz80.LdName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "ld"}, {Type: token.Identifier, Value: "a"}, {Type: token.Comma}, {Type: token.Number, Value: "42"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.LdImm8, cpuz80.LdReg8},
+			wantVariant:    cpuz80.LdImm8,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{ast.NewNumber(42)},
+		},
+
+		// resolveRegisterValueOperands: ADC A,$FF immediate.
+		{
+			name:           "adc a,n alu immediate",
+			mnemonic:       cpuz80.AdcName,
+			tokens:         []token.Token{{Type: token.Identifier, Value: "adc"}, {Type: token.Identifier, Value: "a"}, {Type: token.Comma}, {Type: token.Number, Value: "$FF"}, {Type: token.EOL}},
+			variants:       []*cpuz80.Instruction{cpuz80.AdcA, cpuz80.EdAdcHlBc},
+			wantVariant:    cpuz80.AdcA,
+			wantAddressing: cpuz80.ImmediateAddressing,
+			wantValues:     []ast.Node{ast.NewNumber(0xFF)},
+		},
+
+		// resolveIndirectImmediateOperands does NOT match LD (IY-2),A (register, not value).
+		{
+			name:     "ld (iy-d),a indexed store not confused with immediate",
+			mnemonic: cpuz80.LdName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "ld"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "iy"},
+				{Type: token.Minus},
+				{Type: token.Number, Value: "2"},
+				{Type: token.RightParentheses},
+				{Type: token.Comma},
+				{Type: token.Identifier, Value: "a"},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.DdLdIXdA, cpuz80.FdLdIYdA, cpuz80.DdLdIXdN, cpuz80.FdLdIYdN},
+			wantVariant:    cpuz80.FdLdIYdA,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantValues:     []ast.Node{ast.NewNumber(0xFE)},
+		},
+
+		// JP (HL) parenthesized indirect fallback.
+		{
+			name:     "jp (hl) indirect fallback",
+			mnemonic: cpuz80.JpName,
+			tokens: []token.Token{
+				{Type: token.Identifier, Value: "jp"},
+				{Type: token.LeftParentheses},
+				{Type: token.Identifier, Value: "hl"},
+				{Type: token.RightParentheses},
+				{Type: token.EOL},
+			},
+			variants:       []*cpuz80.Instruction{cpuz80.JpAbs, cpuz80.JpCond, cpuz80.JpIndirect, cpuz80.DdJpIX, cpuz80.FdJpIY},
+			wantVariant:    cpuz80.JpIndirect,
+			wantAddressing: cpuz80.RegisterIndirectAddressing,
+		},
 	}
 
 	for _, tt := range tests {

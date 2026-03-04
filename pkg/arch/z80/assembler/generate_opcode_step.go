@@ -104,6 +104,21 @@ func appendImmediateOperand(
 		return append(opcodes, byte(value)), nil
 
 	case 2:
+		// Two separate byte operands (e.g., LD (IX+d),n: displacement + immediate).
+		if len(resolved.OperandValues) >= 2 {
+			for i := range 2 {
+				v, err := resolvedOperandValue(assigner, resolved, i)
+				if err != nil {
+					return nil, err
+				}
+				if v > math.MaxUint8 {
+					return nil, fmt.Errorf("immediate byte %d value %d exceeds byte", i, v)
+				}
+				opcodes = append(opcodes, byte(v))
+			}
+			return opcodes, nil
+		}
+
 		value, err := resolvedOperandValue(assigner, resolved, 0)
 		if err != nil {
 			return nil, err
