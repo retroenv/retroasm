@@ -68,7 +68,7 @@ func TestExpression_Copy(t *testing.T) {
 	copied, ok := original.Copy().(Expression)
 	assert.True(t, ok)
 	assert.NotNil(t, copied.Value)
-	assert.Equal(t, 3, len(copied.Value.Tokens()))
+	assert.Len(t, copied.Value.Tokens(), 3)
 }
 
 func TestData_Copy(t *testing.T) {

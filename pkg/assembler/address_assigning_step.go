@@ -95,6 +95,47 @@ func (aa *addressAssign[T]) ProgramCounter() uint64 {
 	return aa.programCounter
 }
 
+func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (uint64, error) {
+	if exprNode.Value == nil {
+		return 0, errors.New("expression argument value is nil")
+	}
+
+	width := aa.addressWidth()
+
+	var (
+		value any
+		err   error
+	)
+
+	if exprNode.Value.IsEvaluatedAtAddressAssign() {
+		value, err = exprNode.Value.EvaluateAtProgramCounter(aa.currentScope, width, aa.programCounter)
+	} else {
+		value, err = exprNode.Value.Evaluate(aa.currentScope, width)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("evaluating expression argument: %w", err)
+	}
+
+	switch v := value.(type) {
+	case int64:
+		if v < 0 {
+			return 0, fmt.Errorf("expression result %d is negative", v)
+		}
+		return uint64(v), nil
+	case uint64:
+		return v, nil
+	default:
+		return 0, fmt.Errorf("unexpected expression result type %T", value)
+	}
+}
+
+func (aa *addressAssign[T]) addressWidth() int {
+	if aa.arch == nil {
+		return 16
+	}
+	return aa.arch.AddressWidth()
+}
+
 // assignAddressesStep assigns an address for every node in each scope.
 func assignAddressesStep[T any](asm *Assembler[T]) error {
 	var err error
@@ -185,47 +226,6 @@ func applyUint64Offset(base uint64, offset int64) (uint64, error) {
 	}
 
 	return base - delta, nil
-}
-
-func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (uint64, error) {
-	if exprNode.Value == nil {
-		return 0, errors.New("expression argument value is nil")
-	}
-
-	width := aa.addressWidth()
-
-	var (
-		value any
-		err   error
-	)
-
-	if exprNode.Value.IsEvaluatedAtAddressAssign() {
-		value, err = exprNode.Value.EvaluateAtProgramCounter(aa.currentScope, width, aa.programCounter)
-	} else {
-		value, err = exprNode.Value.Evaluate(aa.currentScope, width)
-	}
-	if err != nil {
-		return 0, fmt.Errorf("evaluating expression argument: %w", err)
-	}
-
-	switch v := value.(type) {
-	case int64:
-		if v < 0 {
-			return 0, fmt.Errorf("expression result %d is negative", v)
-		}
-		return uint64(v), nil
-	case uint64:
-		return v, nil
-	default:
-		return 0, fmt.Errorf("unexpected expression result type %T", value)
-	}
-}
-
-func (aa *addressAssign[T]) addressWidth() int {
-	if aa.arch == nil {
-		return 16
-	}
-	return aa.arch.AddressWidth()
 }
 
 func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {
