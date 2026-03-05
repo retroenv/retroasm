@@ -10,6 +10,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
+	"github.com/retroenv/retrogolib/set"
 )
 
 var errUnsupportedOperandPattern = errors.New("unsupported operand pattern")
@@ -412,6 +413,13 @@ func resolveIndirectLoadStoreOperands(variants []*cpuz80.Instruction, operand1, 
 		return result
 	}
 
+	// Fallback: try RegisterPairOpcodes for indirect store operations
+	// (e.g., LD (HL),A uses RegisterPairOpcodes[{RegHLIndirect, RegA}] in LdReg8).
+	pairKeys := indirectRegisterPairKeys(regCandidates, indCandidates, isLoad)
+	if result := matchIndirectLoadStorePairKeys(variants, pairKeys); result != nil {
+		return result
+	}
+
 	// Fallback: Addressing-only variants for EX (SP),HL/IX/IY.
 	// Only match when the indirect operand is (sp).
 	if containsRegisterParam(indCandidates, cpuz80.RegSPIndirect) {
@@ -436,6 +444,41 @@ func matchIndirectLoadStoreKeys(variants []*cpuz80.Instruction, keys []cpuz80.Re
 				Addressing:     indirectLoadStoreAddressing(variant),
 				Instruction:    variant,
 				RegisterParams: []cpuz80.RegisterParam{key},
+			}
+		}
+	}
+	return nil
+}
+
+func indirectRegisterPairKeys(regCandidates, indCandidates []cpuz80.RegisterParam, isLoad bool) [][2]cpuz80.RegisterParam {
+	var keys [][2]cpuz80.RegisterParam
+	for _, ind := range indCandidates {
+		for _, reg := range regCandidates {
+			if isLoad {
+				keys = append(keys, [2]cpuz80.RegisterParam{reg, ind})
+			} else {
+				keys = append(keys, [2]cpuz80.RegisterParam{ind, reg})
+			}
+		}
+	}
+	return keys
+}
+
+func matchIndirectLoadStorePairKeys(variants []*cpuz80.Instruction, keys [][2]cpuz80.RegisterParam) *ResolvedInstruction {
+	for _, variant := range variants {
+		if len(variant.RegisterPairOpcodes) == 0 {
+			continue
+		}
+
+		for _, key := range keys {
+			if _, ok := variant.RegisterPairOpcodes[key]; !ok {
+				continue
+			}
+
+			return &ResolvedInstruction{
+				Addressing:     indirectLoadStoreAddressing(variant),
+				Instruction:    variant,
+				RegisterParams: []cpuz80.RegisterParam{key[0], key[1]},
 			}
 		}
 	}
@@ -1487,15 +1530,15 @@ func expectedAddressingFamilies(variants []*cpuz80.Instruction) string {
 	return strings.Join(families, ", ")
 }
 
-func addressingFamilies(variants []*cpuz80.Instruction) map[string]struct{} {
-	families := make(map[string]struct{}, 8)
+func addressingFamilies(variants []*cpuz80.Instruction) set.Set[string] {
+	families := set.New[string]()
 
 	for _, variant := range variants {
 		for addressing := range variant.Addressing {
-			families[addressingFamilyName(addressing)] = struct{}{}
+			families.Add(addressingFamilyName(addressing))
 		}
 		if len(variant.RegisterOpcodes) > 0 || len(variant.RegisterPairOpcodes) > 0 {
-			families["register"] = struct{}{}
+			families.Add("register")
 		}
 	}
 

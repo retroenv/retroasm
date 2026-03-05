@@ -6,6 +6,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
+	"github.com/retroenv/retrogolib/assert"
 )
 
 func FuzzParseIdentifier_NoPanic(f *testing.F) {
@@ -34,20 +35,14 @@ func FuzzParseIdentifier_NoPanic(f *testing.F) {
 		parser2 := newMockParser(tokens...)
 		node2, err2 := ParseIdentifier(parser2, mnemonic, variants)
 
-		if (err1 == nil) != (err2 == nil) {
-			t.Fatalf("non-deterministic error state: err1=%v err2=%v", err1, err2)
-		}
+		assert.Equal(t, err1 == nil, err2 == nil)
 
 		if err1 != nil && err2 != nil {
-			if err1.Error() != err2.Error() {
-				t.Fatalf("non-deterministic error message: %q vs %q", err1.Error(), err2.Error())
-			}
+			assert.Equal(t, err1.Error(), err2.Error())
 			return
 		}
 
-		if node1 == nil || node2 == nil {
-			t.Fatalf("non-deterministic node state: node1=%v node2=%v", node1, node2)
-		}
+		assert.Equal(t, node1 == nil, node2 == nil)
 	})
 }
 

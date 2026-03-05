@@ -9,6 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 	"github.com/retroenv/retrogolib/assert"
+	"github.com/retroenv/retrogolib/set"
 )
 
 const coverageProgramCounter = uint64(0x8000)
@@ -47,14 +48,14 @@ func TestOpcodeCoverage_AllInstructionVariants(t *testing.T) {
 				resolved.RegisterParams,
 				resolved.OperandValues,
 			)
-			assert.Equal(t, int(opcodeInfo.Size), len(ins.Opcodes()))
+			assert.Len(t, ins.Opcodes(), int(opcodeInfo.Size))
 			assert.Equal(t, int(resolved.Addressing), ins.Addressing())
 		})
 	}
 }
 
 func allInstructionVariantsForCoverage() []*cpuz80.Instruction {
-	seen := make(map[*cpuz80.Instruction]struct{})
+	seen := set.New[*cpuz80.Instruction]()
 	instructions := make([]*cpuz80.Instruction, 0, 256)
 
 	instructions = addInstructionSlice(instructions, seen, tableInstructionSlice(cpuz80.Opcodes))
@@ -89,7 +90,7 @@ func allInstructionVariantsForCoverage() []*cpuz80.Instruction {
 
 func addInstructionSlice(
 	instructions []*cpuz80.Instruction,
-	seen map[*cpuz80.Instruction]struct{},
+	seen set.Set[*cpuz80.Instruction],
 	candidates []*cpuz80.Instruction,
 ) []*cpuz80.Instruction {
 
@@ -97,10 +98,18 @@ func addInstructionSlice(
 		if instruction == nil {
 			continue
 		}
-		if _, ok := seen[instruction]; ok {
+		if seen.Contains(instruction) {
 			continue
 		}
-		seen[instruction] = struct{}{}
+		// Skip undocumented alias instructions that have no addressing modes
+		// or register opcodes — they exist only for emulator decoding and
+		// cannot be assembled.
+		if instruction.Unofficial && len(instruction.Addressing) == 0 &&
+			len(instruction.RegisterOpcodes) == 0 && len(instruction.RegisterPairOpcodes) == 0 {
+
+			continue
+		}
+		seen.Add(instruction)
 		instructions = append(instructions, instruction)
 	}
 	return instructions

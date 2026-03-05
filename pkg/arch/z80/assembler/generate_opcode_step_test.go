@@ -121,7 +121,7 @@ func TestGenerateInstructionOpcode_CoreEncodings(t *testing.T) { //nolint:funlen
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, ins.Opcodes())
-			assert.Equal(t, len(tt.want), ins.Size())
+			assert.Len(t, tt.want, ins.Size())
 		})
 	}
 }
@@ -305,7 +305,7 @@ func TestGenerateInstructionOpcode_BoundaryMatrix(t *testing.T) { //nolint:funle
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, ins.Opcodes())
-			assert.Equal(t, len(tt.want), ins.Size())
+			assert.Len(t, tt.want, ins.Size())
 		})
 	}
 }

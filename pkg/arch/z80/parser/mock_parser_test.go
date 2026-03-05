@@ -2,15 +2,15 @@ package parser
 
 import "github.com/retroenv/retroasm/pkg/lexer/token"
 
-type mockParser struct {
-	position int
-	tokens   []token.Token
-}
-
 func newMockParser(tokens ...token.Token) *mockParser {
 	return &mockParser{
 		tokens: tokens,
 	}
+}
+
+type mockParser struct {
+	position int
+	tokens   []token.Token
 }
 
 func (m *mockParser) AddressWidth() int {

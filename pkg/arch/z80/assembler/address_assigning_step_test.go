@@ -12,97 +12,6 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-type mockAssigner struct {
-	pc              uint64
-	relativeErr     error
-	relativeOffsets map[[2]uint64]byte
-	values          map[string]uint64
-}
-
-func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
-	switch value := argument.(type) {
-	case uint64:
-		return value, nil
-	case int:
-		return uint64(value), nil
-	case ast.Number:
-		return value.Value, nil
-	case ast.Label:
-		if m.values == nil {
-			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
-		}
-		resolved, ok := m.values[value.Name]
-		if !ok {
-			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
-		}
-		return resolved, nil
-	case ast.Identifier:
-		if m.values == nil {
-			return 0, fmt.Errorf("value for identifier '%s' not configured", value.Name)
-		}
-		resolved, ok := m.values[value.Name]
-		if !ok {
-			return 0, fmt.Errorf("value for identifier '%s' not configured", value.Name)
-		}
-		return resolved, nil
-	case string:
-		if m.values == nil {
-			return 0, fmt.Errorf("value for symbol '%s' not configured", value)
-		}
-		resolved, ok := m.values[value]
-		if !ok {
-			return 0, fmt.Errorf("value for symbol '%s' not configured", value)
-		}
-		return resolved, nil
-	default:
-		return 0, fmt.Errorf("unsupported argument type %T", argument)
-	}
-}
-
-func (m *mockAssigner) RelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
-	if m.relativeErr != nil {
-		return 0, m.relativeErr
-	}
-	if m.relativeOffsets != nil {
-		key := [2]uint64{destination, addressAfterInstruction}
-		if value, ok := m.relativeOffsets[key]; ok {
-			return value, nil
-		}
-	}
-
-	diff := int64(destination) - int64(addressAfterInstruction)
-	switch {
-	case diff < -128 || diff > 127:
-		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
-	case diff >= 0:
-		return byte(diff), nil
-	default:
-		return byte(256 + diff), nil
-	}
-}
-
-func (m *mockAssigner) ProgramCounter() uint64 { return m.pc }
-
-type mockInstruction struct {
-	name       string
-	addressing int
-	argument   any
-	opcodes    []byte
-	size       int
-	address    uint64
-}
-
-func (m *mockInstruction) Address() uint64     { return m.address }
-func (m *mockInstruction) Addressing() int     { return m.addressing }
-func (m *mockInstruction) Argument() any       { return m.argument }
-func (m *mockInstruction) Name() string        { return m.name }
-func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
-func (m *mockInstruction) Size() int           { return m.size }
-func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
-func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
-func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
-func (m *mockInstruction) SetSize(s int)       { m.size = s }
-
 func TestAssignInstructionAddress_SetsAddressingAndSize(t *testing.T) { //nolint:funlen
 	tests := []struct {
 		name           string
@@ -210,6 +119,97 @@ func TestAssignInstructionAddress_Errors(t *testing.T) {
 		})
 	}
 }
+
+type mockAssigner struct {
+	pc              uint64
+	relativeErr     error
+	relativeOffsets map[[2]uint64]byte
+	values          map[string]uint64
+}
+
+type mockInstruction struct {
+	name       string
+	addressing int
+	argument   any
+	opcodes    []byte
+	size       int
+	address    uint64
+}
+
+func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
+	switch value := argument.(type) {
+	case uint64:
+		return value, nil
+	case int:
+		return uint64(value), nil
+	case ast.Number:
+		return value.Value, nil
+	case ast.Label:
+		if m.values == nil {
+			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
+		}
+		resolved, ok := m.values[value.Name]
+		if !ok {
+			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
+		}
+		return resolved, nil
+	case ast.Identifier:
+		if m.values == nil {
+			return 0, fmt.Errorf("value for identifier '%s' not configured", value.Name)
+		}
+		resolved, ok := m.values[value.Name]
+		if !ok {
+			return 0, fmt.Errorf("value for identifier '%s' not configured", value.Name)
+		}
+		return resolved, nil
+	case string:
+		if m.values == nil {
+			return 0, fmt.Errorf("value for symbol '%s' not configured", value)
+		}
+		resolved, ok := m.values[value]
+		if !ok {
+			return 0, fmt.Errorf("value for symbol '%s' not configured", value)
+		}
+		return resolved, nil
+	default:
+		return 0, fmt.Errorf("unsupported argument type %T", argument)
+	}
+}
+
+func (m *mockAssigner) RelativeOffset(destination, addressAfterInstruction uint64) (byte, error) {
+	if m.relativeErr != nil {
+		return 0, m.relativeErr
+	}
+	if m.relativeOffsets != nil {
+		key := [2]uint64{destination, addressAfterInstruction}
+		if value, ok := m.relativeOffsets[key]; ok {
+			return value, nil
+		}
+	}
+
+	diff := int64(destination) - int64(addressAfterInstruction)
+	switch {
+	case diff < -128 || diff > 127:
+		return 0, fmt.Errorf("relative distance %d exceeds limit", diff)
+	case diff >= 0:
+		return byte(diff), nil
+	default:
+		return byte(256 + diff), nil
+	}
+}
+
+func (m *mockAssigner) ProgramCounter() uint64 { return m.pc }
+
+func (m *mockInstruction) Address() uint64     { return m.address }
+func (m *mockInstruction) Addressing() int     { return m.addressing }
+func (m *mockInstruction) Argument() any       { return m.argument }
+func (m *mockInstruction) Name() string        { return m.name }
+func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
+func (m *mockInstruction) Size() int           { return m.size }
+func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
+func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
+func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
+func (m *mockInstruction) SetSize(s int)       { m.size = s }
 
 var _ arch.AddressAssigner = (*mockAssigner)(nil)
 var _ arch.Instruction = (*mockInstruction)(nil)

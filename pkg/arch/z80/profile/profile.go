@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // Kind identifies a Z80 instruction profile.
@@ -34,34 +35,45 @@ var kindByName = map[string]Kind{
 	gameBoySubsetName:    GameBoySubset,
 }
 
-var unsupportedGameBoyPrefixes = map[byte]struct{}{
-	cpuz80.PrefixDD: {},
-	cpuz80.PrefixED: {},
-	cpuz80.PrefixFD: {},
-}
+var unsupportedGameBoyPrefixes = set.NewFromSlice([]byte{
+	cpuz80.PrefixDD,
+	cpuz80.PrefixED,
+	cpuz80.PrefixFD,
+})
 
-var unsupportedGameBoyMnemonics = map[string]struct{}{
-	cpuz80.DjnzName: {},
-	cpuz80.ExName:   {},
-	cpuz80.ExxName:  {},
-	cpuz80.InName:   {},
-	cpuz80.OutName:  {},
-}
+var unsupportedGameBoyMnemonics = set.NewFromSlice([]string{
+	cpuz80.DjnzName,
+	cpuz80.ExName,
+	cpuz80.ExxName,
+	cpuz80.InName,
+	cpuz80.OutName,
+})
 
-var undocumentedOpcodeKeys = map[uint16]struct{}{
-	opcodeKey(cpuz80.PrefixED, 0x4C): {},
-	opcodeKey(cpuz80.PrefixED, 0x54): {},
-	opcodeKey(cpuz80.PrefixED, 0x5C): {},
-	opcodeKey(cpuz80.PrefixED, 0x64): {},
-	opcodeKey(cpuz80.PrefixED, 0x6C): {},
-	opcodeKey(cpuz80.PrefixED, 0x74): {},
-	opcodeKey(cpuz80.PrefixED, 0x7C): {},
-	opcodeKey(cpuz80.PrefixED, 0x55): {},
-	opcodeKey(cpuz80.PrefixED, 0x65): {},
-	opcodeKey(cpuz80.PrefixED, 0x75): {},
-	opcodeKey(cpuz80.PrefixED, 0x66): {},
-	opcodeKey(cpuz80.PrefixED, 0x76): {},
-	opcodeKey(cpuz80.PrefixED, 0x7E): {},
+var undocumentedOpcodeKeys = set.NewFromSlice([]uint16{
+	opcodeKey(cpuz80.PrefixED, 0x4C),
+	opcodeKey(cpuz80.PrefixED, 0x54),
+	opcodeKey(cpuz80.PrefixED, 0x5C),
+	opcodeKey(cpuz80.PrefixED, 0x64),
+	opcodeKey(cpuz80.PrefixED, 0x6C),
+	opcodeKey(cpuz80.PrefixED, 0x74),
+	opcodeKey(cpuz80.PrefixED, 0x7C),
+	opcodeKey(cpuz80.PrefixED, 0x55),
+	opcodeKey(cpuz80.PrefixED, 0x65),
+	opcodeKey(cpuz80.PrefixED, 0x75),
+	opcodeKey(cpuz80.PrefixED, 0x66),
+	opcodeKey(cpuz80.PrefixED, 0x76),
+	opcodeKey(cpuz80.PrefixED, 0x7E),
+})
+
+func (k Kind) String() string {
+	switch k {
+	case StrictDocumented:
+		return strictDocumentedName
+	case GameBoySubset:
+		return gameBoySubsetName
+	default:
+		return defaultName
+	}
 }
 
 // Parse converts a CLI/profile string into a profile kind.
@@ -84,17 +96,6 @@ func Parse(value string) (Kind, error) {
 	}
 
 	return kind, nil
-}
-
-func (k Kind) String() string {
-	switch k {
-	case StrictDocumented:
-		return strictDocumentedName
-	case GameBoySubset:
-		return gameBoySubsetName
-	default:
-		return defaultName
-	}
 }
 
 // ValidateInstruction checks if the selected instruction is allowed by the profile.
@@ -131,7 +132,7 @@ func ValidateInstruction(
 		return nil
 	}
 
-	if _, ok := unsupportedGameBoyMnemonics[instruction.Name]; ok {
+	if unsupportedGameBoyMnemonics.Contains(instruction.Name) {
 		return fmt.Errorf(
 			"%w: instruction '%s' is outside profile '%s'",
 			ErrUnsupportedInstruction,
@@ -140,7 +141,7 @@ func ValidateInstruction(
 		)
 	}
 
-	if _, ok := unsupportedGameBoyPrefixes[info.Prefix]; ok {
+	if unsupportedGameBoyPrefixes.Contains(info.Prefix) {
 		return fmt.Errorf(
 			"%w: instruction '%s' uses unsupported prefix 0x%02X for profile '%s'",
 			ErrUnsupportedInstruction,
@@ -167,8 +168,7 @@ func isUndocumentedInstruction(instruction *cpuz80.Instruction, info cpuz80.Opco
 		return true
 	}
 
-	_, ok := undocumentedOpcodeKeys[opcodeKey(info.Prefix, info.Opcode)]
-	return ok
+	return undocumentedOpcodeKeys.Contains(opcodeKey(info.Prefix, info.Opcode))
 }
 
 func opcodeInfo(

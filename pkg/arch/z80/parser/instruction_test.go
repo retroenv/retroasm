@@ -711,9 +711,9 @@ func TestParseIdentifier_MinimumSlice(t *testing.T) { //nolint:funlen,maintidx
 				{Type: token.EOL},
 			},
 			variants:       []*cpuz80.Instruction{cpuz80.LdReg8, cpuz80.LdIndirect, cpuz80.LdIndirectImm},
-			wantVariant:    cpuz80.LdIndirect,
-			wantAddressing: cpuz80.RegisterIndirectAddressing,
-			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
+			wantVariant:    cpuz80.LdReg8,
+			wantAddressing: cpuz80.RegisterAddressing,
+			wantRegister:   []cpuz80.RegisterParam{cpuz80.RegHLIndirect, cpuz80.RegA},
 		},
 
 		// resolveIndirectLoadStoreOperands: LD A,(BC).
@@ -1074,6 +1074,13 @@ type diagnosticCase struct {
 	errorContain []string
 }
 
+type parseIdentifierErrorCase struct {
+	name     string
+	mnemonic string
+	tokens   []token.Token
+	variants []*cpuz80.Instruction
+}
+
 func assertDiagnosticError(t *testing.T, tc diagnosticCase) {
 	t.Helper()
 
@@ -1084,13 +1091,6 @@ func assertDiagnosticError(t *testing.T, tc diagnosticCase) {
 	for _, fragment := range tc.errorContain {
 		assert.ErrorContains(t, err, fragment)
 	}
-}
-
-type parseIdentifierErrorCase struct {
-	name     string
-	mnemonic string
-	tokens   []token.Token
-	variants []*cpuz80.Instruction
 }
 
 func parseIdentifierErrorCases() []parseIdentifierErrorCase {
