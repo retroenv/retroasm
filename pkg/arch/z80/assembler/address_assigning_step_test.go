@@ -12,55 +12,55 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-func TestAssignInstructionAddress_SetsAddressingAndSize(t *testing.T) { //nolint:funlen
-	tests := []struct {
-		name           string
-		resolved       z80parser.ResolvedInstruction
-		wantSize       int
-		wantAddressing cpuz80.AddressingMode
-	}{
-		{
-			name: "one byte instruction nop",
-			resolved: z80parser.ResolvedInstruction{
-				Addressing:  cpuz80.ImpliedAddressing,
-				Instruction: cpuz80.Nop,
-			},
-			wantSize:       1,
-			wantAddressing: cpuz80.ImpliedAddressing,
+var assignAddressTests = []struct {
+	name           string
+	resolved       z80parser.ResolvedInstruction
+	wantSize       int
+	wantAddressing cpuz80.AddressingMode
+}{
+	{
+		name: "one byte instruction nop",
+		resolved: z80parser.ResolvedInstruction{
+			Addressing:  cpuz80.ImpliedAddressing,
+			Instruction: cpuz80.Nop,
 		},
-		{
-			name: "two byte instruction ld a,n",
-			resolved: z80parser.ResolvedInstruction{
-				Addressing:     cpuz80.ImmediateAddressing,
-				Instruction:    cpuz80.LdImm8,
-				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
-			},
-			wantSize:       2,
-			wantAddressing: cpuz80.ImmediateAddressing,
+		wantSize:       1,
+		wantAddressing: cpuz80.ImpliedAddressing,
+	},
+	{
+		name: "two byte instruction ld a,n",
+		resolved: z80parser.ResolvedInstruction{
+			Addressing:     cpuz80.ImmediateAddressing,
+			Instruction:    cpuz80.LdImm8,
+			RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
 		},
-		{
-			name: "three byte instruction ld hl,nn",
-			resolved: z80parser.ResolvedInstruction{
-				Addressing:     cpuz80.ImmediateAddressing,
-				Instruction:    cpuz80.LdReg16,
-				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegHL},
-			},
-			wantSize:       3,
-			wantAddressing: cpuz80.ImmediateAddressing,
+		wantSize:       2,
+		wantAddressing: cpuz80.ImmediateAddressing,
+	},
+	{
+		name: "three byte instruction ld hl,nn",
+		resolved: z80parser.ResolvedInstruction{
+			Addressing:     cpuz80.ImmediateAddressing,
+			Instruction:    cpuz80.LdReg16,
+			RegisterParams: []cpuz80.RegisterParam{cpuz80.RegHL},
 		},
-		{
-			name: "four byte instruction ld ix,nn",
-			resolved: z80parser.ResolvedInstruction{
-				Addressing:     cpuz80.ImmediateAddressing,
-				Instruction:    cpuz80.DdLdIXnn,
-				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegIX},
-			},
-			wantSize:       4,
-			wantAddressing: cpuz80.ImmediateAddressing,
+		wantSize:       3,
+		wantAddressing: cpuz80.ImmediateAddressing,
+	},
+	{
+		name: "four byte instruction ld ix,nn",
+		resolved: z80parser.ResolvedInstruction{
+			Addressing:     cpuz80.ImmediateAddressing,
+			Instruction:    cpuz80.DdLdIXnn,
+			RegisterParams: []cpuz80.RegisterParam{cpuz80.RegIX},
 		},
-	}
+		wantSize:       4,
+		wantAddressing: cpuz80.ImmediateAddressing,
+	},
+}
 
-	for _, tt := range tests {
+func TestAssignInstructionAddress_SetsAddressingAndSize(t *testing.T) {
+	for _, tt := range assignAddressTests {
 		t.Run(tt.name, func(t *testing.T) {
 			assigner := &mockAssigner{pc: 0x8000}
 			ins := &mockInstruction{

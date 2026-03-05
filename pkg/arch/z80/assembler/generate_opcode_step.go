@@ -215,7 +215,7 @@ func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedIn
 		return nil, err
 	}
 
-	opcode := opcodeInfo.Opcode + byte(bitNumber<<3) + registerCode
+	opcode := opcodeInfo.Opcode + byte(bitNumber<<bitNumberShift) + registerCode
 	opcodes = append(opcodes, opcode)
 	return opcodes, nil
 }
@@ -255,7 +255,7 @@ func buildIndexedBitOpcode(
 		return nil, err
 	}
 
-	opcode := opcodeInfo.Opcode + byte(bitNumber<<3) + registerCode
+	opcode := opcodeInfo.Opcode + byte(bitNumber<<bitNumberShift) + registerCode
 	return []byte{opcodeInfo.Prefix, cpuz80.PrefixCB, byte(displacement), opcode}, nil
 }
 
@@ -271,32 +271,32 @@ func resolvedOperandValue(assigner arch.AddressAssigner, resolved z80parser.Reso
 	return value, nil
 }
 
+// bitNumberShift is the bit position shift for encoding the bit number
+// in CB/DDCB/FDCB instructions (bit number occupies bits 5-3).
+const bitNumberShift = 3
+
+var bitRegisterCodes = map[cpuz80.RegisterParam]byte{
+	cpuz80.RegB:          0,
+	cpuz80.RegC:          1,
+	cpuz80.RegD:          2,
+	cpuz80.RegE:          3,
+	cpuz80.RegH:          4,
+	cpuz80.RegL:          5,
+	cpuz80.RegHLIndirect: 6,
+	cpuz80.RegA:          7,
+}
+
 func bitRegisterCode(resolved z80parser.ResolvedInstruction) (byte, error) {
 	target := cpuz80.RegHLIndirect
 	if len(resolved.RegisterParams) > 0 {
 		target = resolved.RegisterParams[len(resolved.RegisterParams)-1]
 	}
 
-	switch target {
-	case cpuz80.RegB:
-		return 0, nil
-	case cpuz80.RegC:
-		return 1, nil
-	case cpuz80.RegD:
-		return 2, nil
-	case cpuz80.RegE:
-		return 3, nil
-	case cpuz80.RegH:
-		return 4, nil
-	case cpuz80.RegL:
-		return 5, nil
-	case cpuz80.RegHLIndirect:
-		return 6, nil
-	case cpuz80.RegA:
-		return 7, nil
-	default:
+	code, ok := bitRegisterCodes[target]
+	if !ok {
 		return 0, fmt.Errorf("%w: %s", errUnsupportedBitRegister, target.String())
 	}
+	return code, nil
 }
 
 func isCBBitInstruction(instruction *cpuz80.Instruction) bool {
