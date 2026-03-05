@@ -25,9 +25,10 @@ This plan adds Z80 assembler support to retroasm with an implementation order th
 - Completed on March 1, 2026: Phase 16 (indexed boundary compatibility corpus expansion).
 - Completed on March 1, 2026: Phase 17 (profile compatibility fixture expansion).
 - Completed on March 1, 2026: Phase 18 (profile rejection fixture expansion).
+- Completed on March 5, 2026: Phase 19 (retrogolib z80 fixes integration and linter compliance).
 - Next implementation target: none (all planned phases completed).
 
-## What Is Missing (Post-Phase 18)
+## What Is Missing (Post-Phase 19)
 
 The planned implementation scope is complete. Ongoing improvements are incremental:
 
@@ -99,6 +100,9 @@ Code review of the branch against this plan found the following items. Items mar
 19. Compatibility fixture coverage now includes indexed displacement edge encodings and indexed CB-family bit operation boundaries.
 20. Compatibility fixtures now include profile-specific positive assembly corpora for `strict-documented` and `gameboy-z80-subset`.
 21. Compatibility fixtures now include profile-specific negative assembly corpora that assert deterministic rejection diagnostics.
+22. retrogolib z80 fixes moved `LD (HL),r` from `LdIndirect.RegisterOpcodes` to `LdReg8.RegisterPairOpcodes`; resolver now handles both `RegisterOpcodes` and `RegisterPairOpcodes` for indirect store operations.
+23. Undocumented alias instructions (`edIm0Alias`, `edRetnAlias`) in retrogolib have no assembler-facing opcode maps; coverage test skips these unassemblable variants.
+24. Codebase uses `retrogolib/set.Set` instead of `map[K]struct{}` for set operations per project linter policy.
 
 ## Architecture Decisions
 
@@ -826,7 +830,56 @@ All identified risks were mitigated during implementation:
 | Prefix-chain bugs (`DD CB`, `FD CB`) | Explicit 4-byte encoding path in `buildIndexedBitOpcode`; dedicated fixtures with boundary displacements | Correctly encodes all indexed-bit families |
 | CLI still ignores selected architecture | Phase 6 replaced hard-coded m6502 path with CPU-selected architecture registration | Both `6502` and `z80` work end-to-end via CLI |
 | Ambiguous operand parsing (`C`, `(IX+d)`) | Context-aware candidate sets + 8-pass resolver chain + table-driven tests + fuzz harness | Deterministic resolution with diagnostic errors on mismatch |
+| retrogolib instruction definition changes | Phase 19 adapted resolver to handle both `RegisterOpcodes` and `RegisterPairOpcodes` for indirect store; coverage test skips unassemblable alias instructions | All tests pass with updated retrogolib |
+
+## Phase 19: retrogolib Z80 Fixes Integration and Linter Compliance (Completed)
+
+Files:
+
+- `pkg/arch/z80/assembler/coverage_test.go`
+- `pkg/arch/z80/assembler/address_assigning_step_test.go`
+- `pkg/arch/z80/assembler/generate_opcode_step_test.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `pkg/arch/z80/parser/mock_parser_test.go`
+- `pkg/arch/z80/parser/fuzz_test.go`
+- `pkg/arch/z80/profile/profile.go`
+- `pkg/arch/z80/z80.go`
+
+Tasks:
+
+- Integrate retrogolib z80 fixes where `LD (HL),r` instructions moved from `LdIndirect.RegisterOpcodes` to `LdReg8.RegisterPairOpcodes`.
+- Handle new undocumented alias instructions (`edIm0Alias`, `edRetnAlias`) that have no assembler-facing opcode maps.
+- Fix all linter issues: funcorder, assert-usage, and collections-map-set.
+
+Definition of done:
+
+- All tests pass with updated retrogolib.
+- Zero linter issues.
+
+Completed result:
+
+- Updated `pkg/arch/z80/parser/resolver.go` to handle indirect store operations via `RegisterPairOpcodes`:
+  - Added `indirectRegisterPairKeys` to build `[2]RegisterParam` pair keys for indirect operations.
+  - Added `matchIndirectLoadStorePairKeys` fallback in `resolveIndirectLoadStoreOperands` to check `RegisterPairOpcodes` when `RegisterOpcodes` matching fails.
+  - Replaced `map[string]struct{}` in `addressingFamilies` with `set.Set[string]`.
+- Updated `pkg/arch/z80/assembler/coverage_test.go`:
+  - Skip undocumented alias instructions (`Unofficial == true` with no `Addressing`, `RegisterOpcodes`, or `RegisterPairOpcodes`) that exist only for emulator decoding and cannot be assembled.
+  - Replaced `map[*cpuz80.Instruction]struct{}` with `set.Set[*cpuz80.Instruction]`.
+  - Replaced `assert.Equal(t, x, len(...))` with `assert.Len(t, ..., x)`.
+- Updated `pkg/arch/z80/parser/instruction_test.go`:
+  - Updated `ld (hl),a indirect store` test to expect `LdReg8` with `RegisterAddressing` and pair params `{RegHLIndirect, RegA}` instead of `LdIndirect` with `RegisterIndirectAddressing`.
+  - Fixed funcorder: moved `parseIdentifierErrorCase` type before `assertDiagnosticError` function.
+- Updated `pkg/arch/z80/profile/profile.go`:
+  - Replaced three `map[K]struct{}` vars with `set.NewFromSlice(...)` and `.Contains()` lookups.
+  - Fixed funcorder: moved `String()` method before `Parse()` function.
+- Fixed funcorder across multiple files:
+  - `address_assigning_step_test.go`: moved type declarations after exported test functions.
+  - `generate_opcode_step_test.go`: replaced `assert.Equal` with `assert.Len` for size checks.
+  - `mock_parser_test.go`: moved `newMockParser` constructor before `mockParser` type.
+  - `fuzz_test.go`: replaced manual equality checks with `assert.Equal`.
+  - `z80.go`: moved `newArchitecture` constructor before `architecture` type.
 
 ## Execution Order
 
-All 19 phases (0-18) were implemented in the planned order. The strategy of getting a minimal end-to-end path working early (Phases 0-7) then scaling coverage (Phases 8-18) proved effective — each phase built on verified foundations.
+All 20 phases (0-19) were implemented in the planned order. The strategy of getting a minimal end-to-end path working early (Phases 0-7) then scaling coverage (Phases 8-19) proved effective — each phase built on verified foundations.

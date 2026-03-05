@@ -1,6 +1,6 @@
 # Branch `z80_support` vs `main` — Detailed Change Summary
 
-44 files changed, ~8300 insertions, ~150 deletions across three categories:
+~50 files changed, ~8700 insertions, ~150 deletions across three categories:
 1. **Shared infrastructure** — changes to existing packages needed by any architecture
 2. **Z80 implementation** — new packages under `pkg/arch/z80/`
 3. **Tests and fixtures** — new test files and assembly fixture sources
@@ -333,7 +333,7 @@ Executed in order, split across two functions to satisfy cyclomatic complexity l
 
 1. `resolveRegisterPairOperands` — reg-reg pairs via `RegisterPairOpcodes` (`LD A,B`)
 2. `resolveAluRegisterPairOperands` — two-register ALU ops where second operand is the `RegisterOpcodes` key (`ADD A,B`, `ADD HL,BC`, `ADD IX,BC`, `SBC HL,BC`); skips LD instructions; uses `firstOperandMatchesPrefix` for IX/IY prefix matching
-3. `resolveIndirectLoadStoreOperands` — parenthesized indirect register ↔ direct register (`LD A,(HL)`, `LD (HL),A`, `LD A,(BC)`); uses `hasIndirectRegisterParam` to skip port `(C)` operands; delegates to `matchIndirectLoadStoreKeys` for key matching and `resolveStackPointerIndirectVariant` for `EX (SP),HL/IX/IY` fallback
+3. `resolveIndirectLoadStoreOperands` — parenthesized indirect register ↔ direct register (`LD A,(HL)`, `LD (HL),A`, `LD A,(BC)`); uses `hasIndirectRegisterParam` to skip port `(C)` operands; delegates to `matchIndirectLoadStoreKeys` for `RegisterOpcodes` key matching, `matchIndirectLoadStorePairKeys` for `RegisterPairOpcodes` fallback (needed after retrogolib moved `LD (HL),r` to `LdReg8.RegisterPairOpcodes`), and `resolveStackPointerIndirectVariant` for `EX (SP),HL/IX/IY` fallback
 4. `resolveIndirectImmediateOperands` — parenthesized register + immediate value (`LD (HL),n` via `resolveIndirectRegisterImmediate`; `LD (IX+d),n` / `LD (IY+d),n` via `resolveIndexedImmediate`); skips when operand2 is a register (prevents matching `LD (IY-2),A`)
 5. `resolveSpecialRegisterPairOperands` — explicit register pairs via `specialRegisterPairs` lookup table (`LD I,A`, `LD A,R`, `LD SP,HL`, `LD SP,IX`, `LD SP,IY`, `EX DE,HL`, `EX AF,AF'`)
 6. `resolveExtendedRegisterMemoryOperands` — `LD r,(nn)` / `LD (nn),r` with HL preference (`resolveExtendedHLStore` prefers shorter 3-byte encoding over 4-byte ED-prefixed)
@@ -347,6 +347,7 @@ Executed in order, split across two functions to satisfy cyclomatic complexity l
 **Key helper tables:**
 - `specialRegisterPairs` — maps `[2]RegisterParam` → `*Instruction` for 9 special register pair instructions
 - `indirectRegisterKeys` / `hlLoadRegisterParam` — builds candidate `RegisterOpcodes` keys for indirect register operations
+- `indirectRegisterPairKeys` — builds candidate `[2]RegisterParam` keys for `RegisterPairOpcodes` indirect store operations
 
 **Direction disambiguation** for `LD` indexed variants uses opcode-bit pattern analysis (`matchesIndexedLoadDirection`, `matchesExtendedLoadDirection`).
 
@@ -407,7 +408,9 @@ Undocumented opcode detection uses:
 - Instruction pointer identity (e.g. `cpuz80.CBSll`)
 - Mnemonic name matching (`"sll"`, `"inf"`, `"outf"`)
 - Opcode byte range checks (CB `0x30`–`0x37`)
-- Prefix+opcode key lookup for ED-prefixed undocumented variants
+- Prefix+opcode key lookup via `set.Set[uint16]` for ED-prefixed undocumented variants
+
+All set-based lookups (`unsupportedGameBoyPrefixes`, `unsupportedGameBoyMnemonics`, `undocumentedOpcodeKeys`) use `retrogolib/set.Set` instead of `map[K]struct{}`.
 
 ---
 
@@ -420,7 +423,7 @@ Undocumented opcode detection uses:
 | `pkg/arch/z80/z80_test.go` | `z80` | Instruction lookup, case-insensitive keys, CB/indexed-bit variant presence |
 | `pkg/arch/z80/assembler/address_assigning_step_test.go` | `assembler` | 1/2/3/4-byte instruction size assignment, error paths |
 | `pkg/arch/z80/assembler/generate_opcode_step_test.go` | `assembler` | Core opcode emission matrix, boundary values (relative ±128/127, displacement 0x00/0xFF, port 0x00/0xFF, address 0x0000/0xFFFF), error paths |
-| `pkg/arch/z80/assembler/coverage_test.go` | `assembler` | Exhaustive: synthesises a valid `ResolvedInstruction` per opcode variant from all tables; validates address assignment + opcode generation for every variant |
+| `pkg/arch/z80/assembler/coverage_test.go` | `assembler` | Exhaustive: synthesises a valid `ResolvedInstruction` per opcode variant from all tables; validates address assignment + opcode generation for every variant; skips undocumented alias instructions with no assembler-facing opcode maps |
 | `pkg/arch/z80/parser/instruction_test.go` | `parser` | ~1190 lines; covers all operand forms, all resolver paths (NEG/RETN implied, SUB immediate, ALU register pairs, indirect load/store, indirect immediate, special register pairs, indexed fallbacks, RegA stripping), error cases, diagnostic message quality assertions |
 | `pkg/arch/z80/parser/register_test.go` | `parser` | Register/condition/indirect/indexed classification table coverage |
 | `pkg/arch/z80/parser/fuzz_test.go` | `parser` | Property-based determinism: same token stream → same success/error outcome |
@@ -469,6 +472,8 @@ The branch uses a `replace` directive in `go.mod` pointing to a local checkout o
 | `emulation_dd.go` | Added `ddLdSpIX` emulation function |
 | `emulation_fd.go` | Added `fdLdSpIY` emulation function |
 | `opcode.go` | Added DD 0xF9 and FD 0xF9 opcode table entries |
+| `instruction.go` | Moved `LD (HL),r` from `LdIndirect.RegisterOpcodes` to `LdReg8.RegisterPairOpcodes`; `LdIndirect` now only handles BC/DE indirect |
+| `instruction_ed.go` | Added undocumented alias instructions (`edIm0Alias`, `edRetnAlias`) with no addressing modes or register opcodes — these exist only for emulator decoding |
 
 These retrogolib changes must be merged/released before the `replace` directive can be removed from `go.mod`.
 
