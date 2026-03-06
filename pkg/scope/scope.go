@@ -45,3 +45,16 @@ func (sc *Scope) GetSymbol(name string) (*Symbol, error) {
 func (sc *Scope) Parent() *Scope {
 	return sc.parent
 }
+
+// AllLabels returns the resolved address of every label-type symbol in this scope.
+// Only this scope is searched (parent scopes are not included).
+// Symbols whose addresses have not been assigned yet have address 0.
+func (sc *Scope) AllLabels() map[string]uint64 {
+	result := make(map[string]uint64, len(sc.symbols))
+	for name, sym := range sc.symbols {
+		if sym.typ == LabelType || sym.typ == FunctionType {
+			result[name] = sym.address
+		}
+	}
+	return result
+}

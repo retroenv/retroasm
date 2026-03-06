@@ -330,6 +330,11 @@ func parseQuick(p arch.Parser, resolved *ResolvedInstruction) error {
 	if err != nil {
 		return err
 	}
+	// The immediate is encoded in the opcode word (3-bit field), not as an extension word.
+	// Mark it as QuickImmediateMode so the size calculation (eaExtensionSize) returns 0.
+	if src != nil && src.Mode == m68000.ImmediateMode {
+		src.Mode = m68000.QuickImmediateMode
+	}
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
