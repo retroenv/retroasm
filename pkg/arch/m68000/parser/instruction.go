@@ -208,10 +208,21 @@ func parseRegisterListFromTokens(p arch.Parser) (uint16, error) {
 		if next.Type == token.Comma || next.Type.IsTerminator() {
 			break
 		}
-		// Continue collecting: could be '-', '/', register names
-		if next.Value == "/" || next.Value == "-" || isRegisterListStart(next.Value) {
+		// Continue collecting: could be '-', '/', register names.
+		// Operator tokens (Minus, Slash) have empty Value; match by Type.
+		if next.Type == token.Slash || next.Type == token.Minus || isRegisterListStart(next.Value) {
 			p.AdvanceReadPosition(1)
-			parts = append(parts, next.Value)
+			// Use canonical string for operator tokens since their Value may be empty.
+			var part string
+			switch next.Type {
+			case token.Minus:
+				part = "-"
+			case token.Slash:
+				part = "/"
+			default:
+				part = next.Value
+			}
+			parts = append(parts, part)
 			continue
 		}
 		break

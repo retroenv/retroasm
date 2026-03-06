@@ -30,7 +30,7 @@ func parseEffectiveAddress(p arch.Parser) (*EffectiveAddress, error) {
 		p.AdvanceReadPosition(1)
 		return parseImmediateHashEA(p)
 
-	case tok.Value == "-" && p.NextToken(1).Type == token.LeftParentheses:
+	case tok.Type == token.Minus && p.NextToken(1).Type == token.LeftParentheses:
 		return parsePreDecrementEA(p)
 
 	case tok.Type == token.LeftParentheses:
@@ -138,7 +138,7 @@ func parseIndirectIdentifierEA(p arch.Parser, regTok token.Token) (*EffectiveAdd
 			return &EffectiveAddress{Mode: m68000.PCDisplacementMode, Value: ast.NewNumber(0)}, nil
 		}
 		// Check for post-increment: (An)+
-		if p.NextToken(1).Value == "+" {
+		if p.NextToken(1).Type == token.Plus {
 			p.AdvanceReadPosition(1) // skip '+'
 			return &EffectiveAddress{
 				Mode:     m68000.PostIncrementMode,
