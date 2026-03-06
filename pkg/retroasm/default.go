@@ -14,6 +14,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpum6502 "github.com/retroenv/retrogolib/arch/cpu/m6502"
+	cpum68000 "github.com/retroenv/retrogolib/arch/cpu/m68000"
 )
 
 // Sentinel errors.
@@ -140,6 +141,8 @@ func (a *defaultAssembler) assembleASTWithArchitecture(ctx context.Context, node
 	switch cfg := cfgAny.(type) {
 	case *config.Config[*cpum6502.Instruction]:
 		return assembleASTWithConfig(ctx, cfg, nodes, baseAddress)
+	case *config.Config[*cpum68000.Instruction]:
+		return assembleASTWithConfig(ctx, cfg, nodes, baseAddress)
 	case *config.Config[*archz80.InstructionGroup]:
 		return assembleASTWithConfig(ctx, cfg, nodes, baseAddress)
 	default:
@@ -155,6 +158,8 @@ func (a *defaultAssembler) assembleTextWithArchitecture(ctx context.Context, sou
 
 	switch cfg := cfgAny.(type) {
 	case *config.Config[*cpum6502.Instruction]:
+		return assembleTextWithConfig(ctx, cfg, source, configFile)
+	case *config.Config[*cpum68000.Instruction]:
 		return assembleTextWithConfig(ctx, cfg, source, configFile)
 	case *config.Config[*archz80.InstructionGroup]:
 		return assembleTextWithConfig(ctx, cfg, source, configFile)
