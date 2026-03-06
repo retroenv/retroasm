@@ -36,67 +36,40 @@ func resolvedInstruction(argument any) (m68000parser.ResolvedInstruction, error)
 	return resolved, nil
 }
 
-func instructionSize(resolved m68000parser.ResolvedInstruction) int { //nolint:cyclop // instruction size table requires many cases
-	size := 2 // base opcode word
-
+func instructionSize(resolved m68000parser.ResolvedInstruction) int {
 	name := resolved.Instruction.Name
 
-	// Special cases
 	switch name {
 	case m68000.NOPName, m68000.RTSName, m68000.RTEName, m68000.RTRName,
-		m68000.RESETName, m68000.TRAPVName, m68000.ILLEGALName:
+		m68000.RESETName, m68000.TRAPVName, m68000.ILLEGALName,
+		m68000.TRAPName, m68000.MOVEQName,
+		m68000.UNLKName, m68000.SWAPName, m68000.EXTName, m68000.EXGName:
 		return 2
-	case m68000.TRAPName:
-		return 2 // vector encoded in opcode
-	case m68000.MOVEQName:
-		return 2 // immediate encoded in opcode word
-	case m68000.STOPName:
-		return 4 // opcode + immediate word
-	case m68000.LINKName:
-		return 4 // opcode + displacement word
-	case m68000.UNLKName, m68000.SWAPName:
-		return 2
-	case m68000.EXTName:
-		return 2
-	case m68000.EXGName:
-		return 2
-	}
 
-	// Branch instructions
-	if name == m68000.BccName || name == m68000.BRAName || name == m68000.BSRName {
+	case m68000.STOPName, m68000.LINKName, m68000.DBccName, m68000.MOVEPName:
+		return 4
+
+	case m68000.BccName, m68000.BRAName, m68000.BSRName:
 		if resolved.Size == m68000.SizeByte {
-			return 2 // 8-bit displacement in opcode
+			return 2
 		}
-		return 4 // 16-bit displacement word
-	}
-
-	// DBcc: opcode + displacement word
-	if name == m68000.DBccName {
 		return 4
+
+	case m68000.MOVEMName:
+		return instructionSizeMOVEM(resolved)
+
+	default:
+		return 2 + eaExtensionSize(resolved.SrcEA, resolved.Size) + eaExtensionSize(resolved.DstEA, resolved.Size)
 	}
+}
 
-	// MOVEM: opcode + register list word + EA extension
-	if name == m68000.MOVEMName {
-		size += 2 // register list word
-		if resolved.Extra == 0 {
-			// register-to-memory: DstEA has extension words
-			size += eaExtensionSize(resolved.DstEA, resolved.Size)
-		} else {
-			// memory-to-register: SrcEA has extension words
-			size += eaExtensionSize(resolved.SrcEA, resolved.Size)
-		}
-		return size
+func instructionSizeMOVEM(resolved m68000parser.ResolvedInstruction) int {
+	size := 4 // opcode word + register list word
+	if resolved.Extra == 0 {
+		size += eaExtensionSize(resolved.DstEA, resolved.Size)
+	} else {
+		size += eaExtensionSize(resolved.SrcEA, resolved.Size)
 	}
-
-	// MOVEP: opcode + displacement word
-	if name == m68000.MOVEPName {
-		return 4
-	}
-
-	// General case: add extension words for each EA
-	size += eaExtensionSize(resolved.SrcEA, resolved.Size)
-	size += eaExtensionSize(resolved.DstEA, resolved.Size)
-
 	return size
 }
 

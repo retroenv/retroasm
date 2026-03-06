@@ -12,31 +12,42 @@ func parseRegisterList(s string) (uint16, error) {
 
 	parts := strings.SplitSeq(s, "/")
 	for part := range parts {
-		rangeParts := strings.SplitN(part, "-", 2)
-		if len(rangeParts) == 1 { //nolint:nestif // register range parsing requires nested error handling
-			bit, err := registerBit(rangeParts[0])
-			if err != nil {
-				return 0, err
-			}
-			mask |= 1 << bit
-		} else {
-			start, err := registerBit(rangeParts[0])
-			if err != nil {
-				return 0, err
-			}
-			end, err := registerBit(rangeParts[1])
-			if err != nil {
-				return 0, err
-			}
-			if end < start {
-				return 0, fmt.Errorf("invalid register range %s", part)
-			}
-			for i := start; i <= end; i++ {
-				mask |= 1 << i
-			}
+		partMask, err := parseRegisterListPart(part)
+		if err != nil {
+			return 0, err
 		}
+		mask |= partMask
 	}
 
+	return mask, nil
+}
+
+func parseRegisterListPart(part string) (uint16, error) {
+	rangeParts := strings.SplitN(part, "-", 2)
+	if len(rangeParts) == 1 {
+		bit, err := registerBit(rangeParts[0])
+		if err != nil {
+			return 0, err
+		}
+		return 1 << bit, nil
+	}
+
+	start, err := registerBit(rangeParts[0])
+	if err != nil {
+		return 0, err
+	}
+	end, err := registerBit(rangeParts[1])
+	if err != nil {
+		return 0, err
+	}
+	if end < start {
+		return 0, fmt.Errorf("invalid register range %s", part)
+	}
+
+	var mask uint16
+	for i := start; i <= end; i++ {
+		mask |= 1 << i
+	}
 	return mask, nil
 }
 

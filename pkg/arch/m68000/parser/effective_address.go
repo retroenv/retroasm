@@ -375,37 +375,8 @@ func parseLabelEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
 	next := p.NextToken(1)
 
 	// Check for displacement: label(An) or label(PC)
-	if next.Type == token.LeftParentheses { //nolint:nestif // label EA parsing requires nested condition checks
-		p.AdvanceReadPosition(2) // skip label '('
-		regTok := p.NextToken(0)
-		info, ok := lookupRegister(regTok.Value)
-		if ok && (info.isAddr || info.number == regPC) {
-			next2 := p.NextToken(1)
-			if next2.Type == token.RightParentheses {
-				p.AdvanceReadPosition(1) // skip register ')'
-				mode := m68000.DisplacementMode
-				if info.number == regPC {
-					mode = m68000.PCDisplacementMode
-				}
-				return &EffectiveAddress{
-					Mode:     mode,
-					Register: info.number,
-					Value:    ast.NewLabel(tok.Value),
-				}, nil
-			}
-			if next2.Type == token.Comma {
-				// label(An,Xn.s) or label(PC,Xn.s)
-				p.AdvanceReadPosition(2) // skip register ','
-				ea, err := parseIndexedEA(p, info)
-				if err != nil {
-					return nil, err
-				}
-				ea.Value = ast.NewLabel(tok.Value)
-				return ea, nil
-			}
-		}
-		// Not a valid displacement, backtrack is complex - treat as label
-		return nil, fmt.Errorf("%w: unexpected token after label '(' '%s'", errInvalidEA, regTok.Value)
+	if next.Type == token.LeftParentheses {
+		return parseLabelDisplacementEA(p, tok)
 	}
 
 	// Check for .W or .L suffix
@@ -424,4 +395,39 @@ func parseLabelEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
 
 	// Default: label as absolute long address
 	return &EffectiveAddress{Mode: m68000.AbsLongMode, Value: ast.NewLabel(tok.Value)}, nil
+}
+
+func parseLabelDisplacementEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
+	p.AdvanceReadPosition(2) // skip label '('
+	regTok := p.NextToken(0)
+	info, ok := lookupRegister(regTok.Value)
+	if !ok || (!info.isAddr && info.number != regPC) {
+		return nil, fmt.Errorf("%w: unexpected token after label '(' '%s'", errInvalidEA, regTok.Value)
+	}
+
+	next2 := p.NextToken(1)
+	if next2.Type == token.RightParentheses {
+		p.AdvanceReadPosition(1) // skip register ')'
+		mode := m68000.DisplacementMode
+		if info.number == regPC {
+			mode = m68000.PCDisplacementMode
+		}
+		return &EffectiveAddress{
+			Mode:     mode,
+			Register: info.number,
+			Value:    ast.NewLabel(tok.Value),
+		}, nil
+	}
+	if next2.Type == token.Comma {
+		// label(An,Xn.s) or label(PC,Xn.s)
+		p.AdvanceReadPosition(2) // skip register ','
+		ea, err := parseIndexedEA(p, info)
+		if err != nil {
+			return nil, err
+		}
+		ea.Value = ast.NewLabel(tok.Value)
+		return ea, nil
+	}
+
+	return nil, fmt.Errorf("%w: unexpected token after label '(' '%s'", errInvalidEA, regTok.Value)
 }
