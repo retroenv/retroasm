@@ -26,7 +26,7 @@ var conditionCodes = map[string]uint16{
 
 // ParseConditionCode extracts a condition code from a branch/set mnemonic.
 // Returns the base instruction name, condition code, and whether a condition was found.
-// Examples: "BEQ" -> ("Bcc", 7, true), "DBNE" -> ("DBcc", 6, true), "SHI" -> ("Scc", 2, true)
+// Examples: "BEQ" -> ("Bcc", 7, true), "DBNE" -> ("DBcc", 6, true), "SHI" -> ("Scc", 2, true).
 func ParseConditionCode(mnemonic string) (string, uint16, bool) {
 	upper := strings.ToUpper(mnemonic)
 

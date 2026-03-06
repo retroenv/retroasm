@@ -26,7 +26,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, resolved m68000parser.ResolvedInstruction) ([]byte, error) { //nolint:cyclop // instruction encoding requires many cases
+func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, resolved m68000parser.ResolvedInstruction) ([]byte, error) { //nolint:cyclop,gocyclo,funlen,maintidx // instruction encoding requires many cases
 	name := resolved.Instruction.Name
 
 	switch name {
@@ -447,9 +447,10 @@ func encodeUnaryByte(assigner arch.AddressAssigner, resolved m68000parser.Resolv
 func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction, resolved m68000parser.ResolvedInstruction) ([]byte, error) {
 	cond := resolved.Extra
 
-	if resolved.Instruction.Name == m68000.BRAName {
+	switch resolved.Instruction.Name {
+	case m68000.BRAName:
 		cond = 0
-	} else if resolved.Instruction.Name == m68000.BSRName {
+	case m68000.BSRName:
 		cond = 1
 	}
 
@@ -468,7 +469,7 @@ func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction, resolved 
 	}
 
 	// Word branch: 16-bit displacement
-	opcode := uint16(0x6000) | cond<<8 | 0x00 // displacement 0 means word follows
+	opcode := uint16(0x6000) | cond<<8 // displacement 0 means word follows
 	buf := encodeWord(opcode)
 	buf = binary.BigEndian.AppendUint16(buf, uint16(int16(disp)))
 	return buf, nil

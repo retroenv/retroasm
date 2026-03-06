@@ -21,11 +21,11 @@ var registers map[string]registerInfo
 func init() {
 	registers = make(map[string]registerInfo, 32)
 
-	for i := uint8(0); i < 8; i++ {
+	for i := range uint8(8) {
 		registers["D"+string(rune('0'+i))] = registerInfo{number: i}
 	}
 
-	for i := uint8(0); i < 7; i++ {
+	for i := range uint8(7) {
 		registers["A"+string(rune('0'+i))] = registerInfo{number: i, isAddr: true}
 	}
 	registers["A7"] = registerInfo{number: 7, isAddr: true}
@@ -41,16 +41,4 @@ func init() {
 func lookupRegister(name string) (registerInfo, bool) {
 	info, ok := registers[strings.ToUpper(name)]
 	return info, ok
-}
-
-// isDataRegister returns true if the name is D0-D7.
-func isDataRegister(name string) bool {
-	info, ok := lookupRegister(name)
-	return ok && !info.isAddr && !info.special
-}
-
-// isAddrRegister returns true if the name is A0-A7/SP.
-func isAddrRegister(name string) bool {
-	info, ok := lookupRegister(name)
-	return ok && info.isAddr && !info.special
 }

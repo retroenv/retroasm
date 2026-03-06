@@ -10,10 +10,10 @@ import (
 func parseRegisterList(s string) (uint16, error) {
 	var mask uint16
 
-	parts := strings.Split(s, "/")
-	for _, part := range parts {
+	parts := strings.SplitSeq(s, "/")
+	for part := range parts {
 		rangeParts := strings.SplitN(part, "-", 2)
-		if len(rangeParts) == 1 {
+		if len(rangeParts) == 1 { //nolint:nestif // register range parsing requires nested error handling
 			bit, err := registerBit(rangeParts[0])
 			if err != nil {
 				return 0, err

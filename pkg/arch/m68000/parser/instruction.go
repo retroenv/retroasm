@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 )
 
 // ParseIdentifier parses an M68000 instruction and returns the corresponding AST node.
-func ParseIdentifier(p arch.Parser, ins *m68000.Instruction, mnemonic string) (ast.Node, error) {
+func ParseIdentifier(p arch.Parser, ins *m68000.Instruction, mnemonic string) (ast.Node, error) { //nolint:cyclop,funlen // instruction dispatch requires many cases
 	size := m68000.SizeWord // default size
 
 	// Parse size suffix from the original mnemonic (e.g., "move.l" passed from Instruction lookup)
@@ -129,7 +130,7 @@ func parseDBcc(p arch.Parser, resolved *ResolvedInstruction) error {
 	resolved.SrcEA = ea // data register
 
 	if p.NextToken(1).Type != token.Comma {
-		return fmt.Errorf("expected comma in DBcc")
+		return errors.New("expected comma in DBcc")
 	}
 	p.AdvanceReadPosition(2) // skip ',' and advance
 
@@ -154,7 +155,7 @@ func parseMOVEM(p arch.Parser, resolved *ResolvedInstruction) error {
 		resolved.SrcEA = &EffectiveAddress{RegList: regList}
 
 		if p.NextToken(1).Type != token.Comma {
-			return fmt.Errorf("expected comma in MOVEM")
+			return errors.New("expected comma in MOVEM")
 		}
 		p.AdvanceReadPosition(2)
 
@@ -175,7 +176,7 @@ func parseMOVEM(p arch.Parser, resolved *ResolvedInstruction) error {
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
-		return fmt.Errorf("expected comma in MOVEM")
+		return errors.New("expected comma in MOVEM")
 	}
 	p.AdvanceReadPosition(2)
 
@@ -228,7 +229,7 @@ func parseMOVEQ(p arch.Parser, resolved *ResolvedInstruction) error {
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
-		return fmt.Errorf("expected comma in MOVEQ")
+		return errors.New("expected comma in MOVEQ")
 	}
 	p.AdvanceReadPosition(2)
 
@@ -270,7 +271,7 @@ func parseLINK(p arch.Parser, resolved *ResolvedInstruction) error {
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
-		return fmt.Errorf("expected comma in LINK")
+		return errors.New("expected comma in LINK")
 	}
 	p.AdvanceReadPosition(2)
 
@@ -311,7 +312,7 @@ func parseEXG(p arch.Parser, resolved *ResolvedInstruction) error {
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
-		return fmt.Errorf("expected comma in EXG")
+		return errors.New("expected comma in EXG")
 	}
 	p.AdvanceReadPosition(2)
 
@@ -332,7 +333,7 @@ func parseQuick(p arch.Parser, resolved *ResolvedInstruction) error {
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
-		return fmt.Errorf("expected comma in quick instruction")
+		return errors.New("expected comma in quick instruction")
 	}
 	p.AdvanceReadPosition(2)
 

@@ -36,7 +36,7 @@ func resolvedInstruction(argument any) (m68000parser.ResolvedInstruction, error)
 	return resolved, nil
 }
 
-func instructionSize(resolved m68000parser.ResolvedInstruction) int {
+func instructionSize(resolved m68000parser.ResolvedInstruction) int { //nolint:cyclop // instruction size table requires many cases
 	size := 2 // base opcode word
 
 	name := resolved.Instruction.Name
@@ -97,11 +97,6 @@ func instructionSize(resolved m68000parser.ResolvedInstruction) int {
 	size += eaExtensionSize(resolved.SrcEA, resolved.Size)
 	size += eaExtensionSize(resolved.DstEA, resolved.Size)
 
-	// Immediate source for ALU immediate instructions
-	if isImmediateALU(name) && resolved.SrcEA == nil {
-		// The immediate value is part of SrcEA, already counted
-	}
-
 	return size
 }
 
@@ -138,13 +133,4 @@ func eaExtensionSize(ea *m68000parser.EffectiveAddress, opSize m68000.OperandSiz
 	default:
 		return 0
 	}
-}
-
-func isImmediateALU(name string) bool {
-	switch name {
-	case m68000.ADDIName, m68000.SUBIName, m68000.ANDIName,
-		m68000.ORIName, m68000.EORIName, m68000.CMPIName:
-		return true
-	}
-	return false
 }

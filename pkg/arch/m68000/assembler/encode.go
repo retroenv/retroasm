@@ -165,7 +165,7 @@ func encodeSizeBits(size m68000.OperandSize) uint16 {
 // Used for MOVEM with pre-decrement mode where the register list is stored in reverse.
 func reverseRegisterList(mask uint16) uint16 {
 	var result uint16
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		if mask&(1<<uint(i)) != 0 {
 			result |= 1 << uint(15-i)
 		}

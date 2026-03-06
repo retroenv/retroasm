@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	errMissingOperand     = errors.New("missing operand")
-	errMissingCloseParen  = errors.New("missing closing parenthesis")
-	errInvalidEA          = errors.New("invalid effective address")
+	errMissingOperand    = errors.New("missing operand")
+	errMissingCloseParen = errors.New("missing closing parenthesis")
+	errInvalidEA         = errors.New("invalid effective address")
 )
 
 // parseEffectiveAddress parses an effective address operand from the token stream.
@@ -238,16 +238,17 @@ func parseIndexedEA(p arch.Parser, base registerInfo) (*EffectiveAddress, error)
 	}
 
 	indexSize := m68000.SizeWord // default index size
-	p.AdvanceReadPosition(1)    // skip index register
+	p.AdvanceReadPosition(1)     // skip index register
 
 	// Check for .W or .L size suffix on index register
 	if p.NextToken(0).Type == token.Dot {
 		suffix := p.NextToken(1)
 		upper := strings.ToUpper(suffix.Value)
-		if upper == "W" {
+		switch upper {
+		case "W":
 			indexSize = m68000.SizeWord
 			p.AdvanceReadPosition(2) // skip '.W'
-		} else if upper == "L" {
+		case "L":
 			indexSize = m68000.SizeLong
 			p.AdvanceReadPosition(2) // skip '.L'
 		}
@@ -374,7 +375,7 @@ func parseLabelEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
 	next := p.NextToken(1)
 
 	// Check for displacement: label(An) or label(PC)
-	if next.Type == token.LeftParentheses {
+	if next.Type == token.LeftParentheses { //nolint:nestif // label EA parsing requires nested condition checks
 		p.AdvanceReadPosition(2) // skip label '('
 		regTok := p.NextToken(0)
 		info, ok := lookupRegister(regTok.Value)
