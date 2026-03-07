@@ -256,6 +256,27 @@ func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (an
 	case ast.InstructionArguments:
 		return convertInstructionArgumentList(arg, modifiers)
 
+	case ast.RegisterValue:
+		value, err := parseInstructionArgument(arg.Value)
+		if err != nil {
+			return nil, err
+		}
+		return RegisterValueArgument{
+			Register: arg.Register,
+			Value:    value,
+		}, nil
+
+	case ast.RegisterRegisterValue:
+		value, err := parseInstructionArgument(arg.Value)
+		if err != nil {
+			return nil, err
+		}
+		return RegisterRegisterValueArgument{
+			Register1: arg.Register1,
+			Register2: arg.Register2,
+			Value:     value,
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
@@ -312,6 +333,19 @@ func nameWithModifiers(name string, modifiers []ast.Modifier) (string, error) {
 		return fmt.Sprintf("%s+%d", name, offset), nil
 	}
 	return fmt.Sprintf("%s%d", name, offset), nil // offset is negative, fmt includes '-'
+}
+
+func parseInstructionArgument(arg ast.Node) (any, error) {
+	switch v := arg.(type) {
+	case ast.Number:
+		return v.Value, nil
+	case ast.Label:
+		return reference{name: v.Name}, nil
+	case ast.Identifier:
+		return reference{name: v.Name}, nil
+	default:
+		return nil, fmt.Errorf("unexpected argument type %T", arg)
+	}
 }
 
 func parseInclude[T any](asm *parseAST[T], inc ast.Include) ([]ast.Node, error) {

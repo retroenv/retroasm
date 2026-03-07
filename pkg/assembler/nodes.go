@@ -71,6 +71,19 @@ type instruction struct {
 	argument   any
 }
 
+// RegisterValueArgument represents a register paired with a value argument.
+type RegisterValueArgument struct {
+	Register byte
+	Value    any
+}
+
+// RegisterRegisterValueArgument represents two registers paired with a value argument.
+type RegisterRegisterValueArgument struct {
+	Register1 byte
+	Register2 byte
+	Value     any
+}
+
 func (i *instruction) Address() uint64 {
 	return i.address
 }

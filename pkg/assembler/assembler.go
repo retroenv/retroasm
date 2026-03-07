@@ -121,6 +121,16 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 		currentScope: asm.fileScope,
 		segments:     map[string]*segment{},
 	}
+	if len(asm.cfg.SegmentsOrdered) == 1 {
+		segCfg := asm.cfg.SegmentsOrdered[0]
+		seg := &segment{
+			config: segCfg,
+			nodes:  nil,
+		}
+		p.currentSegment = seg
+		p.segments[seg.config.SegmentName] = seg
+		p.segmentsOrder = append(p.segmentsOrder, seg)
+	}
 
 	for _, node := range nodes {
 		// Check for cancellation in the parsing loop
