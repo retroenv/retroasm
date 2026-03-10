@@ -137,51 +137,18 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		return parseInstructionThreeArgs(ins, arg1, arg2, arg3)
 	}
 
-	// Handle various two-argument addressing modes
+	// Handle various two-argument addressing modes.
+	// Order matters: specific cases (special registers, V0+addr, I+reg) must precede
+	// general cases (reg+number, reg+identifier) to avoid incorrect matches.
 	switch {
 	case isReg1 && isReg2:
 		// Vx, Vy - Register-register addressing
 		if !hasAddressing(ins, chip8.RegisterRegisterAddressing) {
 			return nil, errors.New("instruction does not support register-register addressing")
 		}
-		// Encode both registers in the argument
 		value := (uint64(reg1) << 4) | uint64(reg2)
 		n := ast.NewNumber(value)
 		return ast.NewInstruction(ins.Name, int(chip8.RegisterRegisterAddressing), n, nil), nil
-
-	case isReg1 && arg2.Type == token.Number:
-		// Vx, byte - Register-value addressing
-		valueNode, err := parseByteArgument(arg2)
-		if err != nil {
-			return nil, err
-		}
-		if !hasAddressing(ins, chip8.RegisterValueAddressing) {
-			return nil, errors.New("instruction does not support register-value addressing")
-		}
-		n := ast.NewRegisterValue(reg1, valueNode)
-		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
-
-	case isV0 && (arg2.Type == token.Number || arg2.Type == token.Identifier):
-		// V0, addr - V0 + absolute addressing (JP V0, addr)
-		address, err := parseAddressArgument(arg2)
-		if err != nil {
-			return nil, err
-		}
-		if !hasAddressing(ins, chip8.V0AbsoluteAddressing) {
-			return nil, errors.New("instruction does not support V0 + absolute addressing")
-		}
-		return ast.NewInstruction(ins.Name, int(chip8.V0AbsoluteAddressing), address, nil), nil
-
-	case isI && (arg2.Type == token.Number || arg2.Type == token.Identifier):
-		// I, addr - I register addressing
-		address, err := parseAddressArgument(arg2)
-		if err != nil {
-			return nil, err
-		}
-		if !hasAddressing(ins, chip8.IAbsoluteAddressing) {
-			return nil, errors.New("instruction does not support I + absolute addressing")
-		}
-		return ast.NewInstruction(ins.Name, int(chip8.IAbsoluteAddressing), address, nil), nil
 
 	case isReg1 && isDT2:
 		// Vx, DT - Load from delay timer
@@ -238,6 +205,37 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		}
 		n := ast.NewNumber(uint64(reg2))
 		return ast.NewInstruction(ins.Name, int(chip8.IRegisterAddressing), n, nil), nil
+
+	case isV0 && hasAddressing(ins, chip8.V0AbsoluteAddressing):
+		// V0, addr - V0 + absolute addressing (JP V0, addr)
+		address, err := parseAddressArgument(arg2)
+		if err != nil {
+			return nil, err
+		}
+		return ast.NewInstruction(ins.Name, int(chip8.V0AbsoluteAddressing), address, nil), nil
+
+	case isI && (arg2.Type == token.Number || arg2.Type == token.Identifier):
+		// I, addr - I register addressing
+		address, err := parseAddressArgument(arg2)
+		if err != nil {
+			return nil, err
+		}
+		if !hasAddressing(ins, chip8.IAbsoluteAddressing) {
+			return nil, errors.New("instruction does not support I + absolute addressing")
+		}
+		return ast.NewInstruction(ins.Name, int(chip8.IAbsoluteAddressing), address, nil), nil
+
+	case isReg1 && arg2.Type == token.Number:
+		// Vx, byte - Register-value addressing
+		valueNode, err := parseByteArgument(arg2)
+		if err != nil {
+			return nil, err
+		}
+		if !hasAddressing(ins, chip8.RegisterValueAddressing) {
+			return nil, errors.New("instruction does not support register-value addressing")
+		}
+		n := ast.NewRegisterValue(reg1, valueNode)
+		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
 
 	case isReg1 && arg2.Type == token.Identifier:
 		// Vx, symbol - Register-value addressing with identifier
