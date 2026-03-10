@@ -52,14 +52,14 @@ func NewArchitectureAdapter[T any](name string, arch any, cfg *config.Config[T])
 	}
 }
 
-func (a *ArchitectureAdapter[T]) Name() string      { return a.name }
+func (a *ArchitectureAdapter[T]) Name() string { return a.name }
 func (a *ArchitectureAdapter[T]) AddressWidth() int {
 	if aw, ok := a.arch.(interface{ AddressWidth() int }); ok {
 		return aw.AddressWidth()
 	}
 	return 16
 }
-func (a *ArchitectureAdapter[T]) configAny() any    { return a.config }
+func (a *ArchitectureAdapter[T]) configAny() any { return a.config }
 
 func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (ArchitectureAssembler, error) {
 	return &architectureAssembler[T]{
