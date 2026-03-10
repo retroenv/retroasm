@@ -21,63 +21,8 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	// Start with the base opcode value
 	opcode := addressingInfo.Value
 
-	// Apply the mask and encode arguments based on addressing mode
-	switch addressing {
-	case retrochip8.ImpliedAddressing:
-		// No arguments to encode (CLS, RET)
-
-	case retrochip8.AbsoluteAddressing:
-		// JP addr, CALL addr - encode 12-bit address
-		if err := generateAbsoluteAddressingOpcode(assigner, ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case retrochip8.V0AbsoluteAddressing:
-		// JP V0, addr - encode 12-bit address
-		if err := generateAbsoluteAddressingOpcode(assigner, ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case retrochip8.IAbsoluteAddressing:
-		// LD I, addr - encode 12-bit address
-		if err := generateAbsoluteAddressingOpcode(assigner, ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case retrochip8.RegisterValueAddressing:
-		// LD Vx, byte / ADD Vx, byte / SE Vx, byte / SNE Vx, byte / RND Vx, byte
-		// Argument contains (register << 8) | value
-		if err := generateRegisterValueOpcode(assigner, ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case retrochip8.RegisterRegisterAddressing:
-		// LD Vx, Vy / ADD Vx, Vy / OR Vx, Vy / AND Vx, Vy / XOR Vx, Vy / SUB Vx, Vy / etc.
-		// Argument contains (register1 << 4) | register2
-		if err := generateRegisterRegisterOpcode(ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case retrochip8.RegisterRegisterNibbleAddressing:
-		// DRW Vx, Vy, nibble
-		// Argument contains (register1 << 8) | (register2 << 4) | nibble
-		if err := generateRegisterRegisterNibbleOpcode(assigner, ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case retrochip8.RegisterDTAddressing, retrochip8.RegisterKAddressing,
-		retrochip8.DTRegisterAddressing, retrochip8.STRegisterAddressing,
-		retrochip8.FRegisterAddressing, retrochip8.BRegisterAddressing,
-		retrochip8.IRegisterAddressing, retrochip8.IIndirectRegisterAddressing,
-		retrochip8.RegisterIndirectIAddressing:
-		// All single-register addressing modes
-		// Argument contains register number
-		if err := generateSingleRegisterOpcode(ins, &opcode); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	default:
-		return fmt.Errorf("unsupported instruction addressing %d", addressing)
+	if err := generateInstructionArgumentOpcode(assigner, ins, addressing, &opcode); err != nil {
+		return fmt.Errorf("generating opcode: %w", err)
 	}
 
 	// Encode opcode as big-endian 16-bit value
@@ -86,6 +31,32 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	ins.SetOpcodes(opcodeBytes)
 
 	return nil
+}
+
+// nolint: cyclop
+func generateInstructionArgumentOpcode(assigner arch.AddressAssigner, ins arch.Instruction, addressing retrochip8.Mode, opcode *uint16) error {
+	switch addressing {
+	case retrochip8.ImpliedAddressing:
+		return nil
+	case retrochip8.AbsoluteAddressing, retrochip8.V0AbsoluteAddressing, retrochip8.IAbsoluteAddressing:
+		return generateAbsoluteAddressingOpcode(assigner, ins, opcode)
+	case retrochip8.RegisterAddressing:
+		return generateSingleRegisterOpcode(ins, opcode)
+	case retrochip8.RegisterValueAddressing:
+		return generateRegisterValueOpcode(assigner, ins, opcode)
+	case retrochip8.RegisterRegisterAddressing:
+		return generateRegisterRegisterOpcode(ins, opcode)
+	case retrochip8.RegisterRegisterNibbleAddressing:
+		return generateRegisterRegisterNibbleOpcode(assigner, ins, opcode)
+	case retrochip8.RegisterDTAddressing, retrochip8.RegisterKAddressing,
+		retrochip8.DTRegisterAddressing, retrochip8.STRegisterAddressing,
+		retrochip8.FRegisterAddressing, retrochip8.BRegisterAddressing,
+		retrochip8.IRegisterAddressing, retrochip8.IIndirectRegisterAddressing,
+		retrochip8.RegisterIndirectIAddressing:
+		return generateSingleRegisterOpcode(ins, opcode)
+	default:
+		return fmt.Errorf("unsupported instruction addressing %d", addressing)
+	}
 }
 
 func generateAbsoluteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcode *uint16) error {

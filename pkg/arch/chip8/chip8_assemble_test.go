@@ -54,3 +54,13 @@ cls
 	out := assembleChip8Source(t, src)
 	assert.Equal(t, []byte{0xB2, 0x04, 0x63, 0x7F, 0x00, 0xE0}, out)
 }
+
+func TestAssembleChip8_KeypadSingleRegisterInstructions(t *testing.T) {
+	src := `
+skp v1
+sknp vf
+`
+
+	out := assembleChip8Source(t, src)
+	assert.Equal(t, []byte{0xE1, 0x9E, 0xEF, 0xA1}, out)
+}

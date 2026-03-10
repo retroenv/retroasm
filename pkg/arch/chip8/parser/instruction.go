@@ -60,6 +60,10 @@ func parseInstruction(parser arch.Parser, ins *chip8.Instruction) (ast.Node, err
 func parseInstructionSingleArg(ins *chip8.Instruction, arg1 token.Token) (ast.Node, error) {
 	switch arg1.Type {
 	case token.Number, token.Identifier:
+		if reg, isReg := parseRegister(arg1); isReg {
+			return parseSingleRegisterArgument(ins, reg)
+		}
+
 		address, err := parseAddressArgument(arg1)
 		if err != nil {
 			return nil, err
@@ -80,6 +84,28 @@ func parseInstructionSingleArg(ins *chip8.Instruction, arg1 token.Token) (ast.No
 	default:
 		return nil, fmt.Errorf("unsupported instruction argument type %s", arg1.Type)
 	}
+}
+
+func parseSingleRegisterArgument(ins *chip8.Instruction, reg byte) (ast.Node, error) {
+	if hasAddressing(ins, chip8.RegisterAddressing) {
+		n := ast.NewNumber(uint64(reg))
+		return ast.NewInstruction(ins.Name, int(chip8.RegisterAddressing), n, nil), nil
+	}
+
+	if supportsPackedSingleRegisterValue(ins) {
+		n := ast.NewNumber(uint64(reg) << 8)
+		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
+	}
+
+	return nil, errors.New("instruction does not support single-register addressing")
+}
+
+func supportsPackedSingleRegisterValue(ins *chip8.Instruction) bool {
+	if !hasAddressing(ins, chip8.RegisterValueAddressing) {
+		return false
+	}
+
+	return ins.Name == chip8.SkpName || ins.Name == chip8.SknpName
 }
 
 // nolint: gocognit, gocritic, gocyclo, cyclop, funlen, maintidx
