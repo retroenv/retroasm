@@ -22,13 +22,6 @@ var (
 	ErrNilSource        = errors.New("source cannot be nil")
 )
 
-// New creates a new assembler instance.
-func New() Assembler {
-	return &defaultAssembler{
-		architectures: make(map[string]Architecture, 4),
-	}
-}
-
 // ArchitectureAdapter adapts existing architectures to the Architecture interface.
 type ArchitectureAdapter[T any] struct {
 	arch   any
@@ -45,6 +38,13 @@ func NewArchitectureAdapter[T any](name string, arch any, cfg *config.Config[T])
 	}
 }
 
+// New creates a new assembler instance.
+func New() Assembler {
+	return &defaultAssembler{
+		architectures: make(map[string]Architecture, 4),
+	}
+}
+
 func (a *ArchitectureAdapter[T]) Name() string      { return a.name }
 func (a *ArchitectureAdapter[T]) AddressWidth() int { return 16 }
 
@@ -58,6 +58,11 @@ func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (Archit
 type defaultAssembler struct {
 	architectures map[string]Architecture
 	config        Configuration
+}
+
+type architectureAssembler[T any] struct {
+	arch   any
+	config ArchitectureConfig
 }
 
 func (a *defaultAssembler) RegisterArchitecture(name string, arch Architecture) error {
@@ -160,11 +165,6 @@ func (a *defaultAssembler) AssembleText(ctx context.Context, input *TextInput) (
 	}
 
 	return output, nil
-}
-
-type architectureAssembler[T any] struct {
-	arch   any
-	config ArchitectureConfig
 }
 
 func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutput, error) {

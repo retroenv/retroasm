@@ -1,10 +1,5 @@
 package assembler
 
-type step[T any] struct {
-	handler       func(*Assembler[T]) error
-	errorTemplate string
-}
-
 // Steps of the assembler to execute, in order.
 func (asm *Assembler[T]) Steps() []step[T] {
 	return []step[T]{
@@ -33,4 +28,9 @@ func (asm *Assembler[T]) Steps() []step[T] {
 			errorTemplate: "writing output",
 		},
 	}
+}
+
+type step[T any] struct {
+	handler       func(*Assembler[T]) error
+	errorTemplate string
 }

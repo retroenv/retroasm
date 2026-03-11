@@ -14,16 +14,9 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
-type instruction struct {
-	instruction    *m6502.Instruction
-	addressingSize addressingSize
-	modifiers      []ast.Modifier
-	arg1           token.Token
-	arg2           token.Token
-}
-
 var errMissingParameter = errors.New("missing parameter")
 
+// ParseIdentifier parses an instruction identifier and returns an AST node.
 func ParseIdentifier(parser arch.Parser, ins *m6502.Instruction) (ast.Node, error) {
 	if len(ins.Addressing) == 1 && ins.HasAddressing(m6502.ImpliedAddressing) {
 		return ast.NewInstruction(ins.Name, int(m6502.ImpliedAddressing), nil, nil), nil
@@ -34,6 +27,14 @@ func ParseIdentifier(parser arch.Parser, ins *m6502.Instruction) (ast.Node, erro
 		return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
 	}
 	return node, nil
+}
+
+type instruction struct {
+	instruction    *m6502.Instruction
+	addressingSize addressingSize
+	modifiers      []ast.Modifier
+	arg1           token.Token
+	arg2           token.Token
 }
 
 func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction) (ast.Node, error) {

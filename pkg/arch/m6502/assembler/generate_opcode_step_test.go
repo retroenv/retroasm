@@ -7,34 +7,6 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-type mockAssigner struct {
-	value uint64
-}
-
-func (m *mockAssigner) ArgumentValue(_ any) (uint64, error)      { return m.value, nil }
-func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
-func (m *mockAssigner) ProgramCounter() uint64                   { return 0 }
-
-type mockInstruction struct {
-	name       string
-	addressing int
-	argument   any
-	opcodes    []byte
-	size       int
-	address    uint64
-}
-
-func (m *mockInstruction) Address() uint64     { return m.address }
-func (m *mockInstruction) Addressing() int     { return m.addressing }
-func (m *mockInstruction) Argument() any       { return m.argument }
-func (m *mockInstruction) Name() string        { return m.name }
-func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
-func (m *mockInstruction) Size() int           { return m.size }
-func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
-func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
-func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
-func (m *mockInstruction) SetSize(s int)       { m.size = s }
-
 func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -68,3 +40,31 @@ func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 		})
 	}
 }
+
+type mockAssigner struct {
+	value uint64
+}
+
+type mockInstruction struct {
+	name       string
+	addressing int
+	argument   any
+	opcodes    []byte
+	size       int
+	address    uint64
+}
+
+func (m *mockAssigner) ArgumentValue(_ any) (uint64, error)      { return m.value, nil }
+func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
+func (m *mockAssigner) ProgramCounter() uint64                   { return 0 }
+
+func (m *mockInstruction) Address() uint64     { return m.address }
+func (m *mockInstruction) Addressing() int     { return m.addressing }
+func (m *mockInstruction) Argument() any       { return m.argument }
+func (m *mockInstruction) Name() string        { return m.name }
+func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
+func (m *mockInstruction) Size() int           { return m.size }
+func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
+func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
+func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
+func (m *mockInstruction) SetSize(s int)       { m.size = s }
