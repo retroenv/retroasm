@@ -7,10 +7,10 @@ import (
 	"math"
 	"strings"
 
-	"github.com/retroenv/retroasm/arch"
-	"github.com/retroenv/retroasm/lexer/token"
-	"github.com/retroenv/retroasm/number"
-	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
+	"github.com/retroenv/retroasm/pkg/number"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
 // x86 addressing modes (avoiding import cycle).
@@ -28,7 +28,7 @@ var x86Registers = map[string]int{
 }
 
 // ParseIdentifier parses an x86 instruction and returns the corresponding AST node.
-func ParseIdentifier(parser arch.Parser, ins interface{}) (ast.Node, error) {
+func ParseIdentifier(parser arch.Parser, ins any) (ast.Node, error) {
 	// Extract name from instruction - this is a simplified approach to avoid import cycles
 	name := extractInstructionName(ins)
 
@@ -44,7 +44,7 @@ func ParseIdentifier(parser arch.Parser, ins interface{}) (ast.Node, error) {
 	return node, nil
 }
 
-func extractInstructionName(ins interface{}) string {
+func extractInstructionName(ins any) string {
 	// Use reflection-like approach to get name
 	if insPtr, ok := ins.(interface{ Name() string }); ok {
 		return insPtr.Name()

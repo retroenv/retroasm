@@ -4,11 +4,11 @@ package x86
 import (
 	"fmt"
 
-	"github.com/retroenv/retroasm/arch"
-	"github.com/retroenv/retroasm/arch/x86/assembler"
-	"github.com/retroenv/retroasm/arch/x86/parser"
-	"github.com/retroenv/retroasm/assembler/config"
-	"github.com/retroenv/retroasm/parser/ast"
+	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/arch/x86/assembler"
+	"github.com/retroenv/retroasm/pkg/arch/x86/parser"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
 // New returns a new x86 architecture configuration.

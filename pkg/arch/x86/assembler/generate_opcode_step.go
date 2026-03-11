@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/pkg/arch"
 )
 
 // Instruction name constants.
@@ -240,20 +240,7 @@ func generateImmediateAddressingOpcode(assigner arch.AddressAssigner, ins arch.I
 
 	// Handle branch instructions (relative addressing)
 	if isBranchInstruction(name) {
-		if name == jmpInst || name == callInst {
-			// 16-bit relative offset
-			if value > math.MaxUint16 {
-				return fmt.Errorf("relative offset %d exceeds word", value)
-			}
-			*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
-		} else {
-			// 8-bit relative offset for conditional jumps
-			if value > math.MaxUint8 {
-				return fmt.Errorf("relative offset %d exceeds byte", value)
-			}
-			*opcodes = append(*opcodes, byte(value))
-		}
-		return nil
+		return generateBranchOpcode(name, value, opcodes)
 	}
 
 	// Handle immediate data
@@ -268,6 +255,23 @@ func generateImmediateAddressingOpcode(assigner arch.AddressAssigner, ins arch.I
 		*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
 	}
 
+	return nil
+}
+
+func generateBranchOpcode(name string, value uint64, opcodes *[]byte) error {
+	if name == jmpInst || name == callInst {
+		// 16-bit relative offset
+		if value > math.MaxUint16 {
+			return fmt.Errorf("relative offset %d exceeds word", value)
+		}
+		*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
+	} else {
+		// 8-bit relative offset for conditional jumps
+		if value > math.MaxUint8 {
+			return fmt.Errorf("relative offset %d exceeds byte", value)
+		}
+		*opcodes = append(*opcodes, byte(value))
+	}
 	return nil
 }
 

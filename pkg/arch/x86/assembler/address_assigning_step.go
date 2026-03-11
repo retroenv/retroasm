@@ -2,7 +2,7 @@
 package assembler
 
 import (
-	"github.com/retroenv/retroasm/arch"
+	"github.com/retroenv/retroasm/pkg/arch"
 )
 
 // AssignInstructionAddress assigns an address to an x86 instruction and calculates its size.
