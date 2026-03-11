@@ -198,15 +198,6 @@ func TestValidateCPU(t *testing.T) {
 	}
 }
 
-type architectureValidationCase struct {
-	name          string
-	options       *optionFlags
-	expectedErr   error
-	expectCPU     string
-	expectSys     string
-	expectProfile string
-}
-
 func TestValidateAndProcessArchitecture(t *testing.T) {
 	logger := log.NewTestLogger(t)
 
@@ -231,6 +222,95 @@ func TestValidateAndProcessArchitecture(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRegisterArchitectureForCPU(t *testing.T) {
+	tests := []struct {
+		name        string
+		cpu         string
+		z80Profile  string
+		expectedErr error
+	}{
+		{
+			name:       "register 6502",
+			cpu:        cpu6502,
+			z80Profile: z80profile.Default.String(),
+		},
+		{
+			name:       "register z80 default profile",
+			cpu:        cpuZ80,
+			z80Profile: z80profile.Default.String(),
+		},
+		{
+			name:       "register z80 strict profile",
+			cpu:        cpuZ80,
+			z80Profile: z80profile.StrictDocumented.String(),
+		},
+		{
+			name:        "register z80 invalid profile",
+			cpu:         cpuZ80,
+			z80Profile:  "strict",
+			expectedErr: z80profile.ErrUnsupportedProfile,
+		},
+		{
+			name:        "unsupported cpu",
+			cpu:         "x86",
+			z80Profile:  z80profile.Default.String(),
+			expectedErr: ErrUnsupportedCPU,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			asm := retroasm.New()
+			err := registerArchitectureForCPU(asm, tt.cpu, tt.z80Profile)
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.expectedErr)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestAssembleWithConfigFile(t *testing.T) {
+	tmpFile := createTestConfigFile(t)
+
+	tests := []struct {
+		name        string
+		cpu         string
+		z80Profile  string
+		configPath  string
+		expectedErr bool
+	}{
+		{"default config 6502", cpu6502, z80profile.Default.String(), "", false},
+		{"default config z80", cpuZ80, z80profile.Default.String(), "", false},
+		{"strict profile z80", cpuZ80, z80profile.StrictDocumented.String(), "", false},
+		{"valid config file 6502", cpu6502, z80profile.Default.String(), tmpFile, false},
+		{"valid config file z80", cpuZ80, z80profile.Default.String(), tmpFile, false},
+		{"non-existent config file", cpu6502, z80profile.Default.String(), "nonexistent.cfg", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := runAssembleWithConfig(t.Context(), tt.cpu, tt.z80Profile, tt.configPath)
+			if tt.expectedErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+type architectureValidationCase struct {
+	name          string
+	options       *optionFlags
+	expectedErr   error
+	expectCPU     string
+	expectSys     string
+	expectProfile string
 }
 
 func architectureValidationCases(logger *log.Logger) []architectureValidationCase {
@@ -333,86 +413,6 @@ func architectureValidationCasesProfiles(logger *log.Logger) []architectureValid
 			options:     &optionFlags{cpu: "z80", z80Profile: "strict", logger: logger},
 			expectedErr: z80profile.ErrUnsupportedProfile,
 		},
-	}
-}
-
-func TestRegisterArchitectureForCPU(t *testing.T) {
-	tests := []struct {
-		name        string
-		cpu         string
-		z80Profile  string
-		expectedErr error
-	}{
-		{
-			name:       "register 6502",
-			cpu:        cpu6502,
-			z80Profile: z80profile.Default.String(),
-		},
-		{
-			name:       "register z80 default profile",
-			cpu:        cpuZ80,
-			z80Profile: z80profile.Default.String(),
-		},
-		{
-			name:       "register z80 strict profile",
-			cpu:        cpuZ80,
-			z80Profile: z80profile.StrictDocumented.String(),
-		},
-		{
-			name:        "register z80 invalid profile",
-			cpu:         cpuZ80,
-			z80Profile:  "strict",
-			expectedErr: z80profile.ErrUnsupportedProfile,
-		},
-		{
-			name:        "unsupported cpu",
-			cpu:         "x86",
-			z80Profile:  z80profile.Default.String(),
-			expectedErr: ErrUnsupportedCPU,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			asm := retroasm.New()
-			err := registerArchitectureForCPU(asm, tt.cpu, tt.z80Profile)
-			if tt.expectedErr != nil {
-				assert.Error(t, err)
-				assert.ErrorIs(t, err, tt.expectedErr)
-				return
-			}
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestAssembleWithConfigFile(t *testing.T) {
-	tmpFile := createTestConfigFile(t)
-
-	tests := []struct {
-		name        string
-		cpu         string
-		z80Profile  string
-		configPath  string
-		expectedErr bool
-	}{
-		{"default config 6502", cpu6502, z80profile.Default.String(), "", false},
-		{"default config z80", cpuZ80, z80profile.Default.String(), "", false},
-		{"strict profile z80", cpuZ80, z80profile.StrictDocumented.String(), "", false},
-		{"valid config file 6502", cpu6502, z80profile.Default.String(), tmpFile, false},
-		{"valid config file z80", cpuZ80, z80profile.Default.String(), tmpFile, false},
-		{"non-existent config file", cpu6502, z80profile.Default.String(), "nonexistent.cfg", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := runAssembleWithConfig(t.Context(), tt.cpu, tt.z80Profile, tt.configPath)
-			if tt.expectedErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
 	}
 }
 

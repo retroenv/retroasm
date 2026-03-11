@@ -2,22 +2,18 @@ package x86
 
 import (
 	"testing"
+
+	"github.com/retroenv/retrogolib/assert"
 )
 
 func TestNewX86Config(t *testing.T) {
 	cfg := New()
-	if cfg == nil {
-		t.Fatal("New() returned nil")
-	}
-
-	if cfg.Arch == nil {
-		t.Fatal("Architecture is nil")
-	}
+	assert.NotNil(t, cfg)
+	assert.NotNil(t, cfg.Arch)
 
 	// Test address width
-	if width := cfg.Arch.AddressWidth(); width != 16 {
-		t.Errorf("Expected address width 16, got %d", width)
-	}
+	width := cfg.Arch.AddressWidth()
+	assert.Equal(t, 16, width)
 }
 
 func TestInstructionLookup(t *testing.T) {
@@ -25,51 +21,25 @@ func TestInstructionLookup(t *testing.T) {
 
 	// Test that we can look up a known instruction
 	ins, ok := cfg.Arch.Instruction("MOV")
-	if !ok {
-		t.Fatal("MOV instruction not found")
-	}
-
-	if ins.Name != "MOV" {
-		t.Errorf("Expected instruction name MOV, got %s", ins.Name)
-	}
+	assert.True(t, ok)
+	assert.Equal(t, "MOV", ins.Name)
 
 	// Test unknown instruction
 	_, ok = cfg.Arch.Instruction("UNKNOWN")
-	if ok {
-		t.Error("UNKNOWN instruction should not be found")
-	}
+	assert.False(t, ok)
 }
 
 func TestInstructionAddressingModes(t *testing.T) {
 	cfg := New()
 
 	ins, ok := cfg.Arch.Instruction("MOV")
-	if !ok {
-		t.Fatal("MOV instruction not found")
-	}
+	assert.True(t, ok)
 
 	// MOV should support multiple addressing modes
-	if !ins.HasAddressing(RegisterAddressing) {
-		t.Error("MOV should support register addressing")
-	}
-
-	if !ins.HasAddressing(ImmediateAddressing) {
-		t.Error("MOV should support immediate addressing")
-	}
-
-	if !ins.HasAddressing(DirectAddressing) {
-		t.Error("MOV should support direct addressing")
-	}
+	assert.True(t, ins.HasAddressing(RegisterAddressing))
+	assert.True(t, ins.HasAddressing(ImmediateAddressing))
+	assert.True(t, ins.HasAddressing(DirectAddressing))
 
 	// Test unsupported addressing mode
-	if ins.HasAddressing(BasedIndexedAddressing) {
-		t.Error("MOV should not support based indexed addressing in our basic implementation")
-	}
-}
-
-func TestConfigTypeCompliance(t *testing.T) {
-	cfg := New()
-
-	// Verify the config matches the expected type
-	_ = cfg
+	assert.False(t, ins.HasAddressing(BasedIndexedAddressing))
 }

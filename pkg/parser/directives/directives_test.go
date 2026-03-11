@@ -8,33 +8,11 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-// mockParser provides a simple parser implementation for testing directives.
-type mockParser struct {
-	tokens   []token.Token
-	position int
-}
-
 func newMockParser(tokens []token.Token) *mockParser {
 	return &mockParser{
 		tokens:   tokens,
 		position: 0,
 	}
-}
-
-func (p *mockParser) NextToken(offset int) token.Token {
-	pos := p.position + offset
-	if pos >= len(p.tokens) {
-		return token.Token{Type: token.EOF}
-	}
-	return p.tokens[pos]
-}
-
-func (p *mockParser) AdvanceReadPosition(offset int) {
-	p.position += offset
-}
-
-func (p *mockParser) AddressWidth() int {
-	return 16
 }
 
 func TestSetCPU(t *testing.T) {
@@ -115,4 +93,26 @@ func BenchmarkDirectiveParsing(b *testing.B) {
 			_, _ = Base(p)
 		}
 	})
+}
+
+// mockParser provides a simple parser implementation for testing directives.
+type mockParser struct {
+	tokens   []token.Token
+	position int
+}
+
+func (p *mockParser) NextToken(offset int) token.Token {
+	pos := p.position + offset
+	if pos >= len(p.tokens) {
+		return token.Token{Type: token.EOF}
+	}
+	return p.tokens[pos]
+}
+
+func (p *mockParser) AdvanceReadPosition(offset int) {
+	p.position += offset
+}
+
+func (p *mockParser) AddressWidth() int {
+	return 16
 }

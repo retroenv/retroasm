@@ -7,11 +7,6 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-type testTypedInstructionArgument struct {
-	register string
-	width    int
-}
-
 func TestModifierOffset(t *testing.T) { //nolint:funlen
 	tests := []struct {
 		name       string
@@ -294,4 +289,9 @@ func TestParseInstruction(t *testing.T) { //nolint:funlen
 			assert.Equal(t, tt.wantArg, ins.argument)
 		})
 	}
+}
+
+type testTypedInstructionArgument struct {
+	register string
+	width    int
 }

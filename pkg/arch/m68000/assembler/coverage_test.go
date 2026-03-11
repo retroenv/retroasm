@@ -23,9 +23,7 @@ func TestInstructionCoverage_AllMnemonics(t *testing.T) {
 	for index, name := range names {
 		ins := m68000.Instructions[name]
 		resolved, err := coverageResolvedInstruction(ins)
-		if err != nil {
-			t.Fatalf("[%03d] %s: cannot construct resolved instruction: %v", index, name, err)
-		}
+		assert.NoError(t, err, "[%03d] %s: cannot construct resolved instruction", index, name)
 
 		t.Run(fmt.Sprintf("%03d_%s", index, name), func(t *testing.T) {
 			assigner := &mockAssigner{

@@ -23,6 +23,7 @@ import (
 	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/buildinfo"
 	"github.com/retroenv/retrogolib/log"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // Structured errors for validation.
@@ -107,22 +108,11 @@ const (
 	systemZXSpectrum = string(arch.ZXSpectrum)
 )
 
-var supportedSystemsByCPU = map[string]map[string]struct{}{
-	cpu6502: {
-		systemNES:     {},
-		systemGeneric: {},
-	},
-	cpuChip8: {
-		systemChip8: {},
-	},
-	cpuM68000: {
-		systemGeneric: {},
-	},
-	cpuZ80: {
-		systemGeneric:    {},
-		systemGameBoy:    {},
-		systemZXSpectrum: {},
-	},
+var supportedSystemsByCPU = map[string]set.Set[string]{
+	cpu6502:   set.NewFromSlice([]string{systemNES, systemGeneric}),
+	cpuChip8:  set.NewFromSlice([]string{systemChip8}),
+	cpuM68000: set.NewFromSlice([]string{systemGeneric}),
+	cpuZ80:    set.NewFromSlice([]string{systemGeneric, systemGameBoy, systemZXSpectrum}),
 }
 
 var defaultSystemByCPU = map[string]string{
@@ -140,13 +130,13 @@ var defaultCPUBySystem = map[string]string{
 	systemZXSpectrum: cpuZ80,
 }
 
-var supportedSystems = map[string]struct{}{
-	systemChip8:      {},
-	systemNES:        {},
-	systemGeneric:    {},
-	systemGameBoy:    {},
-	systemZXSpectrum: {},
-}
+var supportedSystems = set.NewFromSlice([]string{
+	systemChip8,
+	systemNES,
+	systemGeneric,
+	systemGameBoy,
+	systemZXSpectrum,
+})
 
 // validateAndProcessArchitecture validates CPU/system flags, applies defaults, and enforces compatibility.
 func validateAndProcessArchitecture(options *optionFlags) error {
@@ -226,7 +216,7 @@ func validateArchitectureCompatibility(options *optionFlags) error {
 		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpuChip8, cpuM68000, cpuZ80)
 	}
 
-	if _, ok := compatibleSystems[options.system]; !ok {
+	if !compatibleSystems.Contains(options.system) {
 		return fmt.Errorf("%w: cpu '%s' is not compatible with system '%s'", ErrIncompatibleArch, options.cpu, options.system)
 	}
 
@@ -253,7 +243,7 @@ func validateSystem(options *optionFlags) error {
 	}
 	options.system = string(sys)
 
-	if _, ok := supportedSystems[options.system]; !ok {
+	if !supportedSystems.Contains(options.system) {
 		return fmt.Errorf(
 			"%w: %s (supported: %s, %s, %s, %s, %s)",
 			ErrUnsupportedSystem,

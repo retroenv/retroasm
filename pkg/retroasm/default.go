@@ -29,13 +29,6 @@ var (
 	errUnsupportedArchitectureConfig = errors.New("unsupported architecture config type")
 )
 
-// New creates a new assembler instance.
-func New() Assembler {
-	return &defaultAssembler{
-		architectures: make(map[string]Architecture, 4),
-	}
-}
-
 // ArchitectureAdapter adapts existing architectures to the Architecture interface.
 type ArchitectureAdapter[T any] struct {
 	arch   any
@@ -52,6 +45,13 @@ func NewArchitectureAdapter[T any](name string, arch any, cfg *config.Config[T])
 	}
 }
 
+// New creates a new assembler instance.
+func New() Assembler {
+	return &defaultAssembler{
+		architectures: make(map[string]Architecture, 4),
+	}
+}
+
 func (a *ArchitectureAdapter[T]) Name() string { return a.name }
 func (a *ArchitectureAdapter[T]) AddressWidth() int {
 	if aw, ok := a.arch.(interface{ AddressWidth() int }); ok {
@@ -59,7 +59,6 @@ func (a *ArchitectureAdapter[T]) AddressWidth() int {
 	}
 	return 16
 }
-func (a *ArchitectureAdapter[T]) configAny() any { return a.config }
 
 func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (ArchitectureAssembler, error) {
 	return &architectureAssembler[T]{
@@ -68,9 +67,20 @@ func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (Archit
 	}, nil
 }
 
+func (a *ArchitectureAdapter[T]) configAny() any { return a.config }
+
+type anyReader interface {
+	Read(p []byte) (n int, err error)
+}
+
 type defaultAssembler struct {
 	architectures map[string]Architecture
 	config        Configuration
+}
+
+type architectureAssembler[T any] struct {
+	arch   any
+	config ArchitectureConfig
 }
 
 func (a *defaultAssembler) RegisterArchitecture(name string, arch Architecture) error {
@@ -173,8 +183,31 @@ func (a *defaultAssembler) assembleTextWithArchitecture(ctx context.Context, sou
 	}
 }
 
-type anyReader interface {
-	Read(p []byte) (n int, err error)
+func (a *defaultAssembler) resolveArchitectureConfig() (any, error) {
+	switch len(a.architectures) {
+	case 0:
+		return m6502.New(), nil
+
+	case 1:
+		for _, architecture := range a.architectures {
+			return adapterConfig(architecture)
+		}
+
+	default:
+		if architecture, ok := a.architectures["6502"]; ok {
+			return adapterConfig(architecture)
+		}
+		return nil, errAmbiguousArchitecture
+	}
+
+	return nil, errArchitectureNotRegistered
+}
+
+func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutput, error) {
+	return &AssemblyOutput{
+		AST:     nodes,
+		Symbols: make(map[string]Symbol),
+	}, nil
 }
 
 func assembleASTWithConfig[T any](ctx context.Context, cfg *config.Config[T], nodes []ast.Node, baseAddress uint64) ([]byte, error) {
@@ -244,44 +277,12 @@ func applyBaseAddress[T any](cfg *config.Config[T], baseAddress uint64) {
 	}
 }
 
-func (a *defaultAssembler) resolveArchitectureConfig() (any, error) {
-	switch len(a.architectures) {
-	case 0:
-		return m6502.New(), nil
-
-	case 1:
-		for _, architecture := range a.architectures {
-			return adapterConfig(architecture)
-		}
-
-	default:
-		if architecture, ok := a.architectures["6502"]; ok {
-			return adapterConfig(architecture)
-		}
-		return nil, errAmbiguousArchitecture
-	}
-
-	return nil, errArchitectureNotRegistered
-}
-
 func adapterConfig(architecture Architecture) (any, error) {
 	provider, ok := architecture.(interface{ configAny() any })
 	if !ok {
 		return nil, errArchitectureAdapterMismatch
 	}
 	return provider.configAny(), nil
-}
-
-type architectureAssembler[T any] struct {
-	arch   any
-	config ArchitectureConfig
-}
-
-func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutput, error) {
-	return &AssemblyOutput{
-		AST:     nodes,
-		Symbols: make(map[string]Symbol),
-	}, nil
 }
 
 // copyInputSymbols converts a map of symbol names to values into the output Symbol map.

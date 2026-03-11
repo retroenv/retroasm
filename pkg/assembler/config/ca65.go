@@ -32,11 +32,6 @@ func (c *Config[T]) ReadCa65Config(reader io.Reader) error {
 	return c.readCa65Config(lex)
 }
 
-type ca65Area struct {
-	name       string
-	attributes map[string]string
-}
-
 // readCa65Config reads a ca65 config from the given lexer.
 func (c *Config[T]) readCa65Config(lex *lexer.Lexer) error {
 	var memory, segments []*ca65Area
@@ -120,6 +115,11 @@ func (c *Config[T]) readFromCa65Areas(memories, segments []*ca65Area) error {
 	}
 
 	return nil
+}
+
+type ca65Area struct {
+	name       string
+	attributes map[string]string
 }
 
 var errNoStartingBlock = errors.New("no { starting block found")

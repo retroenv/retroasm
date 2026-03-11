@@ -70,7 +70,7 @@ func TestInstructionAddressingModes(t *testing.T) {
 			ins, ok := cfg.Arch.Instruction(tt.instruction)
 			assert.True(t, ok)
 			assert.NotNil(t, ins)
-			assert.Equal(t, tt.addressingCnt, len(ins.Addressing))
+			assert.Len(t, ins.Addressing, tt.addressingCnt)
 		})
 	}
 }

@@ -8,12 +8,31 @@ type RegisterValue struct {
 	Value    Node
 }
 
+// RegisterRegisterValue represents two registers paired with a value node.
+type RegisterRegisterValue struct {
+	*node
+
+	Register1 byte
+	Register2 byte
+	Value     Node
+}
+
 // NewRegisterValue returns a new register-value node.
 func NewRegisterValue(register byte, value Node) RegisterValue {
 	return RegisterValue{
 		node:     &node{},
 		Register: register,
 		Value:    value,
+	}
+}
+
+// NewRegisterRegisterValue returns a new register-register-value node.
+func NewRegisterRegisterValue(register1, register2 byte, value Node) RegisterRegisterValue {
+	return RegisterRegisterValue{
+		node:      &node{},
+		Register1: register1,
+		Register2: register2,
+		Value:     value,
 	}
 }
 
@@ -28,25 +47,6 @@ func (r RegisterValue) Copy() Node {
 		node:     r.node,
 		Register: r.Register,
 		Value:    value,
-	}
-}
-
-// RegisterRegisterValue represents two registers paired with a value node.
-type RegisterRegisterValue struct {
-	*node
-
-	Register1 byte
-	Register2 byte
-	Value     Node
-}
-
-// NewRegisterRegisterValue returns a new register-register-value node.
-func NewRegisterRegisterValue(register1, register2 byte, value Node) RegisterRegisterValue {
-	return RegisterRegisterValue{
-		node:      &node{},
-		Register1: register1,
-		Register2: register2,
-		Value:     value,
 	}
 }
 

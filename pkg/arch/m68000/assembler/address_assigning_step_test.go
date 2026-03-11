@@ -11,6 +11,38 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
+func TestAssignInstructionAddress(t *testing.T) {
+	for _, tt := range assignAddressTests {
+		t.Run(tt.name, func(t *testing.T) {
+			assigner := &mockAssigner{pc: 0x1000}
+			ins := &mockInstruction{
+				name:     tt.resolved.Instruction.Name,
+				argument: tt.resolved,
+			}
+
+			nextPC, err := AssignInstructionAddress(assigner, ins)
+			assert.NoError(t, err)
+			assert.Equal(t, uint64(0x1000), ins.Address())
+			assert.Equal(t, tt.wantSize, ins.Size())
+			assert.Equal(t, uint64(0x1000+tt.wantSize), nextPC)
+		})
+	}
+}
+
+func TestAssignInstructionAddress_Errors(t *testing.T) {
+	assigner := &mockAssigner{pc: 0x1000}
+	ins := &mockInstruction{
+		name:     "test",
+		argument: "not-a-resolved-instruction",
+	}
+
+	_, err := AssignInstructionAddress(assigner, ins)
+	assert.Error(t, err)
+}
+
+var _ arch.AddressAssigner = (*mockAssigner)(nil)
+var _ arch.Instruction = (*mockInstruction)(nil)
+
 var assignAddressTests = []struct {
 	name     string
 	resolved m68000parser.ResolvedInstruction
@@ -141,40 +173,32 @@ var assignAddressTests = []struct {
 	},
 }
 
-func TestAssignInstructionAddress(t *testing.T) {
-	for _, tt := range assignAddressTests {
-		t.Run(tt.name, func(t *testing.T) {
-			assigner := &mockAssigner{pc: 0x1000}
-			ins := &mockInstruction{
-				name:     tt.resolved.Instruction.Name,
-				argument: tt.resolved,
-			}
-
-			nextPC, err := AssignInstructionAddress(assigner, ins)
-			assert.NoError(t, err)
-			assert.Equal(t, uint64(0x1000), ins.Address())
-			assert.Equal(t, tt.wantSize, ins.Size())
-			assert.Equal(t, uint64(0x1000+tt.wantSize), nextPC)
-		})
-	}
-}
-
-func TestAssignInstructionAddress_Errors(t *testing.T) {
-	assigner := &mockAssigner{pc: 0x1000}
-	ins := &mockInstruction{
-		name:     "test",
-		argument: "not-a-resolved-instruction",
-	}
-
-	_, err := AssignInstructionAddress(assigner, ins)
-	assert.Error(t, err)
-}
-
 // mockAssigner implements arch.AddressAssigner for testing.
 type mockAssigner struct {
 	pc     uint64
 	values map[string]uint64
 }
+
+// mockInstruction implements arch.Instruction for testing.
+type mockInstruction struct {
+	name       string
+	addressing int
+	argument   any
+	opcodes    []byte
+	size       int
+	address    uint64
+}
+
+func (m *mockInstruction) Address() uint64     { return m.address }
+func (m *mockInstruction) Addressing() int     { return m.addressing }
+func (m *mockInstruction) Argument() any       { return m.argument }
+func (m *mockInstruction) Name() string        { return m.name }
+func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
+func (m *mockInstruction) Size() int           { return m.size }
+func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
+func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
+func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
+func (m *mockInstruction) SetSize(s int)       { m.size = s }
 
 func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 	switch v := argument.(type) {
@@ -211,27 +235,3 @@ func (m *mockAssigner) RelativeOffset(destination, afterInstruction uint64) (byt
 	}
 	return byte(256 + diff), nil
 }
-
-// mockInstruction implements arch.Instruction for testing.
-type mockInstruction struct {
-	name       string
-	addressing int
-	argument   any
-	opcodes    []byte
-	size       int
-	address    uint64
-}
-
-func (m *mockInstruction) Address() uint64     { return m.address }
-func (m *mockInstruction) Addressing() int     { return m.addressing }
-func (m *mockInstruction) Argument() any       { return m.argument }
-func (m *mockInstruction) Name() string        { return m.name }
-func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
-func (m *mockInstruction) Size() int           { return m.size }
-func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
-func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
-func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
-func (m *mockInstruction) SetSize(s int)       { m.size = s }
-
-var _ arch.AddressAssigner = (*mockAssigner)(nil)
-var _ arch.Instruction = (*mockInstruction)(nil)

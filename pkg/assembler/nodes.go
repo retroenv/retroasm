@@ -10,6 +10,19 @@ import (
 	"github.com/retroenv/retroasm/pkg/scope"
 )
 
+// RegisterValueArgument represents a register paired with a value argument.
+type RegisterValueArgument struct {
+	Register byte
+	Value    any
+}
+
+// RegisterRegisterValueArgument represents two registers paired with a value argument.
+type RegisterRegisterValueArgument struct {
+	Register1 byte
+	Register2 byte
+	Value     any
+}
+
 // referenceType defines the type of reference.
 type referenceType int
 
@@ -45,6 +58,38 @@ type data struct {
 	values []any
 }
 
+// instruction of the used architecture.
+type instruction struct {
+	address uint64 // assigned start address of the instruction
+	size    int
+	opcodes []byte
+
+	name       string
+	addressing int
+	argument   any
+}
+
+type variable struct {
+	address uint64 // assigned start address of the instruction
+
+	v ast.Variable
+}
+
+type scopeChange struct {
+	scope *scope.Scope
+}
+
+type macro struct {
+	name      string
+	arguments map[string]int // maps name to position
+	tokens    []token.Token
+}
+
+// wrap symbol to implement ast.Node interface and avoid cyclic import.
+type symbol struct {
+	*scope.Symbol
+}
+
 // Copy returns a copy of the data node.
 func (d *data) Copy() ast.Node {
 	return &data{
@@ -58,30 +103,6 @@ func (d *data) Copy() ast.Node {
 }
 
 func (d *data) SetComment(_ string) {
-}
-
-// instruction of the used architecture.
-type instruction struct {
-	address uint64 // assigned start address of the instruction
-	size    int
-	opcodes []byte
-
-	name       string
-	addressing int
-	argument   any
-}
-
-// RegisterValueArgument represents a register paired with a value argument.
-type RegisterValueArgument struct {
-	Register byte
-	Value    any
-}
-
-// RegisterRegisterValueArgument represents two registers paired with a value argument.
-type RegisterRegisterValueArgument struct {
-	Register1 byte
-	Register2 byte
-	Value     any
 }
 
 func (i *instruction) Address() uint64 {
@@ -139,12 +160,6 @@ func (i *instruction) Copy() ast.Node {
 func (i *instruction) SetComment(_ string) {
 }
 
-type variable struct {
-	address uint64 // assigned start address of the instruction
-
-	v ast.Variable
-}
-
 // Copy returns a copy of the variable node.
 func (v *variable) Copy() ast.Node {
 	return &variable{
@@ -154,10 +169,6 @@ func (v *variable) Copy() ast.Node {
 }
 
 func (v *variable) SetComment(_ string) {
-}
-
-type scopeChange struct {
-	scope *scope.Scope
 }
 
 // Copy returns a copy of the scope change node.
@@ -170,12 +181,6 @@ func (s scopeChange) Copy() ast.Node {
 func (s scopeChange) SetComment(_ string) {
 }
 
-type macro struct {
-	name      string
-	arguments map[string]int // maps name to position
-	tokens    []token.Token
-}
-
 // Copy returns a copy of the macro node.
 func (m macro) Copy() ast.Node {
 	return macro{
@@ -186,11 +191,6 @@ func (m macro) Copy() ast.Node {
 }
 
 func (m macro) SetComment(_ string) {
-}
-
-// wrap symbol to implement ast.Node interface and avoid cyclic import.
-type symbol struct {
-	*scope.Symbol
 }
 
 // Copy returns a copy of the symbol node.

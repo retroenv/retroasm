@@ -9,19 +9,6 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-func assembleChip8Source(t *testing.T, source string) []byte {
-	t.Helper()
-
-	cfg := New()
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
-
-	err := asm.Process(t.Context(), strings.NewReader(source))
-	assert.NoError(t, err)
-
-	return buf.Bytes()
-}
-
 // --- Implied addressing (no operands) ---
 
 func TestAssembleChip8_Cls(t *testing.T) {
@@ -391,4 +378,17 @@ ret
 		0x12, 0x3E, // jp loop ($23E)
 		0x00, 0xEE, // ret
 	}, out)
+}
+
+func assembleChip8Source(t *testing.T, source string) []byte {
+	t.Helper()
+
+	cfg := New()
+	var buf bytes.Buffer
+	asm := assembler.New(cfg, &buf)
+
+	err := asm.Process(t.Context(), strings.NewReader(source))
+	assert.NoError(t, err)
+
+	return buf.Bytes()
 }

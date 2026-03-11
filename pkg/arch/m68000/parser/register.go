@@ -10,12 +10,6 @@ const (
 	regPC  = 0xFC
 )
 
-type registerInfo struct {
-	number  uint8
-	isAddr  bool
-	special bool // SR, CCR, USP, PC
-}
-
 var registers map[string]registerInfo
 
 func init() {
@@ -35,6 +29,12 @@ func init() {
 	registers["CCR"] = registerInfo{number: regCCR, special: true}
 	registers["USP"] = registerInfo{number: regUSP, special: true, isAddr: true}
 	registers["PC"] = registerInfo{number: regPC, special: true}
+}
+
+type registerInfo struct {
+	number  uint8
+	isAddr  bool
+	special bool // SR, CCR, USP, PC
 }
 
 // lookupRegister returns register info for a name, or false if not a register.

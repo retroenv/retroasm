@@ -9,6 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/assembler"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/m68000"
+	"github.com/retroenv/retrogolib/assert"
 )
 
 func TestArchitectureLookup(t *testing.T) {
@@ -39,27 +40,19 @@ func TestArchitectureLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ins, ok := arch.Instruction(tt.name)
-			if !ok {
-				t.Fatalf("Instruction(%q) returned false", tt.name)
-			}
-			if ins.Name != tt.expected {
-				t.Errorf("Instruction(%q).Name = %q, want %q", tt.name, ins.Name, tt.expected)
-			}
+			assert.True(t, ok)
+			assert.Equal(t, tt.expected, ins.Name)
 		})
 	}
 
 	// Test unknown instruction
 	_, ok := arch.Instruction("unknown")
-	if ok {
-		t.Error("Instruction(\"unknown\") should return false")
-	}
+	assert.False(t, ok)
 }
 
 func TestAddressWidth(t *testing.T) {
 	cfg := New()
-	if w := cfg.Arch.AddressWidth(); w != 24 {
-		t.Errorf("AddressWidth() = %d, want 24", w)
-	}
+	assert.Equal(t, 24, cfg.Arch.AddressWidth())
 }
 
 func TestAssembleSimpleInstructions(t *testing.T) {
@@ -161,56 +154,12 @@ func TestRoundTrip(t *testing.T) {
 			binary.BigEndian.PutUint16(buf, tt.opcode)
 
 			result := assembleM68000(t, ".segment \"CODE\"\n"+tt.name+"\n")
-			if len(result) < 2 {
-				t.Fatalf("result too short: %d bytes", len(result))
-			}
+			assert.GreaterOrEqual(t, len(result), 2)
 			got := binary.BigEndian.Uint16(result[:2])
-			if got != tt.opcode {
-				t.Errorf("opcode mismatch: got 0x%04X, want 0x%04X", got, tt.opcode)
-			}
+			assert.Equal(t, tt.opcode, got)
 		})
 	}
 }
-
-func assembleM68000(t *testing.T, source string) []byte {
-	t.Helper()
-
-	cfg := New()
-	if err := cfg.ReadCa65Config(bytes.NewReader([]byte(defaultM68000Config))); err != nil {
-		t.Fatalf("reading config: %v", err)
-	}
-
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
-
-	ctx := context.Background()
-	if err := asm.Process(ctx, bytes.NewReader([]byte(source))); err != nil {
-		t.Fatalf("assembling: %v", err)
-	}
-
-	return buf.Bytes()
-}
-
-func assertBytes(t *testing.T, expected, got []byte) {
-	t.Helper()
-	if len(got) < len(expected) {
-		t.Fatalf("result too short: got %d bytes, want at least %d", len(got), len(expected))
-	}
-	for i, b := range expected {
-		if got[i] != b {
-			t.Errorf("byte %d: got 0x%02X, want 0x%02X", i, got[i], b)
-		}
-	}
-}
-
-const defaultM68000Config = `
-MEMORY {
-    CODE: start = $0, size = $10000, fill = yes;
-}
-SEGMENTS {
-    CODE: load = CODE, type = rw;
-}
-`
 
 func TestAssembleMOVE(t *testing.T) {
 	// MOVE.L D0,D1: line 2 (long), src=D0 (mode=0,reg=0), dst=D1 (reg=1,mode=0)
@@ -246,9 +195,7 @@ RTS
 // Verify our AST can be processed.
 func TestAssembleAST(t *testing.T) {
 	cfg := New()
-	if err := cfg.ReadCa65Config(bytes.NewReader([]byte(defaultM68000Config))); err != nil {
-		t.Fatalf("reading config: %v", err)
-	}
+	assert.NoError(t, cfg.ReadCa65Config(bytes.NewReader([]byte(defaultM68000Config))))
 
 	nodes := []ast.Node{
 		ast.NewSegment("CODE"),
@@ -258,7 +205,37 @@ func TestAssembleAST(t *testing.T) {
 	asm := assembler.New(cfg, &buf)
 
 	ctx := context.Background()
-	if err := asm.ProcessAST(ctx, nodes); err != nil {
-		t.Fatalf("processing AST: %v", err)
+	assert.NoError(t, asm.ProcessAST(ctx, nodes))
+}
+
+func assembleM68000(t *testing.T, source string) []byte {
+	t.Helper()
+
+	cfg := New()
+	assert.NoError(t, cfg.ReadCa65Config(bytes.NewReader([]byte(defaultM68000Config))))
+
+	var buf bytes.Buffer
+	asm := assembler.New(cfg, &buf)
+
+	ctx := context.Background()
+	assert.NoError(t, asm.Process(ctx, bytes.NewReader([]byte(source))))
+
+	return buf.Bytes()
+}
+
+func assertBytes(t *testing.T, expected, got []byte) {
+	t.Helper()
+	assert.GreaterOrEqual(t, len(got), len(expected))
+	for i, b := range expected {
+		assert.Equal(t, b, got[i])
 	}
 }
+
+const defaultM68000Config = `
+MEMORY {
+    CODE: start = $0, size = $10000, fill = yes;
+}
+SEGMENTS {
+    CODE: load = CODE, type = rw;
+}
+`
