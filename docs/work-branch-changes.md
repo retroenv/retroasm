@@ -4,7 +4,7 @@ This document tracks every file changed in the `work` branch compared to `main`.
 
 **Branch:** `work`
 **Base:** `main`
-**Last updated:** 2026-03-11
+**Last updated:** 2026-03-12
 
 ---
 
@@ -545,3 +545,264 @@ M68000 architecture implementation plan (effective addressing, opcode encoding, 
 ### `pkg/assembler/process_macros_step.go`
 **Why:** Pass compatibility mode to parser during macro expansion.
 **What:** Updated `macroTokensToAStNodes()` to pass `asm.cfg.CompatibilityMode` to `parser.NewWithTokens()`.
+
+---
+
+## asm6/asm6f Compatibility Features — NEW
+
+### `pkg/parser/ast/configuration.go`
+**Why:** AST representation for NES 2.0 header configuration items.
+**What:** Added `ConfigNes2ChrRAM`, `ConfigNes2PrgRAM`, `ConfigNes2Sub`, `ConfigNes2TV`, `ConfigNes2VS`, `ConfigNes2BRam`, `ConfigNes2ChrBRam` constants to `ConfigurationItem` enum.
+
+### `pkg/parser/directives/nesasm.go`
+**Why:** NES 2.0 header directive parsing (asm6f extension).
+**What:** Added `nes2Directives` map and `Nes2Config()` handler function that converts NES 2.0 directives to AST configuration nodes (following the existing `NesasmConfig` pattern).
+
+### `pkg/parser/directives/directives.go`
+**Why:** Register asm6f-specific directives.
+**What:** Updated `asm6Handlers()` to include:
+- `UNSTABLE`, `HUNSTABLE` — undocumented opcode tier directives (no-op)
+- `IGNORENL`, `ENDINL` — symbol file control (no-op)
+- `NES2CHRRAM`, `NES2PRGRAM`, `NES2SUB`, `NES2TV`, `NES2VS`, `NES2BRAM`, `NES2CHRBRAM` — NES 2.0 header directives
+
+### `pkg/assembler/config/compatibility.go`
+**Why:** Feature flag for `@` local label scoping.
+**What:** Added `LocalLabelScoping()` method returning `true` for `CompatAsm6`.
+
+### `pkg/arch/arch.go`
+**Why:** Allow architecture-specific parsers to apply `@` local label scoping.
+**What:** Added `ScopeLocalLabel(name string) string` method to `Parser` interface.
+
+### `pkg/parser/parser.go`
+**Why:** `@` local label scoping between non-local labels.
+**What:**
+- Added `lastNonLocalLabel` field to `Parser[T]` struct
+- Added `scopeLocalLabel()` method that prefixes `@`-names with the current non-local label scope
+- Added `updateLabelScope()` method to track non-local labels
+- Added `ScopeLocalLabel()` exported method implementing `arch.Parser` interface
+- Updated label creation in `parseIdentifier()` (colon and colon-optional paths) to apply scoping
+
+### `pkg/parser/directives/data.go`
+**Why:** Scope `@` local label references in data expression tokens.
+**What:** Updated `readDataTokens()` to apply `ScopeLocalLabel()` on identifier tokens.
+
+### `pkg/arch/m6502/parser/instruction.go`
+**Why:** Scope `@` local label references in instruction operands.
+**What:** Updated `parseInstruction()` to scope `arg1.Value` when it's an identifier. Updated `parseInstructionImmediateAddressingWithToken()` to scope identifier token values.
+
+### `pkg/assembler/parse_ast_nodes.go`
+**Why:** Source file inclusion support.
+**What:**
+- Split `parseInclude()` into `parseBinaryInclude()` and `parseSourceInclude()`
+- `parseSourceInclude()` reads the file, creates a parser with the same architecture and compat mode, lexes and parses the included file, then recursively processes the resulting AST nodes
+
+### Tests
+- `pkg/assembler/config/compatibility_test.go` — Added `LocalLabelScoping()` test
+- `pkg/parser/parser_asm6_test.go` — Added `TestParserAsm6LocalLabelScoping` and `TestParserAsm6LocalLabelScopingDisabledInDefault`; updated existing tests to use `config.CompatAsm6` mode
+- `pkg/parser/directives/noop_test.go` — Added `TestBuildHandlers_Asm6` and `TestNes2Config`
+- `pkg/assembler/assembler_asm6_test.go` — Added `TestAssemblerAsm6SourceInclude`
+- `pkg/arch/z80/parser/mock_parser_test.go` — Added `ScopeLocalLabel()` to mock
+- `pkg/parser/directives/directives_test.go` — Added `ScopeLocalLabel()` to mock
+
+---
+
+## ca65 Compatibility Features — NEW
+
+### `pkg/parser/ast/scope.go` (new)
+**Why:** AST nodes for ca65-style `.scope`/`.endscope` blocks.
+**What:** Added `Scope` (with `Name` field) and `ScopeEnd` struct types with constructors (`NewScope`, `NewScopeEnd`) and `Copy()` methods.
+
+### `pkg/parser/ast/data.go`
+**Why:** Support bank byte (bits 16-23) address references for `.bankbytes`/`.faraddr`.
+**What:** Added `BankAddressByte` constant to `ReferenceType` enum.
+
+### `pkg/parser/directives/ca65.go` (new)
+**Why:** ca65-specific directive handler implementations.
+**What:** Added handlers:
+- `Scope()` — parses `.scope [name]` with optional name
+- `EndScope()` — parses `.endscope`
+- `Asciiz()` — parses `.asciiz` null-terminated string data (appends `0` token)
+- `FarAddr()` — parses `.faraddr` 24-bit address data (width=3)
+- `BankBytes()` — parses `.bankbytes` bank byte address emission
+- `Warning()` — parses `.warning` diagnostic messages (reuses `ast.Error`)
+- `Out()` — parses `.out` print messages (no-op, consumes tokens)
+
+### `pkg/parser/directives/directives.go`
+**Why:** Register ca65-specific directives.
+**What:** Updated `ca65Handlers()` to include:
+- Scoping: `scope`, `endscope`
+- Data: `asciiz`, `faraddr`, `bankbytes`, `hibytes`, `lobytes`
+- Repeat aliases: `repeat`→`Rept`, `endrepeat`→`Endr`
+- Diagnostics: `warning`, `fatal`→`Error`, `out`, `assert`→`NoOp`
+- No-op stubs: `list`, `listbytes`, `debuginfo`, `export`, `exportzp`, `import`, `importzp`, `global`, `globalzp`, `feature`, `charmap`, `autoimport`, `local`, `condes`, `linecont`, `define`, `undefine`
+
+### `pkg/parser/directives/macro.go`
+**Why:** Support `.endmacro` as macro terminator (ca65 syntax).
+**What:** Added detection of `.endm` and `.endmacro` inside the macro token reader via dot+identifier pattern check.
+
+### `pkg/parser/parser.go`
+**Why:** ca65 unnamed label parsing and unnamed label reference disambiguation.
+**What:**
+- Added `unnamedLabelCount` field for tracking ca65-style `:` label definitions
+- Added `parseUnnamedLabel()` generating synthetic `__unnamed_N` names
+- Added `token.Colon` case in `parseToken()` for unnamed label definitions
+- Added `isUnnamedLabelRef()` to disambiguate `:` as label-colon vs unnamed-reference prefix
+- Updated `parseIdentifier()` to check `isUnnamedLabelRef()` before treating colon as label definition
+- Added `ResolveUnnamedLabel()` method for resolving `:-`/`:+` references to synthetic names
+
+### `pkg/assembler/config/compatibility.go`
+**Why:** Feature flags for ca65-specific parsing behavior.
+**What:**
+- Updated `LocalLabelScoping()` to return `true` for `CompatCa65` (in addition to `CompatAsm6`)
+- Added `UnnamedLabels()` method returning `true` for `CompatCa65`
+
+### `pkg/arch/arch.go`
+**Why:** Support unnamed label reference resolution from architecture-specific parsers.
+**What:** Added `ResolveUnnamedLabel(forward bool, level int) string` method to `Parser` interface.
+
+### `pkg/arch/m6502/parser/instruction.go`
+**Why:** Handle ca65-style unnamed label references (`:-`, `:+`, `:--`, `:++`) in instruction operands.
+**What:** Added `resolveUnnamedLabelRef()` helper that detects `Colon`+`Plus`/`Minus` token sequences and resolves them to synthetic `__unnamed_N` label names. Called from `parseInstruction()` when `arg1` is a colon token.
+
+### `pkg/assembler/nodes.go`
+**Why:** Support bank address byte references in assembler pipeline.
+**What:** Added `bankAddressByte` constant to internal `referenceType` enum.
+
+### `pkg/assembler/parse_ast_nodes.go`
+**Why:** Handle `Scope`/`ScopeEnd` AST nodes and `BankAddressByte` in assembler pipeline.
+**What:**
+- Added `ast.Scope` and `ast.ScopeEnd` cases in `parseASTNode()` switch
+- Added `parseScope()` — creates child scope; if named, also creates a symbol in parent scope
+- Added `parseScopeEnd()` — restores parent scope (mirrors `parseFunctionEnd()`)
+- Added `ast.BankAddressByte` case in `parseData()` setting `bankAddressByte` ref type and width=1
+
+### `pkg/assembler/generate_opcode_step.go`
+**Why:** Emit bank address byte (bits 16-23) for references.
+**What:** Added `bankAddressByte` case in `generateReferenceDataBytes()` extracting `byte(address >> 16)`.
+
+### Tests
+- `pkg/assembler/config/compatibility_test.go` — Updated `LocalLabelScoping()` test for ca65, added `UnnamedLabels()` test
+- `pkg/parser/parser_ca65_test.go` (new) — Tests for unnamed label definition/reference, `@` local scoping, `.scope`/`.endscope`, `.asciiz`, `.warning`, `.endmacro`, and all no-op directives
+- `pkg/arch/z80/parser/mock_parser_test.go` — Added `ResolveUnnamedLabel()` to mock
+- `pkg/parser/directives/directives_test.go` — Added `ResolveUnnamedLabel()` to mock
+
+---
+
+## NESASM Compatibility Features — NEW
+
+### `pkg/assembler/config/compatibility.go`
+**Why:** Feature flags for NESASM-specific parsing behavior.
+**What:**
+- Added `DotLocalLabels()` method returning `true` for `CompatNesasm`
+- Added `NesasmMacroSyntax()` method returning `true` for `CompatNesasm`
+
+### `pkg/lexer/token/token.go`
+**Why:** Support `\1`-`\9` positional parameter references in NESASM macros.
+**What:** Added `Backslash` token type with `'\\'` mapping in `toToken` and `"\\"` in `toString`.
+
+### `pkg/parser/parser.go`
+**Why:** NESASM dot-prefixed local labels and `name .macro` syntax.
+**What:**
+- Added `parseDotLocalLabel()` for `.label` definitions scoped between non-local labels
+- Added `scopeDotLocalLabel()` for prefixing dot-local names with current scope
+- Added `ResolveDotLocalLabel()` exported method implementing `arch.Parser` interface
+- Updated `parseDot()` to fall back to `parseDotLocalLabel()` when directive lookup fails in NESASM mode
+- Added `parseNesAsmMacro()` for `name .macro` syntax with `\1`-`\9` positional parameters
+- Updated `parseIdentifier()` to detect NESASM macro definitions (`name .macro`)
+- Updated `updateLabelScope()` to handle NESASM `DotLocalLabels()` mode
+
+### `pkg/arch/arch.go`
+**Why:** Allow architecture-specific parsers to resolve NESASM dot-local label references.
+**What:** Added `ResolveDotLocalLabel(name string) string` method to `Parser` interface.
+
+### `pkg/arch/m6502/parser/instruction.go`
+**Why:** Handle NESASM dot-local label references (`.label`) in instruction operands.
+**What:**
+- Extracted `resolveArg1Token()` helper from `parseInstruction()` to reduce cyclop complexity
+- Added `resolveDotLocalLabelRef()` that detects `Dot`+`Identifier` sequences and resolves via `ResolveDotLocalLabel()`
+- `resolveArg1Token()` chains: identifier scoping → unnamed label refs → dot-local label refs
+
+### `pkg/assembler/process_macros_step.go`
+**Why:** Support NESASM positional macro expansion with `\1`-`\9` parameters.
+**What:**
+- Split `resolveMacroUsage()` into `resolveNamedMacro()` (standard) and `resolvePositionalMacro()` (NESASM)
+- `resolvePositionalMacro()` scans for `Backslash`+`Number` token pairs and substitutes with caller arguments
+
+### `pkg/parser/directives/directives.go`
+**Why:** Register NESASM-specific directives.
+**What:** Added `nesasmHandlers()` with:
+- `.ds` — storage directive (maps to `DataStorage`)
+- `.endp` — procedure end alias (maps to `EndProc`)
+- `.fail` — error directive (maps to `Error`)
+- `.list`, `.nolist`, `.mlist`, `.nomlist`, `.opt` — listing control (no-op)
+- `.zp`, `.bss`, `.code`, `.data` — section switching stubs (no-op)
+
+### `pkg/parser/directives/data.go`
+**Why:** Support `.ds` as NESASM storage directive.
+**What:** Added `"ds": 1` entry to `dataByteWidth` map.
+
+### Tests
+- `pkg/assembler/config/compatibility_test.go` — Split `TestCompatibilityMode_Features` into two functions for funlen compliance; added `DotLocalLabels()` and `NesasmMacroSyntax()` tests
+- `pkg/parser/parser_nesasm_test.go` (new) — Tests for dot-local label definition/scoping, NESASM macro definition, no-op directives, `.fail`, and dot-local-not-in-default-mode
+- `pkg/arch/z80/parser/mock_parser_test.go` — Added `ResolveDotLocalLabel()` to mock
+- `pkg/parser/directives/directives_test.go` — Added `ResolveDotLocalLabel()` to mock
+
+---
+
+## x816 Compatibility Features — NEW
+
+### `pkg/lexer/token/token.go`
+**Why:** Support bitwise/shift operators in expressions for x816 keyword operators.
+**What:** Added `ShiftLeft`, `ShiftRight`, `Ampersand`, `BitwiseXor` token types with toString entries.
+
+### `pkg/lexer/token/type.go`
+**Why:** Register new bitwise/shift token types as expression operators.
+**What:** Added `Pipe`, `ShiftLeft`, `ShiftRight`, `Ampersand`, `BitwiseXor` to operators set.
+
+### `pkg/expression/operator.go`
+**Why:** Evaluate bitwise/shift operators in expressions.
+**What:**
+- Added `ShiftLeft`, `ShiftRight`, `Ampersand`, `Pipe`, `BitwiseXor` to `operatorPriority` map
+- Added `evaluateBitwiseIntInt()` for shift/bitwise int64 operations
+- Updated `evaluateOperatorIntInt()` to delegate bitwise ops (reduces cyclop complexity)
+
+### `pkg/expression/expression.go`
+**Why:** Support x816 keyword operators (`SHL`, `SHR`, `AND`, `OR`, `XOR`) in expressions.
+**What:**
+- Added `keywordOperators` map converting keyword identifiers to operator token types
+- Added `resolveKeywordOperator()` that converts keyword identifiers before RPN processing
+- Updated `parseToRPN()` to use `resolveKeywordOperator()` (reduces gocognit complexity)
+
+### `pkg/parser/directives/directives.go`
+**Why:** Register x816-specific directives.
+**What:** Expanded `x816Handlers()` with:
+- Data: `.dcl`/`.dl` (3-byte), `.dcd`/`.dd` (4-byte), `.dsl` (3-byte storage), `.dsd` (4-byte storage)
+- Include: `.src` (source include alias)
+- Comment: `.comment` (multi-line comment block, skip to `.end`)
+- Block terminator: `.end` (no-op)
+- Bitwidth: `.mem`, `.index` (no-op for NES)
+- Optimization/listing: `.opt`, `.optimize`, `.list`, `.nolist`, `.sym`, `.symbol`, `.detect`, `.dasm`, `.echo`
+- Diagnostics: `.cerror`, `.cwarn`, `.message`
+- ROM/output: `.hrom`, `.lrom`, `.hirom`, `.smc` (no-op for NES)
+- Settings: `.localsymbolchar`, `.locchar`, `.par`, `.parenthesis` (no-op)
+
+### `pkg/parser/directives/x816.go` (new)
+**Why:** Multi-line comment block handler for x816.
+**What:** Added `CommentBlock()` handler that skips all tokens until a matching `.end` directive is found.
+
+### `pkg/parser/directives/data.go`
+**Why:** Support x816 long (3-byte) and double-word (4-byte) data directives.
+**What:** Added `"dcl": 3`, `"dl": 3`, `"dcd": 4`, `"dd": 4`, `"dsl": 3`, `"dsd": 4` to `dataByteWidth` map.
+
+### `pkg/parser/parser.go`
+**Why:** Support x816 `.equ` alias syntax and consolidate dot-identifier patterns.
+**What:**
+- Added `isDotIdentifierKeyword()` to check for recognized `name .keyword` patterns (equ, rs, macro)
+- Added `parseDotIdentifier()` to handle consolidated `name .keyword` patterns
+- Refactored `parseIdentifier()` to use `parseDotIdentifier()` (reduces cyclop complexity)
+- Fixed `isColonOptionalLabel()` column check from `!= 0` to `> 1` (lexer uses 1-based columns)
+
+### Tests
+- `pkg/parser/parser_x816_test.go` (new) — Tests for no-op directives, `.comment` block, `.src` include, `.equ` alias, colon-optional labels, anonymous labels, `.end` directive
+- `pkg/expression/keyword_operator_test.go` (new) — Tests for keyword operators (SHL, SHR, AND, OR, XOR), case insensitivity, and bitwise token type operators (Pipe, Ampersand, ShiftLeft, ShiftRight)
+- `pkg/parser/directives/noop_test.go` — Updated `TestBuildHandlers_X816` with new x816-specific directive checks (mem, index, opt, symbol, dcl, dcd, src, comment)
