@@ -51,6 +51,9 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 	}
 
 	ins.arg1 = parser.NextToken(0)
+	if ins.arg1.Type == token.Identifier {
+		ins.arg1.Value = parser.ScopeLocalLabel(ins.arg1.Value)
+	}
 	ins.modifiers = directives.ParseModifier(parser)
 
 	next1 := parser.NextToken(1)
@@ -280,6 +283,9 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 
 	// Save the token value before advancing, in case advancing affects the token.
 	tokenValue := tok.Value
+	if tok.Type == token.Identifier {
+		tokenValue = parser.ScopeLocalLabel(tokenValue)
+	}
 	tokenType := tok.Type
 
 	parser.AdvanceReadPosition(2) // Skip past # and the token

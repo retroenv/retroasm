@@ -70,6 +70,11 @@ func (m CompatibilityMode) AsteriskProgramCounter() bool {
 	return m == CompatX816 || m == CompatCa65 || m == CompatNesasm
 }
 
+// LocalLabelScoping returns whether this mode supports @local label scoping between non-local labels.
+func (m CompatibilityMode) LocalLabelScoping() bool {
+	return m == CompatAsm6
+}
+
 // BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
 func (m CompatibilityMode) BankByteOperator() bool {
 	return m == CompatX816 || m == CompatCa65

@@ -30,6 +30,8 @@ type Parser interface {
 	// NextToken returns the current or a following token with the given offset from current token parse position.
 	// If the offset exceeds the available tokens, a token of type EOF is returned.
 	NextToken(offset int) token.Token
+	// ScopeLocalLabel applies @local label scoping to a name if applicable.
+	ScopeLocalLabel(name string) string
 }
 
 // AddressAssigner resolves instruction arguments and computes addresses during the assembly process.

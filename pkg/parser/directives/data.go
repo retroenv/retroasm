@@ -155,6 +155,9 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 		case tok.Type == token.Number,
 			tok.Type == token.Identifier,
 			tok.Type.IsOperator():
+			if tok.Type == token.Identifier {
+				tok.Value = p.ScopeLocalLabel(tok.Value)
+			}
 			tokens = append(tokens, tok)
 
 		case tok.Type == token.Comma:

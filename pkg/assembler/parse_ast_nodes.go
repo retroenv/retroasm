@@ -1,6 +1,8 @@
 package assembler
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/number"
+	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
 )
@@ -343,11 +346,16 @@ func nameWithModifiers(name string, modifiers []ast.Modifier) (string, error) {
 }
 
 func parseInclude[T any](asm *parseAST[T], inc ast.Include) ([]ast.Node, error) {
-	if !inc.Binary {
-		return nil, errors.New("non binary includes are currently not supported") // TODO implement
+	name := strings.Trim(inc.Name, "\"'")
+
+	if inc.Binary {
+		return parseBinaryInclude(asm, name)
 	}
 
-	name := strings.Trim(inc.Name, "\"'")
+	return parseSourceInclude(asm, name)
+}
+
+func parseBinaryInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error) {
 	b, err := asm.fileReader(name)
 	if err != nil {
 		return nil, fmt.Errorf("reading file '%s': %w", name, err)
@@ -357,6 +365,47 @@ func parseInclude[T any](asm *parseAST[T], inc ast.Include) ([]ast.Node, error) 
 	dat.size.SetValue(1)
 	dat.values = append(dat.values, b)
 	return []ast.Node{dat}, nil
+}
+
+func parseSourceInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error) {
+	b, err := asm.fileReader(name)
+	if err != nil {
+		return nil, fmt.Errorf("reading file '%s': %w", name, err)
+	}
+
+	pars := parser.New[T](asm.cfg.Arch, bytes.NewReader(b), asm.cfg.CompatibilityMode)
+	ctx := context.Background()
+	if err := pars.Read(ctx); err != nil {
+		return nil, fmt.Errorf("parsing included file '%s': %w", name, err)
+	}
+
+	nodes, err := pars.TokensToAstNodes()
+	if err != nil {
+		return nil, fmt.Errorf("converting tokens for included file '%s': %w", name, err)
+	}
+
+	// Recursively process the included AST nodes through the assembler pipeline.
+	var result []ast.Node
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *ast.Comment:
+			continue
+
+		case ast.Segment:
+			if err := parseSegment(asm, n); err != nil {
+				return nil, fmt.Errorf("parsing segment in included file '%s': %w", name, err)
+			}
+
+		default:
+			newNodes, err := parseASTNode(asm, node)
+			if err != nil {
+				return nil, fmt.Errorf("processing node in included file '%s': %w", name, err)
+			}
+			result = append(result, newNodes...)
+		}
+	}
+
+	return result, nil
 }
 
 func parseVariable(astVar ast.Variable) []ast.Node {

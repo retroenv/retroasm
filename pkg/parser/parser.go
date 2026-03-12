@@ -47,6 +47,9 @@ type Parser[T any] struct {
 	// anonymous label tracking for +/- labels
 	anonForwardCount  int // total forward labels seen so far
 	anonBackwardCount int // total backward labels seen so far
+
+	// @local label scoping: tracks the last non-local label name
+	lastNonLocalLabel string
 }
 
 // New returns a new Parser that uses a lexer for the given reader.
@@ -101,6 +104,11 @@ func (p *Parser[T]) AdvanceReadPosition(offset int) {
 // AddressWidth returns the address width of the architecture.
 func (p *Parser[T]) AddressWidth() int {
 	return p.arch.AddressWidth()
+}
+
+// ScopeLocalLabel applies @local label scoping to a name if applicable.
+func (p *Parser[T]) ScopeLocalLabel(name string) string {
+	return p.scopeLocalLabel(name)
 }
 
 // TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.
@@ -256,7 +264,9 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 	switch {
 	case next.Type == token.Colon: // "identifier:"
 		p.readPosition++
-		return ast.NewLabel(tok.Value), nil
+		name := p.scopeLocalLabel(tok.Value)
+		p.updateLabelScope(tok.Value)
+		return ast.NewLabel(name), nil
 
 	case next.Type == token.Assign: // "identifier = number"
 		return p.parseAlias(tok, next)
@@ -274,7 +284,9 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		// In colon-optional modes, an identifier at start of line that isn't an instruction
 		// or directive may be a label without a trailing colon.
 		if p.compatMode.ColonOptionalLabels() && p.isColonOptionalLabel(tok, next) {
-			return ast.NewLabel(tok.Value), nil
+			name := p.scopeLocalLabel(tok.Value)
+			p.updateLabelScope(tok.Value)
+			return ast.NewLabel(name), nil
 		}
 
 		n, err := p.parseAlias(tok, next)
@@ -407,6 +419,33 @@ func (p *Parser[T]) isColonOptionalLabel(tok, next token.Token) bool {
 	}
 
 	return false
+}
+
+// scopeLocalLabel applies @local label scoping. If the name starts with '@' and there
+// is a current non-local label scope, the name is prefixed to create a unique scoped name.
+func (p *Parser[T]) scopeLocalLabel(name string) string {
+	if !p.compatMode.LocalLabelScoping() {
+		return name
+	}
+	if len(name) == 0 || name[0] != '@' {
+		return name
+	}
+	if p.lastNonLocalLabel == "" {
+		return name
+	}
+	return p.lastNonLocalLabel + "." + name
+}
+
+// updateLabelScope tracks non-local labels for @local label scoping.
+func (p *Parser[T]) updateLabelScope(name string) {
+	if !p.compatMode.LocalLabelScoping() {
+		return
+	}
+	// Anonymous labels and @local labels don't update scope.
+	if strings.HasPrefix(name, "__anon_") || (len(name) > 0 && name[0] == '@') {
+		return
+	}
+	p.lastNonLocalLabel = name
 }
 
 func (p *Parser[T]) createIdentifier(tok token.Token) (ast.Node, error) {

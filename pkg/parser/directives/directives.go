@@ -122,8 +122,22 @@ func x816Handlers() map[string]Handler {
 }
 
 func asm6Handlers() map[string]Handler {
-	// asm6 directives are mostly in base already
-	return map[string]Handler{}
+	return map[string]Handler{
+		// asm6f undocumented opcode tier directives (no-op, just enable opcodes)
+		"unstable":  NoOp,
+		"hunstable": NoOp,
+		// asm6f symbol file control (no-op for retroasm)
+		"ignorenl": NoOp,
+		"endinl":   NoOp,
+		// NES 2.0 header directives (asm6f)
+		"nes2chrram":  Nes2Config,
+		"nes2prgram":  Nes2Config,
+		"nes2sub":     Nes2Config,
+		"nes2tv":      Nes2Config,
+		"nes2vs":      Nes2Config,
+		"nes2bram":    Nes2Config,
+		"nes2chrbram": Nes2Config,
+	}
 }
 
 func ca65Handlers() map[string]Handler {

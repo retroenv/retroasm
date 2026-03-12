@@ -602,6 +602,30 @@ func TestAssemblerContextCancellation(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled, "expected context.Canceled error")
 }
 
+var asm6SourceIncludeTestCode = `
+.segment "HEADER"
+.include "defs.asm"
+DB myval
+`
+
+func TestAssemblerAsm6SourceInclude(t *testing.T) {
+	cfg := m6502.New()
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
+
+	reader := strings.NewReader(asm6SourceIncludeTestCode)
+	var buf bytes.Buffer
+	asm := New(cfg, &buf)
+
+	asm.fileReader = func(name string) ([]byte, error) {
+		assert.Equal(t, "defs.asm", name)
+		return []byte("myval = $42\n"), nil
+	}
+
+	assert.NoError(t, asm.Process(context.Background(), reader))
+	b := buf.Bytes()
+	assert.Equal(t, []byte{0x42}, b)
+}
+
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 

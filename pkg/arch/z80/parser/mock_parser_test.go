@@ -28,3 +28,7 @@ func (m *mockParser) NextToken(offset int) token.Token {
 	}
 	return m.tokens[index]
 }
+
+func (m *mockParser) ScopeLocalLabel(name string) string {
+	return name
+}

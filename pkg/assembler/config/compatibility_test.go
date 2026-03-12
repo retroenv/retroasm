@@ -80,6 +80,14 @@ func TestCompatibilityMode_Features(t *testing.T) {
 		assert.True(t, CompatNesasm.AsteriskProgramCounter())
 	})
 
+	t.Run("local label scoping", func(t *testing.T) {
+		assert.False(t, CompatDefault.LocalLabelScoping())
+		assert.False(t, CompatX816.LocalLabelScoping())
+		assert.True(t, CompatAsm6.LocalLabelScoping())
+		assert.False(t, CompatCa65.LocalLabelScoping())
+		assert.False(t, CompatNesasm.LocalLabelScoping())
+	})
+
 	t.Run("bank byte operator", func(t *testing.T) {
 		assert.False(t, CompatDefault.BankByteOperator())
 		assert.True(t, CompatX816.BankByteOperator())

@@ -46,7 +46,7 @@ func TestParserAsm6(t *testing.T) {
 	cfg := m6502Arch.New()
 
 	for _, tt := range tests {
-		parser := New(cfg.Arch, strings.NewReader(tt.input), config.CompatDefault)
+		parser := New(cfg.Arch, strings.NewReader(tt.input), config.CompatAsm6)
 		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err, "input: "+tt.input)
@@ -57,4 +57,38 @@ func TestParserAsm6(t *testing.T) {
 			assert.Equal(t, expected, nodes[i], "input: "+tt.input)
 		}
 	}
+}
+
+func TestParserAsm6LocalLabelScoping(t *testing.T) {
+	input := "label1:\n @tmp:\nlabel2:\n @tmp:\n"
+
+	cfg := m6502Arch.New()
+	parser := New(cfg.Arch, strings.NewReader(input), config.CompatAsm6)
+	assert.NoError(t, parser.Read(t.Context()))
+	nodes, err := parser.TokensToAstNodes()
+	assert.NoError(t, err)
+
+	// Expect 4 labels: label1, label1.@tmp, label2, label2.@tmp
+	assert.Len(t, nodes, 4)
+	assert.Equal(t, ast.NewLabel("label1"), nodes[0])
+	assert.Equal(t, ast.NewLabel("label1.@tmp"), nodes[1])
+	assert.Equal(t, ast.NewLabel("label2"), nodes[2])
+	assert.Equal(t, ast.NewLabel("label2.@tmp"), nodes[3])
+}
+
+func TestParserAsm6LocalLabelScopingDisabledInDefault(t *testing.T) {
+	input := "label1:\n @tmp:\nlabel2:\n @tmp:\n"
+
+	cfg := m6502Arch.New()
+	parser := New(cfg.Arch, strings.NewReader(input), config.CompatDefault)
+	assert.NoError(t, parser.Read(t.Context()))
+	nodes, err := parser.TokensToAstNodes()
+	assert.NoError(t, err)
+
+	// In default mode, @local labels are NOT scoped.
+	assert.Len(t, nodes, 4)
+	assert.Equal(t, ast.NewLabel("label1"), nodes[0])
+	assert.Equal(t, ast.NewLabel("@tmp"), nodes[1])
+	assert.Equal(t, ast.NewLabel("label2"), nodes[2])
+	assert.Equal(t, ast.NewLabel("@tmp"), nodes[3])
 }

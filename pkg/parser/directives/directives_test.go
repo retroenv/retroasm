@@ -116,3 +116,7 @@ func (p *mockParser) AdvanceReadPosition(offset int) {
 func (p *mockParser) AddressWidth() int {
 	return 16
 }
+
+func (p *mockParser) ScopeLocalLabel(name string) string {
+	return name
+}

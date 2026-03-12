@@ -16,6 +16,15 @@ const (
 	ConfigBattery
 	ConfigMirror
 	ConfigFillValue
+
+	// NES 2.0 configuration items (asm6f).
+	ConfigNes2ChrRAM
+	ConfigNes2PrgRAM
+	ConfigNes2Sub
+	ConfigNes2TV
+	ConfigNes2VS
+	ConfigNes2BRam
+	ConfigNes2ChrBRam
 )
 
 // Configuration represents an assembler configuration directive (mapper, PRG, CHR, etc.).
