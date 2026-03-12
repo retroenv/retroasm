@@ -81,7 +81,7 @@ func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node,
 
 func macroTokensToAStNodes[T any](asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
 	// convert the adjusted tokens to AST nodes
-	par := parser.NewWithTokens(asm.cfg.Arch, tokens)
+	par := parser.NewWithTokens(asm.cfg.Arch, tokens, asm.cfg.CompatibilityMode)
 	astNodes, err := par.TokensToAstNodes()
 	if err != nil {
 		return nil, fmt.Errorf("converting tokens to ast nodes: %w", err)

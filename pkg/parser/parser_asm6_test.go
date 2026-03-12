@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	m6502Arch "github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
@@ -45,7 +46,7 @@ func TestParserAsm6(t *testing.T) {
 	cfg := m6502Arch.New()
 
 	for _, tt := range tests {
-		parser := New(cfg.Arch, strings.NewReader(tt.input))
+		parser := New(cfg.Arch, strings.NewReader(tt.input), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err, "input: "+tt.input)

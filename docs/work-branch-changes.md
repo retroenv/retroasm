@@ -483,3 +483,65 @@ Detailed changelog of Z80 branch development.
 
 ### `docs/m68000-support-plan.md`
 M68000 architecture implementation plan (effective addressing, opcode encoding, size suffixes).
+
+---
+
+## Compatibility Mode Infrastructure — NEW
+
+### `pkg/assembler/config/compatibility.go` (new)
+**Why:** Support multiple legacy assembler syntaxes (x816, asm6, ca65, NESASM) with a shared infrastructure.
+**What:** Defines `CompatibilityMode` enum (`CompatDefault`, `CompatX816`, `CompatAsm6`, `CompatCa65`, `CompatNesasm`), `ParseCompatibilityMode()` parser, `String()` method, and feature query methods (`ColonOptionalLabels()`, `AnonymousLabels()`, `AsteriskProgramCounter()`, `BankByteOperator()`).
+
+### `pkg/assembler/config/compatibility_test.go` (new)
+**Why:** Test coverage for compatibility mode parsing and feature queries.
+**What:** Tests for `ParseCompatibilityMode` (valid modes, case insensitivity, whitespace trimming, errors), `String()` for all modes, and feature query methods for all mode combinations.
+
+### `pkg/assembler/config/config.go`
+**Why:** Thread compatibility mode through the assembler pipeline.
+**What:** Added `CompatibilityMode` field to `Config[T]`.
+
+### `cmd/retroasm/main.go`
+**Why:** CLI flag for selecting assembler compatibility mode.
+**What:** Added `--compat` / `-m` flag, `parseCompatMode()` helper, compat mode logging, and threading compat mode through `registerArchitectureForCPU()` to `Config[T]`.
+
+### `pkg/parser/parser.go`
+**Why:** Core parser changes for compatibility mode features.
+**What:**
+- Added `compatMode`, `handlers`, and anonymous label tracking fields to `Parser[T]`
+- Updated `New()` and `NewWithTokens()` constructors to accept `config.CompatibilityMode`
+- Extracted `parseToken()` from `TokensToAstNodes()` to reduce function length
+- Added `token.Plus`/`token.Minus` handling for anonymous `+`/`-` label definitions
+- Added `token.Asterisk` handling for `* = value` program counter assignments
+- Added `parseAnonymousLabel()` for generating synthetic label names from +/- tokens
+- Added `parseAsteriskPC()` for `* = value` program counter assignment
+- Added `isColonOptionalLabel()` for recognizing labels without trailing colon in x816/asm6 modes
+- Updated `parseDot()` and `parseAlias()` to use per-instance `handlers` map instead of global
+
+### `pkg/parser/directives/directives.go`
+**Why:** Mode-specific directive registration and no-op handler.
+**What:**
+- Added `BuildHandlers()` function that builds mode-specific directive maps by overlaying mode-specific handlers on base handlers
+- Added `NoOp()` handler that consumes tokens until EOL without producing AST nodes
+- Added `x816Handlers()`, `asm6Handlers()`, `ca65Handlers()`, `nesasmHandlers()` for mode-specific directives
+- Added `mergeHandlers()` using `maps.Copy`
+- Deprecated global `Handlers` variable in favor of `BuildHandlers()`
+
+### `pkg/parser/directives/noop_test.go` (new)
+**Why:** Test coverage for NoOp directive and BuildHandlers.
+**What:** Tests NoOp handler token consumption, and verifies mode-specific handler maps for default, x816, and ca65 modes.
+
+### `pkg/parser/directives/helper.go`
+**Why:** Export token reading for use by parser package.
+**What:** Added `ReadDataTokensExported()` wrapper around `readDataTokens()`.
+
+### `pkg/parser/alias.go`
+**Why:** Use per-instance directive handlers instead of global.
+**What:** Changed directive lookup to use `p.handlers` instead of `directives.Handlers`. Removed unused `directives` import.
+
+### `pkg/assembler/assembler.go`
+**Why:** Pass compatibility mode to parser.
+**What:** Updated `Process()` to pass `asm.cfg.CompatibilityMode` to `parser.New()`.
+
+### `pkg/assembler/process_macros_step.go`
+**Why:** Pass compatibility mode to parser during macro expansion.
+**What:** Updated `macroTokensToAStNodes()` to pass `asm.cfg.CompatibilityMode` to `parser.NewWithTokens()`.

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	m6502Arch "github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
@@ -43,7 +44,7 @@ func TestParser_Instruction(t *testing.T) {
 	cfg := m6502Arch.New()
 
 	for _, tt := range tests {
-		parser := New(cfg.Arch, strings.NewReader(tt.input))
+		parser := New(cfg.Arch, strings.NewReader(tt.input), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
@@ -60,7 +61,7 @@ func TestParser_EdgeCases(t *testing.T) {
 	cfg := m6502Arch.New()
 
 	t.Run("empty input", func(t *testing.T) {
-		parser := New(cfg.Arch, strings.NewReader(""))
+		parser := New(cfg.Arch, strings.NewReader(""), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
@@ -68,7 +69,7 @@ func TestParser_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("only whitespace", func(t *testing.T) {
-		parser := New(cfg.Arch, strings.NewReader("   \n\t  \n"))
+		parser := New(cfg.Arch, strings.NewReader("   \n\t  \n"), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
@@ -76,7 +77,7 @@ func TestParser_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("only comments", func(t *testing.T) {
-		parser := New(cfg.Arch, strings.NewReader("; comment\n// another comment"))
+		parser := New(cfg.Arch, strings.NewReader("; comment\n// another comment"), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		nodes, err := parser.TokensToAstNodes()
 		assert.NoError(t, err)
@@ -92,14 +93,14 @@ func TestParser_ErrorConditions(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel() // Cancel immediately
 
-		parser := New(cfg.Arch, strings.NewReader("lda #$01"))
+		parser := New(cfg.Arch, strings.NewReader("lda #$01"), config.CompatDefault)
 		err := parser.Read(ctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "cancelled")
 	})
 
 	t.Run("unsupported directive", func(t *testing.T) {
-		parser := New(cfg.Arch, strings.NewReader(".unsupported"))
+		parser := New(cfg.Arch, strings.NewReader(".unsupported"), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		_, err := parser.TokensToAstNodes()
 		assert.Error(t, err)
@@ -107,7 +108,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 	})
 
 	t.Run("missing directive parameter", func(t *testing.T) {
-		parser := New(cfg.Arch, strings.NewReader(".byte"))
+		parser := New(cfg.Arch, strings.NewReader(".byte"), config.CompatDefault)
 		assert.NoError(t, parser.Read(t.Context()))
 		_, err := parser.TokensToAstNodes()
 		assert.Error(t, err)
@@ -115,7 +116,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 	})
 
 	t.Run("unexpected token type", func(t *testing.T) {
-		parser := New(cfg.Arch, strings.NewReader("@"))
+		parser := New(cfg.Arch, strings.NewReader("@"), config.CompatDefault)
 		// The lexer may handle @ as an illegal token before parser sees it
 		err := parser.Read(t.Context())
 		if err != nil {
@@ -135,7 +136,7 @@ func TestParser_NextToken(t *testing.T) {
 		{Type: token.Identifier, Value: "lda"},
 		{Type: token.Number, Value: "#$01"},
 		{Type: token.EOL},
-	})
+	}, config.CompatDefault)
 	parser.programLength = 3
 
 	t.Run("valid offset", func(t *testing.T) {
@@ -162,7 +163,7 @@ func TestParser_NextToken(t *testing.T) {
 
 func TestParser_AdvanceReadPosition(t *testing.T) {
 	cfg := m6502Arch.New()
-	parser := NewWithTokens(cfg.Arch, nil)
+	parser := NewWithTokens(cfg.Arch, nil, config.CompatDefault)
 
 	initialPos := parser.readPosition
 	parser.AdvanceReadPosition(5)
@@ -174,7 +175,7 @@ func TestParser_AdvanceReadPosition(t *testing.T) {
 
 func TestParser_AddressWidth(t *testing.T) {
 	cfg := m6502Arch.New()
-	parser := New(cfg.Arch, strings.NewReader(""))
+	parser := New(cfg.Arch, strings.NewReader(""), config.CompatDefault)
 
 	// M6502 has 16-bit addresses
 	assert.Equal(t, 16, parser.AddressWidth())
@@ -185,7 +186,7 @@ func TestParser_PreallocationBenefit(t *testing.T) {
 
 	// Test that pre-allocation doesn't break functionality with large programs
 	largeInput := strings.Repeat("nop\n", 1000)
-	parser := New(cfg.Arch, strings.NewReader(largeInput))
+	parser := New(cfg.Arch, strings.NewReader(largeInput), config.CompatDefault)
 	assert.NoError(t, parser.Read(t.Context()))
 
 	nodes, err := parser.TokensToAstNodes()

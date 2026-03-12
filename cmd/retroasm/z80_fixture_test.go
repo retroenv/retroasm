@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/assert"
 )
@@ -364,7 +365,7 @@ func assembleZ80FixtureWithProfile(t *testing.T, fixture, profileName string) ([
 	}
 
 	asm := retroasm.New()
-	if err := registerArchitectureForCPU(asm, cpuZ80, profileName); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuZ80, profileName, config.CompatDefault); err != nil {
 		return nil, fmt.Errorf("registering z80 architecture: %w", err)
 	}
 
@@ -384,7 +385,7 @@ func assembleZ80SourceWithProfile(t *testing.T, source, profileName string) ([]b
 	t.Helper()
 
 	asm := retroasm.New()
-	if err := registerArchitectureForCPU(asm, cpuZ80, profileName); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuZ80, profileName, config.CompatDefault); err != nil {
 		return nil, fmt.Errorf("registering z80 architecture: %w", err)
 	}
 

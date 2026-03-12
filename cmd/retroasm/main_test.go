@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/assert"
 	"github.com/retroenv/retrogolib/log"
@@ -263,7 +264,7 @@ func TestRegisterArchitectureForCPU(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			asm := retroasm.New()
-			err := registerArchitectureForCPU(asm, tt.cpu, tt.z80Profile)
+			err := registerArchitectureForCPU(asm, tt.cpu, tt.z80Profile, config.CompatDefault)
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.expectedErr)
@@ -428,7 +429,7 @@ SEGMENTS { CODE: load = CODE, type = rw; }`
 
 func runAssembleWithConfig(ctx context.Context, cpuName, z80ProfileName, configPath string) error {
 	asm := retroasm.New()
-	if err := registerArchitectureForCPU(asm, cpuName, z80ProfileName); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuName, z80ProfileName, config.CompatDefault); err != nil {
 		return fmt.Errorf("registering architecture: %w", err)
 	}
 	input := &retroasm.TextInput{

@@ -18,6 +18,7 @@ import (
 	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/assembler"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/app"
 	"github.com/retroenv/retrogolib/arch"
@@ -48,6 +49,7 @@ type optionFlags struct {
 	cpu        string
 	system     string
 	z80Profile string
+	compat     string
 	debug      bool
 	quiet      bool
 }
@@ -78,6 +80,9 @@ func buildLogFields(input string, options *optionFlags) []log.Field {
 	}
 	if options.cpu == cpuZ80 && options.z80Profile != "" {
 		fields = append(fields, log.String("z80_profile", options.z80Profile))
+	}
+	if options.compat != "" {
+		fields = append(fields, log.String("compat", options.compat))
 	}
 	return fields
 }
@@ -317,6 +322,13 @@ func readArguments() (*optionFlags, []string) {
 		"",
 		"z80 instruction profile (default, strict-documented, gameboy-z80-subset)",
 	)
+	flags.StringVar(
+		&options.compat,
+		"compat",
+		"",
+		"assembler compatibility mode (default, x816, asm6, ca65, nesasm)",
+	)
+	flags.StringVar(&options.compat, "m", "", "assembler compatibility mode (shorthand for -compat)")
 	flags.BoolVar(&options.quiet, "q", false, "perform operations quietly")
 
 	err := flags.Parse(os.Args[1:])
@@ -365,6 +377,11 @@ func assembleFile(options *optionFlags, args []string) error {
 		return fmt.Errorf("opening input file '%s': %w", args[0], err)
 	}
 
+	compatMode, err := parseCompatMode(options.compat)
+	if err != nil {
+		return fmt.Errorf("parsing compatibility mode: %w", err)
+	}
+
 	ctx := app.Context()
 
 	// Chip-8 uses the direct assembler API as it is not yet supported by the retroasm high-level API.
@@ -373,7 +390,7 @@ func assembleFile(options *optionFlags, args []string) error {
 	}
 
 	asm := retroasm.New()
-	if err := registerArchitectureForCPU(asm, options.cpu, options.z80Profile); err != nil {
+	if err := registerArchitectureForCPU(asm, options.cpu, options.z80Profile, compatMode); err != nil {
 		return fmt.Errorf("registering architecture '%s': %w", options.cpu, err)
 	}
 
@@ -395,6 +412,17 @@ func assembleFile(options *optionFlags, args []string) error {
 	return nil
 }
 
+func parseCompatMode(s string) (config.CompatibilityMode, error) {
+	if s == "" {
+		return config.CompatDefault, nil
+	}
+	mode, err := config.ParseCompatibilityMode(s)
+	if err != nil {
+		return config.CompatDefault, fmt.Errorf("parsing compatibility mode: %w", err)
+	}
+	return mode, nil
+}
+
 func assembleChip8File(ctx context.Context, inputData []byte, outputFile string) error {
 	cfg := chip8.New()
 
@@ -412,10 +440,11 @@ func assembleChip8File(ctx context.Context, inputData []byte, outputFile string)
 	return nil
 }
 
-func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName string) error {
+func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName string, compatMode config.CompatibilityMode) error {
 	switch cpuName {
 	case cpu6502:
 		cfg := m6502.New()
+		cfg.CompatibilityMode = compatMode
 		adapter := retroasm.NewArchitectureAdapter(cpu6502, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpu6502, adapter); err != nil {
 			return fmt.Errorf("registering architecture '%s': %w", cpu6502, err)
@@ -424,6 +453,7 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName 
 
 	case cpuM68000:
 		cfg := archm68000.New()
+		cfg.CompatibilityMode = compatMode
 		adapter := retroasm.NewArchitectureAdapter(cpuM68000, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpuM68000, adapter); err != nil {
 			return fmt.Errorf("registering architecture '%s': %w", cpuM68000, err)
@@ -437,6 +467,7 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName 
 		}
 
 		cfg := archz80.New(archz80.WithProfile(profileKind))
+		cfg.CompatibilityMode = compatMode
 		adapter := retroasm.NewArchitectureAdapter(cpuZ80, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpuZ80, adapter); err != nil {
 			return fmt.Errorf("registering architecture '%s': %w", cpuZ80, err)

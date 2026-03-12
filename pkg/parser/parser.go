@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/lexer"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -36,28 +37,38 @@ var errMissingParameter = errors.New("missing parameter")
 // Parser is the input stream parser.
 type Parser[T any] struct {
 	arch          arch.Architecture[T]
+	compatMode    config.CompatibilityMode
+	handlers      map[string]directives.Handler
 	lexer         *lexer.Lexer
 	program       []token.Token
 	readPosition  int
 	programLength int
+
+	// anonymous label tracking for +/- labels
+	anonForwardCount  int // total forward labels seen so far
+	anonBackwardCount int // total backward labels seen so far
 }
 
 // New returns a new Parser that uses a lexer for the given reader.
-func New[T any](arch arch.Architecture[T], reader io.Reader) *Parser[T] {
+func New[T any](arch arch.Architecture[T], reader io.Reader, mode config.CompatibilityMode) *Parser[T] {
 	lexerCfg := lexer.Config{
 		CommentPrefixes: []string{"//", ";"},
 		DecimalPrefix:   '#',
 	}
 	return &Parser[T]{
-		arch:  arch,
-		lexer: lexer.New(lexerCfg, reader),
+		arch:       arch,
+		compatMode: mode,
+		handlers:   directives.BuildHandlers(mode),
+		lexer:      lexer.New(lexerCfg, reader),
 	}
 }
 
 // NewWithTokens returns a new Parser that processes the lexed tokens.
-func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token) *Parser[T] {
+func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token, mode config.CompatibilityMode) *Parser[T] {
 	return &Parser[T]{
 		arch:          arch,
+		compatMode:    mode,
+		handlers:      directives.BuildHandlers(mode),
 		program:       tokens,
 		programLength: len(tokens),
 	}
@@ -107,44 +118,13 @@ func (p *Parser[T]) AddressWidth() int {
 // line and column numbers for debugging.
 func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	var (
-		err          error
 		nodes        = make([]ast.Node, 0, p.programLength/2) // Pre-allocate with estimated capacity
 		previousNode ast.Node
 	)
 
 	for p.readPosition < p.programLength {
 		tok := p.program[p.readPosition]
-		var entry ast.Node
-
-		switch tok.Type {
-		case token.Dot:
-			entry, err = p.parseDot()
-
-		case token.Identifier:
-			entry, err = p.parseIdentifier(tok)
-
-		case token.Number:
-			entry, err = p.parseNumber(tok)
-
-		case token.Lt:
-			// set read position back since dot directive handler expect a directive
-			p.AdvanceReadPosition(-1)
-			entry, err = directives.AddrLow(p)
-
-		case token.Gt:
-			// set read position back since dot directive handler expect a directive
-			p.AdvanceReadPosition(-1)
-			entry, err = directives.AddrHigh(p)
-
-		case token.Comment:
-			entry = p.parseComment(tok, previousNode)
-
-		case token.EOL:
-
-		default:
-			return nil, fmt.Errorf("unexpected token of type %s found at line %d column %d",
-				tok.Type.String(), tok.Position.Line, tok.Position.Column)
-		}
+		entry, err := p.parseToken(tok, previousNode)
 
 		if err != nil {
 			return nil, fmt.Errorf("parser error for token '%s' of type %s found at line %d column %d: %w",
@@ -158,6 +138,54 @@ func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	}
 
 	return nodes, nil
+}
+
+//nolint:cyclop // type switch with one case per token type
+func (p *Parser[T]) parseToken(tok token.Token, previousNode ast.Node) (ast.Node, error) {
+	switch tok.Type {
+	case token.Dot:
+		return p.parseDot()
+
+	case token.Identifier:
+		return p.parseIdentifier(tok)
+
+	case token.Number:
+		return p.parseNumber(tok)
+
+	case token.Lt:
+		// set read position back since dot directive handler expect a directive
+		p.AdvanceReadPosition(-1)
+		return directives.AddrLow(p) //nolint:wrapcheck // thin delegation to sub-package
+
+	case token.Gt:
+		// set read position back since dot directive handler expect a directive
+		p.AdvanceReadPosition(-1)
+		return directives.AddrHigh(p) //nolint:wrapcheck // thin delegation to sub-package
+
+	case token.Plus:
+		if p.compatMode.AnonymousLabels() {
+			return p.parseAnonymousLabel(true), nil
+		}
+
+	case token.Minus:
+		if p.compatMode.AnonymousLabels() {
+			return p.parseAnonymousLabel(false), nil
+		}
+
+	case token.Asterisk:
+		if p.compatMode.AsteriskProgramCounter() {
+			return p.parseAsteriskPC()
+		}
+
+	case token.Comment:
+		return p.parseComment(tok, previousNode), nil
+
+	case token.EOL:
+		return nil, nil //nolint:nilnil // EOL tokens produce no AST node
+	}
+
+	return nil, fmt.Errorf("unexpected token of type %s found at line %d column %d",
+		tok.Type.String(), tok.Position.Line, tok.Position.Column)
 }
 
 func (p *Parser[T]) parseTokens(ctx context.Context) error {
@@ -207,7 +235,7 @@ func (p *Parser[T]) parseDot() (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 	directive := strings.ToLower(next.Value)
-	handler, ok := directives.Handlers[directive]
+	handler, ok := p.handlers[directive]
 	if !ok {
 		return nil, fmt.Errorf("unsupported directive '%s'", next.Value)
 	}
@@ -243,6 +271,12 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 	instructionName := strings.ToLower(tok.Value)
 	ins, ok := p.arch.Instruction(instructionName)
 	if !ok {
+		// In colon-optional modes, an identifier at start of line that isn't an instruction
+		// or directive may be a label without a trailing colon.
+		if p.compatMode.ColonOptionalLabels() && p.isColonOptionalLabel(tok, next) {
+			return ast.NewLabel(tok.Value), nil
+		}
+
 		n, err := p.parseAlias(tok, next)
 		if err != nil {
 			if errors.Is(err, errUnsupportedIdentifier) {
@@ -288,6 +322,91 @@ func (p *Parser[T]) parseNumber(tok token.Token) (ast.Node, error) {
 		return nil, fmt.Errorf("processing program counter assignment: %w", err)
 	}
 	return node, nil
+}
+
+// parseAnonymousLabel handles +/- anonymous label definitions.
+// forward=true means + labels, forward=false means - labels.
+// Consecutive +/- tokens increase the nesting level.
+func (p *Parser[T]) parseAnonymousLabel(forward bool) ast.Node {
+	level := 1
+	for p.readPosition+level < p.programLength {
+		next := p.program[p.readPosition+level]
+		if (forward && next.Type == token.Plus) || (!forward && next.Type == token.Minus) {
+			level++
+		} else {
+			break
+		}
+	}
+	// advance past the extra +/- tokens (first one is consumed by the main loop)
+	p.readPosition += level - 1
+
+	var name string
+	if forward {
+		p.anonForwardCount++
+		name = fmt.Sprintf("__anon_fwd_%d_%d", level, p.anonForwardCount)
+	} else {
+		p.anonBackwardCount++
+		name = fmt.Sprintf("__anon_bwd_%d_%d", level, p.anonBackwardCount)
+	}
+
+	return ast.NewLabel(name)
+}
+
+// parseAsteriskPC handles * as program counter assignment (e.g., * = $8000).
+func (p *Parser[T]) parseAsteriskPC() (ast.Node, error) {
+	next := p.NextToken(1)
+	if next.Type == token.Assign {
+		// * = value — program counter assignment, delegate to Base handler
+		p.AdvanceReadPosition(1) // skip the =
+		addressTokens, err := directives.ReadDataTokensExported(p, true)
+		if err != nil {
+			return nil, fmt.Errorf("reading program counter value: %w", err)
+		}
+		return ast.NewBase(addressTokens), nil
+	}
+
+	return nil, fmt.Errorf("unexpected token after '*' at line %d column %d",
+		next.Position.Line, next.Position.Column)
+}
+
+// isColonOptionalLabel checks if the current identifier should be treated as a label
+// without a trailing colon. This is true when the next token is an instruction,
+// directive, EOL, or EOF, and the identifier is not a known directive.
+func (p *Parser[T]) isColonOptionalLabel(tok, next token.Token) bool {
+	// Must be at column 0 (start of line)
+	if tok.Position.Column != 0 {
+		return false
+	}
+
+	// Check if it's a directive name (don't treat directives as labels)
+	directive := strings.ToLower(tok.Value)
+	if _, ok := p.handlers[directive]; ok {
+		return false
+	}
+
+	// If next token is EOL/EOF, it's a label
+	if next.Type.IsTerminator() {
+		return true
+	}
+
+	// If next token is an instruction mnemonic, this is a label before an instruction
+	if next.Type == token.Identifier {
+		nextName := strings.ToLower(next.Value)
+		if _, ok := p.arch.Instruction(nextName); ok {
+			return true
+		}
+		// Also check if next is a directive name
+		if _, ok := p.handlers[nextName]; ok {
+			return true
+		}
+	}
+
+	// If next is a dot (directive), this is a label before a directive
+	if next.Type == token.Dot {
+		return true
+	}
+
+	return false
 }
 
 func (p *Parser[T]) createIdentifier(tok token.Token) (ast.Node, error) {

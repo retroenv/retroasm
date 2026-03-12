@@ -7,9 +7,10 @@ import (
 
 // Config defines an assembler config.
 type Config[T any] struct {
-	Arch            arch.Architecture[T]
-	Segments        map[string]*Segment
-	SegmentsOrdered []*Segment
+	Arch              arch.Architecture[T]
+	CompatibilityMode CompatibilityMode
+	Segments          map[string]*Segment
+	SegmentsOrdered   []*Segment
 }
 
 // Memory contains the basic configuration for a memory segment.

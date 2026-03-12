@@ -68,7 +68,7 @@ func New[T any](cfg *config.Config[T], writer io.Writer) *Assembler[T] {
 // pre-parsed AST nodes, use ProcessAST instead.
 func (asm *Assembler[T]) Process(ctx context.Context, inputReader io.Reader) error {
 	// Parse AST nodes first
-	pars := parser.New[T](asm.cfg.Arch, inputReader)
+	pars := parser.New[T](asm.cfg.Arch, inputReader, asm.cfg.CompatibilityMode)
 	if err := pars.Read(ctx); err != nil {
 		return fmt.Errorf("parsing lexer tokens: %w", err)
 	}

@@ -6,6 +6,12 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
+// ReadDataTokensExported reads size or data tokens of a data directive.
+// It is an exported wrapper around readDataTokens for use by the parser package.
+func ReadDataTokensExported(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
+	return readDataTokens(p, returnOnComma)
+}
+
 // ParseModifier parses instruction address modifiers (+/- offset expressions).
 func ParseModifier(p arch.Parser) []ast.Modifier {
 	var modifiers []ast.Modifier
