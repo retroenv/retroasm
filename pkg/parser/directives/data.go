@@ -17,7 +17,7 @@ var dataByteWidth = map[string]int{
 	"db":    1,
 	"dcb":   1,
 	"dcl":   3, // x816 long (3-byte)
-	"dcw":   1,
+	"dcw":   2,
 	"dcd":   4, // x816 double-word (4-byte)
 	"dd":    4, // x816 double-word alias
 	"dl":    3, // x816 long alias

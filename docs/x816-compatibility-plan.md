@@ -1,4 +1,4 @@
-# x816 Assembler Compatibility Plan
+# x816 Assembler Compatibility Reference
 
 ## Overview
 
@@ -6,191 +6,168 @@ x816 (65816/6502 assembler by minus/Ballistics, v1.12f) is a legacy assembler or
 
 See [Compatibility Mode Infrastructure](compatibility-mode-plan.md) for shared features: compatibility mode type, CLI flag, pipeline threading, anonymous labels, colon-optional labels, no-op directive handler, and number formats.
 
-## x816-Specific Label Behavior
+## Label Behavior
 
 ### Anonymous Labels
 
-x816 uses `+`/`-` anonymous labels (see shared infrastructure). x816-specific behavior:
-- No trailing text suffix (unlike asm6's `+here`)
-- Scoped to `.MODULE` blocks — a new module clears anonymous label state
+x816 uses `+`/`-` anonymous labels. Implemented via `AnonymousLabels()` feature flag in `compatibility.go`, with parsing in `parser.go` (`parseAnonymousLabel`). Nesting level is tracked by counting consecutive `+` or `-` tokens.
 
-### Colon-less Labels
+### Colon-Optional Labels
 
-x816 labels do not require a trailing colon (see shared infrastructure). x816-specific: column-0 detection is the primary label recognition method; colon labels are also accepted.
+x816 labels do not require a trailing colon. Implemented via `ColonOptionalLabels()` feature flag, with column-0 detection in `parser.go` (`isColonOptionalLabel`). Colon labels are also accepted.
 
-## x816-Specific Directives
+## Directives
 
-### Directives Already Supported
+### Status Key
 
-These x816 directives already work in retroasm (via asm6/ca65 compatibility):
+- [x] = Implemented
+- [ ] = Not yet implemented
 
-| x816 Directive | retroasm Handler | Notes |
+### Directives Supported via Base Handlers
+
+These x816 directives work through the base handler map shared across all modes.
+
+| Directive | Handler | Notes | Status |
+|---|---|---|---|
+| `.bin` | `Include` | Binary include | [x] |
+| `.db` | `Data` | Byte data (1-byte) | [x] |
+| `.dcb` | `Data` | Byte data (1-byte) | [x] |
+| `.dcw` | `Data` | Data (mapped to 1-byte width -- see note) | [x] |
+| `.dsb` | `DataStorage` | Byte storage | [x] |
+| `.dsw` | `DataStorage` | Word storage | [x] |
+| `.dw` | `Data` | Word data (2-byte) | [x] |
+| `.else` | `Else` | Conditional else | [x] |
+| `.endif` | `Endif` | End conditional | [x] |
+| `.if` | `If` | Conditional | [x] |
+| `.ifdef` | `Ifdef` | If defined | [x] |
+| `.ifndef` | `Ifndef` | If not defined | [x] |
+| `.incbin` | `Include` | Binary include | [x] |
+| `.incsrc` | `Include` | Source include | [x] |
+| `.macro` | `Macro` | Macro definition | [x] |
+| `.org` | `Base` | Origin address | [x] |
+| `.pad` | `Padding` | Pad to address | [x] |
+
+**Note:** `.dcw` is mapped to 1-byte width in `dataByteWidth`. This may be a bug if x816 `.dcw` is intended to produce 2-byte word data.
+
+### x816-Specific Directives (Implemented)
+
+These are registered in `x816Handlers()` in `directives.go`.
+
+| Directive | Handler | Notes | Status |
+|---|---|---|---|
+| `.comment` | `CommentBlock` | Multi-line comment block (skip to `.end`) | [x] |
+| `.dcd` / `.dd` | `Data` | Double-word data (4-byte) | [x] |
+| `.dcl` / `.dl` | `Data` | Long data (3-byte); `.dl` overrides base `AddrLow` | [x] |
+| `.dsd` | `DataStorage` | Double-word storage (4-byte) | [x] |
+| `.dsl` | `DataStorage` | Long storage (3-byte) | [x] |
+| `.end` | `NoOp` | Block terminator | [x] |
+| `.src` | `Include` | Source include alias | [x] |
+
+### x816-Specific No-Op Directives (Implemented)
+
+All registered in `x816Handlers()`. These consume tokens to end-of-line without affecting output.
+
+| Directive | Category |
+|---|---|
+| `.cerror` | Diagnostic messages |
+| `.cwarn` | Diagnostic messages |
+| `.dasm` | Display |
+| `.detect` | Bitwidth autodetection |
+| `.echo` | Display |
+| `.hirom` | ROM mode (NES-irrelevant) |
+| `.hrom` | ROM mode (NES-irrelevant) |
+| `.index` | Index register bitwidth (always 8-bit for NES) |
+| `.list` | Listing output |
+| `.localsymbolchar` / `.locchar` | Local symbol character setting |
+| `.lrom` | ROM mode (NES-irrelevant) |
+| `.mem` | Accumulator bitwidth (always 8-bit for NES) |
+| `.message` | Diagnostic messages |
+| `.nolist` | Listing output |
+| `.opt` / `.optimize` | Address optimization |
+| `.par` / `.parenthesis` | Parenthesis style |
+| `.smc` | SMC output (NES-irrelevant) |
+| `.sym` / `.symbol` | Symbol file output |
+
+### Macro Termination
+
+`.endm` and `ENDM` are handled inside the `Macro` reader loop (in `macro.go`), not as standalone directive entries. No separate handler registration is needed.
+
+### .equ Alias
+
+`name .equ value` is handled via the `parseDotIdentifier` path in `parser.go`, which detects the `.equ` keyword after an identifier and delegates to `parseAlias`. This is implemented.
+
+### Not Yet Implemented
+
+| Directive | Behavior | Priority |
 |---|---|---|
-| `.org` | `Base` | Origin address |
-| `.dcb` / `.db` | `Data` | Byte data |
-| `.dcw` / `.dw` | `Data` | Word data |
-| `.dsb` | `DataStorage` | Byte storage |
-| `.dsw` | `DataStorage` | Word storage |
-| `.pad` | `Padding` | Pad to address |
-| `.incbin` / `.bin` | `Include` | Binary include |
-| `.incsrc` / `.src` | `Include` | Source include |
-| `.if` | `If` | Conditional |
-| `.else` | `Else` | Conditional else |
-| `.endif` | `Endif` | End conditional |
-| `.ifdef` | `Ifdef` | If defined |
-| `.ifndef` | `Ifndef` | If not defined |
-| `.macro` | `Macro` | Macro definition |
-
-### New Directives to Add
-
-**File: `pkg/parser/directives/directives.go` - add to `Handlers` map**
-
-| x816 Directive | Behavior | Priority |
-|---|---|---|
-| `.mem` | Set accumulator bitwidth (8/16) - no-op for NES (always 8-bit) | High |
-| `.index` | Set index register bitwidth (8/16) - no-op for NES (always 8-bit) | High |
-| `.opt` / `.optimize` | Toggle address optimization - no-op | High |
-| `.list` | Toggle/set listing output - no-op | High |
-| `.symbol` | Toggle/set symbol file output - no-op | High |
-| `.endm` | End macro (alias) | High |
-| `.end` | End block (`.base`, `.table`, `.comment`, etc.) | Medium |
-| `.base` | Set relocatable base address (with `.end` pairing) | Medium |
-| `.equ` | Assign value to symbol (alias for `=`) | Medium |
-| `.detect` | Toggle bitwidth autodetection - no-op | Low |
-| `.dasm` | Toggle assembly display - no-op | Low |
-| `.echo` | Echo text during assembly - no-op | Low |
-| `.comment` | Multi-line comment block (skip to `.end`) | Low |
-| `.module` / `.mod` | Define module scope | Low |
-| `.localsymbolchar` / `.locchar` | Set local symbol char - no-op | Low |
-| `.hrom` / `.lrom` / `.hirom` | ROM mode - no-op for NES | Low |
-| `.smc` | SMC output - no-op | Low |
-| `.par` / `.parenthesis` | Parenthesis style - no-op | Low |
-| `.table` / `.tab` | Virtual data table (like `.base` but no output) | Low |
-| `.interrupts` / `.int` | Interrupt vector table | Low |
-| `.cartridge` / `.cart` | Cartridge header | Low |
-| `.asctable` | ASCII remapping table | Low |
 | `.asc` | Data with ASCII remapping | Low |
-| `.dcl` / `.dl` | Long (3-byte) data | Low |
-| `.dcd` / `.dd` | Double-word (4-byte) data | Low |
-| `.dsl` | Long storage | Low |
-| `.dsd` | Double-word storage | Low |
+| `.asctable` | ASCII remapping table | Low |
+| `.base` | Relocatable base address (with `.end` pairing) | Medium |
+| `.cartridge` / `.cart` | Cartridge header | Low |
+| `.interrupts` / `.int` | Interrupt vector table | Low |
+| `.module` / `.mod` | Module scope (clears anonymous label state) | Low |
+| `.table` / `.tab` | Virtual data table (like `.base` but no output) | Low |
 
-### No-Op Directives
+## Expressions
 
-Many x816 directives (`.opt`, `.mem`, `.index`, `.list`, `.symbol`, `.detect`, `.dasm`, `.echo`, `.localsymbolchar`, `.locchar`, `.hrom`, `.lrom`, `.hirom`, `.smc`, `.par`, `.parenthesis`) are assembler-UI features that don't affect binary output. These use the shared no-op handler (see infrastructure doc).
+### Keyword Operators (Implemented)
 
-## Expression and Number Format Differences
+Keyword operators are defined in `expression.go` (`keywordOperators` map) and resolved via `resolveKeywordOperator` during expression parsing. Bitwise evaluation is in `operator.go` (`evaluateBitwiseIntInt`).
 
-Number format support (trailing `h`/`b`) is covered in the shared infrastructure doc.
-
-### Expression Operators
-
-x816 supports keyword-based logical operators in expressions. These are used in `.dcb` data and address expressions:
-
-| x816 | Meaning | Current |
+| Keyword | Symbol | Status |
 |---|---|---|
-| `SHL` / `<<` | Shift left | `<<` supported |
-| `SHR` / `>>` | Shift right | `>>` supported |
-| `AND` / `.AND.` / `&&` | Logical AND | `&&` may be supported |
-| `OR` / `.OR.` / `\|\|` | Logical OR | `\|\|` may be supported |
-| `XOR` / `.XOR.` | Logical XOR | Check |
+| `AND` | `&` (bitwise AND) | [x] |
+| `OR` | `\|` (bitwise OR) | [x] |
+| `SHL` | `<<` (shift left) | [x] |
+| `SHR` | `>>` (shift right) | [x] |
+| `XOR` | `^` (bitwise XOR) | [x] |
 
-**File: `pkg/expression/expression.go`**
+**Note:** These are bitwise operators (not logical). `AND` maps to `token.Ampersand`, `OR` maps to `token.Pipe`.
 
-In x816 mode, recognize `SHL`, `SHR`, `AND`, `OR`, `XOR` as operator keywords during expression evaluation.
+### Value Modifiers
 
-### Modifiers
-
-x816 value modifiers (already partially supported):
-
-| Modifier | Meaning | Current |
+| Modifier | Meaning | Status |
 |---|---|---|
-| `<value` | Low byte | Yes (`<`) |
-| `>value` | High byte | Yes (`>`) |
-| `^value` | Bank byte (bits 16-23) | No |
-| `!value` | Force word/absolute addressing | No |
+| `<value` | Low byte | [x] |
+| `>value` | High byte | [x] |
+| `^value` | Bank byte (bits 16-23) | [x] |
+| `!value` | Force absolute addressing | [ ] |
 
-Add `^` (bank byte) support for 65816 mode. The `!` modifier forces absolute addressing even for zero-page addresses.
+The `^` bank byte operator is enabled via `BankByteOperator()` feature flag in `compatibility.go` (returns `true` for x816 and ca65 modes).
 
-### Current Address Symbol
+### Current Address Symbol (Implemented)
 
-x816 uses `*` as the current program counter in expressions:
-```
-here = *
-length = *-start
-```
+x816 uses `*` as the current program counter. Implemented via `AsteriskProgramCounter()` feature flag and `parseAsteriskPC()` in `parser.go`. Supports `* = $8000` assignment syntax.
 
-**Current state:** The parser uses `$` as the program counter reference (`expression.ProgramCounterReference`). In x816 mode, also accept `*` in expression context.
+### Number Formats (Implemented)
+
+Trailing `h` suffix (hexadecimal) and `b` suffix (binary) are supported in the number parser (`pkg/number`).
 
 ## .dcb String Support
 
-x816's `.dcb` accepts both numeric values and quoted strings in the same directive:
+x816's `.dcb` accepts quoted strings mixed with numeric values:
 
 ```
 .dcb 13,10,"=main=",13,10
 .dcb "NOTTUB >A< SSERP"
 ```
 
-**Current state:** Check if the `Data` directive handler supports quoted string literals mixed with numbers. The lexer needs to emit string tokens properly.
+String tokens in data directives are processed by the expression evaluator's `processData` function, which emits each character as a byte value.
 
-### Implementation
+## Remaining Work
 
-In the data directive handler, when a quoted string is encountered:
-- Emit each character as a byte value
-- Continue parsing after the closing quote for more comma-separated values
-
-## Test Infrastructure
-
-### Binary Comparison Test
-
-**File: `pkg/arch/m6502/x816_test.go` or `tests/nes-bench/bench_test.go` (new)**
-
-```go
-func TestX816_NESBench(t *testing.T) {
-    // 1. Assemble tests/nes-bench/bench.asm using retroasm in x816 mode
-    // 2. Compare output with reference bench.bin (produced by x816.exe via dosbox)
-    // 3. Byte-for-byte comparison
-}
-```
-
-### Generate Reference Binary
-
-Run x816 via dosbox to produce `bench.bin` as the reference output. Store it in `tests/nes-bench/bench.bin.expected` (or similar).
-
-### Unit Tests
-
-Add targeted tests for each x816-specific feature:
-- Anonymous label resolution (forward/backward, nested)
-- Colon-less label parsing
-- `.dcb` with mixed strings and numbers
-- No-op directives (`.opt`, `.mem`, `.index`, `.list`, `.symbol`)
-- `.pad` behavior
-- Expression with `*` as program counter
-
-## Implementation Order
-
-| Step | Description | Effort |
+| Item | Description | Priority |
 |---|---|---|
-| 1 | Compatibility mode infrastructure + CLI flag | Small |
-| 2 | No-op directives (`.opt`, `.mem`, `.index`, `.list`, `.symbol`, `.detect`) | Small |
-| 3 | `.dcb` string literal support in data directives | Medium |
-| 4 | Anonymous `+`/`-` label support | Large |
-| 5 | Colon-less label parsing (column-0 detection) | Medium |
-| 6 | `*` as program counter in expressions | Small |
-| 7 | `.equ` directive alias | Small |
-| 8 | `.end` block terminator | Medium |
-| 9 | Trailing `b` binary number format | Small |
-| 10 | Reference binary test against x816 output | Medium |
-| 11 | Bank byte `^` modifier | Small |
-| 12 | Keyword expression operators (`SHL`, `AND`, etc.) | Medium |
-| 13 | `.module` scoping | Large |
-| 14 | Remaining low-priority directives | Medium |
-
-Steps 1-10 should be sufficient to assemble the `tests/nes-bench/bench.asm` source correctly.
+| `.base`/`.end` pairing | Relocatable code blocks (stack-based) | Medium |
+| `.module` scoping | Module scope with anonymous label clearing | Low |
+| `!` force absolute | Force absolute addressing modifier | Low |
+| `.table`/`.tab` | Virtual data table | Low |
+| `.asctable`/`.asc` | ASCII remapping | Low |
+| `.interrupts`/`.int` | Interrupt vector table | Low |
+| `.cartridge`/`.cart` | Cartridge header | Low |
 
 ## Notes
 
-- x816 was originally a 65816 (SNES) assembler but the bench.asm test uses it for 6502 (NES) code with `.mem 8` / `.index 8` to force 8-bit mode
-- The `:` and `\` multi-instruction-per-line separator is a low-priority feature (not used in the test sources)
-- The `.base`/`.end` relocatable code feature is distinct from `.org` and may need a stack-based implementation
 - x816 is case-insensitive for mnemonics and directives but preserves case in quoted strings
+- The `:` and `\` multi-instruction-per-line separator is low-priority (not used in test sources)
+- The `.base`/`.end` relocatable code feature is distinct from `.org` and may need a stack-based implementation

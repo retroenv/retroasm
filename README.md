@@ -5,28 +5,40 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/retroenv/retroasm)](https://goreportcard.com/report/github.com/retroenv/retroasm)
 [![codecov](https://codecov.io/gh/retroenv/retroasm/branch/main/graph/badge.svg?token=NS5UY28V3A)](https://codecov.io/gh/retroenv/retroasm)
 
-retroasm is a modern assembler for retro computer systems that compiles assembly language into machine code for classic hardware platforms.
+retroasm is a modern, multi-architecture assembler for retro computer systems that compiles assembly language into machine code for classic hardware platforms.
 
 ## Features
 
 ### Architecture Support
-* **6502 CPU** - Full support including undocumented opcodes
-* **Chip-8** - Complete Chip-8 virtual machine instruction set
-* **Nintendo Entertainment System (NES)** - Native target platform with proper memory mapping
-* **Extensible Architecture** - Framework designed for adding Z80 and other retro CPUs
+
+| CPU | Systems | Status |
+|-----|---------|--------|
+| **6502** | NES | Stable |
+| **Chip-8** | Chip-8 VM | Stable |
+| **Intel 8086** | IBM PC | In development |
+| **Motorola 68000** | Amiga, Mega Drive | Stable |
+| **Z80** | Game Boy, ZX Spectrum | Stable |
+
+### Assembler Compatibility Modes
+
+retroasm supports multiple legacy assembler syntaxes via the `-compat` flag, allowing direct assembly of source files written for popular retro assemblers:
+
+| Mode | Assembler | Key Features |
+|------|-----------|--------------|
+| **asm6** | asm6 / asm6f | Colon-optional labels, `+`/`-` anonymous labels, `@` local label scoping, NES 2.0 header directives, source file inclusion |
+| **ca65** | cc65 toolchain | `@` local label scoping, `:` unnamed labels with `:+`/`:-` references, `.scope`/`.endscope` blocks, `.asciiz`, `.faraddr`, `.bankbytes`, `.warning`, `.endmacro` |
+| **nesasm** | NESASM (MagicKit) | Dot-prefixed local labels (`.label`), `name .macro` syntax with `\1`-`\9` positional parameters, `*` as PC, `.fail`, `.ds` storage |
+| **x816** | x816 v1.12f | Colon-optional labels, `+`/`-` anonymous labels, `*` as PC, `SHL`/`SHR`/`AND`/`OR`/`XOR` expression operators, `.comment`/`.end` blocks, `.equ` aliases, 3-byte/4-byte data directives |
 
 ### Development Features
-* **Multi-Format Support** - Compatible with asm6, ca65, and nesasm assembly syntax
-* **Library API** - Use as a Go library for compiler integration and code generation
 * **AST-based Assembly** - Direct AST input for programmatic assembly
+* **Conditionals** - `.if`/`.else`/`.endif`, `.ifdef`/`.ifndef` conditional assembly
 * **Configuration Files** - ca65-style configuration for custom memory layouts
+* **Expressions** - Full expression evaluator with arithmetic, bitwise, shift, and comparison operators
+* **Library API** - Use as a Go library for compiler integration and code generation
+* **Macros** - Standard `.macro`/`.endm` definitions with named or positional parameters
 * **Modern Implementation** - Fast, reliable Go codebase with comprehensive tests
-
-## Supported Systems
-
-| System | Architecture | Assemblers | Status |
-|--------|-------------|------------|--------|
-| **NES** | 6502 | asm6, ca65, nesasm | Stable |
+* **Z80 Profiles** - Instruction set filtering (full, strict-documented, Game Boy subset)
 
 ## Quick Start
 
@@ -41,16 +53,24 @@ go install github.com/retroenv/retroasm/cmd/retroasm@latest
 
 ### Basic Usage
 
-Assemble a program:
 ```bash
 # Assemble a 6502 program for NES
 retroasm -cpu 6502 -system nes -o game.nes program.asm
 
+# Assemble using a specific compatibility mode
+retroasm -compat ca65 -o game.nes program.asm
+
 # Assemble a Chip-8 program
 retroasm -cpu chip8 -o game.ch8 program.asm
 
-# Or use default settings (6502)
-retroasm -o game.nes program.asm
+# Assemble a Motorola 68000 program
+retroasm -cpu m68000 -system generic -o program.bin program.asm
+
+# Assemble a Z80 program for ZX Spectrum
+retroasm -cpu z80 -system zx-spectrum -o program.bin program.asm
+
+# Assemble Z80 with Game Boy instruction subset
+retroasm -cpu z80 -system gameboy -z80-profile gameboy-z80-subset -o game.gb program.asm
 ```
 
 With ca65-style configuration:
@@ -65,15 +85,21 @@ usage: retroasm [options] <file to assemble>
 
   -c string
         assembler config file (ca65 compatible)
+  -compat string
+        assembler compatibility mode (asm6, ca65, default, nesasm, x816)
   -cpu string
-        target CPU architecture: 6502, chip8
+        target CPU architecture (6502, chip8, m68000, z80)
   -debug
         enable debug logging with detailed output
+  -m string
+        assembler compatibility mode (shorthand for -compat)
   -o string
         output ROM file name (required)
   -q    perform operations quietly (minimal output)
   -system string
-        target system: nes
+        target system (chip8, gameboy, generic, nes, zx-spectrum)
+  -z80-profile string
+        Z80 instruction profile (default, strict-documented, gameboy-z80-subset)
 ```
 
 ## Library Usage

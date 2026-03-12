@@ -2,32 +2,18 @@
 
 ## Overview
 
-retroasm needs to support multiple legacy 6502 assembler syntaxes so that existing source files can be assembled without modification. This document describes the shared infrastructure for compatibility mode switching. Individual assembler details are in separate documents:
+retroasm supports multiple legacy 6502 assembler syntaxes so that existing source files can be assembled without modification. This document describes the shared infrastructure for compatibility mode switching. Individual assembler details are in separate documents:
 
-- [x816 Compatibility](x816-compatibility-plan.md)
 - [asm6 Compatibility](asm6-compatibility.md)
 - [ca65 Compatibility](ca65-compatibility.md)
 - [NESASM Compatibility](nesasm-compatibility.md)
+- [x816 Compatibility](x816-compatibility-plan.md)
 
-## Current State
+## Compatibility Mode Type
 
-retroasm already defines format constants in `pkg/retroasm/assembler.go`:
+### Mode Enum
 
-```go
-const (
-    FormatAsm6   = "asm6"
-    FormatCa65   = "ca65"
-    FormatNesasm = "nesasm"
-)
-```
-
-These are used for output format selection. The compatibility mode system extends this to also affect **input parsing** — directive names, label syntax, number formats, and expression operators.
-
-## Phase 1: Compatibility Mode Type
-
-### 1.1 Define Compatibility Mode Enum
-
-**File: `pkg/assembler/config/compatibility.go` (new)**
+**File:** `pkg/assembler/config/compatibility.go`
 
 ```go
 type CompatibilityMode int
@@ -41,68 +27,80 @@ const (
 )
 ```
 
-### 1.2 CLI Flag
+### CLI Flags
 
-**File: `cmd/retroasm/main.go`**
+**File:** `cmd/retroasm/main.go`
 
-Add `--compat` / `-m` flag:
 ```
--m, --compat string    Assembler compatibility mode (default, x816, asm6, ca65, nesasm)
+--compat string    Assembler compatibility mode (default, x816, asm6, ca65, nesasm)
+-m string          Assembler compatibility mode (shorthand for -compat)
 ```
 
-### 1.3 Thread Mode Through Pipeline
+### Pipeline Threading
 
-The compatibility mode must reach:
-- **Lexer** — number format differences (trailing `h`/`b`, `@` prefix for octal in NESASM)
-- **Parser** — label syntax, directive dispatch, expression operators
-- **Directives** — mode-specific behavior and no-op handlers
+The `CompatibilityMode` field on `config.Config[T]` is passed through to the `Parser` constructor, which uses it to:
 
-Add `CompatibilityMode` field to `config.Config[T]` and pass to `Parser` constructor.
+- Select the correct directive handler map via `directives.BuildHandlers(mode)`
+- Gate syntax features through feature-query methods on `CompatibilityMode`
 
-## Phase 2: Shared Features
+## Feature Methods
 
-### 2.1 Anonymous Labels (`+`/`-`)
+Each feature is exposed as a method on `CompatibilityMode` so the parser can query behavior without switching on mode constants directly.
 
-Used by both **x816** and **asm6/asm6f**. Labels consisting of one or more `+` or `-` characters define anonymous forward/backward branch targets.
+| Method | asm6 | ca65 | NESASM | x816 |
+|---|---|---|---|---|
+| `AnonymousLabels()` | Yes | - | - | Yes |
+| `AsteriskProgramCounter()` | - | Yes | Yes | Yes |
+| `BankByteOperator()` | - | Yes | - | Yes |
+| `ColonOptionalLabels()` | Yes | - | - | Yes |
+| `DotLocalLabels()` | - | - | Yes | - |
+| `LocalLabelScoping()` | Yes | Yes | - | - |
+| `NesasmMacroSyntax()` | - | - | Yes | - |
+| `UnnamedLabels()` | - | Yes | - | - |
 
-| Feature | x816 | asm6 |
+## Shared Features
+
+### Anonymous Labels (`+`/`-`)
+
+Supported by **asm6** and **x816**. Labels consisting of one or more `+` or `-` characters define anonymous forward/backward branch targets.
+
+| Feature | asm6 | x816 |
 |---|---|---|
 | Basic `+`/`-` | Yes | Yes |
-| Nested `--`/`++` etc. | Yes (nesting level) | Yes (more unique names) |
-| Suffix text (`+here`) | No | Yes (`+here` is valid) |
-| Scope reset on `.module` | Yes | No (reset on non-local label) |
+| Nested `--`/`++` etc. | Yes (more unique names) | Yes (nesting level) |
 
-**Implementation:**
+The parser collects consecutive `+`/`-` tokens at line start, tracks nesting level, and generates synthetic label names encoding direction, level, and occurrence index (e.g., `__anon_fwd_1_3`).
 
-In `TokensToAstNodes()`, when `token.Minus` or `token.Plus` appears at line start:
-1. Collect consecutive `+`/`-` tokens and any trailing identifier text
-2. Generate synthetic label name encoding direction, nesting level, and occurrence index
-3. Emit as `ast.Label` node
+### Colon-Optional Labels
 
-For references in operand position:
-1. First pass: collect all anonymous label positions with synthetic names
-2. Resolution pass: match references to nearest appropriate definition
+Supported by **asm6** and **x816**. A trailing colon on labels is optional; labels are recognized by position (column 1) when the identifier is not a known instruction or directive.
 
-### 2.2 Colon-Optional Labels
+In `parseIdentifier()`, when an identifier at column 1 is not an instruction:
+1. Check if followed by `=` or `.equ` -- parse as assignment
+2. Check if it is a directive -- parse as directive
+3. If next token is instruction, directive, dot, EOL, or EOF -- treat as label definition
+4. Otherwise -- fall through to current behavior
 
-Both **x816** and **asm6** treat the trailing colon on labels as optional. A label is recognized by position (column 0 / start of line) when the identifier is not a known instruction or directive.
+Both `label:` and `label` (at column 1) are accepted.
 
-**Current state:** The parser requires `identifier:` for labels.
+### Unnamed Labels (`:`)
 
-**Implementation in `parseIdentifier()`:**
+Supported by **ca65**. A bare colon at line start defines an unnamed label. References use `:+` (forward) and `:-` (backward) with optional nesting level. Each unnamed label gets a synthetic name based on a counter (e.g., `__unnamed_3`).
 
-In compat modes (x816, asm6), when an identifier is at column 0:
-1. Check if it's an instruction mnemonic → parse as instruction
-2. Check if followed by `=` or `EQU` → parse as assignment
-3. Check if it's a directive → parse as directive
-4. If next token is instruction/directive/EOL → treat as label definition
-5. Otherwise → try instruction parsing (current behavior)
+### Local Label Scoping
 
-Both `label:` and `label` (at column 0) are accepted for maximum compatibility.
+Two variants are implemented:
 
-### 2.3 No-Op Directive Handler
+- **`@local` scoping** (asm6, ca65): Labels starting with `@` are scoped under the last non-local label, producing names like `main.@loop`.
+- **Dot-local scoping** (NESASM): Labels starting with `.` are scoped under the last non-local label, producing names like `main.loop`.
 
-Many assemblers have directives for listing, display, and symbol file output that don't affect binary output. A shared no-op handler skips to EOL:
+### NESASM Macro Syntax
+
+Supported by **NESASM**. Macros use `name .macro` syntax (name before directive) instead of `.macro name`. The parser detects this pattern in `parseDotIdentifier()`.
+
+### No-Op Directive Handler
+
+A shared handler that consumes all tokens until end of line, used for directives that do not affect binary output (listing, display, symbol files, optimization hints):
 
 ```go
 func NoOp(p arch.Parser) (ast.Node, error) {
@@ -115,55 +113,49 @@ func NoOp(p arch.Parser) (ast.Node, error) {
 }
 ```
 
-### 2.4 Program Counter Symbol
+### Program Counter Symbol
 
 | Assembler | PC Symbol |
 |---|---|
-| asm6 (current) | `$` |
-| x816 | `*` |
-| ca65 | `*` (in expressions), `.loword(*)` etc. |
-| NESASM | `*` (limited) |
+| asm6 (default) | `$` |
+| ca65 | `*` (in `* = value` assignments) |
+| NESASM | `*` (in `* = value` assignments) |
+| x816 | `*` (in `* = value` assignments) |
 
-In x816/ca65 modes, also accept `*` as `expression.ProgramCounterReference` in expression context.
+The parser handles `*` as a program counter assignment (`* = $8000`) by delegating to the `Base` directive handler.
 
-### 2.5 Number Formats
+### Low/High Byte and Bank Byte Operators
 
-| Format | asm6 | x816 | ca65 | NESASM |
+| Operator | Meaning | asm6 | ca65 | NESASM | x816 |
+|---|---|---|---|---|---|
+| `<value` | Low byte | Yes | Yes | `LOW()` | Yes |
+| `>value` | High byte | Yes | Yes | `HIGH()` | Yes |
+| `^value` | Bank byte (bits 16-23) | - | Yes (`.bankbyte`) | - | Yes |
+
+The `<` and `>` prefix operators are handled as `AddrLow` and `AddrHigh` directives. The `^` bank byte operator is gated by `BankByteOperator()`.
+
+### Number Formats
+
+| Format | asm6 | ca65 | NESASM | x816 |
 |---|---|---|---|---|
 | `$xx` hex | Yes | Yes | Yes | Yes |
 | `%xxxx` binary | Yes | Yes | Yes | Yes |
-| `0xxh` trailing hex | Yes | Yes | No | No |
-| `xxxb` trailing binary | Yes | Yes | No | No |
-| `@xxx` octal | No | No | No | Yes |
-| `0x` C-style hex | No | No | Yes | No |
+| `xxxb` trailing binary | Yes | - | - | Yes |
+| `0x` C-style hex | - | Yes | - | - |
 
-**File: `pkg/number/number.go`** — Add trailing `b` binary parsing and `@` octal parsing based on compat mode.
+**File:** `pkg/number/number.go`
 
-### 2.6 Low/High Byte Operators
+The number parser supports `$` hex prefix, `%` binary prefix, trailing `b` binary suffix, and `0x` C-style hex prefix.
 
-| Operator | Meaning | asm6 | x816 | ca65 | NESASM |
-|---|---|---|---|---|---|
-| `<value` | Low byte | Yes | Yes | Yes | `LOW()` |
-| `>value` | High byte | Yes | Yes | Yes | `HIGH()` |
-| `^value` | Bank byte (bits 16-23) | No | Yes | Yes (`.bankbyte`) | No |
+Note: Trailing `h` hex suffix and `@` octal prefix (NESASM) are not yet implemented in the shared number parser.
 
-### 2.7 String Data in `.db`/`.dcb`
+## Directive Registration
 
-All assemblers support quoted strings in data directives, emitting each character as a byte:
+### Mode-Specific Directive Maps
 
-```
-.db "HELLO",0        ; asm6, ca65
-.dcb "HELLO",13,10   ; x816
-.db "HELLO",0        ; NESASM
-```
+**File:** `pkg/parser/directives/directives.go`
 
-Ensure the `Data` directive handler processes quoted string tokens by emitting each character as a byte value, then continuing with comma-separated values.
-
-## Phase 3: Directive Registration
-
-### 3.1 Mode-Specific Directive Maps
-
-Rather than one global `Handlers` map, build directive maps per compatibility mode. The base map contains universally supported directives, and each mode overlays its specific additions:
+`BuildHandlers()` constructs directive maps per compatibility mode. The base map contains universally supported directives, and each mode overlays its specific additions:
 
 ```go
 func BuildHandlers(mode config.CompatibilityMode) map[string]Handler {
@@ -176,51 +168,44 @@ func BuildHandlers(mode config.CompatibilityMode) map[string]Handler {
     case config.CompatCa65:
         mergeHandlers(handlers, ca65Handlers())
     case config.CompatNesasm:
-        mergeHandlers(handlers, nesamHandlers())
+        mergeHandlers(handlers, nesasmHandlers())
     }
     return handlers
 }
 ```
 
-### 3.2 Case Sensitivity
+Mode-specific directive counts (beyond base):
 
-| Assembler | Directives | Mnemonics | Labels |
-|---|---|---|---|
-| x816 | Case-insensitive | Case-insensitive | Case-sensitive |
-| asm6 | Case-insensitive | Case-insensitive | Case-sensitive |
-| ca65 | Case-insensitive (with `.`) | Case-insensitive | Case-sensitive |
-| NESASM | Case-insensitive | Case-insensitive | Case-sensitive |
+| Mode | Directives added |
+|---|---|
+| asm6 | 9 (NES 2.0 header, symbol file control, undocumented opcode tiers) |
+| ca65 | 25 (scoping, data, diagnostics, linker, charmap) |
+| NESASM | 10 (storage, procedure, listing, section switching) |
+| x816 | 26 (data widths, source include, comment blocks, mode/optimization) |
 
-All assemblers are case-insensitive for directives and mnemonics but case-sensitive for labels. This matches retroasm's current behavior.
+### Case Sensitivity
 
-## Phase 4: Test Infrastructure
+All modes are case-insensitive for directives and mnemonics but case-sensitive for labels. This matches retroasm's default behavior; directive names are lowercased before handler lookup.
 
-### 4.1 Per-Assembler Test Suites
+## Implementation Status
 
-Each compatibility mode should have:
-1. **Unit tests** for mode-specific features (label parsing, directives, number formats)
-2. **Integration tests** assembling real-world source files
-3. **Binary comparison tests** against reference output from the original assembler (where possible)
+All shared infrastructure features listed in this document are implemented:
 
-### 4.2 Reference Binary Generation
-
-For x816: run via dosbox to produce reference `.bin` files.
-For asm6: run native binary (Linux/Windows).
-For ca65: run ca65 + ld65 toolchain.
-For NESASM: run native binary.
-
-Store reference outputs in `tests/<assembler>/` directories.
-
-## Implementation Priority
-
-| Priority | Feature | Assemblers |
-|---|---|---|
-| 1 | Compatibility mode infrastructure + CLI flag | All |
-| 2 | No-op directive handler | x816, ca65, NESASM |
-| 3 | Anonymous `+`/`-` labels | x816, asm6 |
-| 4 | Colon-optional labels | x816, asm6 |
-| 5 | `*` as program counter | x816, ca65 |
-| 6 | String data in `.db`/`.dcb` | All |
-| 7 | Mode-specific directive maps | All |
-| 8 | Trailing `b` binary numbers | x816, asm6 |
-| 9 | Individual assembler features | Per-assembler docs |
+| Feature | Status |
+|---|---|
+| Anonymous `+`/`-` labels | Done |
+| Asterisk program counter (`*`) | Done |
+| Bank byte operator (`^`) | Done |
+| CLI `--compat` / `-m` flag | Done |
+| Colon-optional labels | Done |
+| Compatibility mode enum and parsing | Done |
+| Dot-local label scoping (NESASM) | Done |
+| Feature query methods | Done |
+| Local `@` label scoping | Done |
+| Low/high byte operators | Done |
+| Mode-specific directive maps | Done |
+| NESASM macro syntax | Done |
+| No-op directive handler | Done |
+| Number format parsing | Done (trailing `h` hex and `@` octal not yet added) |
+| Pipeline threading (config to parser) | Done |
+| Unnamed labels (ca65 `:`) | Done |
