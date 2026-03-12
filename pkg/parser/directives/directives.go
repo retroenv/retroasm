@@ -142,6 +142,28 @@ func asm6Handlers() map[string]Handler {
 
 func ca65Handlers() map[string]Handler {
 	return map[string]Handler{
+		// Scoping
+		"scope":    Scope,
+		"endscope": EndScope,
+
+		// Data directives
+		"asciiz":    Asciiz,
+		"faraddr":   FarAddr,
+		"bankbytes": BankBytes,
+		"hibytes":   AddrHigh,
+		"lobytes":   AddrLow,
+
+		// Aliases for .rept/.endr
+		"repeat":    Rept,
+		"endrepeat": Endr,
+		// Note: .endmacro is handled inside the Macro reader via dot+identifier check
+
+		// Diagnostic messages
+		"warning": Warning,
+		"fatal":   Error,
+		"out":     Out,
+		"assert":  NoOp,
+
 		// No-op directives for ca65
 		"list":       NoOp,
 		"listbytes":  NoOp,
@@ -150,9 +172,16 @@ func ca65Handlers() map[string]Handler {
 		"exportzp":   NoOp,
 		"import":     NoOp,
 		"importzp":   NoOp,
+		"global":     NoOp,
+		"globalzp":   NoOp,
 		"feature":    NoOp,
 		"charmap":    NoOp,
 		"autoimport": NoOp,
+		"local":      NoOp,
+		"condes":     NoOp,
+		"linecont":   NoOp,
+		"define":     NoOp,
+		"undefine":   NoOp,
 	}
 }
 

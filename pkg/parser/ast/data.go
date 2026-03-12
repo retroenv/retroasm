@@ -16,6 +16,8 @@ const (
 	LowAddressByte
 	// HighAddressByte represents only the high byte of an address.
 	HighAddressByte
+	// BankAddressByte represents the bank byte (bits 16-23) of an address.
+	BankAddressByte
 )
 
 // DataContentType defines the type of the data node.

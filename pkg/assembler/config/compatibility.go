@@ -72,7 +72,12 @@ func (m CompatibilityMode) AsteriskProgramCounter() bool {
 
 // LocalLabelScoping returns whether this mode supports @local label scoping between non-local labels.
 func (m CompatibilityMode) LocalLabelScoping() bool {
-	return m == CompatAsm6
+	return m == CompatAsm6 || m == CompatCa65
+}
+
+// UnnamedLabels returns whether this mode supports ca65-style unnamed labels (: / :- / :+).
+func (m CompatibilityMode) UnnamedLabels() bool {
+	return m == CompatCa65
 }
 
 // BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.

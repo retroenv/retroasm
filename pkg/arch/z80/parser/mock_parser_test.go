@@ -32,3 +32,7 @@ func (m *mockParser) NextToken(offset int) token.Token {
 func (m *mockParser) ScopeLocalLabel(name string) string {
 	return name
 }
+
+func (m *mockParser) ResolveUnnamedLabel(_ bool, _ int) string {
+	return ""
+}

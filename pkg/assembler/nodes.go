@@ -31,6 +31,7 @@ const (
 	fullAddress
 	lowAddressByte
 	highAddressByte
+	bankAddressByte
 )
 
 // reference for a label or constant.

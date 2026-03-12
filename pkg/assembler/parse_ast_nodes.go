@@ -53,6 +53,12 @@ func parseASTNode[T any](asm *parseAST[T], node ast.Node) ([]ast.Node, error) {
 	case ast.FunctionEnd:
 		nodes, err = parseFunctionEnd(asm, n)
 
+	case ast.Scope:
+		nodes, err = parseScope(asm, n)
+
+	case ast.ScopeEnd:
+		nodes, err = parseScopeEnd(asm, n)
+
 	case ast.Instruction:
 		nodes, err = parseInstruction(n)
 
@@ -121,6 +127,9 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 		case ast.HighAddressByte:
 			refType = highAddressByte
 			dat.width = 1
+		case ast.BankAddressByte:
+			refType = bankAddressByte
+			dat.width = 1
 		}
 
 		if err := parseDataAddress(dat, astData.Values, refType); err != nil {
@@ -139,7 +148,7 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 
 func parseDataAddress(dat *data, expression *expression.Expression, refType referenceType) error {
 	width := dat.width
-	if refType == lowAddressByte || refType == highAddressByte {
+	if refType == lowAddressByte || refType == highAddressByte || refType == bankAddressByte {
 		width = 1
 	}
 
@@ -431,6 +440,39 @@ func parseFunctionEnd[T any](asm *parseAST[T], _ ast.FunctionEnd) ([]ast.Node, e
 	parentScope := asm.currentScope.Parent()
 	if parentScope == nil {
 		return nil, errors.New("unexpected function end, no parent scope found")
+	}
+
+	asm.currentScope = parentScope
+
+	newScope := scopeChange{
+		scope: asm.currentScope,
+	}
+
+	return []ast.Node{newScope}, nil
+}
+
+func parseScope[T any](asm *parseAST[T], s ast.Scope) ([]ast.Node, error) {
+	asm.currentScope = scope.New(asm.currentScope)
+	newScope := scopeChange{
+		scope: asm.currentScope,
+	}
+
+	if s.Name == "" {
+		return []ast.Node{newScope}, nil
+	}
+
+	sym, err := scope.NewSymbol(asm.currentScope.Parent(), s.Name, scope.LabelType)
+	if err != nil {
+		return nil, fmt.Errorf("creating symbol: %w", err)
+	}
+
+	return []ast.Node{newScope, &symbol{Symbol: sym}}, nil
+}
+
+func parseScopeEnd[T any](asm *parseAST[T], _ ast.ScopeEnd) ([]ast.Node, error) {
+	parentScope := asm.currentScope.Parent()
+	if parentScope == nil {
+		return nil, errors.New("unexpected scope end, no parent scope found")
 	}
 
 	asm.currentScope = parentScope

@@ -120,3 +120,7 @@ func (p *mockParser) AddressWidth() int {
 func (p *mockParser) ScopeLocalLabel(name string) string {
 	return name
 }
+
+func (p *mockParser) ResolveUnnamedLabel(_ bool, _ int) string {
+	return ""
+}

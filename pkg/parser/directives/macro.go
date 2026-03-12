@@ -2,6 +2,7 @@ package directives
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -47,6 +48,18 @@ func Macro(p arch.Parser) (ast.Node, error) {
 			if tok.Value == "ENDM" {
 				end = true
 				continue
+			}
+
+		case token.Dot:
+			// Check for .endm or .endmacro
+			next := p.NextToken(0)
+			if next.Type == token.Identifier {
+				name := strings.ToLower(next.Value)
+				if name == "endm" || name == "endmacro" {
+					p.AdvanceReadPosition(1)
+					end = true
+					continue
+				}
 			}
 		}
 

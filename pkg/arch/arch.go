@@ -32,6 +32,10 @@ type Parser interface {
 	NextToken(offset int) token.Token
 	// ScopeLocalLabel applies @local label scoping to a name if applicable.
 	ScopeLocalLabel(name string) string
+	// ResolveUnnamedLabel returns the synthetic label name for a ca65-style unnamed label reference.
+	// forward=true for :+ references, forward=false for :- references. level indicates how many
+	// labels to skip (1 for :+/:-,  2 for :++/:--,  etc.).
+	ResolveUnnamedLabel(forward bool, level int) string
 }
 
 // AddressAssigner resolves instruction arguments and computes addresses during the assembly process.

@@ -50,6 +50,9 @@ type Parser[T any] struct {
 
 	// @local label scoping: tracks the last non-local label name
 	lastNonLocalLabel string
+
+	// ca65-style unnamed label tracking for : / :- / :+ labels
+	unnamedLabelCount int
 }
 
 // New returns a new Parser that uses a lexer for the given reader.
@@ -109,6 +112,14 @@ func (p *Parser[T]) AddressWidth() int {
 // ScopeLocalLabel applies @local label scoping to a name if applicable.
 func (p *Parser[T]) ScopeLocalLabel(name string) string {
 	return p.scopeLocalLabel(name)
+}
+
+// ResolveUnnamedLabel returns the synthetic label name for a ca65-style unnamed label reference.
+func (p *Parser[T]) ResolveUnnamedLabel(forward bool, level int) string {
+	if forward {
+		return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount+level)
+	}
+	return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount-level+1)
 }
 
 // TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.
@@ -178,6 +189,11 @@ func (p *Parser[T]) parseToken(tok token.Token, previousNode ast.Node) (ast.Node
 	case token.Minus:
 		if p.compatMode.AnonymousLabels() {
 			return p.parseAnonymousLabel(false), nil
+		}
+
+	case token.Colon:
+		if p.compatMode.UnnamedLabels() {
+			return p.parseUnnamedLabel(), nil
 		}
 
 	case token.Asterisk:
@@ -262,7 +278,7 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 	next2 := p.NextToken(2)
 
 	switch {
-	case next.Type == token.Colon: // "identifier:"
+	case next.Type == token.Colon && !p.isUnnamedLabelRef(next2): // "identifier:"
 		p.readPosition++
 		name := p.scopeLocalLabel(tok.Value)
 		p.updateLabelScope(tok.Value)
@@ -364,6 +380,14 @@ func (p *Parser[T]) parseAnonymousLabel(forward bool) ast.Node {
 	return ast.NewLabel(name)
 }
 
+// parseUnnamedLabel handles ca65-style unnamed label definitions (:).
+// Each unnamed label gets a unique synthetic name based on the counter.
+func (p *Parser[T]) parseUnnamedLabel() ast.Node {
+	p.unnamedLabelCount++
+	name := fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount)
+	return ast.NewLabel(name)
+}
+
 // parseAsteriskPC handles * as program counter assignment (e.g., * = $8000).
 func (p *Parser[T]) parseAsteriskPC() (ast.Node, error) {
 	next := p.NextToken(1)
@@ -419,6 +443,15 @@ func (p *Parser[T]) isColonOptionalLabel(tok, next token.Token) bool {
 	}
 
 	return false
+}
+
+// isUnnamedLabelRef checks if the token following a colon indicates an unnamed label reference
+// (ca65-style :+/:- syntax) rather than a label definition colon.
+func (p *Parser[T]) isUnnamedLabelRef(tokenAfterColon token.Token) bool {
+	if !p.compatMode.UnnamedLabels() {
+		return false
+	}
+	return tokenAfterColon.Type == token.Plus || tokenAfterColon.Type == token.Minus
 }
 
 // scopeLocalLabel applies @local label scoping. If the name starts with '@' and there

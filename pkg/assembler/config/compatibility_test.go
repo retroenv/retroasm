@@ -84,8 +84,16 @@ func TestCompatibilityMode_Features(t *testing.T) {
 		assert.False(t, CompatDefault.LocalLabelScoping())
 		assert.False(t, CompatX816.LocalLabelScoping())
 		assert.True(t, CompatAsm6.LocalLabelScoping())
-		assert.False(t, CompatCa65.LocalLabelScoping())
+		assert.True(t, CompatCa65.LocalLabelScoping())
 		assert.False(t, CompatNesasm.LocalLabelScoping())
+	})
+
+	t.Run("unnamed labels", func(t *testing.T) {
+		assert.False(t, CompatDefault.UnnamedLabels())
+		assert.False(t, CompatX816.UnnamedLabels())
+		assert.False(t, CompatAsm6.UnnamedLabels())
+		assert.True(t, CompatCa65.UnnamedLabels())
+		assert.False(t, CompatNesasm.UnnamedLabels())
 	})
 
 	t.Run("bank byte operator", func(t *testing.T) {

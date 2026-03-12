@@ -54,6 +54,11 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 	if ins.arg1.Type == token.Identifier {
 		ins.arg1.Value = parser.ScopeLocalLabel(ins.arg1.Value)
 	}
+	if ins.arg1.Type == token.Colon {
+		if name, ok := resolveUnnamedLabelRef(parser); ok {
+			ins.arg1 = token.Token{Type: token.Identifier, Value: name}
+		}
+	}
 	ins.modifiers = directives.ParseModifier(parser)
 
 	next1 := parser.NextToken(1)
@@ -354,4 +359,30 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 
 	n := ast.NewNumber(i)
 	return ast.NewInstruction(ins.instruction.Name, int(addressing), n, ins.modifiers), nil
+}
+
+// resolveUnnamedLabelRef checks if the current position has a ca65-style unnamed label reference
+// (:+, :-, :++, :--, etc.) and returns the resolved synthetic label name.
+func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
+	next := p.NextToken(1)
+	if next.Type != token.Plus && next.Type != token.Minus {
+		return "", false
+	}
+
+	forward := next.Type == token.Plus
+	level := 1
+
+	// Count consecutive +/- tokens for multi-level references
+	for {
+		peek := p.NextToken(1 + level)
+		if (forward && peek.Type == token.Plus) || (!forward && peek.Type == token.Minus) {
+			level++
+		} else {
+			break
+		}
+	}
+
+	p.AdvanceReadPosition(level) // advance past the +/- tokens (: stays as position base)
+	name := p.ResolveUnnamedLabel(forward, level)
+	return name, true
 }

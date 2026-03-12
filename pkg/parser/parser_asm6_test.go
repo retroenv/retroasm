@@ -59,8 +59,10 @@ func TestParserAsm6(t *testing.T) {
 	}
 }
 
+var localLabelScopingInput = "label1:\n @tmp:\nlabel2:\n @tmp:\n"
+
 func TestParserAsm6LocalLabelScoping(t *testing.T) {
-	input := "label1:\n @tmp:\nlabel2:\n @tmp:\n"
+	input := localLabelScopingInput
 
 	cfg := m6502Arch.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatAsm6)
@@ -77,7 +79,7 @@ func TestParserAsm6LocalLabelScoping(t *testing.T) {
 }
 
 func TestParserAsm6LocalLabelScopingDisabledInDefault(t *testing.T) {
-	input := "label1:\n @tmp:\nlabel2:\n @tmp:\n"
+	input := localLabelScopingInput
 
 	cfg := m6502Arch.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatDefault)
