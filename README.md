@@ -14,6 +14,7 @@ retroasm is a modern, multi-architecture assembler for retro computer systems th
 | CPU | Systems | Status |
 |-----|---------|--------|
 | **6502** | NES | Stable |
+| **65816** | SNES | Stable |
 | **Chip-8** | Chip-8 VM | Stable |
 | **Intel 8086** | IBM PC | In development |
 | **Motorola 68000** | Amiga, Mega Drive | Stable |
@@ -63,6 +64,9 @@ retroasm -compat ca65 -o game.nes program.asm
 # Assemble a Chip-8 program
 retroasm -cpu chip8 -o game.ch8 program.asm
 
+# Assemble a 65816 program for SNES
+retroasm -cpu 65816 -system snes -o game.sfc program.asm
+
 # Assemble a Motorola 68000 program
 retroasm -cpu m68000 -system generic -o program.bin program.asm
 
@@ -88,7 +92,7 @@ usage: retroasm [options] <file to assemble>
   -compat string
         assembler compatibility mode (asm6, ca65, default, nesasm, x816)
   -cpu string
-        target CPU architecture (6502, chip8, m68000, z80)
+        target CPU architecture (6502, 65816, chip8, m68000, z80)
   -debug
         enable debug logging with detailed output
   -m string
@@ -97,7 +101,7 @@ usage: retroasm [options] <file to assemble>
         output ROM file name (required)
   -q    perform operations quietly (minimal output)
   -system string
-        target system (chip8, gameboy, generic, nes, zx-spectrum)
+        target system (chip8, gameboy, generic, nes, snes, zx-spectrum)
   -z80-profile string
         Z80 instruction profile (default, strict-documented, gameboy-z80-subset)
 ```

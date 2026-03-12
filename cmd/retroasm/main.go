@@ -1,6 +1,6 @@
 // Package main implements retroasm, a retro computer assembler.
 // It provides command-line interface for assembling retro computer code,
-// supporting 6502, Z80, M68000, and Chip-8 architectures with ca65-compatible configuration.
+// supporting 6502, 65816, Z80, M68000, and Chip-8 architectures with ca65-compatible configuration.
 package main
 
 import (
@@ -14,6 +14,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch/chip8"
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	archm65816 "github.com/retroenv/retroasm/pkg/arch/m65816"
 	archm68000 "github.com/retroenv/retroasm/pkg/arch/m68000"
 	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
@@ -102,12 +103,14 @@ func createLogger(options *optionFlags) *log.Logger {
 // Supported architectures and systems.
 const (
 	cpu6502   = string(arch.M6502)
+	cpu65816  = string(arch.M65816)
 	cpuChip8  = string(arch.CHIP8)
 	cpuM68000 = string(arch.M68000)
 	cpuZ80    = string(arch.Z80)
 
 	systemChip8      = string(arch.CHIP8System)
 	systemNES        = string(arch.NES)
+	systemSNES       = string(arch.SNES)
 	systemGeneric    = string(arch.Generic)
 	systemGameBoy    = string(arch.GameBoy)
 	systemZXSpectrum = string(arch.ZXSpectrum)
@@ -115,6 +118,7 @@ const (
 
 var supportedSystemsByCPU = map[string]set.Set[string]{
 	cpu6502:   set.NewFromSlice([]string{systemNES, systemGeneric}),
+	cpu65816:  set.NewFromSlice([]string{systemSNES, systemGeneric}),
 	cpuChip8:  set.NewFromSlice([]string{systemChip8}),
 	cpuM68000: set.NewFromSlice([]string{systemGeneric}),
 	cpuZ80:    set.NewFromSlice([]string{systemGeneric, systemGameBoy, systemZXSpectrum}),
@@ -122,6 +126,7 @@ var supportedSystemsByCPU = map[string]set.Set[string]{
 
 var defaultSystemByCPU = map[string]string{
 	cpu6502:   systemNES,
+	cpu65816:  systemSNES,
 	cpuChip8:  systemChip8,
 	cpuM68000: systemGeneric,
 	cpuZ80:    systemGeneric,
@@ -130,6 +135,7 @@ var defaultSystemByCPU = map[string]string{
 var defaultCPUBySystem = map[string]string{
 	systemChip8:      cpuChip8,
 	systemNES:        cpu6502,
+	systemSNES:       cpu65816,
 	systemGeneric:    cpuZ80,
 	systemGameBoy:    cpuZ80,
 	systemZXSpectrum: cpuZ80,
@@ -138,6 +144,7 @@ var defaultCPUBySystem = map[string]string{
 var supportedSystems = set.NewFromSlice([]string{
 	systemChip8,
 	systemNES,
+	systemSNES,
 	systemGeneric,
 	systemGameBoy,
 	systemZXSpectrum,
@@ -218,7 +225,7 @@ func applyDerivedArchitectureDefaults(options *optionFlags, z80ProfileRequested 
 func validateArchitectureCompatibility(options *optionFlags) error {
 	compatibleSystems, ok := supportedSystemsByCPU[options.cpu]
 	if !ok {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpuChip8, cpuM68000, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuZ80)
 	}
 
 	if !compatibleSystems.Contains(options.system) {
@@ -236,11 +243,12 @@ func validateSystem(options *optionFlags) error {
 	sys, ok := arch.SystemFromString(options.system)
 	if !ok {
 		return fmt.Errorf(
-			"%w: %s (supported: %s, %s, %s, %s, %s)",
+			"%w: %s (supported: %s, %s, %s, %s, %s, %s)",
 			ErrUnsupportedSystem,
 			options.system,
 			systemChip8,
 			systemNES,
+			systemSNES,
 			systemGeneric,
 			systemGameBoy,
 			systemZXSpectrum,
@@ -250,11 +258,12 @@ func validateSystem(options *optionFlags) error {
 
 	if !supportedSystems.Contains(options.system) {
 		return fmt.Errorf(
-			"%w: %s (supported: %s, %s, %s, %s, %s)",
+			"%w: %s (supported: %s, %s, %s, %s, %s, %s)",
 			ErrUnsupportedSystem,
 			options.system,
 			systemChip8,
 			systemNES,
+			systemSNES,
 			systemGeneric,
 			systemGameBoy,
 			systemZXSpectrum,
@@ -271,12 +280,12 @@ func validateCPU(options *optionFlags) error {
 
 	cpu, ok := arch.FromString(options.cpu)
 	if !ok {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpuChip8, cpuM68000, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuZ80)
 	}
 	options.cpu = string(cpu)
 
-	if cpu != arch.M6502 && cpu != arch.CHIP8 && cpu != arch.M68000 && cpu != arch.Z80 {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpuChip8, cpuM68000, cpuZ80)
+	if cpu != arch.M6502 && cpu != arch.M65816 && cpu != arch.CHIP8 && cpu != arch.M68000 && cpu != arch.Z80 {
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuZ80)
 	}
 
 	return nil
@@ -314,8 +323,8 @@ func readArguments() (*optionFlags, []string) {
 	flags.BoolVar(&options.debug, "debug", false, "enable debug logging")
 	flags.StringVar(&options.config, "c", "", "assembler config file")
 	flags.StringVar(&options.output, "o", "", "name of the output file")
-	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, chip8, m68000, z80)")
-	flags.StringVar(&options.system, "system", "", "target system (chip8, nes, generic, gameboy, zx-spectrum)")
+	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, 65816, chip8, m68000, z80)")
+	flags.StringVar(&options.system, "system", "", "target system (chip8, nes, snes, generic, gameboy, zx-spectrum)")
 	flags.StringVar(
 		&options.z80Profile,
 		"z80-profile",
@@ -448,6 +457,15 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName 
 		adapter := retroasm.NewArchitectureAdapter(cpu6502, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpu6502, adapter); err != nil {
 			return fmt.Errorf("registering architecture '%s': %w", cpu6502, err)
+		}
+		return nil
+
+	case cpu65816:
+		cfg := archm65816.New()
+		cfg.CompatibilityMode = compatMode
+		adapter := retroasm.NewArchitectureAdapter(cpu65816, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpu65816, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpu65816, err)
 		}
 		return nil
 

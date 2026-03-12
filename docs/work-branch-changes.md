@@ -33,7 +33,7 @@ This document tracks every file changed in the `work` branch compared to `main`.
 ### `cmd/retroasm/main.go`
 **Why:** Support multi-architecture assembling from the command line.
 **What:**
-- Added imports for Chip-8, M68000, Z80, and Z80 profile packages
+- Added imports for Chip-8, M65816, M68000, Z80, and Z80 profile packages
 - Replaced single-architecture constants with lookup tables (`supportedSystemsByCPU`, `defaultSystemByCPU`, `defaultCPUBySystem`)
 - Added `--z80-profile` flag for Z80 instruction set filtering
 - Refactored `validateAndProcessArchitecture()` into smaller functions: `normalizeArchitectureOptions`, `setDefaultArchitecture`, `applyDerivedArchitectureDefaults`, `validateArchitectureCompatibility`, `validateZ80Profile`
@@ -396,6 +396,38 @@ This document tracks every file changed in the `work` branch compared to `main`.
 ### `pkg/arch/x86/assembler/generate_opcode_step.go`
 **Why:** x86 opcode generation.
 **What:** Encodes x86 instructions into byte sequences with ModR/M bytes, displacements, and immediates.
+
+---
+
+## Architecture: M65816 (`pkg/arch/m65816/`) — ALL NEW
+
+### `pkg/arch/m65816/m65816.go`
+**Why:** New architecture support for WDC 65C816 (65816) CPU.
+**What:** Architecture entry point. Uses `*m65816.Instruction` as generic type T (same as M6502). 24-bit address width. Little-endian opcode output.
+
+### `pkg/arch/m65816/m65816_test.go`
+**Why:** Integration tests for M65816 assembly.
+**What:** Tests implied, immediate, direct page, absolute, absolute long, accumulator, indirect long, stack relative, block move, branch, and BRL instructions.
+
+### `pkg/arch/m65816/parser/addressing.go`
+**Why:** M65816 addressing mode constants and helpers.
+**What:** Defines ambiguous addressing mode combinations (AbsoluteDirectPageAddressing, XAddressing, YAddressing). Supports `a:`/`z:`/`f:` address size prefixes. Handles X, Y, S second operand dispatch.
+
+### `pkg/arch/m65816/parser/instruction.go`
+**Why:** M65816 instruction parsing.
+**What:** Parses all 21 addressing modes including square bracket indirect long (`[dp]`, `[dp],Y`), stack relative (`sr,S`, `(sr,S),Y`), block move (`MVN $src,$dst`), and three-way DP/Absolute/Long disambiguation.
+
+### `pkg/arch/m65816/assembler/address_assigning_step.go`
+**Why:** M65816 address assignment in assembler pipeline.
+**What:** Assigns addresses based on `BaseSize` from instruction definitions. Resolves ambiguous DP-vs-Absolute addressing by checking if value fits in a byte.
+
+### `pkg/arch/m65816/assembler/generate_opcode_step.go`
+**Why:** M65816 opcode generation.
+**What:** Encodes all addressing modes: byte (DP, immediate, stack relative), word (absolute), long (24-bit), relative (8-bit), relative long (16-bit for BRL/PER), and block move (dst,src byte order).
+
+### `pkg/arch/m65816/assembler/generate_opcode_step_test.go`
+**Why:** Unit tests for M65816 opcode generation.
+**What:** Tests byte addressing, long address encoding, relative long offset, and block move byte order.
 
 ---
 
