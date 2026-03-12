@@ -240,10 +240,9 @@ func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (an
 		return reference{name: name}, nil
 
 	case ast.Identifier:
-		// Treat identifiers as references (symbols to be resolved)
 		name, err := nameWithModifiers(arg.Name, modifiers)
 		if err != nil {
-			return nil, fmt.Errorf("applying identifier modifiers: %w", err)
+			return nil, fmt.Errorf("applying modifiers: %w", err)
 		}
 		return reference{name: name}, nil
 
@@ -256,9 +255,38 @@ func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (an
 	case ast.InstructionArguments:
 		return convertInstructionArgumentList(arg, modifiers)
 
+	case ast.RegisterValue:
+		return convertRegisterValue(arg)
+
+	case ast.RegisterRegisterValue:
+		return convertRegisterRegisterValue(arg)
+
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
+}
+
+func convertRegisterValue(arg ast.RegisterValue) (RegisterValueArgument, error) {
+	value, err := convertInstructionArgument(arg.Value, nil)
+	if err != nil {
+		return RegisterValueArgument{}, err
+	}
+	return RegisterValueArgument{
+		Register: arg.Register,
+		Value:    value,
+	}, nil
+}
+
+func convertRegisterRegisterValue(arg ast.RegisterRegisterValue) (RegisterRegisterValueArgument, error) {
+	value, err := convertInstructionArgument(arg.Value, nil)
+	if err != nil {
+		return RegisterRegisterValueArgument{}, err
+	}
+	return RegisterRegisterValueArgument{
+		Register1: arg.Register1,
+		Register2: arg.Register2,
+		Value:     value,
+	}, nil
 }
 
 func convertInstructionArgumentList(arguments ast.InstructionArguments, modifiers []ast.Modifier) ([]any, error) {

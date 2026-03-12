@@ -106,6 +106,13 @@ func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error
 	return nil
 }
 
+// Symbols returns the resolved addresses of all label-type symbols after assembly.
+// Call this after ProcessAST or Process to read back label addresses.
+// Only labels that were assigned addresses during assembly are included.
+func (asm *Assembler[T]) Symbols() map[string]uint64 {
+	return asm.fileScope.AllLabels()
+}
+
 // parseASTNodes processes the given AST nodes and converts them to internal types.
 func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) error {
 	p := &parseAST[T]{
@@ -113,6 +120,16 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 		fileReader:   asm.fileReader,
 		currentScope: asm.fileScope,
 		segments:     map[string]*segment{},
+	}
+	if len(asm.cfg.SegmentsOrdered) == 1 {
+		segCfg := asm.cfg.SegmentsOrdered[0]
+		seg := &segment{
+			config: segCfg,
+			nodes:  nil,
+		}
+		p.currentSegment = seg
+		p.segments[seg.config.SegmentName] = seg
+		p.segmentsOrder = append(p.segmentsOrder, seg)
 	}
 
 	for _, node := range nodes {

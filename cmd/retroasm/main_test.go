@@ -8,9 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/retroasm"
-	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/assert"
 	"github.com/retroenv/retrogolib/log"
 )
@@ -44,6 +43,12 @@ func TestBuildLogFields(t *testing.T) {
 			name:     "input with cpu and system",
 			input:    "test.asm",
 			options:  &optionFlags{cpu: "6502", system: "nes"},
+			expected: 3,
+		},
+		{
+			name:     "input with z80 profile",
+			input:    "test.asm",
+			options:  &optionFlags{cpu: cpuZ80, z80Profile: z80profile.StrictDocumented.String()},
 			expected: 3,
 		},
 	}
@@ -104,7 +109,7 @@ func TestValidateSystem(t *testing.T) {
 		name        string
 		options     *optionFlags
 		expectedErr error
-		expectCPU   string
+		expectSys   string
 	}{
 		{
 			name:        "empty system",
@@ -115,23 +120,13 @@ func TestValidateSystem(t *testing.T) {
 			name:        "valid nes system",
 			options:     &optionFlags{system: "nes", logger: logger},
 			expectedErr: nil,
+			expectSys:   systemNES,
 		},
 		{
-			name:        "valid nes system with cpu default",
-			options:     &optionFlags{system: "nes", debug: true, logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "nes system with existing cpu",
-			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "unsupported system",
+			name:        "valid gameboy system",
 			options:     &optionFlags{system: "gameboy", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
+			expectedErr: nil,
+			expectSys:   systemGameBoy,
 		},
 		{
 			name:        "invalid system",
@@ -150,8 +145,8 @@ func TestValidateSystem(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			if tt.expectCPU != "" {
-				assert.Equal(t, tt.expectCPU, tt.options.cpu)
+			if tt.expectSys != "" {
+				assert.Equal(t, tt.expectSys, tt.options.system)
 			}
 		})
 	}
@@ -174,8 +169,13 @@ func TestValidateCPU(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name:        "unsupported cpu",
+			name:        "valid z80 cpu",
 			options:     &optionFlags{cpu: "z80"},
+			expectedErr: nil,
+		},
+		{
+			name:        "unsupported cpu",
+			options:     &optionFlags{cpu: "x86"},
 			expectedErr: ErrUnsupportedCPU,
 		},
 		{
@@ -201,48 +201,7 @@ func TestValidateCPU(t *testing.T) {
 func TestValidateAndProcessArchitecture(t *testing.T) {
 	logger := log.NewTestLogger(t)
 
-	tests := []struct {
-		name        string
-		options     *optionFlags
-		expectedErr error
-		expectCPU   string
-	}{
-		{
-			name:        "no architecture specified",
-			options:     &optionFlags{logger: logger},
-			expectedErr: nil,
-		},
-		{
-			name:        "valid nes system defaults to 6502",
-			options:     &optionFlags{system: "nes", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "valid 6502 cpu only",
-			options:     &optionFlags{cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "valid nes and 6502 combination",
-			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "incompatible nes and z80",
-			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
-			expectedErr: ErrUnsupportedCPU, // CPU validation fails first
-		},
-		{
-			name:        "unsupported system",
-			options:     &optionFlags{system: "gameboy", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
-		},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range architectureValidationCases(logger) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateAndProcessArchitecture(tt.options)
 			if tt.expectedErr != nil {
@@ -255,6 +214,62 @@ func TestValidateAndProcessArchitecture(t *testing.T) {
 			if tt.expectCPU != "" {
 				assert.Equal(t, tt.expectCPU, tt.options.cpu)
 			}
+			if tt.expectSys != "" {
+				assert.Equal(t, tt.expectSys, tt.options.system)
+			}
+			if tt.expectProfile != "" {
+				assert.Equal(t, tt.expectProfile, tt.options.z80Profile)
+			}
+		})
+	}
+}
+
+func TestRegisterArchitectureForCPU(t *testing.T) {
+	tests := []struct {
+		name        string
+		cpu         string
+		z80Profile  string
+		expectedErr error
+	}{
+		{
+			name:       "register 6502",
+			cpu:        cpu6502,
+			z80Profile: z80profile.Default.String(),
+		},
+		{
+			name:       "register z80 default profile",
+			cpu:        cpuZ80,
+			z80Profile: z80profile.Default.String(),
+		},
+		{
+			name:       "register z80 strict profile",
+			cpu:        cpuZ80,
+			z80Profile: z80profile.StrictDocumented.String(),
+		},
+		{
+			name:        "register z80 invalid profile",
+			cpu:         cpuZ80,
+			z80Profile:  "strict",
+			expectedErr: z80profile.ErrUnsupportedProfile,
+		},
+		{
+			name:        "unsupported cpu",
+			cpu:         "x86",
+			z80Profile:  z80profile.Default.String(),
+			expectedErr: ErrUnsupportedCPU,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			asm := retroasm.New()
+			err := registerArchitectureForCPU(asm, tt.cpu, tt.z80Profile)
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.expectedErr)
+				return
+			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -264,23 +279,140 @@ func TestAssembleWithConfigFile(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		cpu         string
+		z80Profile  string
 		configPath  string
 		expectedErr bool
 	}{
-		{"empty config path uses default", "", false},
-		{"valid config file", tmpFile, false},
-		{"non-existent config file", "nonexistent.cfg", true},
+		{"default config 6502", cpu6502, z80profile.Default.String(), "", false},
+		{"default config z80", cpuZ80, z80profile.Default.String(), "", false},
+		{"strict profile z80", cpuZ80, z80profile.StrictDocumented.String(), "", false},
+		{"valid config file 6502", cpu6502, z80profile.Default.String(), tmpFile, false},
+		{"valid config file z80", cpuZ80, z80profile.Default.String(), tmpFile, false},
+		{"non-existent config file", cpu6502, z80profile.Default.String(), "nonexistent.cfg", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := runAssembleWithConfig(t.Context(), tt.configPath)
+			err := runAssembleWithConfig(t.Context(), tt.cpu, tt.z80Profile, tt.configPath)
 			if tt.expectedErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
 		})
+	}
+}
+
+type architectureValidationCase struct {
+	name          string
+	options       *optionFlags
+	expectedErr   error
+	expectCPU     string
+	expectSys     string
+	expectProfile string
+}
+
+func architectureValidationCases(logger *log.Logger) []architectureValidationCase {
+	cases := architectureValidationCasesCore(logger)
+	cases = append(cases, architectureValidationCasesProfiles(logger)...)
+	return cases
+}
+
+func architectureValidationCasesCore(logger *log.Logger) []architectureValidationCase {
+	cases := architectureValidationCasesDefaults(logger)
+	cases = append(cases, architectureValidationCasesCompatibility(logger)...)
+	return cases
+}
+
+func architectureValidationCasesDefaults(logger *log.Logger) []architectureValidationCase {
+	return []architectureValidationCase{
+		{
+			name:          "no architecture specified",
+			options:       &optionFlags{logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpu6502,
+			expectSys:     systemNES,
+			expectProfile: z80profile.Default.String(),
+		},
+		{
+			name:          "valid nes system defaults to 6502",
+			options:       &optionFlags{system: "nes", logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpu6502,
+			expectSys:     systemNES,
+			expectProfile: z80profile.Default.String(),
+		},
+		{
+			name:          "valid 6502 cpu defaults to nes",
+			options:       &optionFlags{cpu: "6502", logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpu6502,
+			expectSys:     systemNES,
+			expectProfile: z80profile.Default.String(),
+		},
+		{
+			name:          "valid nes and 6502 combination",
+			options:       &optionFlags{system: "nes", cpu: "6502", logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpu6502,
+			expectSys:     systemNES,
+			expectProfile: z80profile.Default.String(),
+		},
+		{
+			name:          "z80 cpu defaults to generic",
+			options:       &optionFlags{cpu: "z80", logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpuZ80,
+			expectSys:     systemGeneric,
+			expectProfile: z80profile.Default.String(),
+		},
+		{
+			name:          "gameboy system defaults to z80",
+			options:       &optionFlags{system: "gameboy", logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpuZ80,
+			expectSys:     systemGameBoy,
+			expectProfile: z80profile.Default.String(),
+		},
+		{
+			name:          "strict profile without cpu/system implies z80",
+			options:       &optionFlags{z80Profile: z80profile.StrictDocumented.String(), logger: logger},
+			expectedErr:   nil,
+			expectCPU:     cpuZ80,
+			expectSys:     systemGeneric,
+			expectProfile: z80profile.StrictDocumented.String(),
+		},
+	}
+}
+
+func architectureValidationCasesCompatibility(logger *log.Logger) []architectureValidationCase {
+	return []architectureValidationCase{
+		{
+			name:        "incompatible nes and z80",
+			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
+			expectedErr: ErrIncompatibleArch,
+		},
+		{
+			name:        "unsupported system",
+			options:     &optionFlags{system: "dos", logger: logger},
+			expectedErr: ErrUnsupportedSystem,
+		},
+	}
+}
+
+func architectureValidationCasesProfiles(logger *log.Logger) []architectureValidationCase {
+	return []architectureValidationCase{
+		{
+			name:        "strict profile with 6502 is incompatible",
+			options:     &optionFlags{cpu: "6502", z80Profile: z80profile.StrictDocumented.String(), logger: logger},
+			expectedErr: ErrIncompatibleArch,
+		},
+		{
+			name:        "unsupported z80 profile",
+			options:     &optionFlags{cpu: "z80", z80Profile: "strict", logger: logger},
+			expectedErr: z80profile.ErrUnsupportedProfile,
+		},
 	}
 }
 
@@ -294,11 +426,9 @@ SEGMENTS { CODE: load = CODE, type = rw; }`
 	return path
 }
 
-func runAssembleWithConfig(ctx context.Context, configPath string) error {
+func runAssembleWithConfig(ctx context.Context, cpuName, z80ProfileName, configPath string) error {
 	asm := retroasm.New()
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	if err := registerArchitectureForCPU(asm, cpuName, z80ProfileName); err != nil {
 		return fmt.Errorf("registering architecture: %w", err)
 	}
 	input := &retroasm.TextInput{

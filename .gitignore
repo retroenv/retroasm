@@ -20,5 +20,8 @@ coverage.txt
 *.nes
 docs/
 dist/
-tests/
+tests/*
 /retroasm
+
+!tests/z80/
+!tests/z80/*.asm

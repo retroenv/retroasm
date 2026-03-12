@@ -9,17 +9,24 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
 	"github.com/retroenv/retroasm/pkg/assembler"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	cpum6502 "github.com/retroenv/retrogolib/arch/cpu/m6502"
+	cpum68000 "github.com/retroenv/retrogolib/arch/cpu/m68000"
 )
 
 // Sentinel errors.
 var (
-	ErrNilArchitecture  = errors.New("architecture cannot be nil")
-	ErrNilConfiguration = errors.New("configuration cannot be nil")
-	ErrNilInput         = errors.New("input cannot be nil")
-	ErrNilSource        = errors.New("source cannot be nil")
+	ErrNilArchitecture               = errors.New("architecture cannot be nil")
+	ErrNilConfiguration              = errors.New("configuration cannot be nil")
+	ErrNilInput                      = errors.New("input cannot be nil")
+	ErrNilSource                     = errors.New("source cannot be nil")
+	errAmbiguousArchitecture         = errors.New("multiple architectures registered without explicit selection")
+	errArchitectureAdapterMismatch   = errors.New("architecture does not expose a supported adapter config")
+	errArchitectureNotRegistered     = errors.New("requested architecture is not registered")
+	errUnsupportedArchitectureConfig = errors.New("unsupported architecture config type")
 )
 
 // ArchitectureAdapter adapts existing architectures to the Architecture interface.
@@ -45,14 +52,25 @@ func New() Assembler {
 	}
 }
 
-func (a *ArchitectureAdapter[T]) Name() string      { return a.name }
-func (a *ArchitectureAdapter[T]) AddressWidth() int { return 16 }
+func (a *ArchitectureAdapter[T]) Name() string { return a.name }
+func (a *ArchitectureAdapter[T]) AddressWidth() int {
+	if aw, ok := a.arch.(interface{ AddressWidth() int }); ok {
+		return aw.AddressWidth()
+	}
+	return 16
+}
 
 func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (ArchitectureAssembler, error) {
 	return &architectureAssembler[T]{
 		arch:   a.arch,
 		config: cfg,
 	}, nil
+}
+
+func (a *ArchitectureAdapter[T]) configAny() any { return a.config }
+
+type anyReader interface {
+	Read(p []byte) (n int, err error)
 }
 
 type defaultAssembler struct {
@@ -86,20 +104,6 @@ func (a *defaultAssembler) AssembleAST(ctx context.Context, input *ASTInput) (*A
 		return nil, ErrNilInput
 	}
 
-	// Create m6502 config with default segment
-	cfg := m6502.New()
-	if err := cfg.ReadCa65Config(strings.NewReader(defaultConfig)); err != nil {
-		return nil, fmt.Errorf("reading config: %w", err)
-	}
-
-	// Override start address if provided
-	if input.BaseAddr != 0 {
-		for _, seg := range cfg.Segments {
-			seg.Start = input.BaseAddr
-			seg.SegmentStart = input.BaseAddr
-		}
-	}
-
 	// Prepend segment directive if AST doesn't start with one
 	nodes := input.AST
 	if len(nodes) > 0 {
@@ -108,21 +112,18 @@ func (a *defaultAssembler) AssembleAST(ctx context.Context, input *ASTInput) (*A
 		}
 	}
 
-	// Assemble using existing assembler
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
-
-	if err := asm.ProcessAST(ctx, nodes); err != nil {
-		return nil, fmt.Errorf("processing AST: %w", err)
+	output, err := a.assembleASTWithArchitecture(ctx, nodes, input.BaseAddr)
+	if err != nil {
+		return nil, fmt.Errorf("assembling AST: %w", err)
 	}
 
-	output := &AssemblyOutput{
-		Binary:  buf.Bytes(),
+	result := &AssemblyOutput{
+		Binary:  output,
 		AST:     input.AST,
 		Symbols: copyInputSymbols(input.Symbols, input.SourceName),
 	}
 
-	return output, nil
+	return result, nil
 }
 
 func (a *defaultAssembler) AssembleText(ctx context.Context, input *TextInput) (*AssemblyOutput, error) {
@@ -133,38 +134,73 @@ func (a *defaultAssembler) AssembleText(ctx context.Context, input *TextInput) (
 		return nil, ErrNilSource
 	}
 
-	// Create m6502 config
-	cfg := m6502.New()
-
-	// Load config file if specified, otherwise use default
-	if input.ConfigFile != "" {
-		cfgData, err := os.ReadFile(input.ConfigFile)
-		if err != nil {
-			return nil, fmt.Errorf("opening config file '%s': %w", input.ConfigFile, err)
-		}
-		if err := cfg.ReadCa65Config(bytes.NewReader(cfgData)); err != nil {
-			return nil, fmt.Errorf("reading config file '%s': %w", input.ConfigFile, err)
-		}
-	} else {
-		if err := cfg.ReadCa65Config(strings.NewReader(defaultConfig)); err != nil {
-			return nil, fmt.Errorf("reading default config: %w", err)
-		}
+	output, err := a.assembleTextWithArchitecture(ctx, input.Source, input.ConfigFile)
+	if err != nil {
+		return nil, fmt.Errorf("assembling text: %w", err)
 	}
 
-	// Assemble using existing assembler
-	var buf bytes.Buffer
-	asm := assembler.New(cfg, &buf)
-
-	if err := asm.Process(ctx, input.Source); err != nil {
-		return nil, fmt.Errorf("processing text: %w", err)
-	}
-
-	output := &AssemblyOutput{
-		Binary:  buf.Bytes(),
+	result := &AssemblyOutput{
+		Binary:  output,
 		Symbols: copyInputSymbols(input.Symbols, input.SourceName),
 	}
 
-	return output, nil
+	return result, nil
+}
+
+func (a *defaultAssembler) assembleASTWithArchitecture(ctx context.Context, nodes []ast.Node, baseAddress uint64) ([]byte, error) {
+	cfgAny, err := a.resolveArchitectureConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	switch cfg := cfgAny.(type) {
+	case *config.Config[*cpum6502.Instruction]:
+		return assembleASTWithConfig(ctx, cfg, nodes, baseAddress)
+	case *config.Config[*cpum68000.Instruction]:
+		return assembleASTWithConfig(ctx, cfg, nodes, baseAddress)
+	case *config.Config[*archz80.InstructionGroup]:
+		return assembleASTWithConfig(ctx, cfg, nodes, baseAddress)
+	default:
+		return nil, fmt.Errorf("%w: %T", errUnsupportedArchitectureConfig, cfgAny)
+	}
+}
+
+func (a *defaultAssembler) assembleTextWithArchitecture(ctx context.Context, source anyReader, configFile string) ([]byte, error) {
+	cfgAny, err := a.resolveArchitectureConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	switch cfg := cfgAny.(type) {
+	case *config.Config[*cpum6502.Instruction]:
+		return assembleTextWithConfig(ctx, cfg, source, configFile)
+	case *config.Config[*cpum68000.Instruction]:
+		return assembleTextWithConfig(ctx, cfg, source, configFile)
+	case *config.Config[*archz80.InstructionGroup]:
+		return assembleTextWithConfig(ctx, cfg, source, configFile)
+	default:
+		return nil, fmt.Errorf("%w: %T", errUnsupportedArchitectureConfig, cfgAny)
+	}
+}
+
+func (a *defaultAssembler) resolveArchitectureConfig() (any, error) {
+	switch len(a.architectures) {
+	case 0:
+		return m6502.New(), nil
+
+	case 1:
+		for _, architecture := range a.architectures {
+			return adapterConfig(architecture)
+		}
+
+	default:
+		if architecture, ok := a.architectures["6502"]; ok {
+			return adapterConfig(architecture)
+		}
+		return nil, errAmbiguousArchitecture
+	}
+
+	return nil, errArchitectureNotRegistered
 }
 
 func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutput, error) {
@@ -172,6 +208,81 @@ func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutpu
 		AST:     nodes,
 		Symbols: make(map[string]Symbol),
 	}, nil
+}
+
+func assembleASTWithConfig[T any](ctx context.Context, cfg *config.Config[T], nodes []ast.Node, baseAddress uint64) ([]byte, error) {
+	if err := readAssemblerConfig(cfg, ""); err != nil {
+		return nil, err
+	}
+
+	applyBaseAddress(cfg, baseAddress)
+
+	var buf bytes.Buffer
+	asm := assembler.New(cfg, &buf)
+
+	if err := asm.ProcessAST(ctx, nodes); err != nil {
+		return nil, fmt.Errorf("processing AST: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func assembleTextWithConfig[T any](
+	ctx context.Context,
+	cfg *config.Config[T],
+	source anyReader,
+	configFile string,
+) ([]byte, error) {
+
+	if err := readAssemblerConfig(cfg, configFile); err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	asm := assembler.New(cfg, &buf)
+
+	if err := asm.Process(ctx, source); err != nil {
+		return nil, fmt.Errorf("processing text: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func readAssemblerConfig[T any](cfg *config.Config[T], configFile string) error {
+	if configFile != "" {
+		cfgData, err := os.ReadFile(configFile)
+		if err != nil {
+			return fmt.Errorf("opening config file '%s': %w", configFile, err)
+		}
+		if err := cfg.ReadCa65Config(bytes.NewReader(cfgData)); err != nil {
+			return fmt.Errorf("reading config file '%s': %w", configFile, err)
+		}
+		return nil
+	}
+
+	if err := cfg.ReadCa65Config(strings.NewReader(defaultConfig)); err != nil {
+		return fmt.Errorf("reading default config: %w", err)
+	}
+	return nil
+}
+
+func applyBaseAddress[T any](cfg *config.Config[T], baseAddress uint64) {
+	if baseAddress == 0 {
+		return
+	}
+
+	for _, seg := range cfg.Segments {
+		seg.Start = baseAddress
+		seg.SegmentStart = baseAddress
+	}
+}
+
+func adapterConfig(architecture Architecture) (any, error) {
+	provider, ok := architecture.(interface{ configAny() any })
+	if !ok {
+		return nil, errArchitectureAdapterMismatch
+	}
+	return provider.configAny(), nil
 }
 
 // copyInputSymbols converts a map of symbol names to values into the output Symbol map.

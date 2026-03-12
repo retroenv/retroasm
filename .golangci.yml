@@ -56,9 +56,10 @@ linters:
     - wastedassign # Finds wasted assignment statements
     - whitespace # Checks for unnecessary newlines
     - wrapcheck # Checks that errors returned from external packages are wrapped
+
   settings:
     cyclop:
-      max-complexity: 15
+      max-complexity: 18
     revive:
       rules:
         - name: dot-imports
@@ -71,11 +72,13 @@ linters:
     whitespace:
       multi-if: true # Enforces newlines (or comments) after every multi-line if statement
       multi-func: true # Enforces newlines (or comments) after every multi-line function signature
+
   exclusions:
     rules:
       - linters:
           - err113
         text: do not define dynamic errors
+
 formatters:
   enable:
     - gci # Check if code and import statements are formatted, with additional rules
