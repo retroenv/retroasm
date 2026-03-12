@@ -17,6 +17,7 @@ var dataByteWidth = map[string]int{
 	"db":    1,
 	"dcb":   1,
 	"dcw":   1,
+	"ds":    1, // NESASM
 	"dsb":   1,
 	"dsw":   2,
 	"dw":    2,

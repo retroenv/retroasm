@@ -36,3 +36,7 @@ func (m *mockParser) ScopeLocalLabel(name string) string {
 func (m *mockParser) ResolveUnnamedLabel(_ bool, _ int) string {
 	return ""
 }
+
+func (m *mockParser) ResolveDotLocalLabel(_ string) string {
+	return ""
+}

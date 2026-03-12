@@ -50,15 +50,7 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 		return nil, fmt.Errorf("parsing addressing size: %w", err)
 	}
 
-	ins.arg1 = parser.NextToken(0)
-	if ins.arg1.Type == token.Identifier {
-		ins.arg1.Value = parser.ScopeLocalLabel(ins.arg1.Value)
-	}
-	if ins.arg1.Type == token.Colon {
-		if name, ok := resolveUnnamedLabelRef(parser); ok {
-			ins.arg1 = token.Token{Type: token.Identifier, Value: name}
-		}
-	}
+	ins.arg1 = resolveArg1Token(parser)
 	ins.modifiers = directives.ParseModifier(parser)
 
 	next1 := parser.NextToken(1)
@@ -361,6 +353,26 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 	return ast.NewInstruction(ins.instruction.Name, int(addressing), n, ins.modifiers), nil
 }
 
+// resolveArg1Token reads and resolves the first instruction argument token, handling
+// identifier scoping, unnamed label references, and dot-local label references.
+func resolveArg1Token(p arch.Parser) token.Token {
+	arg := p.NextToken(0)
+	if arg.Type == token.Identifier {
+		arg.Value = p.ScopeLocalLabel(arg.Value)
+	}
+	if arg.Type == token.Colon {
+		if name, ok := resolveUnnamedLabelRef(p); ok {
+			return token.Token{Type: token.Identifier, Value: name}
+		}
+	}
+	if arg.Type == token.Dot {
+		if name, ok := resolveDotLocalLabelRef(p); ok {
+			return token.Token{Type: token.Identifier, Value: name}
+		}
+	}
+	return arg
+}
+
 // resolveUnnamedLabelRef checks if the current position has a ca65-style unnamed label reference
 // (:+, :-, :++, :--, etc.) and returns the resolved synthetic label name.
 func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
@@ -384,5 +396,22 @@ func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
 
 	p.AdvanceReadPosition(level) // advance past the +/- tokens (: stays as position base)
 	name := p.ResolveUnnamedLabel(forward, level)
+	return name, true
+}
+
+// resolveDotLocalLabelRef checks if the current Dot token starts a NESASM-style
+// dot-prefixed local label reference (.label) and returns the scoped name.
+func resolveDotLocalLabelRef(p arch.Parser) (string, bool) {
+	next := p.NextToken(1)
+	if next.Type != token.Identifier {
+		return "", false
+	}
+
+	name := p.ResolveDotLocalLabel(next.Value)
+	if name == "" {
+		return "", false
+	}
+
+	p.AdvanceReadPosition(1) // advance past the identifier (. stays as position base)
 	return name, true
 }

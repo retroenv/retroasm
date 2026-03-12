@@ -95,6 +95,24 @@ func TestCompatibilityMode_Features(t *testing.T) {
 		assert.True(t, CompatCa65.UnnamedLabels())
 		assert.False(t, CompatNesasm.UnnamedLabels())
 	})
+}
+
+func TestCompatibilityMode_NesasmFeatures(t *testing.T) {
+	t.Run("dot local labels", func(t *testing.T) {
+		assert.False(t, CompatDefault.DotLocalLabels())
+		assert.False(t, CompatX816.DotLocalLabels())
+		assert.False(t, CompatAsm6.DotLocalLabels())
+		assert.False(t, CompatCa65.DotLocalLabels())
+		assert.True(t, CompatNesasm.DotLocalLabels())
+	})
+
+	t.Run("nesasm macro syntax", func(t *testing.T) {
+		assert.False(t, CompatDefault.NesasmMacroSyntax())
+		assert.False(t, CompatX816.NesasmMacroSyntax())
+		assert.False(t, CompatAsm6.NesasmMacroSyntax())
+		assert.False(t, CompatCa65.NesasmMacroSyntax())
+		assert.True(t, CompatNesasm.NesasmMacroSyntax())
+	})
 
 	t.Run("bank byte operator", func(t *testing.T) {
 		assert.False(t, CompatDefault.BankByteOperator())

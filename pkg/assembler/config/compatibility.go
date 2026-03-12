@@ -80,6 +80,16 @@ func (m CompatibilityMode) UnnamedLabels() bool {
 	return m == CompatCa65
 }
 
+// DotLocalLabels returns whether this mode supports dot-prefixed local labels (.label).
+func (m CompatibilityMode) DotLocalLabels() bool {
+	return m == CompatNesasm
+}
+
+// NesasmMacroSyntax returns whether this mode uses NESASM-style macro syntax (name .macro).
+func (m CompatibilityMode) NesasmMacroSyntax() bool {
+	return m == CompatNesasm
+}
+
 // BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
 func (m CompatibilityMode) BankByteOperator() bool {
 	return m == CompatX816 || m == CompatCa65

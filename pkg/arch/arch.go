@@ -36,6 +36,9 @@ type Parser interface {
 	// forward=true for :+ references, forward=false for :- references. level indicates how many
 	// labels to skip (1 for :+/:-,  2 for :++/:--,  etc.).
 	ResolveUnnamedLabel(forward bool, level int) string
+	// ResolveDotLocalLabel returns the scoped name for a NESASM dot-prefixed local label.
+	// Returns empty string if dot-local labels are not supported in the current mode.
+	ResolveDotLocalLabel(name string) string
 }
 
 // AddressAssigner resolves instruction arguments and computes addresses during the assembly process.

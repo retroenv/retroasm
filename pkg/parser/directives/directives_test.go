@@ -124,3 +124,7 @@ func (p *mockParser) ScopeLocalLabel(name string) string {
 func (p *mockParser) ResolveUnnamedLabel(_ bool, _ int) string {
 	return ""
 }
+
+func (p *mockParser) ResolveDotLocalLabel(_ string) string {
+	return ""
+}

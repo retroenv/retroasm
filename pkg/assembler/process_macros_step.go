@@ -48,6 +48,15 @@ func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node,
 		return nil, fmt.Errorf("unexpected identifier '%s' found", id.Name)
 	}
 
+	if len(mac.arguments) > 0 {
+		return resolveNamedMacro(asm, mac, id)
+	}
+
+	return resolvePositionalMacro(asm, mac, id)
+}
+
+// resolveNamedMacro handles standard macro expansion with named parameters.
+func resolveNamedMacro[T any](asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
 	if len(mac.arguments) != len(id.Arguments) {
 		return nil, fmt.Errorf("macro argument count %d does not match usage argument count %d",
 			len(mac.arguments), len(id.Arguments))
@@ -77,6 +86,34 @@ func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node,
 	}
 
 	return macroTokensToAStNodes(asm, mac.tokens)
+}
+
+// resolvePositionalMacro handles NESASM-style macro expansion with \1-\9 positional parameters.
+func resolvePositionalMacro[T any](asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
+	var resolved []token.Token
+
+	for i := 0; i < len(mac.tokens); i++ {
+		tok := mac.tokens[i]
+
+		// Check for \N parameter reference
+		if tok.Type == token.Backslash && i+1 < len(mac.tokens) && mac.tokens[i+1].Type == token.Number {
+			paramStr := mac.tokens[i+1].Value
+			if len(paramStr) == 1 && paramStr[0] >= '1' && paramStr[0] <= '9' {
+				argIdx := int(paramStr[0] - '1')
+				if argIdx >= len(id.Arguments) {
+					return nil, fmt.Errorf("macro parameter \\%s referenced but only %d arguments provided",
+						paramStr, len(id.Arguments))
+				}
+				resolved = append(resolved, id.Arguments[argIdx])
+				i++ // skip the number token
+				continue
+			}
+		}
+
+		resolved = append(resolved, tok)
+	}
+
+	return macroTokensToAStNodes(asm, resolved)
 }
 
 func macroTokensToAStNodes[T any](asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {

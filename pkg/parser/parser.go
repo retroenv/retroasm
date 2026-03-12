@@ -114,6 +114,14 @@ func (p *Parser[T]) ScopeLocalLabel(name string) string {
 	return p.scopeLocalLabel(name)
 }
 
+// ResolveDotLocalLabel returns the scoped name for a NESASM dot-prefixed local label.
+func (p *Parser[T]) ResolveDotLocalLabel(name string) string {
+	if !p.compatMode.DotLocalLabels() {
+		return ""
+	}
+	return p.scopeDotLocalLabel("." + name)
+}
+
 // ResolveUnnamedLabel returns the synthetic label name for a ca65-style unnamed label reference.
 func (p *Parser[T]) ResolveUnnamedLabel(forward bool, level int) string {
 	if forward {
@@ -261,10 +269,37 @@ func (p *Parser[T]) parseDot() (ast.Node, error) {
 	directive := strings.ToLower(next.Value)
 	handler, ok := p.handlers[directive]
 	if !ok {
+		if p.compatMode.DotLocalLabels() {
+			return p.parseDotLocalLabel(next)
+		}
 		return nil, fmt.Errorf("unsupported directive '%s'", next.Value)
 	}
 
 	return handler(p)
+}
+
+// parseDotLocalLabel handles NESASM-style dot-prefixed local labels (.label).
+func (p *Parser[T]) parseDotLocalLabel(nameTok token.Token) (ast.Node, error) {
+	name := "." + nameTok.Value
+	p.readPosition++ // advance past the label name
+
+	// Check for optional colon after the label name
+	next := p.NextToken(1)
+	if next.Type == token.Colon {
+		p.readPosition++
+	}
+
+	scopedName := p.scopeDotLocalLabel(name)
+	return ast.NewLabel(scopedName), nil
+}
+
+// scopeDotLocalLabel applies NESASM dot-local label scoping. If the name starts with '.'
+// and there is a current non-local label scope, the name is prefixed to create a unique scoped name.
+func (p *Parser[T]) scopeDotLocalLabel(name string) string {
+	if p.lastNonLocalLabel == "" {
+		return name
+	}
+	return p.lastNonLocalLabel + name
 }
 
 // parseIdentifier handles identifier tokens which can represent:
@@ -292,6 +327,13 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		next2.Type == token.Identifier &&
 		strings.ToLower(next2.Value) == "rs":
 		return p.parseNesAsmVariable(tok)
+
+		// nesasm identifier .macro (name before directive)
+	case p.compatMode.NesasmMacroSyntax() &&
+		next.Type == token.Dot &&
+		next2.Type == token.Identifier &&
+		strings.ToLower(next2.Value) == "macro":
+		return p.parseNesAsmMacro(tok)
 	}
 
 	instructionName := strings.ToLower(tok.Value)
@@ -337,6 +379,51 @@ func (p *Parser[T]) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
 	v := ast.NewVariable(tok.Value, int(i))
 	v.UseOffsetCounter = true
 	return v, nil
+}
+
+// parseNesAsmMacro handles NESASM-style macro definition where name comes before .macro:
+// name .macro
+//
+//nolint:cyclop // sequential checks for macro termination
+func (p *Parser[T]) parseNesAsmMacro(nameTok token.Token) (ast.Node, error) {
+	// Skip past: name . macro
+	p.readPosition += 3
+	m := ast.NewMacro(nameTok.Value)
+
+	// NESASM macros don't have named parameters — they use \1-\9.
+	// Read all macro tokens until .endm
+	for end := false; !end; {
+		tok := p.NextToken(0)
+		p.AdvanceReadPosition(1)
+
+		switch tok.Type {
+		case token.EOF:
+			end = true
+			continue
+
+		case token.Identifier:
+			if strings.ToUpper(tok.Value) == "ENDM" {
+				end = true
+				continue
+			}
+
+		case token.Dot:
+			// Check for .endm
+			next := p.NextToken(0)
+			if next.Type == token.Identifier {
+				name := strings.ToLower(next.Value)
+				if name == "endm" || name == "endmacro" {
+					p.AdvanceReadPosition(1)
+					end = true
+					continue
+				}
+			}
+		}
+
+		m.Token = append(m.Token, tok)
+	}
+
+	return m, nil
 }
 
 func (p *Parser[T]) parseNumber(tok token.Token) (ast.Node, error) {
@@ -469,13 +556,16 @@ func (p *Parser[T]) scopeLocalLabel(name string) string {
 	return p.lastNonLocalLabel + "." + name
 }
 
-// updateLabelScope tracks non-local labels for @local label scoping.
+// updateLabelScope tracks non-local labels for @local and dot-local label scoping.
 func (p *Parser[T]) updateLabelScope(name string) {
-	if !p.compatMode.LocalLabelScoping() {
+	if !p.compatMode.LocalLabelScoping() && !p.compatMode.DotLocalLabels() {
 		return
 	}
-	// Anonymous labels and @local labels don't update scope.
-	if strings.HasPrefix(name, "__anon_") || (len(name) > 0 && name[0] == '@') {
+	// Anonymous labels, @local labels, and .local labels don't update scope.
+	if strings.HasPrefix(name, "__anon_") || strings.HasPrefix(name, "__unnamed_") {
+		return
+	}
+	if len(name) > 0 && (name[0] == '@' || name[0] == '.') {
 		return
 	}
 	p.lastNonLocalLabel = name

@@ -187,8 +187,27 @@ func ca65Handlers() map[string]Handler {
 
 func nesasmHandlers() map[string]Handler {
 	return map[string]Handler{
+		// Storage
+		"ds": DataStorage,
+
+		// Procedure aliases
+		"endp": EndProc,
+
+		// Error/fail
+		"fail": Error,
+
 		// No-op directives for NESASM
-		"list": NoOp,
+		"list":    NoOp,
+		"nolist":  NoOp,
+		"mlist":   NoOp,
+		"nomlist": NoOp,
+		"opt":     NoOp,
+
+		// Section switching (no-op stubs — bank/org model handles layout)
+		"zp":   NoOp,
+		"bss":  NoOp,
+		"code": NoOp,
+		"data": NoOp,
 	}
 }
 

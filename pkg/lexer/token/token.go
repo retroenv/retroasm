@@ -54,6 +54,7 @@ const (
 	RightBrace
 	Slash
 	Caret
+	Backslash
 )
 
 var toString = map[Type]string{
@@ -86,29 +87,31 @@ var toString = map[Type]string{
 	RightBrace:       "}",
 	Slash:            "/",
 	Caret:            "^",
+	Backslash:        "\\",
 }
 
 var toToken = map[rune]Type{
-	'.': Dot,
-	':': Colon,
-	';': Semicolon,
-	',': Comma,
-	'=': Assign,
-	'+': Plus,
-	'-': Minus,
-	'<': Lt,
-	'>': Gt,
-	'|': Pipe,
-	'*': Asterisk,
-	'%': Percent,
-	'(': LeftParentheses,
-	')': RightParentheses,
-	'[': LeftBracket,
-	']': RightBracket,
-	'{': LeftBrace,
-	'}': RightBrace,
-	'/': Slash,
-	'^': Caret,
+	'.':  Dot,
+	':':  Colon,
+	';':  Semicolon,
+	',':  Comma,
+	'=':  Assign,
+	'+':  Plus,
+	'-':  Minus,
+	'<':  Lt,
+	'>':  Gt,
+	'|':  Pipe,
+	'*':  Asterisk,
+	'%':  Percent,
+	'(':  LeftParentheses,
+	')':  RightParentheses,
+	'[':  LeftBracket,
+	']':  RightBracket,
+	'{':  LeftBrace,
+	'}':  RightBrace,
+	'/':  Slash,
+	'^':  Caret,
+	'\\': Backslash,
 }
 
 // Token defines a token with position in the stream, its type and an optional value.
