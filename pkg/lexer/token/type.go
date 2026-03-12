@@ -18,6 +18,7 @@ type Type int
 var operators = set.NewFromSlice([]Type{
 	Plus, Minus, Asterisk, Percent, Slash, Caret,
 	Equals, Lt, LtE, Gt, GtE,
+	Pipe, ShiftLeft, ShiftRight, Ampersand, BitwiseXor,
 })
 
 // NewType creates a new token type from the given rune.

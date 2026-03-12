@@ -42,6 +42,29 @@ import (
 	"github.com/retroenv/retroasm/pkg/scope"
 )
 
+// keywordOperators maps assembly keyword operator names to token types.
+// These allow expressions to use keyword-style operators (e.g., SHL, AND)
+// in addition to symbolic operators.
+var keywordOperators = map[string]token.Type{
+	"SHL": token.ShiftLeft,
+	"SHR": token.ShiftRight,
+	"AND": token.Ampersand,
+	"OR":  token.Pipe,
+	"XOR": token.BitwiseXor,
+}
+
+// resolveKeywordOperator converts keyword operator identifiers (SHL, SHR, AND, OR, XOR)
+// to their corresponding operator token types for expression evaluation.
+func resolveKeywordOperator(tok token.Token) token.Token {
+	if tok.Type != token.Identifier {
+		return tok
+	}
+	if opType, ok := keywordOperators[strings.ToUpper(tok.Value)]; ok {
+		tok.Type = opType
+	}
+	return tok
+}
+
 var (
 	errCircularDependency      = errors.New("circular symbol dependency detected")
 	errDivisionByZero          = errors.New("division by zero")
@@ -199,7 +222,7 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 	operators := &stack[token.Token]{}
 
 	for i := 0; i < len(nodes); i++ {
-		tok := nodes[i]
+		tok := resolveKeywordOperator(nodes[i])
 
 		switch tok.Type {
 		case token.Identifier:

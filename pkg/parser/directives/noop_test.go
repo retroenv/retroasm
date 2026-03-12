@@ -40,12 +40,32 @@ func TestBuildHandlers_X816(t *testing.T) {
 	_, ok := handlers["byte"]
 	assert.True(t, ok)
 
-	// Should have x816-specific handlers
+	// Should have x816-specific no-op handlers
 	_, ok = handlers["list"]
 	assert.True(t, ok)
 	_, ok = handlers["nolist"]
 	assert.True(t, ok)
 	_, ok = handlers["sym"]
+	assert.True(t, ok)
+	_, ok = handlers["mem"]
+	assert.True(t, ok)
+	_, ok = handlers["index"]
+	assert.True(t, ok)
+	_, ok = handlers["opt"]
+	assert.True(t, ok)
+	_, ok = handlers["symbol"]
+	assert.True(t, ok)
+
+	// Should have x816-specific data directives
+	_, ok = handlers["dcl"]
+	assert.True(t, ok)
+	_, ok = handlers["dcd"]
+	assert.True(t, ok)
+	_, ok = handlers["src"]
+	assert.True(t, ok)
+
+	// Should have comment block handler
+	_, ok = handlers["comment"]
 	assert.True(t, ok)
 }
 

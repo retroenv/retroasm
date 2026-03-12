@@ -322,18 +322,8 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 	case next.Type == token.Assign: // "identifier = number"
 		return p.parseAlias(tok, next)
 
-		// nesasm identifier .rs number
-	case next.Type == token.Dot &&
-		next2.Type == token.Identifier &&
-		strings.ToLower(next2.Value) == "rs":
-		return p.parseNesAsmVariable(tok)
-
-		// nesasm identifier .macro (name before directive)
-	case p.compatMode.NesasmMacroSyntax() &&
-		next.Type == token.Dot &&
-		next2.Type == token.Identifier &&
-		strings.ToLower(next2.Value) == "macro":
-		return p.parseNesAsmMacro(tok)
+	case next.Type == token.Dot && next2.Type == token.Identifier && p.isDotIdentifierKeyword(next2):
+		return p.parseDotIdentifier(tok, next2)
 	}
 
 	instructionName := strings.ToLower(tok.Value)
@@ -362,6 +352,40 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		return nil, fmt.Errorf("parsing identifier '%s': %w", tok.Value, err)
 	}
 	return n, nil
+}
+
+// isDotIdentifierKeyword checks if the token after a dot is a recognized keyword
+// for "name .keyword" patterns (equ, rs, macro).
+func (p *Parser[T]) isDotIdentifierKeyword(keyword token.Token) bool {
+	switch strings.ToLower(keyword.Value) {
+	case "equ", "rs":
+		return true
+	case "macro":
+		return p.compatMode.NesasmMacroSyntax()
+	}
+	return false
+}
+
+// parseDotIdentifier handles "name .keyword" patterns:
+//   - name .equ value (x816-style alias)
+//   - name .rs number (NESASM variable)
+//   - name .macro (NESASM macro definition)
+func (p *Parser[T]) parseDotIdentifier(tok token.Token, keyword token.Token) (ast.Node, error) {
+	switch strings.ToLower(keyword.Value) {
+	case "equ":
+		p.readPosition++ // skip the dot, so parseAlias sees "equ" as next
+		return p.parseAlias(tok, keyword)
+
+	case "rs":
+		return p.parseNesAsmVariable(tok)
+
+	case "macro":
+		if p.compatMode.NesasmMacroSyntax() {
+			return p.parseNesAsmMacro(tok)
+		}
+	}
+
+	return nil, fmt.Errorf("unsupported dot-identifier '.%s'", keyword.Value)
 }
 
 func (p *Parser[T]) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
@@ -496,8 +520,8 @@ func (p *Parser[T]) parseAsteriskPC() (ast.Node, error) {
 // without a trailing colon. This is true when the next token is an instruction,
 // directive, EOL, or EOF, and the identifier is not a known directive.
 func (p *Parser[T]) isColonOptionalLabel(tok, next token.Token) bool {
-	// Must be at column 0 (start of line)
-	if tok.Position.Column != 0 {
+	// Must be at start of line (column 1 in lexer's 1-based column tracking)
+	if tok.Position.Column > 1 {
 		return false
 	}
 

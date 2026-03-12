@@ -55,6 +55,12 @@ const (
 	Slash
 	Caret
 	Backslash
+
+	// Bitwise/shift operators (used as synthetic tokens in expressions).
+	ShiftLeft
+	ShiftRight
+	Ampersand
+	BitwiseXor
 )
 
 var toString = map[Type]string{
@@ -88,6 +94,10 @@ var toString = map[Type]string{
 	Slash:            "/",
 	Caret:            "^",
 	Backslash:        "\\",
+	ShiftLeft:        "<<",
+	ShiftRight:       ">>",
+	Ampersand:        "&",
+	BitwiseXor:       "XOR",
 }
 
 var toToken = map[rune]Type{

@@ -110,14 +110,54 @@ func baseHandlers() map[string]Handler {
 
 func x816Handlers() map[string]Handler {
 	return map[string]Handler{
-		// x816 uses .dcb for string/data definition (already in base)
-		// No-op directives for listing/display
-		"list":    NoOp,
-		"nolist":  NoOp,
-		"sym":     NoOp,
+		// Data directives (3-byte and 4-byte)
+		"dcl": Data,
+		"dl":  Data, // override base AddrLow — x816 .dl is 3-byte data
+		"dcd": Data,
+		"dd":  Data,
+		"dsl": DataStorage,
+		"dsd": DataStorage,
+
+		// Source include alias
+		"src": Include,
+
+		// Multi-line comment block (skip tokens until .end)
+		"comment": CommentBlock,
+
+		// Block terminator
+		"end": NoOp,
+
+		// No-op directives for bitwidth/mode (always 8-bit for NES)
+		"mem":   NoOp,
+		"index": NoOp,
+
+		// No-op directives for optimization/listing/display
+		"opt":      NoOp,
+		"optimize": NoOp,
+		"list":     NoOp,
+		"nolist":   NoOp,
+		"sym":      NoOp,
+		"symbol":   NoOp,
+		"detect":   NoOp,
+		"dasm":     NoOp,
+		"echo":     NoOp,
+
+		// No-op directives for diagnostic messages
 		"cerror":  NoOp,
 		"cwarn":   NoOp,
 		"message": NoOp,
+
+		// No-op directives for ROM mode/output (NES-irrelevant)
+		"hrom":  NoOp,
+		"lrom":  NoOp,
+		"hirom": NoOp,
+		"smc":   NoOp,
+
+		// No-op directives for assembler settings
+		"localsymbolchar": NoOp,
+		"locchar":         NoOp,
+		"par":             NoOp,
+		"parenthesis":     NoOp,
 	}
 }
 

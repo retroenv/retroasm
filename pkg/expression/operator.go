@@ -11,17 +11,22 @@ var operatorPriority = map[token.Type]struct {
 	priority         int
 	rightAssociative bool
 }{
-	token.Caret:    {priority: 3, rightAssociative: true},
-	token.Asterisk: {priority: 2, rightAssociative: false},
-	token.Slash:    {priority: 2, rightAssociative: false},
-	token.Percent:  {priority: 2, rightAssociative: false},
-	token.Plus:     {priority: 1, rightAssociative: false},
-	token.Minus:    {priority: 1, rightAssociative: false},
-	token.Equals:   {priority: 1, rightAssociative: false},
-	token.Gt:       {priority: 1, rightAssociative: false},
-	token.GtE:      {priority: 1, rightAssociative: false},
-	token.Lt:       {priority: 1, rightAssociative: false},
-	token.LtE:      {priority: 1, rightAssociative: false},
+	token.Caret:      {priority: 3, rightAssociative: true},
+	token.Asterisk:   {priority: 2, rightAssociative: false},
+	token.Slash:      {priority: 2, rightAssociative: false},
+	token.Percent:    {priority: 2, rightAssociative: false},
+	token.ShiftLeft:  {priority: 2, rightAssociative: false},
+	token.ShiftRight: {priority: 2, rightAssociative: false},
+	token.Plus:       {priority: 1, rightAssociative: false},
+	token.Minus:      {priority: 1, rightAssociative: false},
+	token.Ampersand:  {priority: 1, rightAssociative: false},
+	token.Pipe:       {priority: 1, rightAssociative: false},
+	token.BitwiseXor: {priority: 1, rightAssociative: false},
+	token.Equals:     {priority: 1, rightAssociative: false},
+	token.Gt:         {priority: 1, rightAssociative: false},
+	token.GtE:        {priority: 1, rightAssociative: false},
+	token.Lt:         {priority: 1, rightAssociative: false},
+	token.LtE:        {priority: 1, rightAssociative: false},
 }
 
 // evaluateOperator executes an operator.
@@ -68,6 +73,8 @@ func evaluateOperatorIntInt(operator token.Type, a, b int64) (any, error) {
 		return a / b, nil
 	case token.Caret:
 		return int64(math.Pow(float64(a), float64(b))), nil
+	case token.ShiftLeft, token.ShiftRight, token.Ampersand, token.Pipe, token.BitwiseXor:
+		return evaluateBitwiseIntInt(operator, a, b)
 	case token.Equals:
 		return a == b, nil
 	case token.Lt:
@@ -80,6 +87,24 @@ func evaluateOperatorIntInt(operator token.Type, a, b int64) (any, error) {
 		return a >= b, nil
 	default:
 		return 0, fmt.Errorf("unsupported operator %d for arguments of type int64", operator)
+	}
+}
+
+// evaluateBitwiseIntInt executes bitwise/shift operators for int64 operands.
+func evaluateBitwiseIntInt(operator token.Type, a, b int64) (any, error) {
+	switch operator {
+	case token.ShiftLeft:
+		return a << uint(b), nil
+	case token.ShiftRight:
+		return a >> uint(b), nil
+	case token.Ampersand:
+		return a & b, nil
+	case token.Pipe:
+		return a | b, nil
+	case token.BitwiseXor:
+		return a ^ b, nil
+	default:
+		return 0, fmt.Errorf("unsupported bitwise operator %d", operator)
 	}
 }
 
