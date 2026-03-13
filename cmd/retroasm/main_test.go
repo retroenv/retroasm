@@ -369,10 +369,10 @@ func architectureValidationCasesDefaults(logger *log.Logger) []architectureValid
 			expectProfile: z80profile.Default.String(),
 		},
 		{
-			name:          "gameboy system defaults to z80",
+			name:          "gameboy system defaults to sm83",
 			options:       &optionFlags{system: "gameboy", logger: logger},
 			expectedErr:   nil,
-			expectCPU:     cpuZ80,
+			expectCPU:     cpuSM83,
 			expectSys:     systemGameBoy,
 			expectProfile: z80profile.Default.String(),
 		},

@@ -33,7 +33,7 @@ This document tracks every file changed in the `work` branch compared to `main`.
 ### `cmd/retroasm/main.go`
 **Why:** Support multi-architecture assembling from the command line.
 **What:**
-- Added imports for Chip-8, M65816, M68000, Z80, and Z80 profile packages
+- Added imports for Chip-8, M65816, M68000, SM83, Z80, and Z80 profile packages
 - Replaced single-architecture constants with lookup tables (`supportedSystemsByCPU`, `defaultSystemByCPU`, `defaultCPUBySystem`)
 - Added `--z80-profile` flag for Z80 instruction set filtering
 - Refactored `validateAndProcessArchitecture()` into smaller functions: `normalizeArchitectureOptions`, `setDefaultArchitecture`, `applyDerivedArchitectureDefaults`, `validateArchitectureCompatibility`, `validateZ80Profile`
@@ -431,6 +431,38 @@ This document tracks every file changed in the `work` branch compared to `main`.
 
 ---
 
+## Architecture: SM83 (`pkg/arch/sm83/`) — ALL NEW
+
+### `pkg/arch/sm83/sm83.go`
+**Why:** New architecture support for Sharp SM83 (LR35902) CPU used in Game Boy.
+**What:** Architecture entry point. Uses `*InstructionGroup` as generic type T (same pattern as Z80). Builds instruction groups from retrogolib SM83 definitions. 16-bit address width. No profile system (unlike Z80).
+
+### `pkg/arch/sm83/sm83_test.go`
+**Why:** Unit tests for SM83 architecture initialization and instruction groups.
+**What:** Tests instruction group building, case-insensitive lookup, CB family instructions (SWAP, RLC), LDH, and unknown instruction handling.
+
+### `pkg/arch/sm83/parser/register.go`
+**Why:** SM83 register name resolution.
+**What:** Maps register/pair/condition names to retrogolib SM83 constants. Handles case-insensitive lookup. Includes RST vector lookup, indirect register lookup, and condition detection.
+
+### `pkg/arch/sm83/parser/instruction.go`
+**Why:** SM83 instruction parsing and variant resolution.
+**What:** Parses SM83 mnemonics and operands (registers, conditions, indirect `(HL)`, `(HL+)`, `(HL-)`, immediates, bit numbers) into AST nodes. Resolves matching instruction variant from operand patterns. Handles SM83-specific forms: LDH, LD (C),A, LD (HL+),A, BIT/SET/RES, RST vectors, condition+address pairs.
+
+### `pkg/arch/sm83/assembler/address_assigning_step.go`
+**Why:** SM83 address assignment in assembler pipeline.
+**What:** Assigns addresses based on instruction opcode lengths. Resolves CB bit instruction addressing via base addressing map entry.
+
+### `pkg/arch/sm83/assembler/generate_opcode_step.go`
+**Why:** SM83 opcode generation.
+**What:** Encodes SM83 instructions into byte sequences. Handles CB-prefix opcodes, bit number encoding (bits 5-3), register code encoding (bits 2-0), immediate/extended/relative operands.
+
+### `pkg/arch/sm83/assembler/generate_opcode_step_test.go`
+**Why:** Tests for SM83 opcode generation and address assignment.
+**What:** Tests NOP, LD BC,nn, LD A,n, JR, JR NZ, BIT 3,A, SWAP A, RLC B, JP nn, PUSH BC, RST 38H, INC B, LD A,B, SET 7,A, RES 0,(HL). Boundary tests for address limits and relative offsets.
+
+---
+
 ## Z80 Test Fixtures (`tests/z80/`) — ALL NEW
 
 ### `tests/z80/basic.asm`
@@ -515,6 +547,9 @@ Detailed changelog of Z80 branch development.
 
 ### `docs/m68000-support-plan.md`
 M68000 architecture implementation plan (effective addressing, opcode encoding, size suffixes).
+
+### `docs/sm83-support-plan.md`
+SM83 architecture implementation plan (instruction groups, register-based opcode lookup, CB-prefix instructions, SM83-specific instructions).
 
 ---
 

@@ -1,6 +1,6 @@
 // Package main implements retroasm, a retro computer assembler.
 // It provides command-line interface for assembling retro computer code,
-// supporting 6502, 65816, Z80, M68000, and Chip-8 architectures with ca65-compatible configuration.
+// supporting 6502, 65816, Chip-8, M68000, SM83, and Z80 architectures with ca65-compatible configuration.
 package main
 
 import (
@@ -16,6 +16,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	archm65816 "github.com/retroenv/retroasm/pkg/arch/m65816"
 	archm68000 "github.com/retroenv/retroasm/pkg/arch/m68000"
+	archsm83 "github.com/retroenv/retroasm/pkg/arch/sm83"
 	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/assembler"
@@ -106,6 +107,7 @@ const (
 	cpu65816  = string(arch.M65816)
 	cpuChip8  = string(arch.CHIP8)
 	cpuM68000 = string(arch.M68000)
+	cpuSM83   = string(arch.SM83)
 	cpuZ80    = string(arch.Z80)
 
 	systemChip8      = string(arch.CHIP8System)
@@ -121,6 +123,7 @@ var supportedSystemsByCPU = map[string]set.Set[string]{
 	cpu65816:  set.NewFromSlice([]string{systemSNES, systemGeneric}),
 	cpuChip8:  set.NewFromSlice([]string{systemChip8}),
 	cpuM68000: set.NewFromSlice([]string{systemGeneric}),
+	cpuSM83:   set.NewFromSlice([]string{systemGameBoy, systemGeneric}),
 	cpuZ80:    set.NewFromSlice([]string{systemGeneric, systemGameBoy, systemZXSpectrum}),
 }
 
@@ -129,6 +132,7 @@ var defaultSystemByCPU = map[string]string{
 	cpu65816:  systemSNES,
 	cpuChip8:  systemChip8,
 	cpuM68000: systemGeneric,
+	cpuSM83:   systemGameBoy,
 	cpuZ80:    systemGeneric,
 }
 
@@ -137,7 +141,7 @@ var defaultCPUBySystem = map[string]string{
 	systemNES:        cpu6502,
 	systemSNES:       cpu65816,
 	systemGeneric:    cpuZ80,
-	systemGameBoy:    cpuZ80,
+	systemGameBoy:    cpuSM83,
 	systemZXSpectrum: cpuZ80,
 }
 
@@ -225,7 +229,7 @@ func applyDerivedArchitectureDefaults(options *optionFlags, z80ProfileRequested 
 func validateArchitectureCompatibility(options *optionFlags) error {
 	compatibleSystems, ok := supportedSystemsByCPU[options.cpu]
 	if !ok {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
 	}
 
 	if !compatibleSystems.Contains(options.system) {
@@ -280,12 +284,12 @@ func validateCPU(options *optionFlags) error {
 
 	cpu, ok := arch.FromString(options.cpu)
 	if !ok {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
 	}
 	options.cpu = string(cpu)
 
-	if cpu != arch.M6502 && cpu != arch.M65816 && cpu != arch.CHIP8 && cpu != arch.M68000 && cpu != arch.Z80 {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuZ80)
+	if cpu != arch.M6502 && cpu != arch.M65816 && cpu != arch.CHIP8 && cpu != arch.M68000 && cpu != arch.SM83 && cpu != arch.Z80 {
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
 	}
 
 	return nil
@@ -323,7 +327,7 @@ func readArguments() (*optionFlags, []string) {
 	flags.BoolVar(&options.debug, "debug", false, "enable debug logging")
 	flags.StringVar(&options.config, "c", "", "assembler config file")
 	flags.StringVar(&options.output, "o", "", "name of the output file")
-	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, 65816, chip8, m68000, z80)")
+	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, 65816, chip8, m68000, sm83, z80)")
 	flags.StringVar(&options.system, "system", "", "target system (chip8, nes, snes, generic, gameboy, zx-spectrum)")
 	flags.StringVar(
 		&options.z80Profile,
@@ -449,7 +453,10 @@ func assembleChip8File(ctx context.Context, inputData []byte, outputFile string)
 	return nil
 }
 
-func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName string, compatMode config.CompatibilityMode) error {
+func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName string, //nolint:funlen // repetitive switch cases
+	compatMode config.CompatibilityMode,
+) error {
+
 	switch cpuName {
 	case cpu6502:
 		cfg := m6502.New()
@@ -475,6 +482,15 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName 
 		adapter := retroasm.NewArchitectureAdapter(cpuM68000, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpuM68000, adapter); err != nil {
 			return fmt.Errorf("registering architecture '%s': %w", cpuM68000, err)
+		}
+		return nil
+
+	case cpuSM83:
+		cfg := archsm83.New()
+		cfg.CompatibilityMode = compatMode
+		adapter := retroasm.NewArchitectureAdapter(cpuSM83, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpuSM83, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpuSM83, err)
 		}
 		return nil
 
