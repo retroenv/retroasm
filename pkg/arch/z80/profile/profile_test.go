@@ -88,7 +88,7 @@ func TestValidateInstruction_DefaultAndStrict(t *testing.T) {
 
 	err = ValidateInstruction(
 		StrictDocumented,
-		cpuz80.Nop,
+		cpuz80.NopInst,
 		cpuz80.ImpliedAddressing,
 		nil,
 	)
@@ -116,7 +116,7 @@ func TestValidateInstruction_GameBoySubset(t *testing.T) {
 
 	err = ValidateInstruction(
 		GameBoySubset,
-		cpuz80.Nop,
+		cpuz80.NopInst,
 		cpuz80.ImpliedAddressing,
 		nil,
 	)

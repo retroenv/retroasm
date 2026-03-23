@@ -24,7 +24,7 @@ var coreEncodingTests = []struct {
 		address: 0x0000,
 		resolved: sm83parser.ResolvedInstruction{
 			Addressing:  cpusm83.ImpliedAddressing,
-			Instruction: cpusm83.Nop,
+			Instruction: cpusm83.NopInst,
 		},
 		want: []byte{0x00},
 	},
@@ -129,7 +129,7 @@ var coreEncodingTests = []struct {
 		address: 0x0000,
 		resolved: sm83parser.ResolvedInstruction{
 			Addressing:     cpusm83.ImpliedAddressing,
-			Instruction:    cpusm83.Rst,
+			Instruction:    cpusm83.RstInst,
 			RegisterParams: []cpusm83.RegisterParam{cpusm83.RegRst38},
 		},
 		want: []byte{0xFF},
@@ -318,7 +318,7 @@ func TestAssignInstructionAddress_SetsAddressingAndSize(t *testing.T) {
 			name: "one byte instruction nop",
 			resolved: sm83parser.ResolvedInstruction{
 				Addressing:  cpusm83.ImpliedAddressing,
-				Instruction: cpusm83.Nop,
+				Instruction: cpusm83.NopInst,
 			},
 			wantSize:       1,
 			wantAddressing: cpusm83.ImpliedAddressing,
@@ -383,7 +383,7 @@ func TestAssignInstructionAddress_Errors(t *testing.T) {
 			name: "opcode not found",
 			argument: sm83parser.ResolvedInstruction{
 				Addressing:     cpusm83.ImmediateAddressing,
-				Instruction:    cpusm83.Nop,
+				Instruction:    cpusm83.NopInst,
 				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegA},
 			},
 			wantErr: errOpcodeNotFound,

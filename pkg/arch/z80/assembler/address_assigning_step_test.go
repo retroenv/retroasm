@@ -22,7 +22,7 @@ var assignAddressTests = []struct {
 		name: "one byte instruction nop",
 		resolved: z80parser.ResolvedInstruction{
 			Addressing:  cpuz80.ImpliedAddressing,
-			Instruction: cpuz80.Nop,
+			Instruction: cpuz80.NopInst,
 		},
 		wantSize:       1,
 		wantAddressing: cpuz80.ImpliedAddressing,
@@ -98,7 +98,7 @@ func TestAssignInstructionAddress_Errors(t *testing.T) {
 			name: "opcode not found",
 			argument: z80parser.ResolvedInstruction{
 				Addressing:     cpuz80.ImmediateAddressing,
-				Instruction:    cpuz80.Nop,
+				Instruction:    cpuz80.NopInst,
 				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
 			},
 			wantErr: errOpcodeNotFound,

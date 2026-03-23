@@ -21,7 +21,7 @@ var coreEncodingTests = []struct {
 		address: 0x8000,
 		resolved: z80parser.ResolvedInstruction{
 			Addressing:  cpuz80.ImpliedAddressing,
-			Instruction: cpuz80.Nop,
+			Instruction: cpuz80.NopInst,
 		},
 		want: []byte{0x00},
 	},

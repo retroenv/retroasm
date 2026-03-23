@@ -45,7 +45,7 @@ func TestInstructionLookup(t *testing.T) {
 		group, ok := cfg.Arch.Instruction(cpusm83.NopName)
 		assert.True(t, ok)
 		assert.NotNil(t, group)
-		assert.True(t, containsInstruction(group.Variants, cpusm83.Nop))
+		assert.True(t, containsInstruction(group.Variants, cpusm83.NopInst))
 	})
 
 	t.Run("sm83-specific swap instruction", func(t *testing.T) {
