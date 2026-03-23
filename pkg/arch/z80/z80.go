@@ -31,16 +31,16 @@ func New(opts ...Option) *config.Config[*InstructionGroup] {
 	return cfg
 }
 
+type architecture struct {
+	instructionGroups map[string]*InstructionGroup
+	profile           z80profile.Kind
+}
+
 func newArchitecture(settings options) *architecture {
 	return &architecture{
 		instructionGroups: buildInstructionGroups(),
 		profile:           settings.profile,
 	}
-}
-
-type architecture struct {
-	instructionGroups map[string]*InstructionGroup
-	profile           z80profile.Kind
 }
 
 func (ar *architecture) AddressWidth() int {

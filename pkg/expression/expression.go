@@ -53,18 +53,6 @@ var keywordOperators = map[string]token.Type{
 	"XOR": token.BitwiseXor,
 }
 
-// resolveKeywordOperator converts keyword operator identifiers (SHL, SHR, AND, OR, XOR)
-// to their corresponding operator token types for expression evaluation.
-func resolveKeywordOperator(tok token.Token) token.Token {
-	if tok.Type != token.Identifier {
-		return tok
-	}
-	if opType, ok := keywordOperators[strings.ToUpper(tok.Value)]; ok {
-		tok.Type = opType
-	}
-	return tok
-}
-
 var (
 	errCircularDependency      = errors.New("circular symbol dependency detected")
 	errDivisionByZero          = errors.New("division by zero")
@@ -214,6 +202,18 @@ func (e *Expression) evaluate(scope *scope.Scope, dataWidth int, programCounter 
 	e.evaluated = true
 	e.evaluating = false
 	return e.value, nil
+}
+
+// resolveKeywordOperator converts keyword operator identifiers (SHL, SHR, AND, OR, XOR)
+// to their corresponding operator token types for expression evaluation.
+func resolveKeywordOperator(tok token.Token) token.Token {
+	if tok.Type != token.Identifier {
+		return tok
+	}
+	if opType, ok := keywordOperators[strings.ToUpper(tok.Value)]; ok {
+		tok.Type = opType
+	}
+	return tok
 }
 
 //nolint:funlen,cyclop // Shunting Yard algorithm with one case per token type

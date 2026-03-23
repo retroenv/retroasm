@@ -61,6 +61,8 @@ type Instruction interface {
 	Argument() any
 	// Name returns the instruction name.
 	Name() string
+	// OpcodeID returns the architecture-defined numeric opcode identifier; 0 means unset/unknown.
+	OpcodeID() uint8
 	// Opcodes returns the instruction opcodes.
 	Opcodes() []byte
 	// Size returns the size of the instruction in bytes.

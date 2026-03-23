@@ -13,7 +13,13 @@ import (
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	instructionInfo := m6502.Instructions[strings.ToLower(ins.Name())]
+	var instructionInfo *m6502.Instruction
+	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
+		instructionInfo = m6502.InstructionsByID[id]
+	}
+	if instructionInfo == nil {
+		instructionInfo = m6502.Instructions[strings.ToLower(ins.Name())]
+	}
 	addressing := m6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})

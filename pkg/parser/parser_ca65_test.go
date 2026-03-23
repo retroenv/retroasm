@@ -37,11 +37,11 @@ func TestParserCa65UnnamedLabelReference(t *testing.T) {
 	// Expected: unnamed_1, bne __unnamed_1, unnamed_2, bne __unnamed_3, unnamed_3
 	assert.Len(t, nodes, 5)
 	assert.Equal(t, ast.NewLabel("__unnamed_1"), nodes[0])
-	assert.Equal(t, ast.NewInstruction("bne", int(m6502.RelativeAddressing),
-		ast.NewLabel("__unnamed_1"), nil), nodes[1])
+	assert.Equal(t, m6502Instruction("bne", int(m6502.RelativeAddressing),
+		ast.NewLabel("__unnamed_1")), nodes[1])
 	assert.Equal(t, ast.NewLabel("__unnamed_2"), nodes[2])
-	assert.Equal(t, ast.NewInstruction("bne", int(m6502.RelativeAddressing),
-		ast.NewLabel("__unnamed_3"), nil), nodes[3])
+	assert.Equal(t, m6502Instruction("bne", int(m6502.RelativeAddressing),
+		ast.NewLabel("__unnamed_3")), nodes[3])
 	assert.Equal(t, ast.NewLabel("__unnamed_3"), nodes[4])
 }
 

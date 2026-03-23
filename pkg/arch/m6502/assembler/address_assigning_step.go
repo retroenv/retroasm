@@ -15,10 +15,17 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	pc := assigner.ProgramCounter()
 	ins.SetAddress(pc)
 
-	name := strings.ToLower(ins.Name())
-	insDetails, ok := m6502.Instructions[name]
-	if !ok {
-		return 0, fmt.Errorf("unsupported instruction '%s'", name)
+	var insDetails *m6502.Instruction
+	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
+		insDetails = m6502.InstructionsByID[id]
+	}
+	if insDetails == nil {
+		name := strings.ToLower(ins.Name())
+		var ok bool
+		insDetails, ok = m6502.Instructions[name]
+		if !ok {
+			return 0, fmt.Errorf("unsupported instruction '%s'", name)
+		}
 	}
 
 	addressing := m6502.AddressingMode(ins.Addressing())
@@ -32,7 +39,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	addressing = m6502.AddressingMode(ins.Addressing())
 	addressingInfo, ok := insDetails.Addressing[addressing]
 	if !ok {
-		return 0, fmt.Errorf("unsupported instruction '%s' addressing %d", name, addressing)
+		return 0, fmt.Errorf("unsupported instruction '%s' addressing %d", ins.Name(), addressing)
 	}
 
 	programCounter := pc + uint64(addressingInfo.Size)

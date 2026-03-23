@@ -28,14 +28,14 @@ func New() *config.Config[*InstructionGroup] {
 	return cfg
 }
 
+type architecture struct {
+	instructionGroups map[string]*InstructionGroup
+}
+
 func newArchitecture() *architecture {
 	return &architecture{
 		instructionGroups: buildInstructionGroups(),
 	}
-}
-
-type architecture struct {
-	instructionGroups map[string]*InstructionGroup
 }
 
 func (ar *architecture) AddressWidth() int {

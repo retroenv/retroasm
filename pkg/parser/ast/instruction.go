@@ -8,7 +8,8 @@ import (
 type Instruction struct {
 	*node
 
-	Name string
+	OpcodeID uint8 // Architecture-defined numeric opcode identifier; 0 = unset/unknown
+	Name     string
 	// Addressing can be any single addressing value or the combined defined
 	// values of this package, to allow the assembler to decide which addressing
 	// to use
@@ -28,10 +29,16 @@ func NewInstruction(name string, addressing int, argument Node, modifier []Modif
 	}
 }
 
+// SetOpcodeID sets the architecture-defined numeric opcode identifier for fast O(1) lookup.
+func (i *Instruction) SetOpcodeID(id uint8) {
+	i.OpcodeID = id
+}
+
 // Copy returns a copy of the instruction node.
 func (i Instruction) Copy() Node {
 	return Instruction{
 		node:       i.node,
+		OpcodeID:   i.OpcodeID,
 		Name:       i.Name,
 		Addressing: i.Addressing,
 		Argument:   i.Argument.Copy(),

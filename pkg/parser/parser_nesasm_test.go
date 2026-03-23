@@ -24,9 +24,9 @@ func TestParserNesasmDotLocalLabelDefinition(t *testing.T) {
 	assert.Len(t, nodes, 4)
 	assert.Equal(t, ast.NewLabel("main"), nodes[0])
 	assert.Equal(t, ast.NewLabel("main.loop"), nodes[1])
-	assert.Equal(t, ast.NewInstruction("dex", int(m6502.ImpliedAddressing), nil, nil), nodes[2])
-	assert.Equal(t, ast.NewInstruction("bne", int(m6502.RelativeAddressing),
-		ast.NewLabel("main.loop"), nil), nodes[3])
+	assert.Equal(t, m6502Instruction("dex", int(m6502.ImpliedAddressing), nil), nodes[2])
+	assert.Equal(t, m6502Instruction("bne", int(m6502.RelativeAddressing),
+		ast.NewLabel("main.loop")), nodes[3])
 }
 
 func TestParserNesasmDotLocalLabelScoping(t *testing.T) {

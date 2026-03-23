@@ -46,15 +46,6 @@ func (m CompatibilityMode) String() string {
 	return fmt.Sprintf("CompatibilityMode(%d)", int(m))
 }
 
-// ParseCompatibilityMode parses a string into a CompatibilityMode.
-func ParseCompatibilityMode(s string) (CompatibilityMode, error) {
-	mode, ok := compatFromString[strings.ToLower(strings.TrimSpace(s))]
-	if !ok {
-		return CompatDefault, fmt.Errorf("%w: '%s' (supported: default, x816, asm6, ca65, nesasm)", ErrInvalidCompatibilityMode, s)
-	}
-	return mode, nil
-}
-
 // ColonOptionalLabels returns whether this mode treats trailing colons on labels as optional.
 func (m CompatibilityMode) ColonOptionalLabels() bool {
 	return m == CompatX816 || m == CompatAsm6
@@ -93,4 +84,13 @@ func (m CompatibilityMode) NesasmMacroSyntax() bool {
 // BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
 func (m CompatibilityMode) BankByteOperator() bool {
 	return m == CompatX816 || m == CompatCa65
+}
+
+// ParseCompatibilityMode parses a string into a CompatibilityMode.
+func ParseCompatibilityMode(s string) (CompatibilityMode, error) {
+	mode, ok := compatFromString[strings.ToLower(strings.TrimSpace(s))]
+	if !ok {
+		return CompatDefault, fmt.Errorf("%w: '%s' (supported: default, x816, asm6, ca65, nesasm)", ErrInvalidCompatibilityMode, s)
+	}
+	return mode, nil
 }

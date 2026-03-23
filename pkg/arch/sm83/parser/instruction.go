@@ -26,18 +26,6 @@ type ResolvedInstruction struct {
 	OperandValues  []ast.Node
 }
 
-type rawOperand struct {
-	token token.Token
-
-	value       ast.Node
-	register    cpusm83.RegisterParam
-	indirectReg cpusm83.RegisterParam
-	indirect    bool
-	isHLPlus    bool
-	isHLMinus   bool
-	isCondition bool
-}
-
 // ParseIdentifier parses an SM83 instruction and resolves the matching instruction variant.
 func ParseIdentifier(p arch.Parser, mnemonic string, variants []*cpusm83.Instruction) (ast.Node, error) {
 	operands, err := parseOperands(p)
@@ -52,6 +40,18 @@ func ParseIdentifier(p arch.Parser, mnemonic string, variants []*cpusm83.Instruc
 
 	argument := ast.NewInstructionArgument(*resolved)
 	return ast.NewInstruction(mnemonic, int(resolved.Addressing), argument, nil), nil
+}
+
+type rawOperand struct {
+	token token.Token
+
+	value       ast.Node
+	register    cpusm83.RegisterParam
+	indirectReg cpusm83.RegisterParam
+	indirect    bool
+	isHLPlus    bool
+	isHLMinus   bool
+	isCondition bool
 }
 
 func parseOperands(p arch.Parser) ([]rawOperand, error) {

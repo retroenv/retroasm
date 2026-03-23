@@ -461,6 +461,7 @@ func (m *mockInstruction) Argument() any       { return m.argument }
 func (m *mockInstruction) Name() string        { return m.name }
 func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
 func (m *mockInstruction) Size() int           { return m.size }
+func (m *mockInstruction) OpcodeID() uint8     { return 0 }
 func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
 func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
 func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }

@@ -68,8 +68,8 @@ func TestParserX816CommentBlockWithCode(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, nodes, 2)
-	assert.Equal(t, ast.NewInstruction("nop", int(m6502.ImpliedAddressing), nil, nil), nodes[0])
-	assert.Equal(t, ast.NewInstruction("nop", int(m6502.ImpliedAddressing), nil, nil), nodes[1])
+	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[0])
+	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816SourceInclude(t *testing.T) {
@@ -111,7 +111,7 @@ func TestParserX816ColonOptionalLabel(t *testing.T) {
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, ast.NewLabel("start"), nodes[0])
-	assert.Equal(t, ast.NewInstruction("nop", int(m6502.ImpliedAddressing), nil, nil), nodes[1])
+	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816ColonOptionalLabelBeforeInstruction(t *testing.T) {
@@ -126,7 +126,7 @@ func TestParserX816ColonOptionalLabelBeforeInstruction(t *testing.T) {
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, ast.NewLabel("start"), nodes[0])
-	assert.Equal(t, ast.NewInstruction("nop", int(m6502.ImpliedAddressing), nil, nil), nodes[1])
+	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816AnonymousLabel(t *testing.T) {

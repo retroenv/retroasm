@@ -8,13 +8,6 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-func newMockParser(tokens []token.Token) *mockParser {
-	return &mockParser{
-		tokens:   tokens,
-		position: 0,
-	}
-}
-
 func TestSetCPU(t *testing.T) {
 	parser := newMockParser([]token.Token{
 		{Type: token.Dot, Value: "."},
@@ -99,6 +92,13 @@ func BenchmarkDirectiveParsing(b *testing.B) {
 type mockParser struct {
 	tokens   []token.Token
 	position int
+}
+
+func newMockParser(tokens []token.Token) *mockParser {
+	return &mockParser{
+		tokens:   tokens,
+		position: 0,
+	}
 }
 
 func (p *mockParser) NextToken(offset int) token.Token {

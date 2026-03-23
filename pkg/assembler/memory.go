@@ -2,6 +2,13 @@ package assembler
 
 import "github.com/retroenv/retroasm/pkg/assembler/config"
 
+// memory is a memory segment of the output file.
+type memory struct {
+	start uint64
+	size  uint64
+	data  []byte
+}
+
 // newMemory creates a new memory instance with the given configuration.
 func newMemory(cfg config.Memory) *memory {
 	o := &memory{
@@ -17,13 +24,6 @@ func newMemory(cfg config.Memory) *memory {
 	}
 
 	return o
-}
-
-// memory is a memory segment of the output file.
-type memory struct {
-	start uint64
-	size  uint64
-	data  []byte
 }
 
 // write data using the offset address into the memory, the index will be calculated based on

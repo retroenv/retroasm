@@ -56,6 +56,27 @@ func BuildHandlers(mode config.CompatibilityMode) map[string]Handler {
 	return handlers
 }
 
+// SetCPU skips the .setcpu directive as it is not currently used.
+//
+//nolint:nilnil // directive is intentionally ignored
+func SetCPU(p arch.Parser) (ast.Node, error) {
+	p.AdvanceReadPosition(2)
+	return nil, nil
+}
+
+// NoOp is a directive handler that consumes all tokens until end of line.
+// Used for directives that don't affect binary output (listing, display, symbol file output).
+//
+//nolint:nilnil // directive is intentionally ignored
+func NoOp(p arch.Parser) (ast.Node, error) {
+	for {
+		p.AdvanceReadPosition(1)
+		if p.NextToken(0).Type.IsTerminator() {
+			return nil, nil
+		}
+	}
+}
+
 func baseHandlers() map[string]Handler {
 	return map[string]Handler{
 		"addr":       Addr,
@@ -259,24 +280,3 @@ var directiveBinaryIncludes = set.NewFromSlice([]string{
 	"bin",    // asm6
 	"incbin", // asm6
 })
-
-// SetCPU skips the .setcpu directive as it is not currently used.
-//
-//nolint:nilnil // directive is intentionally ignored
-func SetCPU(p arch.Parser) (ast.Node, error) {
-	p.AdvanceReadPosition(2)
-	return nil, nil
-}
-
-// NoOp is a directive handler that consumes all tokens until end of line.
-// Used for directives that don't affect binary output (listing, display, symbol file output).
-//
-//nolint:nilnil // directive is intentionally ignored
-func NoOp(p arch.Parser) (ast.Node, error) {
-	for {
-		p.AdvanceReadPosition(1)
-		if p.NextToken(0).Type.IsTerminator() {
-			return nil, nil
-		}
-	}
-}
