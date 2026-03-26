@@ -4,6 +4,12 @@ import (
 	"slices"
 )
 
+// OpcodeIDLookup is an optional architecture-specific resolver that maps a
+// lowercase mnemonic name to a numeric OpcodeID. When set, NewInstruction
+// calls it automatically so every created instruction has OpcodeID populated.
+// Set this once at program startup for the target architecture.
+var OpcodeIDLookup func(name string) uint8
+
 // Instruction represents a CPU instruction with its addressing mode and operand.
 type Instruction struct {
 	*node
@@ -18,10 +24,16 @@ type Instruction struct {
 	Modifier   []Modifier
 }
 
-// NewInstruction returns a new instruction node.
+// NewInstruction returns a new instruction node. If OpcodeIDLookup is
+// registered, OpcodeID is populated automatically from the instruction name.
 func NewInstruction(name string, addressing int, argument Node, modifier []Modifier) Instruction {
+	var opcodeID uint8
+	if OpcodeIDLookup != nil {
+		opcodeID = OpcodeIDLookup(name)
+	}
 	return Instruction{
 		node:       &node{},
+		OpcodeID:   opcodeID,
 		Name:       name,
 		Addressing: addressing,
 		Argument:   argument,
