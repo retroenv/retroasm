@@ -48,12 +48,16 @@ func (i *Instruction) SetOpcodeID(id uint8) {
 
 // Copy returns a copy of the instruction node.
 func (i Instruction) Copy() Node {
+	var arg Node
+	if i.Argument != nil {
+		arg = i.Argument.Copy()
+	}
 	return Instruction{
 		node:       i.node,
 		OpcodeID:   i.OpcodeID,
 		Name:       i.Name,
 		Addressing: i.Addressing,
-		Argument:   i.Argument.Copy(),
+		Argument:   arg,
 		Modifier:   slices.Clone(i.Modifier),
 	}
 }
