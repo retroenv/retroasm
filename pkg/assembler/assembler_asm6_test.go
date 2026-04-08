@@ -78,6 +78,21 @@ func TestAssemblerAsm6ImmediateConstantUnderscore(t *testing.T) {
 	assert.Equal(t, []byte{0xA9, 0x20, 0x09, 0xFF}, b)
 }
 
+var asm6ImmediateConstantExpressionTestCode = `
+.segment "HEADER"
+
+BOARD_WIDTH = 10
+
+LDY #(BOARD_WIDTH - 1)
+`
+
+func TestAssemblerAsm6ImmediateConstantExpression(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6ImmediateConstantExpressionTestCode)
+	assert.NoError(t, err)
+	// LDY immediate = 0xA0, value = 9 (BOARD_WIDTH - 1 = 10 - 1)
+	assert.Equal(t, []byte{0xA0, 0x09}, b)
+}
+
 var asm6IncbinTestCode = `
 .segment "HEADER"
 .incbin "test.bin"

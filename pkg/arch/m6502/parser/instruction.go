@@ -77,6 +77,10 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 		// Handle immediate numbers that are tokenized as a single token: LDA #32
 		return parseInstructionImmediateAddressing(ins)
 
+	case ins.arg1.Value == "#" && next1.Type == token.LeftParentheses:
+		// Handle immediate addressing with parenthesized expression: LDA #(LABEL-1)
+		return parseInstructionImmediateAddressingWithExpression(parser, ins)
+
 	case ins.arg1.Value == "#" && (next1.Type == token.Identifier || next1.Type == token.Number):
 		// Handle immediate addressing with separate tokens: LDA #MAX_ENTITIES or LDA #$FF
 		return parseInstructionImmediateAddressingWithToken(parser, ins, next1)
@@ -300,6 +304,53 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 		return nil, err
 	}
 	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+}
+
+func parseInstructionImmediateAddressingWithExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
+		return nil, errors.New("invalid immediate addressing mode usage")
+	}
+
+	// Collect tokens starting from '(' (offset 1 from '#') until the balanced ')'
+	var tokens []token.Token
+	depth := 0
+
+	for offset := 1; ; offset++ {
+		tok := parser.NextToken(offset)
+
+		switch tok.Type {
+		case token.EOF, token.EOL:
+			return nil, errors.New("unexpected end of immediate expression")
+
+		case token.LeftParentheses:
+			depth++
+			tokens = append(tokens, tok)
+
+		case token.RightParentheses:
+			depth--
+			tokens = append(tokens, tok)
+			if depth == 0 {
+				parser.AdvanceReadPosition(offset + 1)
+				argument := ast.NewExpression(tokens...)
+				return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+			}
+
+		case token.Identifier:
+			t := tok
+			t.Value = parser.ScopeLocalLabel(t.Value)
+			tokens = append(tokens, t)
+
+		case token.Number:
+			tokens = append(tokens, tok)
+
+		default:
+			if tok.Type.IsOperator() {
+				tokens = append(tokens, tok)
+				break
+			}
+			return nil, fmt.Errorf("unexpected token '%s' in immediate expression", tok.Type)
+		}
+	}
 }
 
 // resolveImmediateArgument parses an immediate addressing argument, returning

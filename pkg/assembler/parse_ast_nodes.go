@@ -274,6 +274,9 @@ func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (an
 	case ast.RegisterRegisterValue:
 		return convertRegisterRegisterValue(arg)
 
+	case ast.Expression:
+		return arg, nil
+
 	default:
 		return nil, fmt.Errorf("unexpected argument type %T", arg)
 	}
