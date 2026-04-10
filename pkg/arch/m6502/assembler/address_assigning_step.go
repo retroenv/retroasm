@@ -2,12 +2,14 @@
 package assembler
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/m6502/parser"
+	"github.com/retroenv/retroasm/pkg/scope"
 	"github.com/retroenv/retrogolib/arch/cpu/m6502"
 )
 
@@ -62,6 +64,14 @@ func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction, 
 	}
 
 	value, err := assigner.ArgumentValue(ins.Argument())
+	if errors.Is(err, scope.ErrForwardReference) {
+		// The label's address hasn't been assigned yet (forward reference).
+		// Conservatively use absolute (wider) addressing so the instruction
+		// occupies the correct number of bytes; the actual target address is
+		// filled in later by generateOpcodesStep once all labels are resolved.
+		ins.SetAddressing(int(modes[0]))
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}

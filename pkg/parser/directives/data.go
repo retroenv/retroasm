@@ -78,23 +78,28 @@ func Align(p arch.Parser) (ast.Node, error) {
 		return nil, err
 	}
 
-	// calculate size-$%size to get size until align count
-	// TODO is data generated if address is already aligned?
-	// if not the calculation should be (size-$%size)%size
+	// Build expression: (size - $ % size) % size
+	//
+	// The outer % size handles the already-aligned case: when $ is already a
+	// multiple of size, (size - 0) % size = 0, so no fill bytes are emitted.
+	// Without the outer modulo, the plain formula size - $ % size would
+	// incorrectly emit 'size' bytes of fill instead of zero.
 	programCounter := token.Token{
 		Type:  token.Number,
 		Value: expression.ProgramCounterReference,
 	}
-	percent := token.Token{
-		Type: token.Percent,
-	}
-	minus := token.Token{
-		Type: token.Minus,
-	}
+	percent := token.Token{Type: token.Percent}
+	minus := token.Token{Type: token.Minus}
+	leftParen := token.Token{Type: token.LeftParentheses}
+	rightParen := token.Token{Type: token.RightParentheses}
+
 	tokens := data.Size.Tokens()
 
-	data.Size = expression.New(tokens...)
+	data.Size = expression.New(leftParen)
+	data.Size.AddTokens(tokens...)
 	data.Size.AddTokens(minus, programCounter, percent)
+	data.Size.AddTokens(tokens...)
+	data.Size.AddTokens(rightParen, percent)
 	data.Size.AddTokens(tokens...)
 	return data, nil
 }

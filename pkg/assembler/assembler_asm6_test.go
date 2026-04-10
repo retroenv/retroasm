@@ -256,9 +256,53 @@ func TestAssemblerAsm6Align(t *testing.T) {
 	assert.Equal(t, expected, b)
 }
 
+// TestAssemblerAsm6AlignAlreadyAligned verifies that .align emits zero fill
+// bytes when the program counter is already aligned to the requested boundary.
+var asm6AlignAlreadyAlignedCode = `
+.segment "HEADER"
+DB 1,2,3,4
+ALIGN 4
+DB $FF
+`
+
+func TestAssemblerAsm6AlignAlreadyAligned(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6AlignAlreadyAlignedCode)
+	assert.NoError(t, err)
+	// After 4 bytes the PC is already aligned to 4, so ALIGN 4 adds 0 bytes.
+	expected := []byte{1, 2, 3, 4, 0xff}
+	assert.Equal(t, expected, b)
+}
+
+// TestAssemblerAsm6ForwardRefAbsoluteAddressing verifies that a forward
+// reference to a label defined after the instruction is resolved using
+// absolute (3-byte) addressing, not zero-page (2-byte) addressing, so that
+// all subsequent addresses remain correct.
+var asm6ForwardRefAbsoluteCode = `
+.segment "HEADER"
+LDA forward,X
+NOP
+forward:
+DB $42
+`
+
+func TestAssemblerAsm6ForwardRefAbsoluteAddressing(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6ForwardRefAbsoluteCode)
+	assert.NoError(t, err)
+	// LDA abs,X = $BD; forward is at offset $0004 (3 bytes LDA + 1 byte NOP).
+	// Without the fix the assembler assumed zero-page (2 bytes) causing forward
+	// to land at $0003 and producing wrong code.
+	expected := []byte{
+		0xBD, 0x04, 0x00, // LDA $0004, X
+		0xEA,             // NOP
+		0x42,             // DB $42 at $0004
+	}
+	assert.Equal(t, expected, b)
+}
+
 var asm6FillValueTestCode = `
 .segment "HEADER"
 FILLVALUE $FF
+DB 0
 ALIGN 4
 FILLVALUE $FF-1
 PAD 8
@@ -267,8 +311,10 @@ PAD 8
 func TestAssemblerAsm6FillValue(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6FillValueTestCode)
 	assert.NoError(t, err)
+	// DB 0 at $0000 (1 byte, PC=$0001); ALIGN 4 pads 3 bytes of $FF to reach PC=$0004;
+	// PAD 8 pads 4 bytes of $FE to reach address $0008.
 	expected := []byte{
-		0xff, 0xff, 0xff, 0xff, 0xfe, 0xfe, 0xfe, 0xfe, // 8 items
+		0x00, 0xff, 0xff, 0xff, 0xfe, 0xfe, 0xfe, 0xfe, // 8 items
 	}
 	assert.Equal(t, expected, b)
 }
