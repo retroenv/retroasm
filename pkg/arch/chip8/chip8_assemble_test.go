@@ -111,6 +111,28 @@ func TestAssembleChip8_LdRegisterRegister(t *testing.T) {
 	assert.Equal(t, []byte{0x84, 0x50}, out)
 }
 
+// TestAssembleChip8_LdRegisterExprModulo verifies that expression operands using %
+// (modulo) are accepted in the register-value position. This is used by the CHIP-8
+// emitter to load the lo byte of a 12-bit address into a V register:
+//
+//	ld v0, slot % 256   →  V0 = address & 0xFF
+//
+// slot is at $204 (516 decimal): 516 % 256 = 4 → ld v0, $04 → 0x60 0x04.
+func TestAssembleChip8_LdRegisterExprModulo(t *testing.T) {
+	src := `
+ld v0, slot % 256
+ld v1, slot / 256
+slot:
+cls
+`
+	out := assembleChip8Source(t, src)
+	// slot = $204 = 516; 516%256=4; 516/256=2
+	// ld v0, 4 → 0x60 0x04
+	// ld v1, 2 → 0x61 0x02
+	// cls      → 0x00 0xE0
+	assert.Equal(t, []byte{0x60, 0x04, 0x61, 0x02, 0x00, 0xE0}, out)
+}
+
 func TestAssembleChip8_LdIAbsolute(t *testing.T) {
 	out := assembleChip8Source(t, "ld i, $300\n")
 	assert.Equal(t, []byte{0xA3, 0x00}, out)

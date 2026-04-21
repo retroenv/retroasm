@@ -225,26 +225,25 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		}
 		return ast.NewInstruction(ins.Name, int(chip8.IAbsoluteAddressing), address, nil), nil
 
-	case isReg1 && arg2.Type == token.Number:
-		// Vx, byte - Register-value addressing
-		valueNode, err := parseByteArgument(arg2)
-		if err != nil {
-			return nil, err
-		}
+	case isReg1 && (arg2.Type == token.Number || arg2.Type == token.Identifier || arg2.Type == token.LeftParentheses):
+		// Vx, byte / Vx, symbol / Vx, expr - Register-value addressing.
+		// When the token following arg2 is an operator (e.g. "addr % 256"),
+		// or when arg2 is a parenthesised expression, collect all remaining
+		// tokens until the line terminator and emit an ast.Expression so the
+		// assembler evaluates the full expression at opcode-generation time.
 		if !hasAddressing(ins, chip8.RegisterValueAddressing) {
 			return nil, errors.New("instruction does not support register-value addressing")
 		}
-		n := ast.NewRegisterValue(reg1, valueNode)
-		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
-
-	case isReg1 && arg2.Type == token.Identifier:
-		// Vx, symbol - Register-value addressing with identifier
-		valueNode, err := parseByteArgument(arg2)
-		if err != nil {
-			return nil, err
-		}
-		if !hasAddressing(ins, chip8.RegisterValueAddressing) {
-			return nil, errors.New("instruction does not support register-value addressing")
+		var valueNode ast.Node
+		nextTok := parser.NextToken(1)
+		if nextTok.Type.IsOperator() || arg2.Type == token.LeftParentheses {
+			valueNode = collectExpressionOperand(parser, arg2)
+		} else {
+			var err error
+			valueNode, err = parseByteArgument(arg2)
+			if err != nil {
+				return nil, err
+			}
 		}
 		n := ast.NewRegisterValue(reg1, valueNode)
 		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
@@ -367,6 +366,27 @@ func parseRegister(tok token.Token) (byte, bool) {
 func hasAddressing(ins *chip8.Instruction, mode chip8.Mode) bool {
 	_, ok := ins.Addressing[mode]
 	return ok
+}
+
+// collectExpressionOperand collects all tokens starting from first (at parser
+// offset 0) until a line terminator or comma, advances the parser past the
+// consumed tokens, and returns an ast.Expression node for the assembler to
+// evaluate at opcode-generation time (when all symbol addresses are known).
+func collectExpressionOperand(parser arch.Parser, first token.Token) ast.Node {
+	tokens := []token.Token{first}
+	advance := 0
+	for i := 1; ; i++ {
+		t := parser.NextToken(i)
+		if t.Type.IsTerminator() || t.Type == token.Comma {
+			break
+		}
+		tokens = append(tokens, t)
+		advance = i
+	}
+	if advance > 0 {
+		parser.AdvanceReadPosition(advance)
+	}
+	return ast.NewExpression(tokens...)
 }
 
 func parseAddressArgument(tok token.Token) (ast.Node, error) {

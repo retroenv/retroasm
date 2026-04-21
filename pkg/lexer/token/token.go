@@ -122,6 +122,7 @@ var toToken = map[rune]Type{
 	'/':  Slash,
 	'^':  Caret,
 	'\\': Backslash,
+	'&':  Ampersand,
 }
 
 // Token defines a token with position in the stream, its type and an optional value.
