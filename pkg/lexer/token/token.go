@@ -54,6 +54,13 @@ const (
 	RightBrace
 	Slash
 	Caret
+	Backslash
+
+	// Bitwise/shift operators (used as synthetic tokens in expressions).
+	ShiftLeft
+	ShiftRight
+	Ampersand
+	BitwiseXor
 )
 
 var toString = map[Type]string{
@@ -86,29 +93,36 @@ var toString = map[Type]string{
 	RightBrace:       "}",
 	Slash:            "/",
 	Caret:            "^",
+	Backslash:        "\\",
+	ShiftLeft:        "<<",
+	ShiftRight:       ">>",
+	Ampersand:        "&",
+	BitwiseXor:       "XOR",
 }
 
 var toToken = map[rune]Type{
-	'.': Dot,
-	':': Colon,
-	';': Semicolon,
-	',': Comma,
-	'=': Assign,
-	'+': Plus,
-	'-': Minus,
-	'<': Lt,
-	'>': Gt,
-	'|': Pipe,
-	'*': Asterisk,
-	'%': Percent,
-	'(': LeftParentheses,
-	')': RightParentheses,
-	'[': LeftBracket,
-	']': RightBracket,
-	'{': LeftBrace,
-	'}': RightBrace,
-	'/': Slash,
-	'^': Caret,
+	'.':  Dot,
+	':':  Colon,
+	';':  Semicolon,
+	',':  Comma,
+	'=':  Assign,
+	'+':  Plus,
+	'-':  Minus,
+	'<':  Lt,
+	'>':  Gt,
+	'|':  Pipe,
+	'*':  Asterisk,
+	'%':  Percent,
+	'(':  LeftParentheses,
+	')':  RightParentheses,
+	'[':  LeftBracket,
+	']':  RightBracket,
+	'{':  LeftBrace,
+	'}':  RightBrace,
+	'/':  Slash,
+	'^':  Caret,
+	'\\': Backslash,
+	'&':  Ampersand,
 }
 
 // Token defines a token with position in the stream, its type and an optional value.

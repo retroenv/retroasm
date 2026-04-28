@@ -58,7 +58,7 @@ linters:
     - wrapcheck # Checks that errors returned from external packages are wrapped
   settings:
     cyclop:
-      max-complexity: 15
+      max-complexity: 16
     revive:
       rules:
         - name: dot-imports

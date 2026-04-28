@@ -199,7 +199,7 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 	operators := &stack[token.Token]{}
 
 	for i := 0; i < len(nodes); i++ {
-		tok := nodes[i]
+		tok := resolveKeywordOperator(nodes[i])
 
 		switch tok.Type {
 		case token.Identifier:
