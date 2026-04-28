@@ -4,9 +4,89 @@ This document tracks every file changed in the `work` branch compared to `main`.
 
 **Branch:** `work`
 **Base:** `main`
-**Last updated:** 2026-03-12
+**Last updated:** 2026-04-28
 
 ---
+
+## Merge Plan to Main
+
+Planned extraction is grouped to minimize risk and keep each merge window reviewable.
+
+### Group 1: Foundation Sanity
+**Goal:** make the branch safe to extract before large feature files are introduced.
+
+- Merge `go.mod`/`go.sum` updates first and remove the local `replace retrogolib` directive before the final step.
+- Merge `.gitignore` and `.golangci.yml` changes so lint and generated artifacts behave consistently after extraction.
+- Run a baseline validation on `main` with only foundation changes: `make lint`, `go test ./pkg/...` (or minimal focused packages where needed).
+- Verify nothing in this group depends on new architecture packages.
+
+### Group 2: Shared Assembler Stack
+**Goal:** establish generic architecture support and parser/assembler changes that all new architectures rely on.
+
+- Merge `pkg/parser/ast/` AST extensions and related parser/assembler core changes (`pkg/assembler/`, `pkg/retroasm/`, `pkg/scope/`, shared `pkg/arch/` interface changes).
+- Merge `pkg/lexer/` and `pkg/expression/` operator updates required by compatibility parsing.
+- Run focused tests: `go test ./pkg/parser/... ./pkg/assembler/... ./pkg/retroasm/... ./pkg/arch/...` on touched packages and fix compatibility issues before proceeding.
+- Confirm build still passes for `cmd/retroasm` without architecture-specific flags.
+
+### Group 3: Compatibility Infrastructure
+**Goal:** enable `--compat` mode plus assembler compatibility behavior before architecture-specific logic depends on it.
+
+- Merge `pkg/assembler/config/compatibility*`, `pkg/parser/directives/*`, and parser behavior for local/unnamed/dot-local labels and macro syntax.
+- Merge changes to `cmd/retroasm/main.go` around `--compat` and architecture registration helper wiring.
+- Merge targeted tests (`pkg/assembler/config/compatibility_test.go`, parser compatibility tests, directive tests).
+- Run `go test` for `pkg/parser/...`, `pkg/assembler/...`, `pkg/parser/directives/...`, and `pkg/expression/...`.
+- Delay cleanup of deprecated globals or handler semantics until compatibility suite is green.
+
+### Group 4: Architecture Wave A (Low-Risk)
+**Goal:** land smaller/contained architecture additions after shared layers are stable.
+
+- Merge `pkg/arch/chip8/`, `pkg/arch/m65816/`, `pkg/arch/sm83/`, and `pkg/arch/x86/` plus their tests and examples where applicable.
+- Merge associated fixtures/examples if present (`examples/chip8/` plus docs updates).
+- Validate per-architecture tests: run `go test ./pkg/arch/chip8/...`, `./pkg/arch/m65816/...`, `./pkg/arch/sm83/...`, `./pkg/arch/x86/...`.
+
+### Group 5: Architecture Wave B (Higher Complexity)
+**Goal:** extract the largest parser/resolver-heavy architecture once lower-risk waves are stable.
+
+- Merge `pkg/arch/z80/` and `pkg/arch/z80/profile/` incrementally with parser/assembler tests and CLI profile plumbing.
+- Merge CLI and test coverage that directly references `--z80-profile` and Z80 registration.
+- Validate with `go test ./pkg/arch/z80/...`.
+- Validate with `go test ./cmd/retroasm -run Z80` through fixture-driven integration paths.
+- Validate with `go test ./cmd/retroasm/...`.
+- Keep this in a separate PR or merge commit if review load is high.
+
+### Group 6: Architecture Wave C (M68000) and Cross-Checks
+**Goal:** add the final large architecture and ensure end-to-end behavior.
+
+- Merge `pkg/arch/m68000/` plus parser/addressing and assembler coverage tests.
+- Validate with `go test ./pkg/arch/m68000/...` and cross-arch smoke tests from previous groups.
+- Run full project checks (`make lint`, `make test`) and fix any integration-level regressions before removing compatibility flags or command-line leftovers.
+
+### Group 7: Documentation and Finalization
+**Goal:** close branch metadata and production readiness.
+
+- Merge doc updates (`docs/compatibility-mode-plan.md`, `docs/x816-compatibility-plan.md`, `docs/sm83-support-plan.md`, `docs/z80-support-plan.md`, `docs/m68000-support-plan.md`, and any `README.md` changes).
+- Update `docs/work-branch-changes.md` as you complete each group by marking entries as merged.
+- Final verification on `main`: full test pass, one clean `go test ./...` run, then remove temporary branch-only notes (including any `replace` directives).
+- Merge `work` into `main` and keep a short post-merge log for any follow-up cleanup.
+
+### Suggested Order of PRs
+1. Foundation Sanity
+2. Shared Assembler Stack
+3. Compatibility Infrastructure
+4. Architecture Wave A (chip8/m65816/sm83/x86)
+5. Architecture Wave B (z80 + profile)
+6. Architecture Wave C (m68000)
+7. Documentation and Finalization
+
+| Group | Merge Criteria | Primary Validation |
+|-------|----------------|-------------------|
+| Foundation Sanity | No architecture files introduced yet | `make lint`, core package tests |
+| Shared Assembler Stack | Generic APIs compile with 6502-only path | Parser/assembler unit tests |
+| Compatibility Infrastructure | All compatibility suites green | Parser/directive compatibility tests |
+| Architecture Wave A | One architecture at a time from this wave | Per-package architecture tests |
+| Architecture Wave B | Z80-specific resolver/assembler paths covered | Full fixture + CLI profile validation |
+| Architecture Wave C | M68000 test matrix green | M68000 package tests + full lint/test |
+| Documentation/Finalization | No pending branch-only TODOs | `make lint`, `make test` full run |
 
 ## Build & Configuration
 
@@ -59,14 +139,6 @@ This document tracks every file changed in the `work` branch compared to `main`.
 - Added `Symbols()` method to expose resolved label addresses after assembly
 - Added single-segment auto-initialization in `parseASTNodes()` for architectures that don't use ca65 segment config
 
-### `pkg/assembler/config/ca65.go`
-**Why:** Satisfy funcorder linter (types grouped before methods).
-**What:** Moved `ca65Area` struct definition after constructor/exported functions.
-
-### `pkg/assembler/memory.go`
-**Why:** Satisfy funcorder linter (constructor before type).
-**What:** Moved `newMemory()` constructor before `memory` struct definition.
-
 ### `pkg/assembler/nodes.go`
 **Why:** Support Z80 register-value instruction arguments; satisfy funcorder linter.
 **What:**
@@ -80,13 +152,13 @@ This document tracks every file changed in the `work` branch compared to `main`.
 - Added `convertRegisterValue()` and `convertRegisterRegisterValue()` helper functions
 - Minor error message cleanup
 
-### `pkg/assembler/parse_ast_nodes_test.go`
-**Why:** Test coverage for register-value argument conversion; funcorder compliance.
-**What:** Added test cases for typed instruction arguments (single and multi-operand). Moved `testTypedInstructionArgument` type to end of file.
-
-### `pkg/assembler/steps.go`
-**Why:** Satisfy funcorder linter (exported function before unexported type).
-**What:** Moved `step[T]` type definition after `Steps()` method.
+### `pkg/assembler/assembler_asm6_test.go`
+**Why:** Validate assembler edge cases introduced by compatibility and addressing changes.
+**What:**
+- Added immediate-expression parsing coverage for asm6 syntax `(LABEL - 1)` and related generated bytes.
+- Added align behavior test when current location is already aligned.
+- Added forward-reference absolute-addressing regression test (`LDA forward,X`) to protect first-pass width selection.
+- Added source include integration test for asm6-style `.include` flow and scoped parse context.
 
 ---
 
@@ -95,6 +167,10 @@ This document tracks every file changed in the `work` branch compared to `main`.
 ### `pkg/parser/ast/register.go` (new)
 **Why:** AST representation for Z80/M68000 instructions that pair registers with values.
 **What:** Added `RegisterValue` and `RegisterRegisterValue` AST node types with constructors and `Copy()` methods.
+
+### `pkg/parser/ast/instruction.go`
+**Why:** Carry opcode identity through parser/assembler pipelines.
+**What:** Added optional `OpcodeID` field on `Instruction` with architecture-provided lookup hook (`OpcodeIDLookup`) and `SetOpcodeID()` setter. Updated `Copy()` to clone argument safely when absent, enabling O(1) instruction dispatch in downstream assembler phases.
 
 ### `pkg/parser/directives/directives_test.go`
 **Why:** Funcorder compliance; improved test organization.
@@ -107,6 +183,10 @@ This document tracks every file changed in the `work` branch compared to `main`.
 ### `pkg/scope/scope.go`
 **Why:** Support symbol export from assembler (needed by `Assembler.Symbols()`).
 **What:** Added `AllLabels()` method that returns resolved addresses of all label/function-type symbols in a scope.
+
+### `pkg/scope/symbol.go`
+**Why:** Distinguish unresolved labels from zero-address symbols during first-pass assembly.
+**What:** Added `ErrForwardReference` and `addressSet` tracking so label reads can return a clear forward-reference error. This enables 6502 address sizing to preserve conservative width when references are resolved later.
 
 ---
 
@@ -128,6 +208,14 @@ This document tracks every file changed in the `work` branch compared to `main`.
 ### `pkg/arch/m6502/parser/instruction.go`
 **Why:** Funcorder compliance; use `any` instead of `interface{}`.
 **What:** Moved `instruction` struct after `ParseIdentifier()` function. Replaced `interface{}` with `any`. Added doc comment on `ParseIdentifier`.
+
+### `pkg/arch/m6502/assembler/address_assigning_step.go`
+**Why:** Forward-reference correctness for label addresses in 1-pass sizing.
+**What:** Switched instruction definition lookup to prefer numeric `OpcodeID` for direct dispatch when available. Added handling for unresolved forward references by keeping a conservative maximum-width addressing mode during the first pass so width remains stable before opcode resolution.
+
+### `pkg/arch/m6502/assembler/generate_opcode_step.go`
+**Why:** Better 6502 opcode generation behavior for symbolic values.
+**What:** Added `OpcodeID`-based instruction lookup and automatic `ZeroPage` to `Absolute` addressing upgrade when index operands do not fit in one byte. Added helper methods for upgrade path (`upgradeToAbsolute`, `upgradeAndGenerateWord`) and adjusted tests for opcode ID support.
 
 ### `pkg/arch/m6502/assembler/generate_opcode_step_test.go`
 **Why:** Funcorder compliance (exported tests before unexported types).
@@ -533,6 +621,9 @@ x816 assembler-specific compatibility plan (directives, keyword operators, `.dcb
 ### `docs/asm6-compatibility.md`
 asm6/asm6f assembler compatibility plan (current support status, `@` local labels, `ENUM`/`ENDE`, undocumented opcodes, NES 2.0 headers).
 
+### `docs/m65816-support-plan.md`
+M65816 architecture support plan (instruction set coverage, encoding strategy, testing roadmap).
+
 ### `docs/ca65-compatibility.md`
 ca65 assembler compatibility plan (segment model, `.proc` scoping, `.define` macros, `.feature` flags, keyword operators).
 
@@ -662,6 +753,26 @@ SM83 architecture implementation plan (instruction groups, register-based opcode
 **What:**
 - Split `parseInclude()` into `parseBinaryInclude()` and `parseSourceInclude()`
 - `parseSourceInclude()` reads the file, creates a parser with the same architecture and compat mode, lexes and parses the included file, then recursively processes the resulting AST nodes
+
+### `pkg/parser/parser_test.go`
+**Why:** Align parser API usage with compatibility mode threading and strengthen expectations.
+**What:** Updated parser construction to pass `config.CompatDefault` where applicable and added `m6502Instruction()` helper that includes opcode IDs in AST expectations.
+
+### `pkg/parser/parser_asm6_test.go`
+**Why:** Compatibility test updates for asm6 mode.
+**What:** Switched asm6 parser tests to `CompatAsm6` mode and added local-label scoping coverage for both asm6 and default modes.
+
+### `pkg/parser/parser_ca65_test.go` (new)
+**Why:** Coverage for ca65 parser compatibility behavior.
+**What:** Added tests for unnamed labels, `.scope`/`.endscope`, `.asciiz`, `.warning`, `.endmacro`, and no-op directives.
+
+### `pkg/parser/parser_nesasm_test.go` (new)
+**Why:** Coverage for NESASM parser compatibility behavior.
+**What:** Added tests for dot-local scoping, `name .macro` syntax with `\1`-style references, `.fail`, and non-NESASM mode restrictions.
+
+### `pkg/parser/parser_x816_test.go` (new)
+**Why:** Coverage for x816 parser compatibility behavior.
+**What:** Added tests for no-op directives, `.comment` block handling, `.src` alias include, `.equ` alias parsing, colon-optional labels, anonymous labels, and `.end`.
 
 ### Tests
 - `pkg/assembler/config/compatibility_test.go` — Added `LocalLabelScoping()` test
@@ -868,6 +979,10 @@ SM83 architecture implementation plan (instruction groups, register-based opcode
 - Added `parseDotIdentifier()` to handle consolidated `name .keyword` patterns
 - Refactored `parseIdentifier()` to use `parseDotIdentifier()` (reduces cyclop complexity)
 - Fixed `isColonOptionalLabel()` column check from `!= 0` to `> 1` (lexer uses 1-based columns)
+
+### `pkg/expression/keyword_operator_test.go` (new)
+**Why:** Regression coverage for bitwise and shift keyword operators.
+**What:** Added coverage for `SHL`, `SHR`, `AND`, `OR`, `XOR` and operator token synonyms (`|`, `&`, `<<`, `>>`) including case-insensitivity behavior.
 
 ### Tests
 - `pkg/parser/parser_x816_test.go` (new) — Tests for no-op directives, `.comment` block, `.src` include, `.equ` alias, colon-optional labels, anonymous labels, `.end` directive
