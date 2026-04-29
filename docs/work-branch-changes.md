@@ -20,7 +20,7 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Run a baseline validation on `main` with only foundation changes: `make lint`, `go test ./pkg/...` (or minimal focused packages where needed).
 - Verify nothing in this group depends on new architecture packages.
 
-### Group 2: CLI Multi-Architecture Plumbing
+### Group 2: CLI Multi-Architecture Plumbing ✅ MERGED
 **Goal:** split the command-line architecture expansion away from parser compatibility work.
 
 - Merge only the `cmd/retroasm/main.go` and `cmd/retroasm/main_test.go` pieces that add generic CPU/system normalization, defaulting, validation, and registration for already-approved non-Z80 architectures.
