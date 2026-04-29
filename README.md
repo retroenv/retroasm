@@ -5,87 +5,98 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/retroenv/retroasm)](https://goreportcard.com/report/github.com/retroenv/retroasm)
 [![codecov](https://codecov.io/gh/retroenv/retroasm/branch/main/graph/badge.svg?token=NS5UY28V3A)](https://codecov.io/gh/retroenv/retroasm)
 
-retroasm is a modern assembler for retro computer systems that compiles assembly language into machine code for classic hardware platforms.
+## Installation
 
-## Features
-
-* **Multi-Format Support** - Compatible with asm6, ca65, and nesasm assembly syntax
-* **Library API** - Use as a Go library for compiler integration and code generation
-* **AST-based Assembly** - Direct AST input for programmatic assembly
-* **Configuration Files** - ca65-style configuration for custom memory layouts
-* **Modern Implementation** - Fast, reliable Go codebase with comprehensive tests
-
-## Supported Systems
-
-| System | Architecture | Assemblers | Status |
-|--------|-------------|------------|--------|
-| **NES** | 6502 | asm6, ca65, nesasm | Stable |
-
-## Quick Start
-
-### Installation
-
-**Option 1:** Download a binary from [Releases](https://github.com/retroenv/retroasm/releases)
-
-**Option 2:** Install from source:
 ```bash
 go install github.com/retroenv/retroasm/cmd/retroasm@latest
 ```
 
-### Basic Usage
+**Requirements:**
+- Go 1.24 or later
 
-Assemble a program:
+## Overview
+
+Retroasm is a Go-based assembler for retro computer systems and CPU architectures.
+It can be used both as a command-line assembler and as a library for tools that need to generate machine code directly
+from source text or from an already-built AST.
+
+### Key Design Principles
+- **AST-first architecture**: Assemble either parsed source text or generated AST nodes
+- **Multi-format parsing**: Supports asm6, ca65, and nesasm-style source input
+- **Embeddable API**: Designed to plug into compilers, code generators, and build tooling
+- **Configurable output**: Supports ca65-style configuration for memory layout and segments
+- **Modern Go implementation**: Clear package boundaries and comprehensive test coverage
+
+## Supported Targets
+
+### Current Support
+- **NES / 6502**: End-to-end support for ROM-oriented assembly output in the current CLI and library workflow
+
+### Source Formats
+- **asm6**: asm6 and asm6f-style syntax
+- **ca65**: cc65 toolchain syntax with optional config file support
+- **nesasm**: NESasm3-style syntax
+
+## Features
+
+### Command-Line Assembly
+- Assemble source files for the currently supported target
+- Select target system and CPU through CLI flags
+- Enable quiet or debug logging for build integration and troubleshooting
+
+### Library API
+- Embed the assembler in Go tooling when CLI usage is not enough
+- Assemble directly from text input or generated AST nodes
+- See [docs/library-usage.md](docs/library-usage.md) for the detailed integration guide
+
+## Package Overview
+
+    ├─ cmd/retroasm      command-line assembler entry point
+    ├─ docs              reference material and deeper guides
+    ├─ examples          runnable and integration examples
+    ├─ pkg/arch          architecture implementations
+    ├─ pkg/assembler     core assembly pipeline
+    ├─ pkg/expression    expression model and helpers
+    ├─ pkg/lexer         tokenization for supported source formats
+    ├─ pkg/number        numeric parsing helpers
+    ├─ pkg/parser        source parsing and AST generation
+    ├─ pkg/retroasm      public library API
+    ├─ pkg/scope         symbol scope management
+
+## Quick Start
+
+### CLI Usage
+
+Assemble a source file for the current NES/6502 target:
+
 ```bash
 retroasm -o game.nes program.asm
 ```
 
-With ca65-style configuration:
+Use a ca65-compatible config file:
+
 ```bash
 retroasm -c memory.cfg -o game.nes main.asm
 ```
 
-### Command-Line Options
+Show command usage:
 
-```
+```text
 usage: retroasm [options] <file to assemble>
 
   -c string
-        assembler config file (ca65 compatible)
+        assembler config file
   -cpu string
-        target CPU architecture: 6502 (default "6502")
+        target CPU architecture (6502) (default "6502")
   -debug
-        enable debug logging with detailed output
+        enable debug logging
   -o string
-        output ROM file name (required)
-  -q    perform operations quietly (minimal output)
+        name of the output file
+  -q    perform operations quietly
   -system string
-        target system: nes (default "nes")
+        target system (nes) (default "nes")
 ```
-
-## Library Usage
-
-retroasm can be used as a Go library for integrating assembly into compilers and code generators:
-
-```go
-import "github.com/retroenv/retroasm/pkg/retroasm"
-
-assembler := retroasm.New()
-
-// Assemble from text
-output, err := assembler.AssembleText(ctx, input)
-
-// Or assemble from AST for code generation
-output, err := assembler.AssembleAST(ctx, astInput)
-```
-
-See [examples/](examples/) for complete examples.
-
-## System Requirements
-
-* **Linux:** 2.6.32+
-* **Windows:** 10+
-* **macOS:** 10.15 Catalina+
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License Version 2.0 - see the [LICENSE](LICENSE) file for details.
