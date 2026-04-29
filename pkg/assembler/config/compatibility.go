@@ -16,26 +16,35 @@ type CompatibilityMode int
 
 const (
 	CompatDefault CompatibilityMode = iota // current behavior (asm6/ca65 hybrid)
-	CompatX816                             // x816 assembler (65816/6502)
 	CompatAsm6                             // asm6 / asm6f
 	CompatCa65                             // cc65 toolchain assembler
 	CompatNesasm                           // NESASM (MagicKit)
+	CompatX816                             // x816 assembler (65816/6502)
 )
 
 var compatNames = map[CompatibilityMode]string{
-	CompatDefault: "default",
-	CompatX816:    "x816",
 	CompatAsm6:    "asm6",
 	CompatCa65:    "ca65",
+	CompatDefault: "default",
 	CompatNesasm:  "nesasm",
+	CompatX816:    "x816",
 }
 
 var compatFromString = map[string]CompatibilityMode{
-	"default": CompatDefault,
-	"x816":    CompatX816,
 	"asm6":    CompatAsm6,
 	"ca65":    CompatCa65,
+	"default": CompatDefault,
 	"nesasm":  CompatNesasm,
+	"x816":    CompatX816,
+}
+
+// ParseCompatibilityMode parses a string into a CompatibilityMode.
+func ParseCompatibilityMode(s string) (CompatibilityMode, error) {
+	mode, ok := compatFromString[strings.ToLower(strings.TrimSpace(s))]
+	if !ok {
+		return CompatDefault, fmt.Errorf("%w: '%s' (supported: default, x816, asm6, ca65, nesasm)", ErrInvalidCompatibilityMode, s)
+	}
+	return mode, nil
 }
 
 // String returns the string representation of the compatibility mode.
@@ -84,13 +93,4 @@ func (m CompatibilityMode) NesasmMacroSyntax() bool {
 // BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
 func (m CompatibilityMode) BankByteOperator() bool {
 	return m == CompatX816 || m == CompatCa65
-}
-
-// ParseCompatibilityMode parses a string into a CompatibilityMode.
-func ParseCompatibilityMode(s string) (CompatibilityMode, error) {
-	mode, ok := compatFromString[strings.ToLower(strings.TrimSpace(s))]
-	if !ok {
-		return CompatDefault, fmt.Errorf("%w: '%s' (supported: default, x816, asm6, ca65, nesasm)", ErrInvalidCompatibilityMode, s)
-	}
-	return mode, nil
 }

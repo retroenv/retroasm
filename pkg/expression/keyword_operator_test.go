@@ -1,6 +1,7 @@
 package expression
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -14,33 +15,33 @@ var keywordOperatorTests = []struct {
 	expected int64
 }{
 	{
-		name:     "SHL",
-		tokens:   []token.Token{{Type: token.Number, Value: "1"}, {Type: token.Identifier, Value: "SHL"}, {Type: token.Number, Value: "4"}},
+		name:     keywordOperatorShiftLeft,
+		tokens:   []token.Token{{Type: token.Number, Value: "1"}, {Type: token.Identifier, Value: keywordOperatorShiftLeft}, {Type: token.Number, Value: "4"}},
 		expected: 16,
 	},
 	{
-		name:     "SHR",
-		tokens:   []token.Token{{Type: token.Number, Value: "16"}, {Type: token.Identifier, Value: "SHR"}, {Type: token.Number, Value: "2"}},
+		name:     keywordOperatorShiftRight,
+		tokens:   []token.Token{{Type: token.Number, Value: "16"}, {Type: token.Identifier, Value: keywordOperatorShiftRight}, {Type: token.Number, Value: "2"}},
 		expected: 4,
 	},
 	{
-		name:     "AND",
-		tokens:   []token.Token{{Type: token.Number, Value: "$FF"}, {Type: token.Identifier, Value: "AND"}, {Type: token.Number, Value: "$0F"}},
+		name:     keywordOperatorAnd,
+		tokens:   []token.Token{{Type: token.Number, Value: "$FF"}, {Type: token.Identifier, Value: keywordOperatorAnd}, {Type: token.Number, Value: "$0F"}},
 		expected: 0x0F,
 	},
 	{
-		name:     "OR",
-		tokens:   []token.Token{{Type: token.Number, Value: "$F0"}, {Type: token.Identifier, Value: "OR"}, {Type: token.Number, Value: "$0F"}},
+		name:     keywordOperatorOr,
+		tokens:   []token.Token{{Type: token.Number, Value: "$F0"}, {Type: token.Identifier, Value: keywordOperatorOr}, {Type: token.Number, Value: "$0F"}},
 		expected: 0xFF,
 	},
 	{
-		name:     "XOR",
-		tokens:   []token.Token{{Type: token.Number, Value: "$FF"}, {Type: token.Identifier, Value: "XOR"}, {Type: token.Number, Value: "$0F"}},
+		name:     keywordOperatorXor,
+		tokens:   []token.Token{{Type: token.Number, Value: "$FF"}, {Type: token.Identifier, Value: keywordOperatorXor}, {Type: token.Number, Value: "$0F"}},
 		expected: 0xF0,
 	},
 	{
 		name:     "case insensitive shl",
-		tokens:   []token.Token{{Type: token.Number, Value: "1"}, {Type: token.Identifier, Value: "shl"}, {Type: token.Number, Value: "3"}},
+		tokens:   []token.Token{{Type: token.Number, Value: "1"}, {Type: token.Identifier, Value: strings.ToLower(keywordOperatorShiftLeft)}, {Type: token.Number, Value: "3"}},
 		expected: 8,
 	},
 }

@@ -38,11 +38,11 @@ type Expression interface {
 
 // Symbol defines a symbol that is part of a scope.
 type Symbol struct {
-	name        string
-	address     uint64
-	addressSet  bool // true once SetAddress has been called (distinguishes address 0 from unset)
-	typ         SymbolType
-	expression  Expression
+	name       string
+	address    uint64
+	addressSet bool // true once SetAddress has been called (distinguishes address 0 from unset)
+	typ        SymbolType
+	expression Expression
 }
 
 // NewSymbol creates a new symbol in the given scope.
@@ -61,11 +61,11 @@ func NewSymbol(scope *Scope, name string, typ SymbolType) (*Symbol, error) {
 // Copy returns a copy of the symbol.
 func (sym *Symbol) Copy() *Symbol {
 	return &Symbol{
-		name:        sym.name,
-		address:     sym.address,
-		addressSet:  sym.addressSet,
-		typ:         sym.typ,
-		expression:  sym.expression.CopyExpression().(Expression),
+		name:       sym.name,
+		address:    sym.address,
+		addressSet: sym.addressSet,
+		typ:        sym.typ,
+		expression: sym.expression.CopyExpression().(Expression),
 	}
 }
 
