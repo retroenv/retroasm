@@ -117,10 +117,9 @@ func TestValidateSystem(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name:        "valid nes system with cpu default",
-			options:     &optionFlags{system: "nes", debug: true, logger: logger},
+			name:        "valid gameboy system",
+			options:     &optionFlags{system: "gameboy", logger: logger},
 			expectedErr: nil,
-			expectCPU:   "6502",
 		},
 		{
 			name:        "nes system with existing cpu",
@@ -130,7 +129,7 @@ func TestValidateSystem(t *testing.T) {
 		},
 		{
 			name:        "unsupported system",
-			options:     &optionFlags{system: "gameboy", logger: logger},
+			options:     &optionFlags{system: "dos", logger: logger},
 			expectedErr: ErrUnsupportedSystem,
 		},
 		{
@@ -175,7 +174,7 @@ func TestValidateCPU(t *testing.T) {
 		},
 		{
 			name:        "unsupported cpu",
-			options:     &optionFlags{cpu: "z80"},
+			options:     &optionFlags{cpu: "x86"},
 			expectedErr: ErrUnsupportedCPU,
 		},
 		{
@@ -233,11 +232,11 @@ func TestValidateAndProcessArchitecture(t *testing.T) {
 		{
 			name:        "incompatible nes and z80",
 			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
-			expectedErr: ErrUnsupportedCPU, // CPU validation fails first
+			expectedErr: ErrIncompatibleArch,
 		},
 		{
 			name:        "unsupported system",
-			options:     &optionFlags{system: "gameboy", logger: logger},
+			options:     &optionFlags{system: "dos", logger: logger},
 			expectedErr: ErrUnsupportedSystem,
 		},
 	}
