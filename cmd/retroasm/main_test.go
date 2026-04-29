@@ -130,6 +130,11 @@ func TestValidateSystem(t *testing.T) {
 			expectSys:   systemGameBoy,
 		},
 		{
+			name:        "unsupported system",
+			options:     &optionFlags{system: "dos", logger: logger},
+			expectedErr: ErrUnsupportedSystem,
+		},
+		{
 			name:        "invalid system",
 			options:     &optionFlags{system: "invalid", logger: logger},
 			expectedErr: ErrUnsupportedSystem,
