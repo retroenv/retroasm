@@ -1,10 +1,12 @@
 # Work Branch Changes
 
-This document tracks every file changed in the `work` branch compared to `main`. It must be kept up-to-date as features are developed. When extracting features to `main`, mark the relevant entries as merged.
+This document tracks every file changed in the `work2` branch compared to `main`. It must be kept up-to-date as features are developed. When extracting features to `main`, mark the relevant entries as merged.
 
-**Branch:** `work`
+**Branch:** `work2`
 **Base:** `main`
-**Last updated:** 2026-04-28
+**Last updated:** 2026-04-29
+
+`main` was merged into `work2` on 2026-04-29. The entries below describe the remaining `work2` delta after that sync.
 
 ---
 
@@ -121,7 +123,7 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Do not leave architecture-specific documentation queued here. Ship Z80 docs with Group 12, Wave A architecture docs with the corresponding Wave A extraction, and M68000 docs with Group 13.
 - Update `docs/work-branch-changes.md` as you complete each group by marking entries as merged.
 - Final verification on `main`: full test pass, one clean `go test ./...` run, then remove temporary branch-only notes (including any `replace` directives).
-- Merge `work` into `main` and keep a short post-merge log for any follow-up cleanup.
+- Merge `work2` into `main` and keep a short post-merge log for any follow-up cleanup.
 
 ### Suggested Order of PRs
 1. Foundation Sanity

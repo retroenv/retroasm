@@ -125,7 +125,6 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 		segCfg := asm.cfg.SegmentsOrdered[0]
 		seg := &segment{
 			config: segCfg,
-			nodes:  nil,
 		}
 		p.currentSegment = seg
 		p.segments[seg.config.SegmentName] = seg
