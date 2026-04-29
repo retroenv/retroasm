@@ -15,18 +15,19 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 1: Foundation Sanity
 **Goal:** make the branch safe to extract before large feature files are introduced.
 
-- Merge `go.mod`/`go.sum` updates first and remove the local `replace retrogolib` directive before the final step.
-- Merge `.gitignore` and `.golangci.yml` changes so lint and generated artifacts behave consistently after extraction.
+- Merge `go.mod`/`go.sum` updates only if they are required by already-approved work. Keep dependency changes that exist only for deferred architecture waves (Chip-8, Z80, M68000, or others not yet extracted) out of `main` until those waves are ready. Remove the local `replace retrogolib` directive before the final step.
+- Merge only foundation config that is architecture-agnostic at this stage. Keep Z80-specific fixture tracking in `.gitignore` out of this group.
 - Run a baseline validation on `main` with only foundation changes: `make lint`, `go test ./pkg/...` (or minimal focused packages where needed).
 - Verify nothing in this group depends on new architecture packages.
 
 ### Group 2: CLI Multi-Architecture Plumbing
 **Goal:** split the command-line architecture expansion away from parser compatibility work.
 
-- Merge `cmd/retroasm/main.go` and `cmd/retroasm/main_test.go` pieces that add CPU/system normalization, defaulting, validation, multi-architecture registration, and `--z80-profile`.
+- Merge only the `cmd/retroasm/main.go` and `cmd/retroasm/main_test.go` pieces that add generic CPU/system normalization, defaulting, validation, and registration for already-approved non-Z80 architectures.
+- Keep architecture-specific CLI behavior out of this group until the corresponding architecture wave lands. That includes `--z80-profile`, Z80 registration branches, Z80-only validation/tests, and one-off paths like `assembleChip8File()` if Chip-8 itself is not in the same extraction.
 - Keep `--compat` parsing and compatibility-mode wiring out of this group.
 - Keep `cmd/retroasm/z80_fixture_test.go` out of this group; it belongs with the Z80 wave.
-- Validate with `go test ./cmd/retroasm -run 'Architecture|CPU|System|Z80Profile'` or the closest focused subset, then `go test ./cmd/retroasm/...`.
+- Validate with `go test ./cmd/retroasm -run 'Architecture|CPU|System'` or the closest focused subset, then `go test ./cmd/retroasm/...`.
 
 ### Group 3: High-Level API Generalization
 **Goal:** make `pkg/retroasm` and the generic assembler path architecture-agnostic before dialect work lands.
@@ -88,17 +89,18 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Validate with `go test ./pkg/parser/... -run X816` and `go test ./pkg/expression/...`.
 
 ### Group 11: Architecture Wave A (Low-Risk)
-**Goal:** land smaller/contained architecture additions after shared layers are stable.
+**Goal:** land smaller/contained architecture additions after shared layers are stable, but still keep each architecture reviewable.
 
-- Merge `pkg/arch/chip8/`, `pkg/arch/m65816/`, `pkg/arch/sm83/`, and `pkg/arch/x86/` plus their tests and examples where applicable.
-- Merge associated fixtures/examples if present (`examples/chip8/` plus docs updates).
-- Validate per-architecture tests: run `go test ./pkg/arch/chip8/...`, `./pkg/arch/m65816/...`, `./pkg/arch/sm83/...`, `./pkg/arch/x86/...`.
+- Do not treat this as one giant merge. Extract Chip-8, M65816, SM83, and x86 as separate PRs or merge commits within the same wave.
+- Merge each architecture package with its own deferred integration points. Examples: Chip-8 gets `assembleChip8File()`, any Chip-8-specific CLI registration/tests, `examples/chip8/`, and Chip-8 README/docs updates in the same slice; SM83 gets its docs with SM83; M65816 gets its docs with M65816; x86 gets any x86-specific CLI/docs with x86.
+- Keep architecture-specific README claims out of earlier generic groups. Only document support for an architecture when that architecture has actually landed on `main`.
+- Validate per architecture rather than as a single batched step: run `go test ./pkg/arch/chip8/...`, `./pkg/arch/m65816/...`, `./pkg/arch/sm83/...`, or `./pkg/arch/x86/...` for the architecture being extracted, plus the focused CLI tests that reference it.
 
 ### Group 12: Architecture Wave B (Higher Complexity)
 **Goal:** extract the largest parser/resolver-heavy architecture once lower-risk waves are stable.
 
 - Merge `pkg/arch/z80/` and `pkg/arch/z80/profile/` incrementally with parser/assembler tests and CLI profile plumbing.
-- Merge CLI and test coverage that directly references `--z80-profile` and Z80 registration.
+- Merge all deferred Z80-only integration points here: CLI registration, `--z80-profile`, Z80-specific validation/tests in `cmd/retroasm/main_test.go`, `cmd/retroasm/z80_fixture_test.go`, `.gitignore` exceptions for `tests/z80/`, Z80 fixture files, and Z80-specific README/docs updates.
 - Validate with `go test ./pkg/arch/z80/...`.
 - Validate with `go test ./cmd/retroasm -run Z80` through fixture-driven integration paths.
 - Validate with `go test ./cmd/retroasm/...`.
@@ -108,13 +110,15 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 **Goal:** add the final large architecture and ensure end-to-end behavior.
 
 - Merge `pkg/arch/m68000/` plus parser/addressing and assembler coverage tests.
+- Merge all deferred M68000-specific integration points here: CLI registration/tests, any dependency updates needed only for M68000 support, and M68000 README/docs updates.
 - Validate with `go test ./pkg/arch/m68000/...` and cross-arch smoke tests from previous groups.
 - Run full project checks (`make lint`, `make test`) and fix any integration-level regressions before removing compatibility flags or command-line leftovers.
 
 ### Group 14: Documentation and Finalization
 **Goal:** close branch metadata and production readiness.
 
-- Merge doc updates (`docs/compatibility-mode-plan.md`, `docs/x816-compatibility-plan.md`, `docs/sm83-support-plan.md`, `docs/z80-support-plan.md`, `docs/m68000-support-plan.md`, and any `README.md` changes).
+- Merge only branch-level or cross-cutting documentation here (`docs/compatibility-mode-plan.md`, `docs/x816-compatibility-plan.md`, and any truly architecture-independent `README.md` cleanup).
+- Do not leave architecture-specific documentation queued here. Ship Z80 docs with Group 12, Wave A architecture docs with the corresponding Wave A extraction, and M68000 docs with Group 13.
 - Update `docs/work-branch-changes.md` as you complete each group by marking entries as merged.
 - Final verification on `main`: full test pass, one clean `go test ./...` run, then remove temporary branch-only notes (including any `replace` directives).
 - Merge `work` into `main` and keep a short post-merge log for any follow-up cleanup.
@@ -137,8 +141,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 | Group | Merge Criteria | Primary Validation |
 |-------|----------------|-------------------|
-| Foundation Sanity | No architecture files introduced yet | `make lint`, core package tests |
-| CLI Multi-Architecture Plumbing | CLI accepts/normalizes new cpu/system combinations | `cmd/retroasm` focused tests |
+| Foundation Sanity | No architecture-specific behavior introduced yet | `make lint`, core package tests |
+| CLI Multi-Architecture Plumbing | CLI accepts/normalizes generic cpu/system combinations without deferred architecture-specific branches | `cmd/retroasm` focused tests |
 | High-Level API Generalization | `pkg/retroasm` can dispatch by registered architecture | `pkg/retroasm` + `pkg/assembler` tests |
 | AST and Opcode Plumbing | Generic AST/opcode APIs compile without dialect features | Parser/assembler + touched arch tests |
 | Include, Scope, and Data-Pipeline Extensions | Include/scope/reference-byte flows work in isolation | Focused parser/assembler tests |
@@ -147,9 +151,9 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 | ca65 Compatibility | ca65 labels/scopes/data features green | ca65 parser + bank-byte tests |
 | NESASM Compatibility | dot-local and positional macro paths green | NESASM parser/macro tests |
 | x816 Compatibility | x816 syntax and expression operators green | x816 parser + expression tests |
-| Architecture Wave A | One architecture at a time from this wave | Per-package architecture tests |
-| Architecture Wave B | Z80-specific resolver/assembler paths covered | Full fixture + CLI profile validation |
-| Architecture Wave C | M68000 test matrix green | M68000 package tests + full lint/test |
+| Architecture Wave A | One architecture slice at a time, including its own CLI/docs/examples | Per-package architecture tests plus focused CLI coverage |
+| Architecture Wave B | All Z80-specific code and docs land together | Full fixture + CLI profile validation |
+| Architecture Wave C | M68000 code, CLI wiring, and docs land together | M68000 package tests + full lint/test |
 | Documentation/Finalization | No pending branch-only TODOs | `make lint`, `make test` full run |
 
 ## Build & Configuration
