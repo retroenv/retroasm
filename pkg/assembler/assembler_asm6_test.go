@@ -293,8 +293,8 @@ func TestAssemblerAsm6ForwardRefAbsoluteAddressing(t *testing.T) {
 	// to land at $0003 and producing wrong code.
 	expected := []byte{
 		0xBD, 0x04, 0x00, // LDA $0004, X
-		0xEA,             // NOP
-		0x42,             // DB $42 at $0004
+		0xEA, // NOP
+		0x42, // DB $42 at $0004
 	}
 	assert.Equal(t, expected, b)
 }

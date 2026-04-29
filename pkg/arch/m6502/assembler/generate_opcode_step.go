@@ -65,7 +65,7 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 		addressing := m6502.AddressingMode(ins.Addressing())
 		upgraded := upgradeToAbsolute(addressing)
 		if upgraded != addressing {
-			return upgradeAndGenerateWord(assigner, ins, upgraded, value)
+			return upgradeAndGenerateWord(ins, upgraded, value)
 		}
 		return fmt.Errorf("value %d exceeds byte", value)
 	}
@@ -90,7 +90,7 @@ func upgradeToAbsolute(mode m6502.AddressingMode) m6502.AddressingMode {
 }
 
 // upgradeAndGenerateWord re-encodes the instruction using the absolute addressing variant.
-func upgradeAndGenerateWord(assigner arch.AddressAssigner, ins arch.Instruction, newMode m6502.AddressingMode, value uint64) error {
+func upgradeAndGenerateWord(ins arch.Instruction, newMode m6502.AddressingMode, value uint64) error {
 	var instructionInfo *m6502.Instruction
 	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
 		instructionInfo = m6502.InstructionsByID[id]
