@@ -4,7 +4,7 @@ This document tracks every file changed in the `work2` branch compared to `main`
 
 **Branch:** `work2`
 **Base:** `main`
-**Last updated:** 2026-04-29
+**Last updated:** 2026-04-30
 
 `main` was merged into `work2` on 2026-04-29. The entries below describe the remaining `work2` delta after that sync.
 
@@ -74,7 +74,7 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Keep compatibility-mode-specific parser changes out of this group.
 - Validate with `go test ./pkg/retroasm/... ./pkg/assembler/...`.
 
-### Group 4: AST and Opcode Plumbing
+### Group 4: AST and Opcode Plumbing ✅ APPLIED TO `main` WORKTREE (UNCOMMITTED)
 **Goal:** land the generic AST/assembler changes that architecture parsers and generators depend on, without bringing in dialect parsing yet.
 
 - Merge the remaining shared opcode-plumbing delta: `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, `pkg/assembler/generate_opcode_step.go`, and `pkg/arch/arch.go`.
