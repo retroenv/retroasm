@@ -10,6 +10,19 @@ import (
 	"github.com/retroenv/retroasm/pkg/scope"
 )
 
+// RegisterValueArgument represents a register paired with a value argument.
+type RegisterValueArgument struct {
+	Register byte
+	Value    any
+}
+
+// RegisterRegisterValueArgument represents two registers paired with a value argument.
+type RegisterRegisterValueArgument struct {
+	Register1 byte
+	Register2 byte
+	Value     any
+}
+
 // referenceType defines the type of reference.
 type referenceType int
 

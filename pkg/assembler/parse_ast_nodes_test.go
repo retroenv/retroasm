@@ -272,6 +272,46 @@ func TestParseInstruction(t *testing.T) { //nolint:funlen
 			),
 			wantErr: true,
 		},
+		{
+			name: "register value argument with immediate",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewRegisterValue(7, ast.NewNumber(0x2A)),
+				nil,
+			),
+			wantArg: RegisterValueArgument{
+				Register: 7,
+				Value:    uint64(0x2A),
+			},
+		},
+		{
+			name: "register value argument with label",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewRegisterValue(4, ast.NewLabel("target")),
+				nil,
+			),
+			wantArg: RegisterValueArgument{
+				Register: 4,
+				Value:    reference{name: "target"},
+			},
+		},
+		{
+			name: "register register value argument with label",
+			ins: ast.NewInstruction(
+				"ld",
+				0,
+				ast.NewRegisterRegisterValue(1, 2, ast.NewLabel("target")),
+				nil,
+			),
+			wantArg: RegisterRegisterValueArgument{
+				Register1: 1,
+				Register2: 2,
+				Value:     reference{name: "target"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
