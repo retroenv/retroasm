@@ -62,6 +62,7 @@ func (m *mockInstruction) Address() uint64     { return m.address }
 func (m *mockInstruction) Addressing() int     { return m.addressing }
 func (m *mockInstruction) Argument() any       { return m.argument }
 func (m *mockInstruction) Name() string        { return m.name }
+func (m *mockInstruction) OpcodeID() uint8     { return 0 }
 func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
 func (m *mockInstruction) Size() int           { return m.size }
 func (m *mockInstruction) OpcodeID() uint8     { return 0 }

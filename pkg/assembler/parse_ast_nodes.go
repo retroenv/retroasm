@@ -209,10 +209,10 @@ func parseLabel[T any](asm *parseAST[T], label ast.Label) ([]ast.Node, error) {
 
 func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
 	ins := &instruction{
-		opcodeID:   astInstruction.OpcodeID,
-		name:       astInstruction.Name,
 		addressing: astInstruction.Addressing,
 		argument:   astInstruction.Argument,
+		name:       astInstruction.Name,
+		opcodeID:   astInstruction.OpcodeID,
 	}
 
 	if astInstruction.Argument == nil {

@@ -35,3 +35,28 @@ func TestInstructionArguments_Copy(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "register", typedArg.Value)
 }
+
+func TestRegisterValue_Copy(t *testing.T) {
+	original := NewRegisterValue(3, NewLabel("target"))
+
+	copied, ok := original.Copy().(RegisterValue)
+	assert.True(t, ok)
+	assert.Equal(t, byte(3), copied.Register)
+
+	label, ok := copied.Value.(Label)
+	assert.True(t, ok)
+	assert.Equal(t, "target", label.Name)
+}
+
+func TestRegisterRegisterValue_Copy(t *testing.T) {
+	original := NewRegisterRegisterValue(1, 2, NewNumber(0x42))
+
+	copied, ok := original.Copy().(RegisterRegisterValue)
+	assert.True(t, ok)
+	assert.Equal(t, byte(1), copied.Register1)
+	assert.Equal(t, byte(2), copied.Register2)
+
+	number, ok := copied.Value.(Number)
+	assert.True(t, ok)
+	assert.Equal(t, uint64(0x42), number.Value)
+}
