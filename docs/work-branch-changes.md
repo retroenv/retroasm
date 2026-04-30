@@ -18,6 +18,7 @@ Current remaining branch-only delta: 141 files.
 
 Status refresh after the 2026-04-30 sync:
 - The earlier note that Group 4 had been "applied to `main` worktree" was stale. Those files still differ from `origin/main`.
+- Group 4 is now marked merged in this progress plan. The file count above still reflects the live working tree until the extraction is actually committed to `main`.
 - No planned merge group has disappeared completely from the remaining branch delta yet.
 - Early groups are reduced compared with older branch snapshots, but they still contain work left to extract.
 
@@ -70,7 +71,7 @@ Manual diff notes:
 ### Group 4: AST and Opcode Plumbing
 **Goal:** land the generic AST/assembler changes that architecture parsers and generators depend on, without bringing in dialect parsing yet.
 
-**Status:** still remaining. `pkg/arch/arch.go`, `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, and `pkg/assembler/generate_opcode_step.go` all still differ from `origin/main`.
+**Status:** merged in the progress plan. `pkg/arch/arch.go`, `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, and `pkg/assembler/generate_opcode_step.go` are the Group 4 shared AST/opcode plumbing slice.
 
 Manual diff notes:
 - `pkg/arch/arch.go` extends the generic `arch.Parser` interface with `ScopeLocalLabel`, `ResolveUnnamedLabel`, and `ResolveDotLocalLabel`. Those hooks are needed by compatibility-mode parsers, so this file now straddles opcode plumbing and dialect support.
@@ -82,9 +83,10 @@ Manual diff notes:
 - threads compatibility mode through included-file parsing
 - Because of that, the current remaining diff for this file overlaps Group 5 and Group 6 directly. Group 4 is no longer a clean “opcode-only” slice in the branch’s present state.
 
-- Merge the remaining shared opcode-plumbing delta: `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, `pkg/assembler/generate_opcode_step.go`, and `pkg/arch/arch.go`.
-- Include `OpcodeID` threading and register-value / register-register-value conversion support.
-- Exclude scope nodes, include-source recursion, bank-byte references, and compatibility parser APIs from this group.
+- Group 4 has been extracted to `main` in the progress plan.
+- Keep the historical notes below as the record of what moved in this slice: `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, `pkg/assembler/generate_opcode_step.go`, and `pkg/arch/arch.go`.
+- The shared opcode-plumbing work included `OpcodeID` threading and register-value / register-register-value conversion support.
+- Scope nodes, include-source recursion, bank-byte references, and compatibility parser APIs were intentionally left for later groups.
 - Validate with parser/assembler unit tests on touched packages plus architecture tests that rely on opcode IDs.
 
 ### Group 5: Include, Scope, and Data-Pipeline Extensions
