@@ -197,9 +197,10 @@ func parseLabel[T any](asm *parseAST[T], label ast.Label) ([]ast.Node, error) {
 
 func parseInstruction(astInstruction ast.Instruction) ([]ast.Node, error) {
 	ins := &instruction{
-		name:       astInstruction.Name,
 		addressing: astInstruction.Addressing,
 		argument:   astInstruction.Argument,
+		name:       astInstruction.Name,
+		opcodeID:   astInstruction.OpcodeID,
 	}
 
 	if astInstruction.Argument == nil {
@@ -240,7 +241,6 @@ func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (an
 		return reference{name: name}, nil
 
 	case ast.Identifier:
-		// Treat identifiers as references (symbols to be resolved)
 		name, err := nameWithModifiers(arg.Name, modifiers)
 		if err != nil {
 			return nil, fmt.Errorf("applying identifier modifiers: %w", err)

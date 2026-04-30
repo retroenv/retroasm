@@ -47,9 +47,10 @@ type data struct {
 
 // instruction of the used architecture.
 type instruction struct {
-	address uint64 // assigned start address of the instruction
-	size    int
-	opcodes []byte
+	address  uint64 // assigned start address of the instruction
+	size     int
+	opcodes  []byte
+	opcodeID uint8
 
 	name       string
 	addressing int
@@ -124,6 +125,10 @@ func (i *instruction) Name() string {
 	return i.name
 }
 
+func (i *instruction) OpcodeID() uint8 {
+	return i.opcodeID
+}
+
 func (i *instruction) SetAddress(addr uint64) {
 	i.address = addr
 }
@@ -138,6 +143,7 @@ func (i *instruction) Copy() ast.Node {
 		address:    i.address,
 		size:       i.size,
 		opcodes:    i.opcodes,
+		opcodeID:   i.opcodeID,
 		name:       i.name,
 		addressing: i.addressing,
 		argument:   i.argument,
