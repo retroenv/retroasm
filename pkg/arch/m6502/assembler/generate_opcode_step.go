@@ -13,7 +13,13 @@ import (
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	instructionInfo := m6502.Instructions[strings.ToLower(ins.Name())]
+	var instructionInfo *m6502.Instruction
+	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
+		instructionInfo = m6502.InstructionsByID[id]
+	}
+	if instructionInfo == nil {
+		instructionInfo = m6502.Instructions[strings.ToLower(ins.Name())]
+	}
 	addressing := m6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
@@ -55,10 +61,55 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
 	if value > math.MaxUint8 {
+		addressing := m6502.AddressingMode(ins.Addressing())
+		upgraded := upgradeToAbsolute(addressing)
+		if upgraded != addressing {
+			return upgradeAndGenerateWord(ins, upgraded, value)
+		}
 		return fmt.Errorf("value %d exceeds byte", value)
 	}
 
 	opcodes := append(ins.Opcodes(), byte(value))
+	ins.SetOpcodes(opcodes)
+	return nil
+}
+
+func upgradeToAbsolute(mode m6502.AddressingMode) m6502.AddressingMode {
+	switch mode {
+	case m6502.ZeroPageXAddressing:
+		return m6502.AbsoluteXAddressing
+	case m6502.ZeroPageYAddressing:
+		return m6502.AbsoluteYAddressing
+	case m6502.ZeroPageAddressing:
+		return m6502.AbsoluteAddressing
+	default:
+		return mode
+	}
+}
+
+func upgradeAndGenerateWord(ins arch.Instruction, newMode m6502.AddressingMode, value uint64) error {
+	var instructionInfo *m6502.Instruction
+	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
+		instructionInfo = m6502.InstructionsByID[id]
+	}
+	if instructionInfo == nil {
+		instructionInfo = m6502.Instructions[strings.ToLower(ins.Name())]
+	}
+	if instructionInfo == nil {
+		return fmt.Errorf("value %d exceeds byte (no instruction info for upgrade)", value)
+	}
+	absInfo, ok := instructionInfo.Addressing[newMode]
+	if !ok {
+		return fmt.Errorf("value %d exceeds byte (no %d addressing for %s)", value, newMode, ins.Name())
+	}
+	ins.SetAddressing(int(newMode))
+	ins.SetOpcodes([]byte{absInfo.Opcode})
+	ins.SetSize(int(absInfo.Size))
+
+	if value > math.MaxUint16 {
+		return fmt.Errorf("value %d exceeds word", value)
+	}
+	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
 	return nil
 }

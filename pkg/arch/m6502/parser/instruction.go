@@ -19,7 +19,7 @@ var errMissingParameter = errors.New("missing parameter")
 // ParseIdentifier parses an instruction identifier and returns an AST node.
 func ParseIdentifier(parser arch.Parser, ins *m6502.Instruction) (ast.Node, error) {
 	if len(ins.Addressing) == 1 && ins.HasAddressing(m6502.ImpliedAddressing) {
-		return ast.NewInstruction(ins.Name, int(m6502.ImpliedAddressing), nil, nil), nil
+		return newInstruction(ins, int(m6502.ImpliedAddressing), nil, nil), nil
 	}
 
 	node, err := parseInstruction(parser, ins)
@@ -35,6 +35,12 @@ type instruction struct {
 	modifiers      []ast.Modifier
 	arg1           token.Token
 	arg2           token.Token
+}
+
+func newInstruction(ins *m6502.Instruction, addressing int, arg ast.Node, modifiers []ast.Modifier) ast.Instruction {
+	node := ast.NewInstruction(ins.Name, addressing, arg, modifiers)
+	node.OpcodeID = uint8(m6502.NameToOpcodeID[ins.Name])
+	return node
 }
 
 func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction) (ast.Node, error) {
@@ -157,7 +163,7 @@ func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
-	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, ins.modifiers), nil
+	return newInstruction(ins.instruction, int(addressing), l, ins.modifiers), nil
 }
 
 func parseInstructionSingleIdentifierAccumulator(parser arch.Parser, ins *instruction) ast.Node {
@@ -186,7 +192,7 @@ func parseInstructionSingleIdentifierAccumulator(parser arch.Parser, ins *instru
 	if !usesAccumulator {
 		return nil
 	}
-	return ast.NewInstruction(ins.instruction.Name, int(m6502.AccumulatorAddressing), nil, ins.modifiers)
+	return newInstruction(ins.instruction, int(m6502.AccumulatorAddressing), nil, ins.modifiers)
 }
 
 func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, error) {
@@ -211,7 +217,7 @@ func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, 
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
-	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, nil), nil
+	return newInstruction(ins.instruction, int(addressing), l, nil), nil
 }
 
 func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (ast.Node, error) {
@@ -258,7 +264,7 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 		return nil, errors.New("invalid second parameter addressing mode usage")
 	}
 
-	return ast.NewInstruction(ins.instruction.Name, int(addressing), argument, ins.modifiers), nil
+	return newInstruction(ins.instruction, int(addressing), argument, ins.modifiers), nil
 }
 
 func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
@@ -270,7 +276,7 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ast.NewInstruction(ins.instruction.Name, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
 func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instruction, tok token.Token) (ast.Node, error) {
@@ -288,7 +294,7 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 	if err != nil {
 		return nil, err
 	}
-	return ast.NewInstruction(ins.instruction.Name, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
 // resolveImmediateArgument parses an immediate addressing argument, returning
@@ -347,5 +353,5 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 	}
 
 	n := ast.NewNumber(i)
-	return ast.NewInstruction(ins.instruction.Name, int(addressing), n, ins.modifiers), nil
+	return newInstruction(ins.instruction, int(addressing), n, ins.modifiers), nil
 }

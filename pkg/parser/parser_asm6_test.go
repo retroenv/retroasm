@@ -38,7 +38,7 @@ func TestParserAsm6(t *testing.T) {
 			return []ast.Node{ast.NewInclude("whatever.asm", false, 0, 0)}
 		}},
 		{input: "lda #12h", expected: func() []ast.Node {
-			return []ast.Node{ast.NewInstruction("lda", int(m6502.ImmediateAddressing), ast.NewNumber(0x12), nil)}
+			return []ast.Node{m6502Instruction("lda", int(m6502.ImmediateAddressing), ast.NewNumber(0x12))}
 		}},
 	}
 
