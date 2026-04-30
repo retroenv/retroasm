@@ -6,45 +6,20 @@ This document tracks every file changed in the `work2` branch compared to `main`
 **Base:** `main`
 **Last updated:** 2026-04-30
 
-`main` was merged into `work2` on 2026-04-29. The entries below describe the remaining `work2` delta after that sync.
+`origin/main` was merged into `work2` on 2026-04-30. The entries below describe the remaining `work2` delta after that sync.
 
 ---
 
 ## Refresh Notes
 
-This document was checked against `git diff --name-only main...HEAD` on 2026-04-29.
+This document was checked against `git diff --name-only origin/main...HEAD` on 2026-04-30.
 
-Entries removed from the remaining-delta inventory because they no longer differ from `main`:
-- `.golangci.yml`
-- `pkg/parser/ast/instruction.go`
-- `pkg/parser/ast/register.go`
-- `pkg/scope/scope.go`
-- `pkg/scope/symbol.go`
+Current remaining branch-only delta: 141 files.
 
-Current branch-only files that were missing or underrepresented in the previous version:
-- `cmd/retroasm/architecture.go`
-- `cmd/retroasm/assemble.go`
-- `pkg/arch/arch.go`
-- `pkg/assembler/generate_opcode_step.go`
-- `pkg/assembler/process_macros_step.go`
-- `pkg/parser/alias.go`
-- `pkg/parser/ast/configuration.go`
-- `pkg/parser/ast/data.go`
-- `pkg/parser/ast/scope.go`
-- `pkg/parser/directives/ca65.go`
-- `pkg/parser/directives/data.go`
-- `pkg/parser/directives/directives.go`
-- `pkg/parser/directives/helper.go`
-- `pkg/parser/directives/macro.go`
-- `pkg/parser/directives/nesasm.go`
-- `pkg/parser/directives/noop_test.go`
-- `pkg/parser/directives/x816.go`
-- `pkg/parser/parser.go`
-- `pkg/parser/parser_asm6_test.go`
-- `pkg/parser/parser_ca65_test.go`
-- `pkg/parser/parser_nesasm_test.go`
-- `pkg/parser/parser_test.go`
-- `pkg/parser/parser_x816_test.go`
+Status refresh after the 2026-04-30 sync:
+- The earlier note that Group 4 had been "applied to `main` worktree" was stale. Those files still differ from `origin/main`.
+- No planned merge group has disappeared completely from the remaining branch delta yet.
+- Early groups are reduced compared with older branch snapshots, but they still contain work left to extract.
 
 ## Merge Plan to Main
 
@@ -53,6 +28,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 1: Foundation Sanity
 **Goal:** make the branch safe to extract before large feature files are introduced.
 
+**Status:** still remaining. The branch delta still includes `go.mod`, `go.sum`, and `.gitignore`.
+
 - Merge `go.mod`/`go.sum` updates only if they are required by already-approved work. Keep dependency changes that exist only for deferred architecture waves (Chip-8, Z80, M68000, or others not yet extracted) out of `main` until those waves are ready. Remove the local `replace retrogolib` directive before the final step.
 - Merge only foundation config that is architecture-agnostic at this stage. Keep Z80-specific fixture tracking in `.gitignore` out of this group.
 - Run a baseline validation on `main` with only foundation changes: `make lint`, `go test ./pkg/...` (or minimal focused packages where needed).
@@ -60,6 +37,15 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 ### Group 2: CLI Multi-Architecture Plumbing
 **Goal:** split the command-line architecture expansion away from parser compatibility work.
+
+**Status:** still remaining. `cmd/retroasm/architecture.go`, `cmd/retroasm/assemble.go`, `cmd/retroasm/main.go`, and `cmd/retroasm/main_test.go` still differ; deferred Z80-specific CLI coverage also remains in `cmd/retroasm/z80_fixture_test.go`.
+
+Manual diff notes:
+- `cmd/retroasm/architecture.go` is no longer just generic CPU/system normalization. The remaining diff also registers `m65816`, `m68000`, `sm83`, and `z80`, threads compatibility mode into architecture configs, and adds Z80-profile parsing/defaulting/validation. Group 2 is therefore still mixed with later architecture-wave and compatibility work.
+- `cmd/retroasm/assemble.go` now parses `--compat`, routes Chip-8 through a direct low-level assembler path, and passes both compatibility mode and Z80 profile into architecture registration. The direct `assembleChip8File()` path belongs with the Chip-8 extraction, not with a pure generic CLI slice.
+- `cmd/retroasm/main.go` adds `z80Profile` and `compat` fields to CLI options and logs them. That means the remaining delta is not limited to architecture-agnostic flag plumbing.
+- `cmd/retroasm/main_test.go` has expanded well past basic CPU/system validation. The remaining tests cover defaulting for new architectures, Z80-profile compatibility/errors, and config-driven assembly through the new registration path.
+- `cmd/retroasm/z80_fixture_test.go` is entirely branch-only and is clearly Group 12 material: fixture-based Z80 integration, profile acceptance/rejection coverage, and resolver-path smoke tests.
 
 - Merge the generic CLI plumbing across `cmd/retroasm/architecture.go`, `cmd/retroasm/assemble.go`, `cmd/retroasm/main.go`, and `cmd/retroasm/main_test.go` that adds CPU/system normalization, defaulting, validation, and non-dialect-specific assembly flow.
 - Keep architecture-specific CLI behavior out of this group until the corresponding architecture wave lands. That includes `--z80-profile`, Z80 registration branches, Z80-only validation/tests, and one-off paths like `assembleChip8File()` if Chip-8 itself is not in the same extraction.
@@ -70,12 +56,31 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 3: High-Level API Generalization
 **Goal:** make `pkg/retroasm` and the generic assembler path architecture-agnostic before dialect work lands.
 
+**Status:** still remaining. `pkg/retroasm/default.go` and `pkg/assembler/assembler.go` still differ from `origin/main`.
+
+Manual diff notes:
+- `pkg/assembler/assembler.go` contains the only substantive remaining behavior change in this group: `Assembler.Process()` now calls `parser.New[T](..., asm.cfg.CompatibilityMode)`. That is compatibility-mode threading, not broad architecture-dispatch work.
+- `pkg/retroasm/default.go` no longer carries a meaningful architecture-generalization delta. The remaining diff there is effectively formatting/comment cleanup, not a real feature gap.
+- Compared with the original plan, Group 3 is much smaller now. The remaining real work is mostly the parser-construction signature change needed by compatibility mode, which makes this group overlap Group 6 more than earlier revisions implied.
+
 - Merge `pkg/retroasm/default.go`, `pkg/assembler/assembler.go`, and any minimal supporting changes needed for dynamic address width, architecture adapter config access, and generic assemble-text/assemble-AST dispatch.
 - Keep compatibility-mode-specific parser changes out of this group.
 - Validate with `go test ./pkg/retroasm/... ./pkg/assembler/...`.
 
-### Group 4: AST and Opcode Plumbing ✅ APPLIED TO `main` WORKTREE (UNCOMMITTED)
+### Group 4: AST and Opcode Plumbing
 **Goal:** land the generic AST/assembler changes that architecture parsers and generators depend on, without bringing in dialect parsing yet.
+
+**Status:** still remaining. `pkg/arch/arch.go`, `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, and `pkg/assembler/generate_opcode_step.go` all still differ from `origin/main`.
+
+Manual diff notes:
+- `pkg/arch/arch.go` extends the generic `arch.Parser` interface with `ScopeLocalLabel`, `ResolveUnnamedLabel`, and `ResolveDotLocalLabel`. Those hooks are needed by compatibility-mode parsers, so this file now straddles opcode plumbing and dialect support.
+- `pkg/assembler/nodes.go` adds `bankAddressByte` as a new generic reference kind, and `pkg/assembler/generate_opcode_step.go` emits the high third byte for that reference type. That part is concrete shared assembler plumbing.
+- `pkg/assembler/parse_ast_nodes.go` contains the largest remaining Group 4 delta, but it is not limited to opcode threading. It now:
+- handles `ast.Scope` and `ast.ScopeEnd`
+- accepts `ast.BankAddressByte` data references
+- supports source `.include` parsing by recursively invoking `parser.New(...)`
+- threads compatibility mode through included-file parsing
+- Because of that, the current remaining diff for this file overlaps Group 5 and Group 6 directly. Group 4 is no longer a clean “opcode-only” slice in the branch’s present state.
 
 - Merge the remaining shared opcode-plumbing delta: `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, `pkg/assembler/generate_opcode_step.go`, and `pkg/arch/arch.go`.
 - Include `OpcodeID` threading and register-value / register-register-value conversion support.
@@ -85,6 +90,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 5: Include, Scope, and Data-Pipeline Extensions
 **Goal:** isolate assembler-pipeline enhancements that are not inherently tied to one compatibility mode.
 
+**Status:** still remaining. Scope/data AST additions and the related assembler pipeline changes still differ, including `pkg/parser/ast/scope.go`, `pkg/parser/ast/data.go`, `pkg/parser/ast/configuration.go`, `pkg/assembler/parse_ast_nodes.go`, and `pkg/assembler/process_macros_step.go`.
+
 - Merge `pkg/parser/ast/scope.go`, `pkg/parser/ast/data.go`, `pkg/parser/ast/configuration.go`, `pkg/assembler/parse_ast_nodes.go` scope/include additions, and `pkg/assembler/generate_opcode_step.go` bank-byte emission.
 - Include source-include recursion and single-segment auto-initialization in `pkg/assembler/assembler.go` only if needed by this slice.
 - Keep directive registration and parser compatibility behavior out of this group.
@@ -92,6 +99,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 ### Group 6: Compatibility Framework
 **Goal:** introduce the shared `--compat` infrastructure and parser/directive dispatch without enabling every dialect feature at once.
+
+**Status:** still remaining. The shared parser/directive framework files still differ, including `pkg/parser/parser.go`, `pkg/parser/alias.go`, `pkg/parser/directives/directives.go`, `pkg/parser/directives/helper.go`, `pkg/parser/directives/macro.go`, and related tests.
 
 - Merge `pkg/assembler/config/compatibility*`, `pkg/parser/directives/directives.go`, `pkg/parser/directives/helper.go`, `pkg/parser/alias.go`, `pkg/parser/parser.go` constructor/handler plumbing, and the `--compat` flag parsing in `cmd/retroasm/main.go`.
 - Include only the shared parser behaviors needed across multiple modes: per-instance handler maps, `parseToken()` extraction, constructor signature changes, and compat-mode threading through macro reparsing.
@@ -101,12 +110,16 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 7: asm6 / asm6f Compatibility
 **Goal:** land asm6-specific behavior independently from the other dialects.
 
+**Status:** still remaining. asm6-related parser/assembler changes are still in the branch delta, including `pkg/parser/parser_asm6_test.go`, `pkg/assembler/assembler_asm6_test.go`, and the shared support they depend on.
+
 - Merge asm6 local-label scoping, asm6f `NES2*` directives, source-include support used by asm6 `.include`, and asm6-specific tests in `pkg/parser/parser_asm6_test.go`, `pkg/assembler/assembler_asm6_test.go`, and `pkg/parser/directives/noop_test.go`.
 - Files touched will include `pkg/parser/parser.go`, `pkg/parser/directives/data.go`, `pkg/parser/directives/nesasm.go`, `pkg/parser/directives/directives.go`, `pkg/parser/ast/configuration.go`, and `pkg/assembler/parse_ast_nodes.go`.
 - Validate with `go test ./pkg/parser/... -run Asm6` and `go test ./pkg/assembler/... -run Asm6`.
 
 ### Group 8: ca65 Compatibility
 **Goal:** isolate ca65 scope/data/label semantics into a reviewable extraction.
+
+**Status:** still remaining. ca65-specific directive and parser coverage still differs, including `pkg/parser/directives/ca65.go`, `pkg/parser/parser_ca65_test.go`, and the shared bank-byte-capable assembler/parser changes they rely on.
 
 - Merge ca65 unnamed labels, `.scope`/`.endscope`, `.asciiz`, `.faraddr`, `.bankbytes`, `.warning`, `.out`, `.endmacro`, and the ca65 no-op directive surface.
 - Files touched will include `pkg/parser/directives/ca65.go`, `pkg/parser/directives/macro.go`, `pkg/parser/parser.go`, `pkg/parser/ast/scope.go`, `pkg/parser/ast/data.go`, `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, and `pkg/assembler/generate_opcode_step.go`.
@@ -115,12 +128,16 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 9: NESASM Compatibility
 **Goal:** keep NESASM dot-local and positional-macro behavior separate from asm6/ca65/x816.
 
+**Status:** still remaining. NESASM-specific directive/parser changes still differ, including `pkg/parser/directives/nesasm.go` and `pkg/parser/parser_nesasm_test.go`.
+
 - Merge NESASM dot-local labels, `name .macro`, positional `\\1`-`\\9` macro substitution, `.ds`, `.endp`, `.fail`, and listing/section no-op directives.
 - Files touched will include `pkg/parser/parser.go`, `pkg/assembler/process_macros_step.go`, `pkg/parser/directives/data.go`, `pkg/parser/directives/directives.go`, and `pkg/lexer/token/token.go`.
 - Validate with `go test ./pkg/parser/... -run Nesasm` and targeted macro-expansion tests in `pkg/assembler/...`.
 
 ### Group 10: x816 Compatibility
 **Goal:** isolate x816 syntax and expression support from the other dialects.
+
+**Status:** still remaining. x816-specific directive/parser changes still differ, including `pkg/parser/directives/x816.go` and `pkg/parser/parser_x816_test.go`.
 
 - Merge colon-optional labels, anonymous `+`/`-` labels, `* = value`, `name .equ`, x816 no-op directives, `.comment` blocks, `.src`, 3-byte/4-byte data directives, and keyword bitwise operators.
 - Files touched will include `pkg/parser/parser.go`, `pkg/parser/directives/x816.go`, `pkg/parser/directives/directives.go`, `pkg/parser/directives/data.go`, `pkg/lexer/token/token.go`, `pkg/lexer/token/type.go`, `pkg/expression/expression.go`, and `pkg/expression/operator.go`.
@@ -129,6 +146,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 11: Architecture Wave A (Low-Risk)
 **Goal:** land smaller/contained architecture additions after shared layers are stable, but still keep each architecture reviewable.
 
+**Status:** still remaining. The branch delta still includes the Chip-8, M65816, SM83, and x86 architecture packages, their tests, and their supporting examples/docs.
+
 - Do not treat this as one giant merge. Extract Chip-8, M65816, SM83, and x86 as separate PRs or merge commits within the same wave.
 - Merge each architecture package with its own deferred integration points. Examples: Chip-8 gets `assembleChip8File()`, any Chip-8-specific CLI registration/tests, `examples/chip8/`, and Chip-8 README/docs updates in the same slice; SM83 gets its docs with SM83; M65816 gets its docs with M65816; x86 gets any x86-specific CLI/docs with x86.
 - Keep architecture-specific README claims out of earlier generic groups. Only document support for an architecture when that architecture has actually landed on `main`.
@@ -136,6 +155,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 ### Group 12: Architecture Wave B (Higher Complexity)
 **Goal:** extract the largest parser/resolver-heavy architecture once lower-risk waves are stable.
+
+**Status:** still remaining. The branch delta still includes `pkg/arch/z80/`, `pkg/arch/z80/profile/`, Z80 fixtures under `tests/z80/`, Z80 CLI coverage, and the related docs/README updates.
 
 - Merge `pkg/arch/z80/` and `pkg/arch/z80/profile/` incrementally with parser/assembler tests and CLI profile plumbing.
 - Merge all deferred Z80-only integration points here: CLI registration, `--z80-profile`, Z80-specific validation/tests in `cmd/retroasm/main_test.go`, `cmd/retroasm/z80_fixture_test.go`, `.gitignore` exceptions for `tests/z80/`, Z80 fixture files, and Z80-specific README/docs updates.
@@ -147,6 +168,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 13: Architecture Wave C (M68000) and Cross-Checks
 **Goal:** add the final large architecture and ensure end-to-end behavior.
 
+**Status:** still remaining. The branch delta still includes the full `pkg/arch/m68000/` slice plus its supporting docs and integration points.
+
 - Merge `pkg/arch/m68000/` plus parser/addressing and assembler coverage tests.
 - Merge all deferred M68000-specific integration points here: CLI registration/tests, any dependency updates needed only for M68000 support, and M68000 README/docs updates.
 - Validate with `go test ./pkg/arch/m68000/...` and cross-arch smoke tests from previous groups.
@@ -154,6 +177,8 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 ### Group 14: Documentation and Finalization
 **Goal:** close branch metadata and production readiness.
+
+**Status:** still remaining. The branch still carries branch-planning documentation, compatibility plans, and README updates that are not yet in `origin/main`.
 
 - Merge only branch-level or cross-cutting documentation here (`docs/compatibility-mode-plan.md`, `docs/x816-compatibility-plan.md`, and any truly architecture-independent `README.md` cleanup).
 - Do not leave architecture-specific documentation queued here. Ship Z80 docs with Group 12, Wave A architecture docs with the corresponding Wave A extraction, and M68000 docs with Group 13.
