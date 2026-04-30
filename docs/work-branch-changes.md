@@ -10,6 +10,42 @@ This document tracks every file changed in the `work2` branch compared to `main`
 
 ---
 
+## Refresh Notes
+
+This document was checked against `git diff --name-only main...HEAD` on 2026-04-29.
+
+Entries removed from the remaining-delta inventory because they no longer differ from `main`:
+- `.golangci.yml`
+- `pkg/parser/ast/instruction.go`
+- `pkg/parser/ast/register.go`
+- `pkg/scope/scope.go`
+- `pkg/scope/symbol.go`
+
+Current branch-only files that were missing or underrepresented in the previous version:
+- `cmd/retroasm/architecture.go`
+- `cmd/retroasm/assemble.go`
+- `pkg/arch/arch.go`
+- `pkg/assembler/generate_opcode_step.go`
+- `pkg/assembler/process_macros_step.go`
+- `pkg/parser/alias.go`
+- `pkg/parser/ast/configuration.go`
+- `pkg/parser/ast/data.go`
+- `pkg/parser/ast/scope.go`
+- `pkg/parser/directives/ca65.go`
+- `pkg/parser/directives/data.go`
+- `pkg/parser/directives/directives.go`
+- `pkg/parser/directives/helper.go`
+- `pkg/parser/directives/macro.go`
+- `pkg/parser/directives/nesasm.go`
+- `pkg/parser/directives/noop_test.go`
+- `pkg/parser/directives/x816.go`
+- `pkg/parser/parser.go`
+- `pkg/parser/parser_asm6_test.go`
+- `pkg/parser/parser_ca65_test.go`
+- `pkg/parser/parser_nesasm_test.go`
+- `pkg/parser/parser_test.go`
+- `pkg/parser/parser_x816_test.go`
+
 ## Merge Plan to Main
 
 Planned extraction is grouped to minimize risk and keep each merge window reviewable.
@@ -22,10 +58,10 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Run a baseline validation on `main` with only foundation changes: `make lint`, `go test ./pkg/...` (or minimal focused packages where needed).
 - Verify nothing in this group depends on new architecture packages.
 
-### Group 2: CLI Multi-Architecture Plumbing ✅ MERGED
+### Group 2: CLI Multi-Architecture Plumbing
 **Goal:** split the command-line architecture expansion away from parser compatibility work.
 
-- Merge only the `cmd/retroasm/main.go` and `cmd/retroasm/main_test.go` pieces that add generic CPU/system normalization, defaulting, validation, and registration for already-approved non-Z80 architectures.
+- Merge the generic CLI plumbing across `cmd/retroasm/architecture.go`, `cmd/retroasm/assemble.go`, `cmd/retroasm/main.go`, and `cmd/retroasm/main_test.go` that adds CPU/system normalization, defaulting, validation, and non-dialect-specific assembly flow.
 - Keep architecture-specific CLI behavior out of this group until the corresponding architecture wave lands. That includes `--z80-profile`, Z80 registration branches, Z80-only validation/tests, and one-off paths like `assembleChip8File()` if Chip-8 itself is not in the same extraction.
 - Keep `--compat` parsing and compatibility-mode wiring out of this group.
 - Keep `cmd/retroasm/z80_fixture_test.go` out of this group; it belongs with the Z80 wave.
@@ -41,7 +77,7 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 ### Group 4: AST and Opcode Plumbing
 **Goal:** land the generic AST/assembler changes that architecture parsers and generators depend on, without bringing in dialect parsing yet.
 
-- Merge `pkg/parser/ast/instruction.go`, `pkg/parser/ast/register.go`, `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go` register-value handling, and `pkg/arch/arch.go` `OpcodeID()` support.
+- Merge the remaining shared opcode-plumbing delta: `pkg/assembler/nodes.go`, `pkg/assembler/parse_ast_nodes.go`, `pkg/assembler/generate_opcode_step.go`, and `pkg/arch/arch.go`.
 - Include `OpcodeID` threading and register-value / register-register-value conversion support.
 - Exclude scope nodes, include-source recursion, bank-byte references, and compatibility parser APIs from this group.
 - Validate with parser/assembler unit tests on touched packages plus architecture tests that rely on opcode IDs.
@@ -164,10 +200,6 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 **Why:** Allow Z80 test fixture `.asm` files to be tracked while keeping other test artifacts ignored.
 **What:** Changed `tests/` exclusion to `tests/*` with explicit `!tests/z80/` and `!tests/z80/*.asm` exceptions.
 
-### `.golangci.yml`
-**Why:** New architecture code (Z80 resolver, M68000 encoder) requires slightly higher cyclomatic complexity allowance; formatting cleanup.
-**What:** Increased `cyclop.max-complexity` from 15 to 18. Added blank lines between YAML sections for readability.
-
 ### `go.mod`
 **Why:** Development requires local retrogolib changes (new Z80/M68000/Chip-8 CPU definitions).
 **What:** Added `replace` directive pointing `retrogolib` to local checkout. **Must be removed before merging to main.**
@@ -180,15 +212,19 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 ## CLI (`cmd/retroasm/`)
 
+### `cmd/retroasm/architecture.go`
+**Why:** Split architecture normalization, defaulting, validation, and adapter selection out of `main.go`.
+**What:** Holds the multi-architecture CLI plumbing that maps CPU/system inputs to the correct runtime configuration, including Z80-profile-aware validation and architecture registration helpers.
+
+### `cmd/retroasm/assemble.go`
+**Why:** Split assembly execution paths out of `main.go` as CLI support broadened beyond the original 6502-only flow.
+**What:** Holds the branch-only assemble-path wiring, including architecture-specific entry points such as the direct Chip-8 assembly path.
+
 ### `cmd/retroasm/main.go`
-**Why:** Support multi-architecture assembling from the command line.
+**Why:** Support multi-architecture assembling from the command line while keeping flag parsing and top-level CLI flow separate from the extracted helpers.
 **What:**
 - Added imports for Chip-8, M65816, M68000, SM83, Z80, and Z80 profile packages
-- Replaced single-architecture constants with lookup tables (`supportedSystemsByCPU`, `defaultSystemByCPU`, `defaultCPUBySystem`)
 - Added `--z80-profile` flag for Z80 instruction set filtering
-- Refactored `validateAndProcessArchitecture()` into smaller functions: `normalizeArchitectureOptions`, `setDefaultArchitecture`, `applyDerivedArchitectureDefaults`, `validateArchitectureCompatibility`, `validateZ80Profile`
-- Added `registerArchitectureForCPU()` to create correct architecture adapter per CPU
-- Added `assembleChip8File()` for direct Chip-8 assembler invocation (bypasses high-level API)
 - Replaced `map[string]struct{}` with `set.Set[string]`
 
 ### `cmd/retroasm/main_test.go`
@@ -215,6 +251,10 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Added `RegisterValueArgument` and `RegisterRegisterValueArgument` exported types for Z80-style `LD reg, value` instructions
 - Reordered all type definitions to appear grouped together before their methods (funcorder compliance)
 
+### `pkg/assembler/generate_opcode_step.go`
+**Why:** Shared data/reference emission still differs from `main` because compatibility work added branch-only reference handling.
+**What:** Added remaining shared opcode/data-generation plumbing used by the compatibility waves, including bank-byte reference emission for ca65-style data paths.
+
 ### `pkg/assembler/parse_ast_nodes.go`
 **Why:** Handle new AST node types for register-value instructions.
 **What:**
@@ -230,17 +270,13 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 - Added forward-reference absolute-addressing regression test (`LDA forward,X`) to protect first-pass width selection.
 - Added source include integration test for asm6-style `.include` flow and scoped parse context.
 
+### `pkg/assembler/process_macros_step.go`
+**Why:** Macro reparsing differs from `main` because compatibility modes and NESASM positional arguments now need branch-only handling.
+**What:** Threads compatibility mode through macro reparsing and adds the positional macro substitution path used by NESASM.
+
 ---
 
 ## AST & Parser (`pkg/parser/`)
-
-### `pkg/parser/ast/register.go` (new)
-**Why:** AST representation for Z80/M68000 instructions that pair registers with values.
-**What:** Added `RegisterValue` and `RegisterRegisterValue` AST node types with constructors and `Copy()` methods.
-
-### `pkg/parser/ast/instruction.go`
-**Why:** Carry opcode identity through parser/assembler pipelines.
-**What:** Added optional `OpcodeID` field on `Instruction` with architecture-provided lookup hook (`OpcodeIDLookup`) and `SetOpcodeID()` setter. Updated `Copy()` to clone argument safely when absent, enabling O(1) instruction dispatch in downstream assembler phases.
 
 ### `pkg/parser/directives/directives_test.go`
 **Why:** Funcorder compliance; improved test organization.
@@ -248,19 +284,11 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 ---
 
-## Scope (`pkg/scope/`)
-
-### `pkg/scope/scope.go`
-**Why:** Support symbol export from assembler (needed by `Assembler.Symbols()`).
-**What:** Added `AllLabels()` method that returns resolved addresses of all label/function-type symbols in a scope.
-
-### `pkg/scope/symbol.go`
-**Why:** Distinguish unresolved labels from zero-address symbols during first-pass assembly.
-**What:** Added `ErrForwardReference` and `addressSet` tracking so label reads can return a clear forward-reference error. This enables 6502 address sizing to preserve conservative width when references are resolved later.
-
----
-
 ## High-Level API (`pkg/retroasm/`)
+
+### `pkg/arch/arch.go`
+**Why:** Shared parser interfaces changed to support compatibility-mode-specific label resolution across architectures.
+**What:** Added parser hooks for scoped local labels, unnamed-label resolution, and dot-local resolution.
 
 ### `pkg/retroasm/default.go`
 **Why:** Make the high-level assembler API architecture-agnostic.
