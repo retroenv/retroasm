@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -9,7 +10,7 @@ import (
 )
 
 // processMacrosStep processes macro and rept nodes and replace them by their resolved nodes.
-func processMacrosStep[T any](asm *Assembler[T]) error {
+func processMacrosStep[T any](ctx context.Context, asm *Assembler[T]) error {
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]ast.Node, 0, len(seg.nodes))
 
@@ -18,7 +19,7 @@ func processMacrosStep[T any](asm *Assembler[T]) error {
 
 			switch n := node.(type) {
 			case ast.Identifier:
-				nodes, err := resolveMacroUsage(asm, n)
+				nodes, err := resolveMacroUsage(ctx, asm, n)
 				if err != nil {
 					return fmt.Errorf("processing identifier '%s': %w", n.Name, err)
 				}
@@ -42,7 +43,7 @@ func processMacrosStep[T any](asm *Assembler[T]) error {
 	return nil
 }
 
-func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node, error) {
+func resolveMacroUsage[T any](ctx context.Context, asm *Assembler[T], id ast.Identifier) ([]ast.Node, error) {
 	mac, ok := asm.macros[id.Name]
 	if !ok {
 		return nil, fmt.Errorf("unexpected identifier '%s' found", id.Name)
@@ -76,10 +77,10 @@ func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node,
 		}
 	}
 
-	return macroTokensToAStNodes(asm, mac.tokens)
+	return macroTokensToAStNodes(ctx, asm, mac.tokens)
 }
 
-func macroTokensToAStNodes[T any](asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
+func macroTokensToAStNodes[T any](_ context.Context, asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
 	// convert the adjusted tokens to AST nodes
 	par := parser.NewWithTokens(asm.cfg.Arch, tokens)
 	astNodes, err := par.TokensToAstNodes()

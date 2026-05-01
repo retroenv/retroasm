@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -137,7 +138,7 @@ func (aa *addressAssign[T]) addressWidth() int {
 }
 
 // assignAddressesStep assigns an address for every node in each scope.
-func assignAddressesStep[T any](asm *Assembler[T]) error {
+func assignAddressesStep[T any](_ context.Context, asm *Assembler[T]) error {
 	var err error
 	aa := addressAssign[T]{
 		arch:         asm.cfg.Arch,

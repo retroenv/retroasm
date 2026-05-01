@@ -1,5 +1,7 @@
 package assembler
 
+import "context"
+
 // Steps of the assembler to execute, in order.
 func (asm *Assembler[T]) Steps() []step[T] {
 	return []step[T]{
@@ -31,6 +33,6 @@ func (asm *Assembler[T]) Steps() []step[T] {
 }
 
 type step[T any] struct {
-	handler       func(*Assembler[T]) error
+	handler       func(context.Context, *Assembler[T]) error
 	errorTemplate string
 }

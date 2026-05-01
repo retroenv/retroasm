@@ -96,7 +96,7 @@ func TestAssemblerAsm6Incbin(t *testing.T) {
 		return []byte{0xfe, 0xff}, nil
 	}
 
-	assert.NoError(t, asm.Process(context.Background(), reader))
+	assert.NoError(t, asm.Process(t.Context(), reader))
 	b := buf.Bytes()
 	assert.Equal(t, []byte{0xfe, 0xff}, b)
 }
@@ -590,7 +590,7 @@ func TestAssemblerContextCancellation(t *testing.T) {
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	// Test cancellation during parsing
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately
 
 	reader := strings.NewReader(asm6EquTestCode)
@@ -612,7 +612,7 @@ func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	var buf bytes.Buffer
 	asm := New(cfg, &buf)
 
-	err := asm.Process(context.Background(), reader)
+	err := asm.Process(t.Context(), reader)
 	b := buf.Bytes()
 	return b, err
 }

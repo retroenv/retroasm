@@ -1,13 +1,14 @@
 package assembler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 )
 
 // writeOutputStep writes the filled memory segments to the output stream.
-func writeOutputStep[T any](asm *Assembler[T]) error {
+func writeOutputStep[T any](_ context.Context, asm *Assembler[T]) error {
 	memories, err := writeSegmentsToMemory(asm.cfg.SegmentsOrdered, asm.segments)
 	if err != nil {
 		return fmt.Errorf("writing segments to memory: %w", err)
