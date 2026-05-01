@@ -27,6 +27,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
+	"github.com/retroenv/retrogolib/set"
 )
 
 var errNoCurrentSegment = errors.New("no current segment found")
@@ -118,6 +119,7 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 	p := &parseAST[T]{
 		cfg:          asm.cfg,
 		fileReader:   asm.fileReader,
+		includeActive: set.New[string](),
 		currentScope: asm.fileScope,
 		segments:     map[string]*segment{},
 	}
@@ -151,7 +153,7 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 				return errNoCurrentSegment
 			}
 
-			newNodes, err := parseASTNode(p, node)
+			newNodes, err := parseASTNode(ctx, p, node)
 			if err != nil {
 				return err
 			}

@@ -1,11 +1,15 @@
 package assembler
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
+	cpu6502 "github.com/retroenv/retrogolib/arch/cpu/m6502"
 	"github.com/retroenv/retrogolib/assert"
+	"github.com/retroenv/retrogolib/set"
 )
 
 func TestModifierOffset(t *testing.T) { //nolint:funlen
@@ -338,7 +342,7 @@ func TestParseScope(t *testing.T) {
 		currentScope: fileScope,
 	}
 
-	nodes, err := parseASTNode(p, ast.NewScope("inner"))
+	nodes, err := parseASTNode(t.Context(), p, ast.NewScope("inner"))
 	assert.NoError(t, err)
 	assert.Len(t, nodes, 2)
 	assert.NotNil(t, p.currentScope)
@@ -362,7 +366,7 @@ func TestParseUnnamedScope(t *testing.T) {
 		currentScope: fileScope,
 	}
 
-	nodes, err := parseASTNode(p, ast.NewScope(""))
+	nodes, err := parseASTNode(t.Context(), p, ast.NewScope(""))
 	assert.NoError(t, err)
 	assert.Len(t, nodes, 1)
 	assert.Equal(t, fileScope, p.currentScope.Parent())
@@ -379,7 +383,7 @@ func TestParseScopeEnd(t *testing.T) {
 		currentScope: childScope,
 	}
 
-	nodes, err := parseASTNode(p, ast.NewScopeEnd())
+	nodes, err := parseASTNode(t.Context(), p, ast.NewScopeEnd())
 	assert.NoError(t, err)
 	assert.Len(t, nodes, 1)
 	assert.Equal(t, fileScope, p.currentScope)
@@ -394,8 +398,35 @@ func TestParseScopeEndWithoutParent(t *testing.T) {
 		currentScope: scope.New(nil),
 	}
 
-	_, err := parseASTNode(p, ast.NewScopeEnd())
+	_, err := parseASTNode(t.Context(), p, ast.NewScopeEnd())
 	assert.Error(t, err)
+}
+
+func TestParseSourceIncludeCycle(t *testing.T) {
+	cfg := m6502.New()
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
+
+	p := &parseAST[*cpu6502.Instruction]{
+		cfg: cfg,
+		fileReader: func(name string) ([]byte, error) {
+			switch name {
+			case "defs.asm":
+				return []byte(".include \"more.asm\"\n"), nil
+			case "more.asm":
+				return []byte(".include \"defs.asm\"\n"), nil
+			default:
+				return nil, nil
+			}
+		},
+		includeActive: set.New[string](),
+		currentScope: scope.New(nil),
+		segments:     map[string]*segment{},
+	}
+
+	_, err := parseASTNode(t.Context(), p, ast.NewInclude("defs.asm", false, 0, 0))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "include cycle detected")
+	assert.Contains(t, err.Error(), "defs.asm -> more.asm -> defs.asm")
 }
 
 type testTypedInstructionArgument struct {

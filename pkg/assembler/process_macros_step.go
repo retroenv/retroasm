@@ -7,6 +7,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // processMacrosStep processes macro and rept nodes and replace them by their resolved nodes.
@@ -80,7 +81,7 @@ func resolveMacroUsage[T any](ctx context.Context, asm *Assembler[T], id ast.Ide
 	return macroTokensToAStNodes(ctx, asm, mac.tokens)
 }
 
-func macroTokensToAStNodes[T any](_ context.Context, asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
+func macroTokensToAStNodes[T any](ctx context.Context, asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
 	// convert the adjusted tokens to AST nodes
 	par := parser.NewWithTokens(asm.cfg.Arch, tokens)
 	astNodes, err := par.TokensToAstNodes()
@@ -91,6 +92,7 @@ func macroTokensToAStNodes[T any](_ context.Context, asm *Assembler[T], tokens [
 	p := &parseAST[T]{
 		cfg:          asm.cfg,
 		fileReader:   asm.fileReader,
+		includeActive: set.New[string](),
 		currentScope: asm.fileScope,
 		segments:     map[string]*segment{},
 	}
@@ -98,7 +100,7 @@ func macroTokensToAStNodes[T any](_ context.Context, asm *Assembler[T], tokens [
 	// process the AST nodes
 	var result []ast.Node
 	for _, node := range astNodes {
-		nodes, err := parseASTNode(p, node)
+		nodes, err := parseASTNode(ctx, p, node)
 		if err != nil {
 			return nil, err
 		}
