@@ -124,6 +124,9 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 		case ast.HighAddressByte:
 			refType = highAddressByte
 			dat.width = 1
+		case ast.BankAddressByte:
+			refType = bankAddressByte
+			dat.width = 1
 		}
 
 		if err := parseDataAddress(dat, astData.Values, refType); err != nil {
@@ -142,7 +145,7 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 
 func parseDataAddress(dat *data, expression *expression.Expression, refType referenceType) error {
 	width := dat.width
-	if refType == lowAddressByte || refType == highAddressByte {
+	if refType == lowAddressByte || refType == highAddressByte || refType == bankAddressByte {
 		width = 1
 	}
 

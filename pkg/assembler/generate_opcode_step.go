@@ -114,6 +114,8 @@ func generateReferenceDataBytes(currentScope *scope.Scope, d *data) error {
 			b = []byte{byte(address)}
 		case highAddressByte:
 			b = []byte{byte(address >> 8)}
+		case bankAddressByte:
+			b = []byte{byte(address >> 16)}
 		default:
 			return fmt.Errorf("unsupported reference type %d", ref.typ)
 		}
