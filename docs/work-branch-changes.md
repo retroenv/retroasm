@@ -12,14 +12,15 @@ This document tracks every file changed in the `work2` branch compared to `main`
 
 ## Refresh Notes
 
-This document was checked against `git diff --name-only origin/main...HEAD` on 2026-05-01.
+This document was checked against `git diff --name-only main..HEAD` on 2026-05-01.
 
-Current remaining branch-only delta: 138 files.
+Current remaining branch-only delta: 129 files.
 
 Status refresh after the 2026-05-01 review:
 - Group 4 is now marked merged in this progress plan.
 - Group 5 is now marked merged in this progress plan. The source `.include` recursion slice is complete; the remaining hunks in the same files belong to later compatibility groups.
 - The remaining `work2` diffs in `pkg/assembler/assembler.go`, `pkg/assembler/process_macros_step.go`, and `pkg/parser/ast/configuration.go` belong to later compatibility groups even though older notes mentioned them near Group 5.
+- Chip-8 support is now merged in `main`; the remaining Wave A work starts with M65816, SM83, and x86.
 - No planned merge group has disappeared completely from the remaining branch delta yet.
 - Early groups are reduced compared with older branch snapshots, but they still contain work left to extract.
 
@@ -32,7 +33,7 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 **Status:** still remaining. The branch delta still includes `go.mod`, `go.sum`, and `.gitignore`.
 
-- Merge `go.mod`/`go.sum` updates only if they are required by already-approved work. Keep dependency changes that exist only for deferred architecture waves (Chip-8, Z80, M68000, or others not yet extracted) out of `main` until those waves are ready. Remove the local `replace retrogolib` directive before the final step.
+- Merge `go.mod`/`go.sum` updates only if they are required by already-approved work. Keep dependency changes that exist only for deferred architecture waves (Z80, M68000, or others not yet extracted) out of `main` until those waves are ready. Remove the local `replace retrogolib` directive before the final step.
 - Merge only foundation config that is architecture-agnostic at this stage. Keep Z80-specific fixture tracking in `.gitignore` out of this group.
 - Run a baseline validation on `main` with only foundation changes: `make lint`, `go test ./pkg/...` (or minimal focused packages where needed).
 - Verify nothing in this group depends on new architecture packages.
@@ -44,13 +45,13 @@ Planned extraction is grouped to minimize risk and keep each merge window review
 
 Manual diff notes:
 - `cmd/retroasm/architecture.go` is no longer just generic CPU/system normalization. The remaining diff also registers `m65816`, `m68000`, `sm83`, and `z80`, threads compatibility mode into architecture configs, and adds Z80-profile parsing/defaulting/validation. Group 2 is therefore still mixed with later architecture-wave and compatibility work.
-- `cmd/retroasm/assemble.go` now parses `--compat`, routes Chip-8 through a direct low-level assembler path, and passes both compatibility mode and Z80 profile into architecture registration. The direct `assembleChip8File()` path belongs with the Chip-8 extraction, not with a pure generic CLI slice.
+- `cmd/retroasm/assemble.go` now parses `--compat` and passes compatibility mode plus Z80 profile into architecture registration. The remaining direct assembly path work belongs with later architecture slices.
 - `cmd/retroasm/main.go` adds `z80Profile` and `compat` fields to CLI options and logs them. That means the remaining delta is not limited to architecture-agnostic flag plumbing.
 - `cmd/retroasm/main_test.go` has expanded well past basic CPU/system validation. The remaining tests cover defaulting for new architectures, Z80-profile compatibility/errors, and config-driven assembly through the new registration path.
 - `cmd/retroasm/z80_fixture_test.go` is entirely branch-only and is clearly Group 12 material: fixture-based Z80 integration, profile acceptance/rejection coverage, and resolver-path smoke tests.
 
 - Merge the generic CLI plumbing across `cmd/retroasm/architecture.go`, `cmd/retroasm/assemble.go`, `cmd/retroasm/main.go`, and `cmd/retroasm/main_test.go` that adds CPU/system normalization, defaulting, validation, and non-dialect-specific assembly flow.
-- Keep architecture-specific CLI behavior out of this group until the corresponding architecture wave lands. That includes `--z80-profile`, Z80 registration branches, Z80-only validation/tests, and one-off paths like `assembleChip8File()` if Chip-8 itself is not in the same extraction.
+- Keep architecture-specific CLI behavior out of this group until the corresponding architecture wave lands. That includes `--z80-profile`, Z80 registration branches, and Z80-only validation/tests.
 - Keep `--compat` parsing and compatibility-mode wiring out of this group.
 - Keep `cmd/retroasm/z80_fixture_test.go` out of this group; it belongs with the Z80 wave.
 - Validate with `go test ./cmd/retroasm -run 'Architecture|CPU|System'` or the closest focused subset, then `go test ./cmd/retroasm/...`.
@@ -148,12 +149,12 @@ Manual diff notes:
 ### Group 11: Architecture Wave A (Low-Risk)
 **Goal:** land smaller/contained architecture additions after shared layers are stable, but still keep each architecture reviewable.
 
-**Status:** still remaining. The branch delta still includes the Chip-8, M65816, SM83, and x86 architecture packages, their tests, and their supporting examples/docs.
+**Status:** still remaining. The branch delta now includes the M65816, SM83, and x86 architecture packages, their tests, and their supporting examples/docs. Chip-8 has already landed on `main`.
 
-- Do not treat this as one giant merge. Extract Chip-8, M65816, SM83, and x86 as separate PRs or merge commits within the same wave.
-- Merge each architecture package with its own deferred integration points. Examples: Chip-8 gets `assembleChip8File()`, any Chip-8-specific CLI registration/tests, `examples/chip8/`, and Chip-8 README/docs updates in the same slice; SM83 gets its docs with SM83; M65816 gets its docs with M65816; x86 gets any x86-specific CLI/docs with x86.
+- Do not treat this as one giant merge. Extract M65816, SM83, and x86 as separate PRs or merge commits within the same wave.
+- Merge each architecture package with its own deferred integration points. M65816 gets its docs with M65816; SM83 gets its docs with SM83; x86 gets any x86-specific CLI/docs with x86.
 - Keep architecture-specific README claims out of earlier generic groups. Only document support for an architecture when that architecture has actually landed on `main`.
-- Validate per architecture rather than as a single batched step: run `go test ./pkg/arch/chip8/...`, `./pkg/arch/m65816/...`, `./pkg/arch/sm83/...`, or `./pkg/arch/x86/...` for the architecture being extracted, plus the focused CLI tests that reference it.
+- Validate per architecture rather than as a single batched step: run `go test ./pkg/arch/m65816/...`, `./pkg/arch/sm83/...`, or `./pkg/arch/x86/...` for the architecture being extracted, plus the focused CLI tests that reference it.
 
 ### Group 12: Architecture Wave B (Higher Complexity)
 **Goal:** extract the largest parser/resolver-heavy architecture once lower-risk waves are stable.
@@ -199,7 +200,7 @@ Manual diff notes:
 8. ca65 Compatibility
 9. NESASM Compatibility
 10. x816 Compatibility
-11. Architecture Wave A (chip8/m65816/sm83/x86)
+11. Architecture Wave A (m65816/sm83/x86)
 12. Architecture Wave B (z80 + profile)
 13. Architecture Wave C (m68000)
 14. Documentation and Finalization
@@ -228,12 +229,12 @@ Manual diff notes:
 **What:** Changed `tests/` exclusion to `tests/*` with explicit `!tests/z80/` and `!tests/z80/*.asm` exceptions.
 
 ### `go.mod`
-**Why:** Development requires local retrogolib changes (new Z80/M68000/Chip-8 CPU definitions).
+**Why:** Development requires local retrogolib changes (new Z80/M68000 CPU definitions).
 **What:** Added `replace` directive pointing `retrogolib` to local checkout. **Must be removed before merging to main.**
 
 ### `README.md`
 **Why:** Document newly supported architectures and updated CLI options.
-**What:** Added architecture support section (6502, Chip-8, Z80, M68000). Updated CLI usage examples and flag descriptions to reflect multi-architecture support.
+**What:** Added architecture support section (6502, Z80, M68000). Updated CLI usage examples and flag descriptions to reflect multi-architecture support.
 
 ---
 
@@ -245,12 +246,12 @@ Manual diff notes:
 
 ### `cmd/retroasm/assemble.go`
 **Why:** Split assembly execution paths out of `main.go` as CLI support broadened beyond the original 6502-only flow.
-**What:** Holds the branch-only assemble-path wiring, including architecture-specific entry points such as the direct Chip-8 assembly path.
+**What:** Holds the branch-only assemble-path wiring, including architecture-specific entry points for later architecture waves.
 
 ### `cmd/retroasm/main.go`
 **Why:** Support multi-architecture assembling from the command line while keeping flag parsing and top-level CLI flow separate from the extracted helpers.
 **What:**
-- Added imports for Chip-8, M65816, M68000, SM83, Z80, and Z80 profile packages
+- Added imports for M65816, M68000, SM83, Z80, and Z80 profile packages
 - Added `--z80-profile` flag for Z80 instruction set filtering
 - Replaced `map[string]struct{}` with `set.Set[string]`
 
@@ -348,10 +349,10 @@ Manual diff notes:
 
 ---
 
-## Architecture: Chip-8 (`pkg/arch/chip8/`) — ALL NEW
+## Architecture: Chip-8 (`pkg/arch/chip8/`) — MERGED
 
 ### `pkg/arch/chip8/chip8.go`
-**Why:** New architecture support for Chip-8 virtual machine.
+**Why:** Chip-8 architecture support merged into `main`.
 **What:** Architecture entry point. Creates `config.Config` with Chip-8 instruction set, parser, address assigner, and opcode generator. 12-bit address width.
 
 ### `pkg/arch/chip8/chip8_test.go`
@@ -722,7 +723,7 @@ Instructions rejected by strict documented profile.
 
 ---
 
-## Chip-8 Examples (`examples/chip8/`) — ALL NEW
+## Chip-8 Examples (`examples/chip8/`) — MERGED
 
 ### `examples/chip8/README.md`
 Documentation for Chip-8 example programs.
