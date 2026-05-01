@@ -6,7 +6,7 @@ This document tracks every file changed in the `work2` branch compared to `main`
 **Base:** `main`
 **Last updated:** 2026-05-01
 
-`origin/main` was merged into `work2` on 2026-04-30. The entries below describe the remaining `work2` delta after that sync.
+`origin/main` was merged into `work2` on 2026-05-01. The entries below describe the remaining `work2` delta after that sync.
 
 ---
 
@@ -14,14 +14,12 @@ This document tracks every file changed in the `work2` branch compared to `main`
 
 This document was checked against `git diff --name-only origin/main...HEAD` on 2026-05-01.
 
-Current remaining branch-only delta: 141 files.
+Current remaining branch-only delta: 138 files.
 
 Status refresh after the 2026-05-01 review:
-- The earlier note that Group 4 had been "applied to `main` worktree" was stale. Those files still differ from `origin/main`.
-- Group 4 is now marked merged in this progress plan. The file count above still reflects the live working tree until the extraction is actually committed to `main`.
+- Group 4 is now marked merged in this progress plan.
 - Group 5 has narrowed: the only architecture-agnostic extraction still intended for this slice is source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` plus its assembler test coverage.
 - The remaining `work2` diffs in `pkg/assembler/assembler.go`, `pkg/assembler/process_macros_step.go`, and `pkg/parser/ast/configuration.go` belong to later compatibility groups even though older notes mentioned them near Group 5.
-- On 2026-05-01, the source-include part of Group 5 was applied to the `main` working tree without commit. Until that is committed on `main`, live diff counts will continue to show those hunks in `work2`.
 - No planned merge group has disappeared completely from the remaining branch delta yet.
 - Early groups are reduced compared with older branch snapshots, but they still contain work left to extract.
 
@@ -95,7 +93,7 @@ Manual diff notes:
 ### Group 5: Include, Scope, and Data-Pipeline Extensions
 **Goal:** isolate assembler-pipeline enhancements that are not inherently tied to one compatibility mode.
 
-**Status:** applied to the `main` working tree on 2026-05-01, pending commit there. In the current branch state, the only remaining architecture-agnostic work for this slice was source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` plus the related assembler test coverage.
+**Status:** still remaining. In the current branch delta, this slice is reduced to source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` plus the related assembler test coverage in `pkg/assembler/assembler_asm6_test.go`.
 
 - Historical note: earlier Group 5 planning also mentioned scope/data AST and bank-byte support, but those pieces are already present on `main` and are no longer part of the live extraction delta.
 - Extract only source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` and its focused coverage in `pkg/assembler/assembler_asm6_test.go`.
