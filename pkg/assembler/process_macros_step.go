@@ -90,11 +90,11 @@ func macroTokensToAStNodes[T any](ctx context.Context, asm *Assembler[T], tokens
 	}
 
 	p := &parseAST[T]{
-		cfg:          asm.cfg,
-		fileReader:   asm.fileReader,
+		cfg:           asm.cfg,
+		fileReader:    asm.fileReader,
 		includeActive: set.New[string](),
-		currentScope: asm.fileScope,
-		segments:     map[string]*segment{},
+		currentScope:  asm.fileScope,
+		segments:      map[string]*segment{},
 	}
 
 	// process the AST nodes

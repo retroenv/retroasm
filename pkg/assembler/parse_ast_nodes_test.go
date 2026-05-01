@@ -419,8 +419,8 @@ func TestParseSourceIncludeCycle(t *testing.T) {
 			}
 		},
 		includeActive: set.New[string](),
-		currentScope: scope.New(nil),
-		segments:     map[string]*segment{},
+		currentScope:  scope.New(nil),
+		segments:      map[string]*segment{},
 	}
 
 	_, err := parseASTNode(t.Context(), p, ast.NewInclude("defs.asm", false, 0, 0))

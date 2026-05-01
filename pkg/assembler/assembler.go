@@ -117,11 +117,11 @@ func (asm *Assembler[T]) Symbols() map[string]uint64 {
 // parseASTNodes processes the given AST nodes and converts them to internal types.
 func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) error {
 	p := &parseAST[T]{
-		cfg:          asm.cfg,
-		fileReader:   asm.fileReader,
+		cfg:           asm.cfg,
+		fileReader:    asm.fileReader,
 		includeActive: set.New[string](),
-		currentScope: asm.fileScope,
-		segments:     map[string]*segment{},
+		currentScope:  asm.fileScope,
+		segments:      map[string]*segment{},
 	}
 	if len(asm.cfg.SegmentsOrdered) == 1 {
 		segCfg := asm.cfg.SegmentsOrdered[0]

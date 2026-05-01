@@ -22,7 +22,7 @@ type parseAST[T any] struct {
 	// a function that reads in a file, for testing includes, defaults to os.ReadFile
 	fileReader    func(name string) ([]byte, error)
 	includeActive set.Set[string]
-	includeStack []string
+	includeStack  []string
 
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
 	currentSegment *segment     // the current segment being parsed
