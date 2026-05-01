@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	"github.com/retroenv/retroasm/pkg/scope"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -329,6 +330,72 @@ func TestParseInstruction(t *testing.T) { //nolint:funlen
 			assert.Equal(t, tt.wantArg, ins.argument)
 		})
 	}
+}
+
+func TestParseScope(t *testing.T) {
+	fileScope := scope.New(nil)
+	p := &parseAST[struct{}]{
+		currentScope: fileScope,
+	}
+
+	nodes, err := parseASTNode(p, ast.NewScope("inner"))
+	assert.NoError(t, err)
+	assert.Len(t, nodes, 2)
+	assert.NotNil(t, p.currentScope)
+	assert.Equal(t, fileScope, p.currentScope.Parent())
+
+	scopeNode, ok := nodes[0].(scopeChange)
+	assert.True(t, ok)
+	assert.Equal(t, p.currentScope, scopeNode.scope)
+
+	symNode, ok := nodes[1].(*symbol)
+	assert.True(t, ok)
+
+	sym, err := fileScope.GetSymbol("inner")
+	assert.NoError(t, err)
+	assert.Equal(t, symNode.Symbol, sym)
+}
+
+func TestParseUnnamedScope(t *testing.T) {
+	fileScope := scope.New(nil)
+	p := &parseAST[struct{}]{
+		currentScope: fileScope,
+	}
+
+	nodes, err := parseASTNode(p, ast.NewScope(""))
+	assert.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, fileScope, p.currentScope.Parent())
+
+	scopeNode, ok := nodes[0].(scopeChange)
+	assert.True(t, ok)
+	assert.Equal(t, p.currentScope, scopeNode.scope)
+}
+
+func TestParseScopeEnd(t *testing.T) {
+	fileScope := scope.New(nil)
+	childScope := scope.New(fileScope)
+	p := &parseAST[struct{}]{
+		currentScope: childScope,
+	}
+
+	nodes, err := parseASTNode(p, ast.NewScopeEnd())
+	assert.NoError(t, err)
+	assert.Len(t, nodes, 1)
+	assert.Equal(t, fileScope, p.currentScope)
+
+	scopeNode, ok := nodes[0].(scopeChange)
+	assert.True(t, ok)
+	assert.Equal(t, fileScope, scopeNode.scope)
+}
+
+func TestParseScopeEndWithoutParent(t *testing.T) {
+	p := &parseAST[struct{}]{
+		currentScope: scope.New(nil),
+	}
+
+	_, err := parseASTNode(p, ast.NewScopeEnd())
+	assert.Error(t, err)
 }
 
 type testTypedInstructionArgument struct {

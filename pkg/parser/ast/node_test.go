@@ -100,6 +100,23 @@ func TestData_Copy(t *testing.T) {
 	})
 }
 
+func TestScope_Copy(t *testing.T) {
+	original := NewScope("inner")
+	original.SetComment("nested scope")
+
+	copied, ok := original.Copy().(Scope)
+	assert.True(t, ok)
+	assert.Equal(t, "inner", copied.Name)
+}
+
+func TestScopeEnd_Copy(t *testing.T) {
+	original := NewScopeEnd()
+	original.SetComment("end nested scope")
+
+	_, ok := original.Copy().(ScopeEnd)
+	assert.True(t, ok)
+}
+
 func TestAlias_Copy(t *testing.T) {
 	original := NewAlias("SCREEN")
 
