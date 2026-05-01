@@ -233,6 +233,7 @@ func assembleASTWithConfig[T any](ctx context.Context, cfg *config.Config[T], no
 
 func assembleTextWithConfig[T any](ctx context.Context, cfg *config.Config[T],
 	source anyReader, configFile string) ([]byte, error) {
+
 	if err := readAssemblerConfig(cfg, configFile); err != nil {
 		return nil, err
 	}
