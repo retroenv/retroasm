@@ -1,15 +1,17 @@
 package assembler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // processMacrosStep processes macro and rept nodes and replace them by their resolved nodes.
-func processMacrosStep[T any](asm *Assembler[T]) error {
+func processMacrosStep[T any](ctx context.Context, asm *Assembler[T]) error {
 	for i, seg := range asm.segmentsOrder {
 		segmentNodesResolved := make([]ast.Node, 0, len(seg.nodes))
 
@@ -18,7 +20,7 @@ func processMacrosStep[T any](asm *Assembler[T]) error {
 
 			switch n := node.(type) {
 			case ast.Identifier:
-				nodes, err := resolveMacroUsage(asm, n)
+				nodes, err := resolveMacroUsage(ctx, asm, n)
 				if err != nil {
 					return fmt.Errorf("processing identifier '%s': %w", n.Name, err)
 				}
@@ -42,21 +44,21 @@ func processMacrosStep[T any](asm *Assembler[T]) error {
 	return nil
 }
 
-func resolveMacroUsage[T any](asm *Assembler[T], id ast.Identifier) ([]ast.Node, error) {
+func resolveMacroUsage[T any](ctx context.Context, asm *Assembler[T], id ast.Identifier) ([]ast.Node, error) {
 	mac, ok := asm.macros[id.Name]
 	if !ok {
 		return nil, fmt.Errorf("unexpected identifier '%s' found", id.Name)
 	}
 
 	if len(mac.arguments) > 0 {
-		return resolveNamedMacro(asm, mac, id)
+		return resolveNamedMacro(ctx, asm, mac, id)
 	}
 
-	return resolvePositionalMacro(asm, mac, id)
+	return resolvePositionalMacro(ctx, asm, mac, id)
 }
 
 // resolveNamedMacro handles standard macro expansion with named parameters.
-func resolveNamedMacro[T any](asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
+func resolveNamedMacro[T any](ctx context.Context, asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
 	if len(mac.arguments) != len(id.Arguments) {
 		return nil, fmt.Errorf("macro argument count %d does not match usage argument count %d",
 			len(mac.arguments), len(id.Arguments))
@@ -85,11 +87,41 @@ func resolveNamedMacro[T any](asm *Assembler[T], mac macro, id ast.Identifier) (
 		}
 	}
 
-	return macroTokensToAStNodes(asm, mac.tokens)
+	return macroTokensToAStNodes(ctx, asm, mac.tokens)
+}
+
+func macroTokensToAStNodes[T any](ctx context.Context, asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
+	// convert the adjusted tokens to AST nodes
+	par := parser.NewWithTokens(asm.cfg.Arch, tokens, asm.cfg.CompatibilityMode)
+	astNodes, err := par.TokensToAstNodes()
+	if err != nil {
+		return nil, fmt.Errorf("converting tokens to ast nodes: %w", err)
+	}
+
+	p := &parseAST[T]{
+		cfg:           asm.cfg,
+		fileReader:    asm.fileReader,
+		includeActive: set.New[string](),
+		currentScope:  asm.fileScope,
+		segments:      map[string]*segment{},
+	}
+
+	// process the AST nodes
+	var result []ast.Node
+	for _, node := range astNodes {
+		nodes, err := parseASTNode(ctx, p, node)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, nodes...)
+	}
+
+	return result, nil
 }
 
 // resolvePositionalMacro handles NESASM-style macro expansion with \1-\9 positional parameters.
-func resolvePositionalMacro[T any](asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
+func resolvePositionalMacro[T any](ctx context.Context, asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
 	var resolved []token.Token
 
 	for i := 0; i < len(mac.tokens); i++ {
@@ -113,34 +145,5 @@ func resolvePositionalMacro[T any](asm *Assembler[T], mac macro, id ast.Identifi
 		resolved = append(resolved, tok)
 	}
 
-	return macroTokensToAStNodes(asm, resolved)
-}
-
-func macroTokensToAStNodes[T any](asm *Assembler[T], tokens []token.Token) ([]ast.Node, error) {
-	// convert the adjusted tokens to AST nodes
-	par := parser.NewWithTokens(asm.cfg.Arch, tokens, asm.cfg.CompatibilityMode)
-	astNodes, err := par.TokensToAstNodes()
-	if err != nil {
-		return nil, fmt.Errorf("converting tokens to ast nodes: %w", err)
-	}
-
-	p := &parseAST[T]{
-		cfg:          asm.cfg,
-		fileReader:   asm.fileReader,
-		currentScope: asm.fileScope,
-		segments:     map[string]*segment{},
-	}
-
-	// process the AST nodes
-	var result []ast.Node
-	for _, node := range astNodes {
-		nodes, err := parseASTNode(p, node)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, nodes...)
-	}
-
-	return result, nil
+	return macroTokensToAStNodes(ctx, asm, resolved)
 }

@@ -1,9 +1,12 @@
 package assembler
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // updateDataSizesStep updates the size information of data nodes.
-func updateDataSizesStep[T any](asm *Assembler[T]) error {
+func updateDataSizesStep[T any](_ context.Context, asm *Assembler[T]) error {
 	for _, seg := range asm.segmentsOrder {
 		for _, node := range seg.nodes {
 			dat, ok := node.(*data)

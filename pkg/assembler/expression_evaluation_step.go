@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -29,7 +30,7 @@ type expressionEvaluation[T any] struct {
 }
 
 // evaluateExpressionsStep parses the AST nodes and evaluates aliases to their values.
-func evaluateExpressionsStep[T any](asm *Assembler[T]) error {
+func evaluateExpressionsStep[T any](_ context.Context, asm *Assembler[T]) error {
 	expEval := expressionEvaluation[T]{
 		arch:         asm.cfg.Arch,
 		currentScope: asm.fileScope,

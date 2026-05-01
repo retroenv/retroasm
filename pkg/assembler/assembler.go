@@ -27,6 +27,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
+	"github.com/retroenv/retrogolib/set"
 )
 
 var errNoCurrentSegment = errors.New("no current segment found")
@@ -98,7 +99,7 @@ func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error
 			return fmt.Errorf("processing cancelled: %w", ctx.Err())
 		default:
 		}
-		if err := stp.handler(asm); err != nil {
+		if err := stp.handler(ctx, asm); err != nil {
 			return fmt.Errorf("executing assembler step %d/%d: %s: %w",
 				i+1, len(steps), stp.errorTemplate, err)
 		}
@@ -116,10 +117,11 @@ func (asm *Assembler[T]) Symbols() map[string]uint64 {
 // parseASTNodes processes the given AST nodes and converts them to internal types.
 func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) error {
 	p := &parseAST[T]{
-		cfg:          asm.cfg,
-		fileReader:   asm.fileReader,
-		currentScope: asm.fileScope,
-		segments:     map[string]*segment{},
+		cfg:           asm.cfg,
+		fileReader:    asm.fileReader,
+		includeActive: set.New[string](),
+		currentScope:  asm.fileScope,
+		segments:      map[string]*segment{},
 	}
 	if len(asm.cfg.SegmentsOrdered) == 1 {
 		segCfg := asm.cfg.SegmentsOrdered[0]
@@ -151,7 +153,7 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 				return errNoCurrentSegment
 			}
 
-			newNodes, err := parseASTNode(p, node)
+			newNodes, err := parseASTNode(ctx, p, node)
 			if err != nil {
 				return err
 			}

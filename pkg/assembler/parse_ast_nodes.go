@@ -14,12 +14,15 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
+	"github.com/retroenv/retrogolib/set"
 )
 
 type parseAST[T any] struct {
 	cfg *config.Config[T]
 	// a function that reads in a file, for testing includes, defaults to os.ReadFile
-	fileReader func(name string) ([]byte, error)
+	fileReader    func(name string) ([]byte, error)
+	includeActive set.Set[string]
+	includeStack  []string
 
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
 	currentSegment *segment     // the current segment being parsed
@@ -31,7 +34,7 @@ type parseAST[T any] struct {
 var errNilInstructionArgument = errors.New("instruction argument cannot be nil")
 
 //nolint:cyclop,funlen // type switch with one case per AST node type
-func parseASTNode[T any](asm *parseAST[T], node ast.Node) ([]ast.Node, error) {
+func parseASTNode[T any](ctx context.Context, asm *parseAST[T], node ast.Node) ([]ast.Node, error) {
 	var (
 		err   error
 		nodes []ast.Node
@@ -63,7 +66,7 @@ func parseASTNode[T any](asm *parseAST[T], node ast.Node) ([]ast.Node, error) {
 		nodes, err = parseInstruction(n)
 
 	case ast.Include:
-		nodes, err = parseInclude(asm, n)
+		nodes, err = parseInclude(ctx, asm, n)
 
 	case ast.Macro:
 		nodes, err = parseMacro(n)
@@ -358,14 +361,14 @@ func nameWithModifiers(name string, modifiers []ast.Modifier) (string, error) {
 	return fmt.Sprintf("%s%d", name, offset), nil // offset is negative, fmt includes '-'
 }
 
-func parseInclude[T any](asm *parseAST[T], inc ast.Include) ([]ast.Node, error) {
+func parseInclude[T any](ctx context.Context, asm *parseAST[T], inc ast.Include) ([]ast.Node, error) {
 	name := strings.Trim(inc.Name, "\"'")
 
 	if inc.Binary {
 		return parseBinaryInclude(asm, name)
 	}
 
-	return parseSourceInclude(asm, name)
+	return parseSourceInclude(ctx, asm, name)
 }
 
 func parseBinaryInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error) {
@@ -380,14 +383,24 @@ func parseBinaryInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error
 	return []ast.Node{dat}, nil
 }
 
-func parseSourceInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error) {
+func parseSourceInclude[T any](ctx context.Context, asm *parseAST[T], name string) ([]ast.Node, error) {
+	if asm.includeActive.Contains(name) {
+		chain := append(append([]string{}, asm.includeStack...), name)
+		return nil, fmt.Errorf("include cycle detected: %s", strings.Join(chain, " -> "))
+	}
+	asm.includeActive.Add(name)
+	asm.includeStack = append(asm.includeStack, name)
+	defer func() {
+		asm.includeActive.Remove(name)
+		asm.includeStack = asm.includeStack[:len(asm.includeStack)-1]
+	}()
+
 	b, err := asm.fileReader(name)
 	if err != nil {
 		return nil, fmt.Errorf("reading file '%s': %w", name, err)
 	}
 
 	pars := parser.New[T](asm.cfg.Arch, bytes.NewReader(b), asm.cfg.CompatibilityMode)
-	ctx := context.Background()
 	if err := pars.Read(ctx); err != nil {
 		return nil, fmt.Errorf("parsing included file '%s': %w", name, err)
 	}
@@ -397,20 +410,17 @@ func parseSourceInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error
 		return nil, fmt.Errorf("converting tokens for included file '%s': %w", name, err)
 	}
 
-	// Recursively process the included AST nodes through the assembler pipeline.
 	var result []ast.Node
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case *ast.Comment:
 			continue
-
 		case ast.Segment:
 			if err := parseSegment(asm, n); err != nil {
 				return nil, fmt.Errorf("parsing segment in included file '%s': %w", name, err)
 			}
-
 		default:
-			newNodes, err := parseASTNode(asm, node)
+			newNodes, err := parseASTNode(ctx, asm, node)
 			if err != nil {
 				return nil, fmt.Errorf("processing node in included file '%s': %w", name, err)
 			}

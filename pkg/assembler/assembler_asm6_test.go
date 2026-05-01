@@ -3,6 +3,7 @@ package assembler
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -111,7 +112,7 @@ func TestAssemblerAsm6Incbin(t *testing.T) {
 		return []byte{0xfe, 0xff}, nil
 	}
 
-	assert.NoError(t, asm.Process(context.Background(), reader))
+	assert.NoError(t, asm.Process(t.Context(), reader))
 	b := buf.Bytes()
 	assert.Equal(t, []byte{0xfe, 0xff}, b)
 }
@@ -651,7 +652,7 @@ func TestAssemblerContextCancellation(t *testing.T) {
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	// Test cancellation during parsing
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately
 
 	reader := strings.NewReader(asm6EquTestCode)
@@ -682,9 +683,33 @@ func TestAssemblerAsm6SourceInclude(t *testing.T) {
 		return []byte("myval = $42\n"), nil
 	}
 
-	assert.NoError(t, asm.Process(context.Background(), reader))
-	b := buf.Bytes()
-	assert.Equal(t, []byte{0x42}, b)
+	assert.NoError(t, asm.Process(t.Context(), reader))
+	assert.Equal(t, []byte{0x42}, buf.Bytes())
+}
+
+func TestAssemblerAsm6SourceIncludeCycle(t *testing.T) {
+	cfg := m6502.New()
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
+
+	reader := strings.NewReader(asm6SourceIncludeTestCode)
+	var buf bytes.Buffer
+	asm := New(cfg, &buf)
+
+	asm.fileReader = func(name string) ([]byte, error) {
+		switch name {
+		case "defs.asm":
+			return []byte(".include \"more.asm\"\n"), nil
+		case "more.asm":
+			return []byte(".include \"defs.asm\"\n"), nil
+		default:
+			return nil, fmt.Errorf("unexpected include %q", name)
+		}
+	}
+
+	err := asm.Process(t.Context(), reader)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "include cycle detected")
+	assert.Contains(t, err.Error(), "defs.asm -> more.asm -> defs.asm")
 }
 
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
@@ -697,7 +722,7 @@ func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	var buf bytes.Buffer
 	asm := New(cfg, &buf)
 
-	err := asm.Process(context.Background(), reader)
+	err := asm.Process(t.Context(), reader)
 	b := buf.Bytes()
 	return b, err
 }

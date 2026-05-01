@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/scope"
@@ -8,7 +9,7 @@ import (
 
 // generateOpcodesStep generates the opcodes for instructions and data nodes and resolves any
 // references to their value or assigned addresses.
-func generateOpcodesStep[T any](asm *Assembler[T]) error {
+func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 	currentScope := asm.fileScope
 	arch := asm.cfg.Arch
 
