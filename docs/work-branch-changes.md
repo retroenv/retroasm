@@ -18,7 +18,7 @@ Current remaining branch-only delta: 138 files.
 
 Status refresh after the 2026-05-01 review:
 - Group 4 is now marked merged in this progress plan.
-- Group 5 has narrowed: the only architecture-agnostic extraction still intended for this slice is source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` plus its assembler test coverage.
+- Group 5 is now marked merged in this progress plan. The source `.include` recursion slice is complete; the remaining hunks in the same files belong to later compatibility groups.
 - The remaining `work2` diffs in `pkg/assembler/assembler.go`, `pkg/assembler/process_macros_step.go`, and `pkg/parser/ast/configuration.go` belong to later compatibility groups even though older notes mentioned them near Group 5.
 - No planned merge group has disappeared completely from the remaining branch delta yet.
 - Early groups are reduced compared with older branch snapshots, but they still contain work left to extract.
@@ -93,12 +93,11 @@ Manual diff notes:
 ### Group 5: Include, Scope, and Data-Pipeline Extensions
 **Goal:** isolate assembler-pipeline enhancements that are not inherently tied to one compatibility mode.
 
-**Status:** still remaining. In the current branch delta, this slice is reduced to source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` plus the related assembler test coverage in `pkg/assembler/assembler_asm6_test.go`.
+**Status:** merged in the progress plan. The source `.include` recursion slice has been extracted to `main`; remaining hunks in the touched files are tracked under later compatibility groups.
 
 - Historical note: earlier Group 5 planning also mentioned scope/data AST and bank-byte support, but those pieces are already present on `main` and are no longer part of the live extraction delta.
-- Extract only source `.include` recursion in `pkg/assembler/parse_ast_nodes.go` and its focused coverage in `pkg/assembler/assembler_asm6_test.go`.
 - Keep parser constructor compatibility threading, macro reparsing changes, and NES 2.0 configuration constants out of this group; those belong to later compatibility slices.
-- Validate with `go test ./pkg/assembler/...` and the focused source-include coverage.
+- Validate the extracted slice with `go test ./pkg/assembler/...` and the focused source-include coverage.
 
 ### Group 6: Compatibility Framework
 **Goal:** introduce the shared `--compat` infrastructure and parser/directive dispatch without enabling every dialect feature at once.
