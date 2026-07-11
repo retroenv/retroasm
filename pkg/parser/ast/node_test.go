@@ -31,6 +31,136 @@ func TestNode_SetComment(t *testing.T) {
 	})
 }
 
+func TestInstructionFromNode(t *testing.T) {
+	instr := NewInstruction("lda", 1, NewNumber(42), nil)
+
+	for _, node := range []Node{instr, &instr} {
+		got, ok := InstructionFromNode(node)
+		assert.True(t, ok)
+		assert.Equal(t, instr, got)
+	}
+
+	var nilInstr *Instruction
+	_, ok := InstructionFromNode(nilInstr)
+	assert.False(t, ok)
+}
+
+func TestIsInstruction(t *testing.T) {
+	instr := NewInstruction("nop", 0, nil, nil)
+	assert.True(t, IsInstruction(instr))
+	assert.True(t, IsInstruction(&instr))
+
+	var nilInstr *Instruction
+	assert.False(t, IsInstruction(nilInstr))
+	assert.False(t, IsInstruction(NewNumber(1)))
+}
+
+func TestIsLabel(t *testing.T) {
+	label := NewLabel("loop")
+	assert.True(t, IsLabel(label))
+	assert.True(t, IsLabel(&label))
+
+	var nilLabel *Label
+	assert.False(t, IsLabel(nilLabel))
+	assert.False(t, IsLabel(NewNumber(1)))
+}
+
+func TestLabelIndices(t *testing.T) {
+	label := NewLabel("start")
+	nodes := []Node{
+		&label,
+		NewInstruction("nop", 0, nil, nil),
+		NewLabel("done"),
+	}
+
+	indices := LabelIndices(nodes)
+	assert.Len(t, indices, 2)
+	assert.Equal(t, 0, indices["start"])
+	assert.Equal(t, 2, indices["done"])
+}
+
+func TestFillLabelIndices(t *testing.T) {
+	indices := map[string]int{"stale": 7}
+	FillLabelIndices([]Node{NewLabel("only")}, indices)
+
+	assert.Len(t, indices, 1)
+	assert.Equal(t, 0, indices["only"])
+}
+
+func TestIdentifierName(t *testing.T) {
+	identifier := NewIdentifier("target")
+
+	for _, node := range []Node{identifier, &identifier} {
+		got, ok := IdentifierName(node)
+		assert.True(t, ok)
+		assert.Equal(t, identifier.Name, got)
+	}
+
+	var nilIdentifier *Identifier
+	_, ok := IdentifierName(nilIdentifier)
+	assert.False(t, ok)
+}
+
+func TestLabelName(t *testing.T) {
+	label := NewLabel("loop")
+
+	for _, node := range []Node{label, &label} {
+		got, ok := LabelName(node)
+		assert.True(t, ok)
+		assert.Equal(t, label.Name, got)
+	}
+
+	var nilLabel *Label
+	_, ok := LabelName(nilLabel)
+	assert.False(t, ok)
+}
+
+func TestNumberValue(t *testing.T) {
+	number := NewNumber(42)
+
+	for _, node := range []Node{number, &number} {
+		got, ok := NumberValue(node)
+		assert.True(t, ok)
+		assert.Equal(t, number.Value, got)
+	}
+
+	var nilNumber *Number
+	_, ok := NumberValue(nilNumber)
+	assert.False(t, ok)
+}
+
+func TestSymbolName(t *testing.T) {
+	label := NewLabel("loop")
+	identifier := NewIdentifier("target")
+	tests := []struct {
+		node Node
+		want string
+	}{
+		{node: label, want: label.Name},
+		{node: &label, want: label.Name},
+		{node: identifier, want: identifier.Name},
+		{node: &identifier, want: identifier.Name},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.want, SymbolName(test.node))
+	}
+
+	var nilIdentifier *Identifier
+	assert.Equal(t, "", SymbolName(nilIdentifier))
+}
+
+func TestSameOperand(t *testing.T) {
+	number := NewNumber(42)
+	identifier := NewIdentifier("target")
+	label := NewLabel("target")
+
+	assert.True(t, SameOperand(number, &number))
+	assert.True(t, SameOperand(identifier, &label))
+	assert.True(t, SameOperand(nil, nil))
+	assert.False(t, SameOperand(number, identifier))
+	assert.False(t, SameOperand(identifier, NewIdentifier("other")))
+}
+
 func TestInstruction_Copy(t *testing.T) {
 	original := NewInstruction("lda", 1, NewNumber(42), nil)
 	original.SetComment("load accumulator")
@@ -39,6 +169,17 @@ func TestInstruction_Copy(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "lda", copied.Name)
 	assert.Equal(t, 1, copied.Addressing)
+}
+
+func TestInstruction_ArgumentSymbolName(t *testing.T) {
+	labelInstr := NewInstruction("beq", 1, NewLabel("done"), nil)
+	assert.Equal(t, "done", labelInstr.ArgumentSymbolName())
+
+	identifierInstr := NewInstruction("jmp", 1, NewIdentifier("main"), nil)
+	assert.Equal(t, "main", identifierInstr.ArgumentSymbolName())
+
+	numberInstr := NewInstruction("lda", 1, NewNumber(42), nil)
+	assert.Equal(t, "", numberInstr.ArgumentSymbolName())
 }
 
 func TestLabel_Copy(t *testing.T) {

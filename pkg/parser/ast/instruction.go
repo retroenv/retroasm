@@ -41,6 +41,11 @@ func NewInstruction(name string, addressing int, argument Node, modifier []Modif
 	}
 }
 
+// ArgumentSymbolName returns the instruction argument's label or identifier name.
+func (i Instruction) ArgumentSymbolName() string {
+	return SymbolName(i.Argument)
+}
+
 // SetOpcodeID sets the architecture-defined numeric opcode identifier for fast O(1) lookup.
 func (i *Instruction) SetOpcodeID(id uint8) {
 	i.OpcodeID = id
