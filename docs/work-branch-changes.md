@@ -4,8 +4,8 @@ This document is the extraction plan for moving the remaining `work2` changes to
 `main` as small, independently reviewable parts. It describes the live branch
 delta; already-extracted historical groups are intentionally omitted.
 
-**Work branch:** `work2` (`4e5ac08`, 2026-07-10)
-**Target branch:** `main` (`75111f8`, 2026-05-03)
+**Work branch:** `work2` (`d4b21c9`, 2026-07-20)
+**Target branch:** `main` (`af8513a`, 2026-07-20)
 **Merge base:** `111b97b`
 **Last reviewed:** 2026-07-20
 
@@ -18,22 +18,38 @@ git diff --name-status main...HEAD
 git diff --stat main...HEAD
 ```
 
-Including this document rewrite, the branch-only delta is **141 files, 20,365
-insertions, and 242 deletions**.
+At the committed branch tips, the raw three-dot delta is **141 files, 20,365
+insertions, and 242 deletions**. It still includes extracted hunks until `main`
+is merged back into `work2` and advances the merge base.
 
 Do not use `git diff main..HEAD` for the extraction inventory until `main` has
-been synced into `work2`. The endpoint diff currently reports 144 files because
-it also presents these newer `main` changes as reverse changes:
+been synced into `work2`. The endpoint diff currently reports 142 files,
+but it presents these newer `main` changes as reverse changes:
 
 - `.golangci.yml`
 - `Makefile`
+- `pkg/arch/arch.go`
+- `pkg/arch/m6502/parser/{instruction.go,instruction_test.go}`
+- `pkg/assembler/{assembler.go,assembler_asm6_test.go,parse_ast_nodes.go,process_macros_step.go}`
 - `pkg/assembler/config/compatibility.go`
+- `pkg/parser/{alias.go,parser.go,parser_asm6_test.go,parser_test.go}`
+- `pkg/parser/directives/{data.go,directives.go,directives_test.go,noop_test.go}`
 
-Those three files are not work-branch features and must retain the `main`
-versions.
+These paths contain newer `main` changes and must be split by hunk rather than
+copied from `work2`.
 
 Current verification:
 
+- P01 (`.align` correctness and regression coverage) was merged to `main` as
+  `7fd62bf`.
+- P02 (compatibility-mode transport and independent parser handler maps) is
+  merged to `main` as `f26344c`.
+- P03 (shared label-resolution hooks) is merged to `main` as `38f84d7`.
+- P04 (parenthesized M6502 immediate expressions) is merged to `main` as
+  `af8513a`. P05 is the next extraction part.
+- `make lint` and `make test` passed for P04 on `main`.
+- `make lint` and `make test` passed for P03 on `main`.
+- `make lint` and `make test` passed for P02 on `main`.
 - `go test ./...` passes on `work2`.
 - The pass uses the local `retrogolib` replacement in `go.mod`.
 - The pinned `retrogolib` version contains Chip-8, x86, and Z80 packages, but
@@ -85,75 +101,6 @@ recompute the three-dot inventory.
 
 **Validation:** `make lint`, `go test ./...`, `git diff --check`.
 
-### Phase 1: Small Correctness and Compatibility Foundations
-
-#### P01 — Fix `.align` when already aligned
-
-**Scope:**
-
-- `pkg/parser/directives/data.go`: only the corrected modulo expression in
-  `Align`.
-- `pkg/assembler/assembler_asm6_test.go`: already-aligned and fill-value
-  regression cases. The forward-reference test may land here as coverage for
-  behavior already present on `main`.
-
-Do not include dialect data widths or local-label token rewriting from
-`data.go`.
-
-**Validation:**
-`go test ./pkg/assembler/... -run 'Align|FillValue|ForwardRef'`.
-
-#### P02 — Propagate compatibility mode through parsing
-
-**Scope:** the mode transport only, with no dialect semantics:
-
-- `pkg/parser/parser.go`: constructor arguments, per-parser handler storage,
-  and behavior-preserving `parseToken` extraction.
-- `pkg/parser/alias.go`: consult the parser's handler map.
-- `pkg/parser/directives/directives.go`: `baseHandlers`, `BuildHandlers`, and
-  handler-map merging, plus the reusable `NoOp` handler, initially without
-  mode-specific overlays.
-- `pkg/assembler/assembler.go`
-- `pkg/assembler/parse_ast_nodes.go`
-- `pkg/assembler/process_macros_step.go`: only compatibility-mode propagation
-  during macro reparsing.
-- `pkg/parser/parser_test.go`, mechanical constructor-call updates in existing
-  parser tests, and the default-handler tests from
-  `pkg/parser/directives/noop_test.go`. Keep new dialect behavior and assertions
-  in P05-P08.
-
-**Prerequisite:** P00.
-**Validation:** `go test ./pkg/parser/... ./pkg/assembler/...`.
-
-#### P03 — Add shared dialect label-resolution hooks
-
-**Scope:**
-
-- `pkg/arch/arch.go`: local, unnamed, and dot-local label resolver methods.
-- `pkg/parser/parser.go`: resolver implementations and label-scope state.
-- `pkg/parser/directives/data.go`: scope identifier tokens in data expressions.
-- `pkg/arch/m6502/parser/instruction.go`: resolve scoped, unnamed, and dot-local
-  operand tokens, excluding parenthesized-immediate parsing.
-- `pkg/parser/directives/directives_test.go`: mock methods required by the
-  interface.
-
-Keep each mode disabled by default; dialect parts below provide the behavior
-tests.
-
-**Prerequisite:** P02.
-**Validation:** `go test ./pkg/arch/m6502/... ./pkg/parser/...`.
-
-#### P04 — Parse parenthesized M6502 immediate expressions
-
-**Scope:**
-
-- `pkg/arch/m6502/parser/instruction.go`: the `#(...)` expression path only.
-- `pkg/assembler/assembler_asm6_test.go`: immediate-expression regression
-  coverage only.
-
-**Prerequisite:** P03.
-**Validation:** `go test ./pkg/assembler/... -run ImmediateConstantExpression`.
-
 ### Phase 2: One Compatibility Dialect Per Part
 
 #### P05 — x816 compatibility
@@ -172,7 +119,7 @@ tests.
 This includes colon-optional and anonymous labels, `* = value`, `.equ`, source
 include aliases, comment blocks, 3/4-byte data directives, and x816 no-ops.
 
-**Prerequisites:** P02-P03.
+**Prerequisite:** P00.
 **Validation:** `go test ./pkg/parser/... -run X816`.
 
 #### P06 — asm6 and asm6f compatibility
@@ -191,7 +138,7 @@ include aliases, comment blocks, 3/4-byte data directives, and x816 no-ops.
 Source include infrastructure itself is already on `main`; do not re-extract
 it here.
 
-**Prerequisites:** P02-P04.
+**Prerequisite:** P00.
 **Validation:**
 `go test ./pkg/parser/... ./pkg/assembler/... -run 'Asm6|Nes2'`.
 
@@ -211,7 +158,7 @@ it here.
 Scope AST nodes, bank-byte references, and their assembler pipeline support are
 already on `main`.
 
-**Prerequisites:** P02-P03.
+**Prerequisite:** P00.
 **Validation:** `go test ./pkg/parser/... -run Ca65`.
 
 #### P08 — NESASM compatibility
@@ -228,7 +175,7 @@ already on `main`.
 Backslash tokenization is already on `main` and is not part of the remaining
 delta.
 
-**Prerequisites:** P02-P03.
+**Prerequisite:** P00.
 **Validation:**
 `go test ./pkg/parser/... ./pkg/assembler/... -run 'Nesasm|Positional'`.
 
@@ -461,16 +408,15 @@ Mixed rows require hunk-level extraction.
 | `docs/**` | 11 | Dialect/architecture parts; work document drops in P29 |
 | `examples/chip8/**` | 3 | P10 |
 | `go.mod` | 1 | Rework in P18 |
-| `pkg/arch/arch.go` | 1 | P03 |
 | `pkg/arch/chip8/**` | 6 | P10 |
-| `pkg/arch/m6502/**` | 3 | P03-P04; two comments-only files drop |
+| `pkg/arch/m6502/**` | 3 | P07; two comments-only files drop |
 | `pkg/arch/m65816/**` | 7 | P19-P21 |
 | `pkg/arch/m68000/**` | 20 | P25-P27 |
 | `pkg/arch/sm83/**` | 7 | P22-P24 |
 | `pkg/arch/x86/**` | 7 | P12 |
 | `pkg/arch/z80/**` | 29 | P13-P17 |
-| `pkg/assembler/**` | 4 | P01-P02, P04, P08; split by hunk |
-| `pkg/parser/**` | 20 | P01-P08; split by dialect, with unused AST helpers dropped |
+| `pkg/assembler/**` | 4 | P08; split by hunk |
+| `pkg/parser/**` | 20 | P05-P08; split by dialect, with unused AST helpers dropped |
 | `pkg/retroasm/default.go` | 1 | Drop |
 | `tests/z80/**` | 14 | P17 |
 
