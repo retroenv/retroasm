@@ -242,9 +242,44 @@ func TestAssemblerAsm6Align(t *testing.T) {
 	assert.Equal(t, expected, b)
 }
 
+var asm6AlignAlreadyAlignedCode = `
+.segment "HEADER"
+DB 1,2,3,4
+ALIGN 4
+DB $FF
+`
+
+func TestAssemblerAsm6AlignAlreadyAligned(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6AlignAlreadyAlignedCode)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{1, 2, 3, 4, 0xff}, b)
+}
+
+var asm6ForwardRefAbsoluteCode = `
+.segment "HEADER"
+LDA forward,X
+NOP
+forward:
+DB $42
+`
+
+func TestAssemblerAsm6ForwardRefAbsoluteAddressing(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6ForwardRefAbsoluteCode)
+	assert.NoError(t, err)
+
+	// Forward references must reserve absolute-width encoding during address assignment.
+	expected := []byte{
+		0xbd, 0x04, 0x00,
+		0xea,
+		0x42,
+	}
+	assert.Equal(t, expected, b)
+}
+
 var asm6FillValueTestCode = `
 .segment "HEADER"
 FILLVALUE $FF
+DB 0
 ALIGN 4
 FILLVALUE $FF-1
 PAD 8
@@ -254,7 +289,7 @@ func TestAssemblerAsm6FillValue(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6FillValueTestCode)
 	assert.NoError(t, err)
 	expected := []byte{
-		0xff, 0xff, 0xff, 0xff, 0xfe, 0xfe, 0xfe, 0xfe, // 8 items
+		0x00, 0xff, 0xff, 0xff, 0xfe, 0xfe, 0xfe, 0xfe, // 8 items
 	}
 	assert.Equal(t, expected, b)
 }
