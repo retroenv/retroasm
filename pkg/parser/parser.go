@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/lexer"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -36,6 +37,7 @@ var errMissingParameter = errors.New("missing parameter")
 // Parser is the input stream parser.
 type Parser[T any] struct {
 	arch          arch.Architecture[T]
+	handlers      map[string]directives.Handler
 	lexer         *lexer.Lexer
 	program       []token.Token
 	readPosition  int
@@ -43,21 +45,23 @@ type Parser[T any] struct {
 }
 
 // New returns a new Parser that uses a lexer for the given reader.
-func New[T any](arch arch.Architecture[T], reader io.Reader) *Parser[T] {
+func New[T any](arch arch.Architecture[T], reader io.Reader, mode config.CompatibilityMode) *Parser[T] {
 	lexerCfg := lexer.Config{
 		CommentPrefixes: []string{"//", ";"},
 		DecimalPrefix:   '#',
 	}
 	return &Parser[T]{
-		arch:  arch,
-		lexer: lexer.New(lexerCfg, reader),
+		arch:     arch,
+		handlers: directives.BuildHandlers(mode),
+		lexer:    lexer.New(lexerCfg, reader),
 	}
 }
 
 // NewWithTokens returns a new Parser that processes the lexed tokens.
-func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token) *Parser[T] {
+func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token, mode config.CompatibilityMode) *Parser[T] {
 	return &Parser[T]{
 		arch:          arch,
+		handlers:      directives.BuildHandlers(mode),
 		program:       tokens,
 		programLength: len(tokens),
 	}
@@ -107,44 +111,13 @@ func (p *Parser[T]) AddressWidth() int {
 // line and column numbers for debugging.
 func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	var (
-		err          error
 		nodes        = make([]ast.Node, 0, p.programLength/2) // Pre-allocate with estimated capacity
 		previousNode ast.Node
 	)
 
 	for p.readPosition < p.programLength {
 		tok := p.program[p.readPosition]
-		var entry ast.Node
-
-		switch tok.Type {
-		case token.Dot:
-			entry, err = p.parseDot()
-
-		case token.Identifier:
-			entry, err = p.parseIdentifier(tok)
-
-		case token.Number:
-			entry, err = p.parseNumber(tok)
-
-		case token.Lt:
-			// set read position back since dot directive handler expect a directive
-			p.AdvanceReadPosition(-1)
-			entry, err = directives.AddrLow(p)
-
-		case token.Gt:
-			// set read position back since dot directive handler expect a directive
-			p.AdvanceReadPosition(-1)
-			entry, err = directives.AddrHigh(p)
-
-		case token.Comment:
-			entry = p.parseComment(tok, previousNode)
-
-		case token.EOL:
-
-		default:
-			return nil, fmt.Errorf("unexpected token of type %s found at line %d column %d",
-				tok.Type.String(), tok.Position.Line, tok.Position.Column)
-		}
+		entry, err := p.parseToken(tok, previousNode)
 
 		if err != nil {
 			return nil, fmt.Errorf("parser error for token '%s' of type %s found at line %d column %d: %w",
@@ -158,6 +131,38 @@ func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 	}
 
 	return nodes, nil
+}
+
+func (p *Parser[T]) parseToken(tok token.Token, previousNode ast.Node) (ast.Node, error) {
+	switch tok.Type {
+	case token.Dot:
+		return p.parseDot()
+
+	case token.Identifier:
+		return p.parseIdentifier(tok)
+
+	case token.Number:
+		return p.parseNumber(tok)
+
+	case token.Lt:
+		// Directive handlers expect the marker at the current read position.
+		p.AdvanceReadPosition(-1)
+		return directives.AddrLow(p) //nolint:wrapcheck // thin delegation to sub-package
+
+	case token.Gt:
+		// Directive handlers expect the marker at the current read position.
+		p.AdvanceReadPosition(-1)
+		return directives.AddrHigh(p) //nolint:wrapcheck // thin delegation to sub-package
+
+	case token.Comment:
+		return p.parseComment(tok, previousNode), nil
+
+	case token.EOL:
+		return nil, nil //nolint:nilnil // EOL tokens produce no AST node
+	}
+
+	return nil, fmt.Errorf("unexpected token of type %s found at line %d column %d",
+		tok.Type.String(), tok.Position.Line, tok.Position.Column)
 }
 
 func (p *Parser[T]) parseTokens(ctx context.Context) error {
@@ -207,7 +212,7 @@ func (p *Parser[T]) parseDot() (ast.Node, error) {
 		return nil, errMissingParameter
 	}
 	directive := strings.ToLower(next.Value)
-	handler, ok := directives.Handlers[directive]
+	handler, ok := p.handlers[directive]
 	if !ok {
 		return nil, fmt.Errorf("unsupported directive '%s'", next.Value)
 	}

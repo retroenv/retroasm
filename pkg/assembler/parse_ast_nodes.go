@@ -400,7 +400,7 @@ func parseSourceInclude[T any](ctx context.Context, asm *parseAST[T], name strin
 		return nil, fmt.Errorf("reading file '%s': %w", name, err)
 	}
 
-	pars := parser.New[T](asm.cfg.Arch, bytes.NewReader(b))
+	pars := parser.New[T](asm.cfg.Arch, bytes.NewReader(b), asm.cfg.CompatibilityMode)
 	if err := pars.Read(ctx); err != nil {
 		return nil, fmt.Errorf("parsing included file '%s': %w", name, err)
 	}

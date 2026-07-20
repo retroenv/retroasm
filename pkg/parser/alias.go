@@ -7,7 +7,6 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retroasm/pkg/parser/directives"
 )
 
 var errUnsupportedIdentifier = errors.New("unsupported identifier")
@@ -26,7 +25,7 @@ func (p *Parser[T]) parseAlias(tok, next token.Token) (ast.Node, error) {
 	default:
 		// check if token string is a directive and was used without .
 		directive := strings.ToLower(tok.Value)
-		handler, ok := directives.Handlers[directive]
+		handler, ok := p.handlers[directive]
 		if !ok {
 			return nil, fmt.Errorf("'%s': %w", tok.Value, errUnsupportedIdentifier)
 		}

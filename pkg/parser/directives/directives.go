@@ -10,7 +10,7 @@
 //   - Includes: .include, .incbin (file inclusion)
 //   - Configuration: .segment, .bank, .setcpu (assembler settings)
 //
-// The Handlers map provides the dispatch mechanism for directive-specific parsing.
+// BuildHandlers provides the dispatch mechanism for directive-specific parsing.
 // Each handler receives a parser instance and returns the corresponding AST node.
 package directives
 
@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/set"
 )
@@ -30,55 +31,9 @@ var (
 // Handler defines a handler for an assembler directive.
 type Handler func(arch.Parser) (ast.Node, error)
 
-// Handlers maps the assembler directives to their handler function.
-var Handlers = map[string]Handler{
-	"addr":       Addr,
-	"align":      Align, // asm6
-	"bank":       Bank,
-	"base":       Base,
-	"bin":        Include, // asm6
-	"byt":        Data,
-	"byte":       Data,     // asm6
-	"db":         Data,     // asm6
-	"dcb":        Data,     // asm6
-	"dcw":        Data,     // asm6
-	"dh":         AddrHigh, // asm6
-	"dl":         AddrLow,  // asm6
-	"dsb":        DataStorage,
-	"dsw":        DataStorage,
-	"dw":         Data,   // asm6
-	"else":       Else,   // asm6
-	"elseif":     Elseif, // asm6
-	"endif":      Endif,  // asm6
-	"ende":       Ende,   // asm6
-	"endproc":    EndProc,
-	"endr":       Endr,      // asm6
-	"enum":       Enum,      // asm6
-	"error":      Error,     // asm6
-	"fillvalue":  FillValue, // asm6
-	"hex":        Hex,       // asm6
-	"if":         If,        // asm6
-	"ifdef":      Ifdef,     // asm6
-	"ifndef":     Ifndef,    // asm6
-	"incbin":     Include,   // asm6
-	"include":    Include,   // asm6
-	"incsrc":     Include,   // asm6
-	"inesbat":    NesasmConfig,
-	"ineschr":    NesasmConfig,
-	"inesmap":    NesasmConfig,
-	"inesmir":    NesasmConfig,
-	"inesprg":    NesasmConfig,
-	"inessubmap": NesasmConfig,
-	"macro":      Macro,   // asm6
-	"org":        Base,    // asm6
-	"pad":        Padding, // asm6
-	"proc":       Proc,
-	"rept":       Rept, // asm6
-	"res":        Res,
-	"rsset":      NesasmOffsetCounter,
-	"segment":    Segment,
-	"setcpu":     SetCPU,
-	"word":       Data, // asm6
+// BuildHandlers returns an independent directive handler map for a compatibility mode.
+func BuildHandlers(_ config.CompatibilityMode) map[string]Handler {
+	return baseHandlers()
 }
 
 var directiveBinaryIncludes = set.NewFromSlice([]string{
@@ -92,4 +47,68 @@ var directiveBinaryIncludes = set.NewFromSlice([]string{
 func SetCPU(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	return nil, nil
+}
+
+// NoOp consumes a directive without producing an AST node.
+//
+//nolint:nilnil // directive is intentionally ignored
+func NoOp(p arch.Parser) (ast.Node, error) {
+	for {
+		p.AdvanceReadPosition(1)
+		if p.NextToken(0).Type.IsTerminator() {
+			return nil, nil
+		}
+	}
+}
+
+func baseHandlers() map[string]Handler {
+	return map[string]Handler{
+		"addr":       Addr,
+		"align":      Align, // asm6
+		"bank":       Bank,
+		"base":       Base,
+		"bin":        Include, // asm6
+		"byt":        Data,
+		"byte":       Data,     // asm6
+		"db":         Data,     // asm6
+		"dcb":        Data,     // asm6
+		"dcw":        Data,     // asm6
+		"dh":         AddrHigh, // asm6
+		"dl":         AddrLow,  // asm6
+		"dsb":        DataStorage,
+		"dsw":        DataStorage,
+		"dw":         Data,   // asm6
+		"else":       Else,   // asm6
+		"elseif":     Elseif, // asm6
+		"endif":      Endif,  // asm6
+		"ende":       Ende,   // asm6
+		"endproc":    EndProc,
+		"endr":       Endr,      // asm6
+		"enum":       Enum,      // asm6
+		"error":      Error,     // asm6
+		"fillvalue":  FillValue, // asm6
+		"hex":        Hex,       // asm6
+		"if":         If,        // asm6
+		"ifdef":      Ifdef,     // asm6
+		"ifndef":     Ifndef,    // asm6
+		"incbin":     Include,   // asm6
+		"include":    Include,   // asm6
+		"incsrc":     Include,   // asm6
+		"inesbat":    NesasmConfig,
+		"ineschr":    NesasmConfig,
+		"inesmap":    NesasmConfig,
+		"inesmir":    NesasmConfig,
+		"inesprg":    NesasmConfig,
+		"inessubmap": NesasmConfig,
+		"macro":      Macro,   // asm6
+		"org":        Base,    // asm6
+		"pad":        Padding, // asm6
+		"proc":       Proc,
+		"rept":       Rept, // asm6
+		"res":        Res,
+		"rsset":      NesasmOffsetCounter,
+		"segment":    Segment,
+		"setcpu":     SetCPU,
+		"word":       Data, // asm6
+	}
 }
