@@ -79,6 +79,67 @@ func TestAssemblerAsm6ImmediateConstantUnderscore(t *testing.T) {
 	assert.Equal(t, []byte{0xA9, 0x20, 0x09, 0xFF}, b)
 }
 
+var asm6ImmediateConstantExpressionTests = []struct {
+	name string
+	code string
+	want []byte
+}{
+	{
+		name: "identifier subtraction",
+		code: "BOARD_WIDTH = 10\nLDY #(BOARD_WIDTH - 1)\n",
+		want: []byte{0xA0, 0x09},
+	},
+	{
+		name: "nested arithmetic",
+		code: "LDY #((2 + 3) * 2)\n",
+		want: []byte{0xA0, 0x0A},
+	},
+	{
+		name: "parenthesized literal",
+		code: "LDY #($0A)\n",
+		want: []byte{0xA0, 0x0A},
+	},
+}
+
+func TestAssemblerAsm6ImmediateConstantExpression(t *testing.T) {
+	for _, test := range asm6ImmediateConstantExpressionTests {
+		t.Run(test.name, func(t *testing.T) {
+			code := ".segment \"HEADER\"\n" + test.code
+			got, err := runAsm6Test(t, unitTestConfig, code)
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestAssemblerAsm6ImmediateConstantExpressionErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		code    string
+		message string
+	}{
+		{
+			name:    "missing closing parenthesis",
+			code:    "LDY #(10 - 1\n",
+			message: "unexpected end of immediate expression",
+		},
+		{
+			name:    "invalid token",
+			code:    "LDY #(10, 1)\n",
+			message: "unexpected token ',' in immediate expression",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := runAsm6Test(t, unitTestConfig, test.code)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), test.message)
+		})
+	}
+}
+
 var asm6IncbinTestCode = `
 .segment "HEADER"
 .incbin "test.bin"

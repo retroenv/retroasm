@@ -75,6 +75,9 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 		// Handle immediate numbers that are tokenized as a single token: LDA #32
 		return parseInstructionImmediateAddressing(ins)
 
+	case ins.arg1.Value == "#" && next1.Type == token.LeftParentheses:
+		return parseInstructionImmediateAddressingWithExpression(parser, ins)
+
 	case ins.arg1.Value == "#" && (next1.Type == token.Identifier || next1.Type == token.Number):
 		// Handle immediate addressing with separate tokens: LDA #MAX_ENTITIES or LDA #$FF
 		return parseInstructionImmediateAddressingWithToken(parser, ins, next1)
@@ -298,6 +301,47 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 		return nil, err
 	}
 	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+}
+
+func parseInstructionImmediateAddressingWithExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
+		return nil, errors.New("invalid immediate addressing mode usage")
+	}
+
+	var tokens []token.Token
+	depth := 0
+
+	for offset := 1; ; offset++ {
+		tok := parser.NextToken(offset)
+
+		switch tok.Type {
+		case token.EOF, token.EOL:
+			return nil, errors.New("unexpected end of immediate expression")
+
+		case token.LeftParentheses:
+			depth++
+
+		case token.RightParentheses:
+			depth--
+
+		case token.Identifier:
+			tok.Value = parser.ScopeLocalLabel(tok.Value)
+
+		case token.Number:
+
+		default:
+			if !tok.Type.IsOperator() {
+				return nil, fmt.Errorf("unexpected token '%s' in immediate expression", tok.Type)
+			}
+		}
+
+		tokens = append(tokens, tok)
+		if tok.Type == token.RightParentheses && depth == 0 {
+			parser.AdvanceReadPosition(offset + 1)
+			argument := ast.NewExpression(tokens...)
+			return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+		}
+	}
 }
 
 // resolveImmediateArgument parses an immediate addressing argument, returning
