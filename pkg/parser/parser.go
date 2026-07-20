@@ -37,11 +37,15 @@ var errMissingParameter = errors.New("missing parameter")
 // Parser is the input stream parser.
 type Parser[T any] struct {
 	arch          arch.Architecture[T]
+	compatMode    config.CompatibilityMode
 	handlers      map[string]directives.Handler
 	lexer         *lexer.Lexer
 	program       []token.Token
 	readPosition  int
 	programLength int
+
+	lastNonLocalLabel string
+	unnamedLabelCount int
 }
 
 // New returns a new Parser that uses a lexer for the given reader.
@@ -51,9 +55,10 @@ func New[T any](arch arch.Architecture[T], reader io.Reader, mode config.Compati
 		DecimalPrefix:   '#',
 	}
 	return &Parser[T]{
-		arch:     arch,
-		handlers: directives.BuildHandlers(mode),
-		lexer:    lexer.New(lexerCfg, reader),
+		arch:       arch,
+		compatMode: mode,
+		handlers:   directives.BuildHandlers(mode),
+		lexer:      lexer.New(lexerCfg, reader),
 	}
 }
 
@@ -61,6 +66,7 @@ func New[T any](arch arch.Architecture[T], reader io.Reader, mode config.Compati
 func NewWithTokens[T any](arch arch.Architecture[T], tokens []token.Token, mode config.CompatibilityMode) *Parser[T] {
 	return &Parser[T]{
 		arch:          arch,
+		compatMode:    mode,
 		handlers:      directives.BuildHandlers(mode),
 		program:       tokens,
 		programLength: len(tokens),
@@ -94,6 +100,38 @@ func (p *Parser[T]) AdvanceReadPosition(offset int) {
 // AddressWidth returns the address width of the architecture.
 func (p *Parser[T]) AddressWidth() int {
 	return p.arch.AddressWidth()
+}
+
+// ResolveDotLocalLabel returns the scoped dot-local label name, or an empty string when unsupported.
+func (p *Parser[T]) ResolveDotLocalLabel(name string) string {
+	if !p.compatMode.DotLocalLabels() {
+		return ""
+	}
+
+	name = "." + name
+	if p.lastNonLocalLabel == "" {
+		return name
+	}
+	return p.lastNonLocalLabel + name
+}
+
+// ResolveUnnamedLabel returns the synthetic name for an unnamed label reference, or an empty string when unsupported.
+func (p *Parser[T]) ResolveUnnamedLabel(forward bool, level int) string {
+	if !p.compatMode.UnnamedLabels() {
+		return ""
+	}
+	if forward {
+		return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount+level)
+	}
+	return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount-level+1)
+}
+
+// ScopeLocalLabel applies local-label scoping when supported.
+func (p *Parser[T]) ScopeLocalLabel(name string) string {
+	if !p.compatMode.LocalLabelScoping() || !strings.HasPrefix(name, "@") || p.lastNonLocalLabel == "" {
+		return name
+	}
+	return p.lastNonLocalLabel + "." + name
 }
 
 // TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.

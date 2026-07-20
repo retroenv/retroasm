@@ -56,7 +56,7 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 		return nil, fmt.Errorf("parsing addressing size: %w", err)
 	}
 
-	ins.arg1 = parser.NextToken(0)
+	ins.arg1 = resolveArg1Token(parser)
 	ins.modifiers = directives.ParseModifier(parser)
 
 	next1 := parser.NextToken(1)
@@ -286,6 +286,9 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 
 	// Save the token value before advancing, in case advancing affects the token.
 	tokenValue := tok.Value
+	if tok.Type == token.Identifier {
+		tokenValue = parser.ScopeLocalLabel(tokenValue)
+	}
 	tokenType := tok.Type
 
 	parser.AdvanceReadPosition(2) // Skip past # and the token
@@ -354,4 +357,69 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 
 	n := ast.NewNumber(i)
 	return newInstruction(ins.instruction, int(addressing), n, ins.modifiers), nil
+}
+
+func resolveArg1Token(p arch.Parser) token.Token {
+	arg := p.NextToken(0)
+	if arg.Type == token.Identifier {
+		arg.Value = p.ScopeLocalLabel(arg.Value)
+		return arg
+	}
+
+	if arg.Type == token.Colon {
+		if name, ok := resolveUnnamedLabelRef(p); ok {
+			arg.Type = token.Identifier
+			arg.Value = name
+			return arg
+		}
+	}
+
+	if arg.Type == token.Dot {
+		if name, ok := resolveDotLocalLabelRef(p); ok {
+			arg.Type = token.Identifier
+			arg.Value = name
+			return arg
+		}
+	}
+
+	return arg
+}
+
+func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
+	next := p.NextToken(1)
+	if next.Type != token.Plus && next.Type != token.Minus {
+		return "", false
+	}
+
+	forward := next.Type == token.Plus
+	level := 1
+	for {
+		peek := p.NextToken(1 + level)
+		if (forward && peek.Type == token.Plus) || (!forward && peek.Type == token.Minus) {
+			level++
+			continue
+		}
+		break
+	}
+
+	name := p.ResolveUnnamedLabel(forward, level)
+	if name == "" {
+		return "", false
+	}
+	p.AdvanceReadPosition(level)
+	return name, true
+}
+
+func resolveDotLocalLabelRef(p arch.Parser) (string, bool) {
+	next := p.NextToken(1)
+	if next.Type != token.Identifier {
+		return "", false
+	}
+
+	name := p.ResolveDotLocalLabel(next.Value)
+	if name == "" {
+		return "", false
+	}
+	p.AdvanceReadPosition(1)
+	return name, true
 }

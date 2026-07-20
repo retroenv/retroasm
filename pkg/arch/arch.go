@@ -30,6 +30,12 @@ type Parser interface {
 	// NextToken returns the current or a following token with the given offset from current token parse position.
 	// If the offset exceeds the available tokens, a token of type EOF is returned.
 	NextToken(offset int) token.Token
+	// ResolveDotLocalLabel returns the scoped dot-local label name, or an empty string when unsupported.
+	ResolveDotLocalLabel(name string) string
+	// ResolveUnnamedLabel returns the synthetic name for an unnamed label reference, or an empty string when unsupported.
+	ResolveUnnamedLabel(forward bool, level int) string
+	// ScopeLocalLabel applies local-label scoping when supported.
+	ScopeLocalLabel(name string) string
 }
 
 // AddressAssigner resolves instruction arguments and computes addresses during the assembly process.

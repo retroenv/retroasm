@@ -181,6 +181,55 @@ func TestParser_AddressWidth(t *testing.T) {
 	assert.Equal(t, 16, parser.AddressWidth())
 }
 
+func TestParser_LabelResolvers(t *testing.T) {
+	cfg := m6502Arch.New()
+
+	t.Run("local labels", func(t *testing.T) {
+		tests := []struct {
+			name string
+			mode config.CompatibilityMode
+			want string
+		}{
+			{name: "default mode", mode: config.CompatDefault, want: "@loop"},
+			{name: "asm6 mode", mode: config.CompatAsm6, want: "main.@loop"},
+			{name: "ca65 mode", mode: config.CompatCa65, want: "main.@loop"},
+		}
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				parser := NewWithTokens(cfg.Arch, nil, test.mode)
+				parser.lastNonLocalLabel = "main"
+
+				assert.Equal(t, test.want, parser.ScopeLocalLabel("@loop"))
+				assert.Equal(t, "global", parser.ScopeLocalLabel("global"))
+			})
+		}
+	})
+
+	t.Run("dot-local labels", func(t *testing.T) {
+		parser := NewWithTokens(cfg.Arch, nil, config.CompatDefault)
+		assert.Equal(t, "", parser.ResolveDotLocalLabel("loop"))
+
+		parser = NewWithTokens(cfg.Arch, nil, config.CompatNesasm)
+		assert.Equal(t, ".loop", parser.ResolveDotLocalLabel("loop"))
+
+		parser.lastNonLocalLabel = "main"
+		assert.Equal(t, "main.loop", parser.ResolveDotLocalLabel("loop"))
+	})
+
+	t.Run("unnamed labels", func(t *testing.T) {
+		parser := NewWithTokens(cfg.Arch, nil, config.CompatDefault)
+		assert.Equal(t, "", parser.ResolveUnnamedLabel(true, 1))
+
+		parser = NewWithTokens(cfg.Arch, nil, config.CompatCa65)
+		parser.unnamedLabelCount = 3
+		assert.Equal(t, "__unnamed_4", parser.ResolveUnnamedLabel(true, 1))
+		assert.Equal(t, "__unnamed_5", parser.ResolveUnnamedLabel(true, 2))
+		assert.Equal(t, "__unnamed_3", parser.ResolveUnnamedLabel(false, 1))
+		assert.Equal(t, "__unnamed_2", parser.ResolveUnnamedLabel(false, 2))
+	})
+}
+
 func TestParser_PreallocationBenefit(t *testing.T) {
 	cfg := m6502Arch.New()
 
