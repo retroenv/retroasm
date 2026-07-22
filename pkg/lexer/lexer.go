@@ -261,7 +261,10 @@ func (l *Lexer) processNumberCharacter(firstCharacter, r rune, i int, isBinary, 
 		*isBinary = true
 		return false, true
 
-	case !*hasPrefix && (r == 'h' || r == 'H'): // hex suffix
+	case !*hasPrefix &&
+		(r == 'h' || r == 'H') &&
+		(firstCharacter != l.cfg.DecimalPrefix || literal.Len() > 1): // hex suffix
+
 		l.addHexPrefix(literal)
 		return true, false
 
@@ -307,7 +310,7 @@ func (l *Lexer) readLiteral(r rune) (token.Token, error) {
 			return token.Token{}, fmt.Errorf("%w: %w", ErrReadRune, err)
 		}
 
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '$' || r == '_' || r == '-' || r == '"' || r == '\'' {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '$' || r == '_' || r == '"' || r == '\'' {
 			l.pos.Column++
 			literal.WriteRune(r)
 			continue

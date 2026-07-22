@@ -81,6 +81,18 @@ func TestLexer(t *testing.T) {
 			{Type: token.Number, Value: "#"},
 			{Type: token.Identifier, Value: "FADE"},
 		}},
+		{"cmp #HammerBro", []token.Token{
+			{Type: token.Identifier, Value: "cmp"},
+			{Type: token.Number, Value: "#"},
+			{Type: token.Identifier, Value: "HammerBro"},
+		}},
+		{".db TopStatusBarLine-GameText", []token.Token{
+			{Type: token.Dot},
+			{Type: token.Identifier, Value: "db"},
+			{Type: token.Identifier, Value: "TopStatusBarLine"},
+			{Type: token.Minus},
+			{Type: token.Identifier, Value: "GameText"},
+		}},
 		// decimal prefix with hex prefix still consumes hex letters
 		{"lda #$FF", []token.Token{
 			{Type: token.Identifier, Value: "lda"},
