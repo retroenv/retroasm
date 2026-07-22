@@ -16,6 +16,7 @@ package directives
 
 import (
 	"errors"
+	"maps"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
@@ -32,8 +33,14 @@ var (
 type Handler func(arch.Parser) (ast.Node, error)
 
 // BuildHandlers returns an independent directive handler map for a compatibility mode.
-func BuildHandlers(_ config.CompatibilityMode) map[string]Handler {
-	return baseHandlers()
+func BuildHandlers(mode config.CompatibilityMode) map[string]Handler {
+	handlers := baseHandlers()
+	if mode == config.CompatX816 {
+		// Apply the dialect overlay to a fresh map so remapped spellings such as
+		// .dl cannot change the defaults used by other parser instances.
+		maps.Copy(handlers, x816Handlers())
+	}
+	return handlers
 }
 
 var directiveBinaryIncludes = set.NewFromSlice([]string{

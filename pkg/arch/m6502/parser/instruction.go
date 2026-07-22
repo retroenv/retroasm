@@ -65,6 +65,9 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 		ins.arg2 = parser.NextToken(0)
 		return parseInstructionSecondIdentifier(ins, false)
 	}
+	if ins.arg1.Value == "#" {
+		return parseInstructionImmediate(parser, ins, next1)
+	}
 
 	switch {
 	case ins.arg1.Type == token.LeftParentheses:
@@ -75,13 +78,6 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 		// Handle immediate numbers that are tokenized as a single token: LDA #32
 		return parseInstructionImmediateAddressing(ins)
 
-	case ins.arg1.Value == "#" && next1.Type == token.LeftParentheses:
-		return parseInstructionImmediateAddressingWithExpression(parser, ins)
-
-	case ins.arg1.Value == "#" && (next1.Type == token.Identifier || next1.Type == token.Number):
-		// Handle immediate addressing with separate tokens: LDA #MAX_ENTITIES or LDA #$FF
-		return parseInstructionImmediateAddressingWithToken(parser, ins, next1)
-
 	case ins.arg1.Type == token.Number:
 		return parseInstructionNumberParameter(ins)
 
@@ -90,6 +86,22 @@ func parseInstruction(parser arch.Parser, instructionDetails *m6502.Instruction)
 
 	default:
 		return nil, fmt.Errorf("unsupported instruction argument type %s", ins.arg1.Type)
+	}
+}
+
+func parseInstructionImmediate(parser arch.Parser, ins *instruction, next token.Token) (ast.Node, error) {
+	switch {
+	case next.Type == token.LeftParentheses:
+		return parseInstructionImmediateAddressingParenthesizedExpression(parser, ins)
+	case next.Type == token.Lt || next.Type == token.Gt || next.Type == token.Caret:
+		return parseInstructionImmediateAddressByte(parser, ins, next.Type)
+	case next.Type == token.Identifier || next.Type == token.Number:
+		if parser.NextToken(2).Type.IsOperator() {
+			return parseInstructionImmediateAddressingExpression(parser, ins)
+		}
+		return parseInstructionImmediateAddressingWithToken(parser, ins, next)
+	default:
+		return nil, fmt.Errorf("unsupported immediate argument type %s", next.Type)
 	}
 }
 
@@ -110,7 +122,7 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 		case token.RightParentheses:
 			next = parser.NextToken(1)
 			if next.Type != token.Comma {
-				return parseInstructionSingleIdentifier(parser, ins)
+				return parseInstructionIndirect(ins)
 			}
 
 			parser.AdvanceReadPosition(2)
@@ -121,6 +133,30 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 			return nil, fmt.Errorf("unexpected parentheses token type %s", next.Type)
 		}
 	}
+}
+
+func parseInstructionIndirect(ins *instruction) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(m6502.IndirectAddressing) {
+		return nil, errors.New("invalid indirect addressing mode usage")
+	}
+
+	// Parentheses select indirect addressing regardless of the operand's value;
+	// even a small numeric address must retain the instruction's indirect width.
+	var argument ast.Node
+	switch ins.arg1.Type {
+	case token.Identifier:
+		argument = ast.NewLabel(ins.arg1.Value)
+	case token.Number:
+		value, err := number.Parse(ins.arg1.Value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing indirect argument '%s': %w", ins.arg1.Value, err)
+		}
+		argument = ast.NewNumber(value)
+	default:
+		return nil, fmt.Errorf("invalid indirect argument type %s", ins.arg1.Type)
+	}
+
+	return newInstruction(ins.instruction, int(m6502.IndirectAddressing), argument, ins.modifiers), nil
 }
 
 func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast.Node, error) {
@@ -303,7 +339,53 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
-func parseInstructionImmediateAddressingWithExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
+func parseInstructionImmediateAddressByte(parser arch.Parser, ins *instruction, prefix token.Type) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
+		return nil, errors.New("invalid immediate addressing mode usage")
+	}
+
+	operand := parser.NextToken(2)
+	if operand.Type != token.Identifier && operand.Type != token.Number {
+		return nil, fmt.Errorf("invalid immediate address byte operand type %s", operand.Type)
+	}
+	if operand.Type == token.Identifier {
+		operand.Value = parser.ScopeLocalLabel(operand.Value)
+	}
+
+	// Keep x816's #<, #>, and #^ extraction as an expression so label addresses
+	// can be resolved during assembly rather than while parsing.
+	parser.AdvanceReadPosition(3)
+	argument := ast.NewExpression(token.Token{Type: prefix}, operand)
+	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+}
+
+func parseInstructionImmediateAddressingExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
+		return nil, errors.New("invalid immediate addressing mode usage")
+	}
+
+	// x816 accepts immediate expressions without parentheses, so the complete
+	// logical line belongs to the operand.
+	var tokens []token.Token
+	for offset := 1; ; offset++ {
+		tok := parser.NextToken(offset)
+		if tok.Type.IsTerminator() {
+			parser.AdvanceReadPosition(offset)
+			argument := ast.NewExpression(tokens...)
+			return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
+		}
+
+		if tok.Type == token.Identifier {
+			tok.Value = parser.ScopeLocalLabel(tok.Value)
+		}
+		if tok.Type != token.Identifier && tok.Type != token.Number && !tok.Type.IsOperator() {
+			return nil, fmt.Errorf("unexpected token '%s' in immediate expression", tok.Type)
+		}
+		tokens = append(tokens, tok)
+	}
+}
+
+func parseInstructionImmediateAddressingParenthesizedExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
 	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}

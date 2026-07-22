@@ -158,6 +158,11 @@ func parseDataAddress(dat *data, expression *expression.Expression, refType refe
 	tokens := expression.Tokens()
 	for _, tok := range tokens {
 		switch tok.Type {
+		case token.Comma:
+			// Commas delimit independent data expressions but do not contribute
+			// an address reference of their own.
+			continue
+
 		case token.Identifier:
 			ref := reference{
 				name: tok.Value,

@@ -44,6 +44,10 @@ type Parser[T any] struct {
 	readPosition  int
 	programLength int
 
+	// Direction-specific counters keep repeated x816 anonymous definitions
+	// unique without coupling forward and backward label namespaces.
+	anonForwardCount  int
+	anonBackwardCount int
 	lastNonLocalLabel string
 	unnamedLabelCount int
 }
@@ -192,6 +196,21 @@ func (p *Parser[T]) parseToken(tok token.Token, previousNode ast.Node) (ast.Node
 		p.AdvanceReadPosition(-1)
 		return directives.AddrHigh(p) //nolint:wrapcheck // thin delegation to sub-package
 
+	case token.Plus:
+		if p.compatMode.AnonymousLabels() {
+			return p.parseAnonymousLabel(true), nil
+		}
+
+	case token.Minus:
+		if p.compatMode.AnonymousLabels() {
+			return p.parseAnonymousLabel(false), nil
+		}
+
+	case token.Asterisk:
+		if p.compatMode.AsteriskProgramCounter() {
+			return p.parseAsteriskProgramCounter()
+		}
+
 	case token.Comment:
 		return p.parseComment(tok, previousNode), nil
 
@@ -277,15 +296,23 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		return p.parseAlias(tok, next)
 
 		// nesasm identifier .rs number
-	case next.Type == token.Dot &&
-		next2.Type == token.Identifier &&
-		strings.ToLower(next2.Value) == "rs":
-		return p.parseNesAsmVariable(tok)
+	case next.Type == token.Dot && next2.Type == token.Identifier:
+		switch strings.ToLower(next2.Value) {
+		case "equ":
+			p.readPosition++
+			return p.parseAlias(tok, next2)
+		case "rs":
+			return p.parseNesAsmVariable(tok)
+		}
 	}
 
 	instructionName := strings.ToLower(tok.Value)
 	ins, ok := p.arch.Instruction(instructionName)
 	if !ok {
+		if p.compatMode.ColonOptionalLabels() && p.isColonOptionalLabel(tok, next) {
+			return ast.NewLabel(tok.Value), nil
+		}
+
 		n, err := p.parseAlias(tok, next)
 		if err != nil {
 			if errors.Is(err, errUnsupportedIdentifier) {
@@ -331,6 +358,70 @@ func (p *Parser[T]) parseNumber(tok token.Token) (ast.Node, error) {
 		return nil, fmt.Errorf("processing program counter assignment: %w", err)
 	}
 	return node, nil
+}
+
+func (p *Parser[T]) parseAnonymousLabel(forward bool) ast.Node {
+	// A run of '+' or '-' tokens is the x816 label level; the sequence counter
+	// distinguishes later definitions at that same level.
+	level := 1
+	for p.readPosition+level < p.programLength {
+		next := p.program[p.readPosition+level]
+		if (forward && next.Type == token.Plus) || (!forward && next.Type == token.Minus) {
+			level++
+			continue
+		}
+		break
+	}
+	p.readPosition += level - 1
+
+	if forward {
+		p.anonForwardCount++
+		return ast.NewLabel(fmt.Sprintf("__anon_fwd_%d_%d", level, p.anonForwardCount))
+	}
+
+	p.anonBackwardCount++
+	return ast.NewLabel(fmt.Sprintf("__anon_bwd_%d_%d", level, p.anonBackwardCount))
+}
+
+func (p *Parser[T]) parseAsteriskProgramCounter() (ast.Node, error) {
+	next := p.NextToken(1)
+	if next.Type != token.Assign {
+		return nil, fmt.Errorf("unexpected token after '*' at line %d column %d",
+			next.Position.Line, next.Position.Column)
+	}
+
+	// After validating x816's '* =' spelling, reuse .base so both forms update
+	// program-counter state identically.
+	node, err := directives.Base(p)
+	if err != nil {
+		return nil, fmt.Errorf("processing program counter assignment: %w", err)
+	}
+	return node, nil
+}
+
+func (p *Parser[T]) isColonOptionalLabel(tok, next token.Token) bool {
+	// Restrict implicit labels to column one and require recognizable following
+	// syntax, preventing indented operands or unknown mnemonics from becoming labels.
+	if tok.Position.Column > 1 {
+		return false
+	}
+
+	if _, ok := p.handlers[strings.ToLower(tok.Value)]; ok {
+		return false
+	}
+	if next.Type.IsTerminator() || next.Type == token.Dot {
+		return true
+	}
+	if next.Type != token.Identifier {
+		return false
+	}
+
+	nextName := strings.ToLower(next.Value)
+	if _, ok := p.arch.Instruction(nextName); ok {
+		return true
+	}
+	_, ok := p.handlers[nextName]
+	return ok
 }
 
 func (p *Parser[T]) createIdentifier(tok token.Token) (ast.Node, error) {
