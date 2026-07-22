@@ -25,6 +25,15 @@ func TestExpression(t *testing.T) {
 		{input: "((1+2)*2)+1", expected: 7},
 		{input: "1+2*2", expected: 5},
 		{input: "1+2-3+4", expected: 4},
+		// x816 byte selectors share tokens with binary comparisons.
+		{input: "<$07d6", expected: 0xd6},
+		{input: ">$123456", expected: 0x34},
+		{input: "^$123456", expected: 0x12},
+		{input: "1<2", expected: true},
+		{input: "2>1", expected: true},
+		// Commas retain each independently evaluated data value.
+		{input: "1+2,3+4", expected: []byte{3, 7}},
+		{input: "8,<$1234,>$1234,39,24", expected: []byte{8, 0x34, 0x12, 39, 24}},
 		{input: "(1+2)*", expectError: true},
 		{input: "(1+2", expectError: true},
 		{input: "1+2)", expectError: true},
