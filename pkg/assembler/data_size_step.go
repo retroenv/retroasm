@@ -36,6 +36,12 @@ func updateDataSize(dat *data) error {
 		dat.size.SetValue(size)
 		return nil
 	}
+	if dat.deferred {
+		// Forward symbols resolve after address assignment, so reserve the byte
+		// count inferred from the expression to keep later addresses stable.
+		dat.size.SetValue(int64(dat.deferredSize))
+		return nil
+	}
 
 	size := 0
 

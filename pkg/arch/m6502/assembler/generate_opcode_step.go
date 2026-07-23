@@ -23,7 +23,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	addressing := m6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
-	ins.SetSize(int(addressingInfo.Size))
+	ins.SetSize(instructionSize(addressing, addressingInfo.Size))
 
 	switch addressing {
 	case m6502.ImpliedAddressing, m6502.AccumulatorAddressing:

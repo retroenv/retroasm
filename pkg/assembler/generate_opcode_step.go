@@ -17,6 +17,9 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
 			case *data:
+				if err := generateDeferredDataBytes(currentScope, n); err != nil {
+					return fmt.Errorf("generating deferred data at $%x: %w", n.address, err)
+				}
 				if err := generateReferenceDataBytes(currentScope, n); err != nil {
 					return fmt.Errorf("generating data node opcode: %w", err)
 				}
@@ -33,13 +36,43 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 					programCounter: n.Address(),
 				}
 				if err := arch.GenerateInstructionOpcode(assigner, n); err != nil {
-					return fmt.Errorf("generating instruction node opcode: %w", err)
+					return fmt.Errorf("generating instruction '%s' at $%x opcode: %w", n.Name(), n.Address(), err)
 				}
 
 			case scopeChange:
 				currentScope = n.scope
 			}
 		}
+	}
+	return nil
+}
+
+func generateDeferredDataBytes(currentScope *scope.Scope, dat *data) error {
+	if !dat.deferred {
+		return nil
+	}
+
+	// Address assignment has completed, so forward symbols now have values.
+	value, err := dat.expression.Evaluate(currentScope, dat.width)
+	if err != nil {
+		return fmt.Errorf("evaluating deferred data expression: %w", err)
+	}
+	dat.values = nil
+	if err := appendDataExpressionValue(dat, value); err != nil {
+		return err
+	}
+
+	actualSize := 0
+	for _, value := range dat.values {
+		bytes, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unsupported deferred data value type %T", value)
+		}
+		actualSize += len(bytes)
+	}
+	// A changed byte count would invalidate every address assigned after this node.
+	if actualSize != dat.deferredSize {
+		return fmt.Errorf("deferred data size changed from %d to %d bytes", dat.deferredSize, actualSize)
 	}
 	return nil
 }

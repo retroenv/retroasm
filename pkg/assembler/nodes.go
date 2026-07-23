@@ -51,6 +51,12 @@ type data struct {
 
 	size       *expression.Expression // item count
 	expression *expression.Expression
+
+	// Forward expressions reserve deferredSize bytes until address assignment
+	// makes their symbols resolvable during opcode generation.
+	deferred     bool
+	deferredSize int
+
 	// values will be filled by evaluating the expression.
 	// each value can be of type []byte or reference.
 	// since expressions are evaluated before addresses are assigned,
