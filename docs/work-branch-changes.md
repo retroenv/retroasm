@@ -4,10 +4,10 @@ This document is the extraction plan for moving the remaining `work2` changes to
 `main` as small, independently reviewable parts. It describes the live branch
 delta; already-extracted historical groups are intentionally omitted.
 
-**Work branch:** `work2` (`d4b21c9`, 2026-07-20)
-**Target branch:** `main` (`af8513a`, 2026-07-20)
+**Work branch:** `work2` (`9f39eb8`, 2026-08-28)
+**Target branch:** `main` (`bf78324`, 2026-07-23)
 **Merge base:** `111b97b`
-**Last reviewed:** 2026-07-20
+**Last reviewed:** 2026-08-28
 
 ## Current Snapshot
 
@@ -18,12 +18,12 @@ git diff --name-status main...HEAD
 git diff --stat main...HEAD
 ```
 
-At the committed branch tips, the raw three-dot delta is **141 files, 20,365
-insertions, and 242 deletions**. It still includes extracted hunks until `main`
+At the committed branch tips, the raw three-dot delta is **151 files, 20,338
+insertions, and 270 deletions**. It still includes extracted hunks until `main`
 is merged back into `work2` and advances the merge base.
 
 Do not use `git diff main..HEAD` for the extraction inventory until `main` has
-been synced into `work2`. The endpoint diff currently reports 142 files,
+been synced into `work2`. The endpoint diff currently reports 160 files,
 but it presents these newer `main` changes as reverse changes:
 
 - `.golangci.yml`
@@ -34,6 +34,10 @@ but it presents these newer `main` changes as reverse changes:
 - `pkg/assembler/config/compatibility.go`
 - `pkg/parser/{alias.go,parser.go,parser_asm6_test.go,parser_test.go}`
 - `pkg/parser/directives/{data.go,directives.go,directives_test.go,noop_test.go}`
+
+It also presents the x816 changes merged after P04 as reverse changes in the
+lexer, expression, assembler, parser, and M6502 packages. These must remain
+on the `main` side when P00 is performed.
 
 These paths contain newer `main` changes and must be split by hunk rather than
 copied from `work2`.
@@ -46,7 +50,9 @@ Current verification:
   merged to `main` as `f26344c`.
 - P03 (shared label-resolution hooks) is merged to `main` as `38f84d7`.
 - P04 (parenthesized M6502 immediate expressions) is merged to `main` as
-  `af8513a`. P05 is the next extraction part.
+  `af8513a`.
+- P05 (x816 compatibility) is merged to `main` as `3ccaa8e`, `e7f54ef`,
+  `3fc85ca`, and `bf78324`. P06 is the next extraction part.
 - `make lint` and `make test` passed for P04 on `main`.
 - `make lint` and `make test` passed for P03 on `main`.
 - `make lint` and `make test` passed for P02 on `main`.
@@ -95,32 +101,26 @@ Each part below should be a separate PR or merge commit.
 
 #### P00 — Sync `main` into the extraction base
 
-**Scope:** no feature extraction. Preserve the `main` versions of
-`.golangci.yml`, `Makefile`, and `pkg/assembler/config/compatibility.go`, then
+**Scope:** no feature extraction. Preserve the newer `main` versions of all
+endpoint reverse changes—especially `.golangci.yml`, `Makefile`,
+`pkg/assembler/config/compatibility.go`, and the x816 implementation—then
 recompute the three-dot inventory.
 
 **Validation:** `make lint`, `go test ./...`, `git diff --check`.
 
-### Phase 2: One Compatibility Dialect Per Part
+### Phase 2: Compatibility Documentation and Remaining Dialects
 
-#### P05 — x816 compatibility
+#### P05 — x816 compatibility reference
 
-**Scope:** x816-only parser behavior, directives, and tests:
+**Scope:** `docs/x816-compatibility-plan.md` only.
 
-- x816 hunks in `pkg/parser/parser.go` and
-  `pkg/parser/directives/directives.go`
-- `pkg/parser/directives/x816.go`
-- x816 data-width hunks in `pkg/parser/directives/data.go`
-- `pkg/parser/directives/helper.go`
-- x816 cases in `pkg/parser/directives/noop_test.go`
-- `pkg/parser/parser_x816_test.go`
-- `docs/x816-compatibility-plan.md`
+The x816 implementation is already on `main`; this remaining branch-only
+document should be reviewed and merged independently as user-facing reference
+material.
 
-This includes colon-optional and anonymous labels, `* = value`, `.equ`, source
-include aliases, comment blocks, 3/4-byte data directives, and x816 no-ops.
-
-**Prerequisite:** P00.
-**Validation:** `go test ./pkg/parser/... -run X816`.
+**Prerequisite:** x816 implementation on `main` (`bf78324`).
+**Validation:** verify every documented directive and label form against the
+current x816 parser tests.
 
 #### P06 — asm6 and asm6f compatibility
 
@@ -192,7 +192,7 @@ in these mixed files:
 
 Do not add new CPU registrations or Z80 profile handling in this part.
 
-**Prerequisites:** P05-P08.
+**Prerequisites:** P06-P08.
 **Validation:** `go test ./cmd/retroasm/... -run Compat`.
 
 ### Phase 3: Architectures Available in the Pinned Dependency
@@ -397,26 +397,27 @@ clean worktree.
 
 ## Live Delta Ownership
 
-This table accounts for the 141 files in `git diff --name-only main...HEAD`.
+This table accounts for the 151 files in `git diff --name-only main...HEAD`.
 Mixed rows require hunk-level extraction.
 
 | Live path | Files | Owner |
 |---|---:|---|
 | `.gitignore` | 1 | P17 |
+| `.golangci.yml`, `Makefile`, `examples/ast-first/main.go`, `pkg/arch/arch.go`, `pkg/retroasm/{assembler_test.go,example_test.go}` | 6 | P00; retain the newer `main` versions |
 | `README.md` | 1 | P28 |
 | `cmd/retroasm/**` | 5 | P09, P11, P17, P21, P24, P27; split by hunk |
-| `docs/**` | 11 | Dialect/architecture parts; work document drops in P29 |
+| `docs/**` | 11 | P05-P09 and architecture parts; work document drops in P29 |
 | `examples/chip8/**` | 3 | P10 |
 | `go.mod` | 1 | Rework in P18 |
 | `pkg/arch/chip8/**` | 6 | P10 |
-| `pkg/arch/m6502/**` | 3 | P07; two comments-only files drop |
+| `pkg/arch/m6502/**` | 6 | P07; preserve the x816-related `main` hunks and drop two comments-only files |
 | `pkg/arch/m65816/**` | 7 | P19-P21 |
 | `pkg/arch/m68000/**` | 20 | P25-P27 |
 | `pkg/arch/sm83/**` | 7 | P22-P24 |
 | `pkg/arch/x86/**` | 7 | P12 |
 | `pkg/arch/z80/**` | 29 | P13-P17 |
-| `pkg/assembler/**` | 4 | P08; split by hunk |
-| `pkg/parser/**` | 20 | P05-P08; split by dialect, with unused AST helpers dropped |
+| `pkg/assembler/**` | 6 | P08; preserve x816-related `main` hunks and split by hunk |
+| `pkg/parser/**` | 20 | P06-P08; split by dialect, with unused AST helpers dropped |
 | `pkg/retroasm/default.go` | 1 | Drop |
 | `tests/z80/**` | 14 | P17 |
 
