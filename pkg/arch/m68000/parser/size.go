@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
-	"github.com/retroenv/retrogolib/arch/cpu/m68000"
+	m68000 "github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
 // ParseSizeSuffix extracts the size suffix from a mnemonic.

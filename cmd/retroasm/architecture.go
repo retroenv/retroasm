@@ -26,10 +26,10 @@ var (
 
 // Supported architectures and systems.
 const (
-	cpu6502   = string(arch.M6502)
-	cpu65816  = string(arch.M65816)
+	cpu6502   = string(arch.CPU6502)
+	cpu65816  = string(arch.CPU65816)
 	cpuChip8  = string(arch.CHIP8)
-	cpuM68000 = string(arch.M68000)
+	cpuM68000 = string(arch.CPU68000)
 	cpuSM83   = string(arch.SM83)
 	cpuZ80    = string(arch.Z80)
 
@@ -211,7 +211,7 @@ func validateCPU(options *optionFlags) error {
 	}
 	options.cpu = string(cpu)
 
-	if cpu != arch.M6502 && cpu != arch.M65816 && cpu != arch.CHIP8 && cpu != arch.M68000 && cpu != arch.SM83 && cpu != arch.Z80 {
+	if cpu != arch.CPU6502 && cpu != arch.CPU65816 && cpu != arch.CHIP8 && cpu != arch.CPU68000 && cpu != arch.SM83 && cpu != arch.Z80 {
 		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
 	}
 

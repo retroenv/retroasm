@@ -7,7 +7,7 @@ import (
 	m6502Arch "github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 

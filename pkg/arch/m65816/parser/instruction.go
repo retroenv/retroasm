@@ -11,7 +11,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/parser/directives"
-	"github.com/retroenv/retrogolib/arch/cpu/m65816"
+	m65816 "github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
 var errMissingParameter = errors.New("missing parameter")

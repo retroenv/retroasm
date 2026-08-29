@@ -8,7 +8,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/m65816/parser"
-	"github.com/retroenv/retrogolib/arch/cpu/m65816"
+	m65816 "github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
 // AssignInstructionAddress assigns an address to the instruction and returns the next program counter.

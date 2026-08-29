@@ -3,7 +3,7 @@ package parser
 
 import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retrogolib/arch/cpu/m68000"
+	m68000 "github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
 // ResolvedInstruction contains the fully parsed M68000 instruction.

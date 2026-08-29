@@ -10,7 +10,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/m6502/parser"
 	"github.com/retroenv/retroasm/pkg/scope"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {

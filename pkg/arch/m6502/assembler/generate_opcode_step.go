@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,

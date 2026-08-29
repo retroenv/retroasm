@@ -3,7 +3,7 @@ package assembler
 import (
 	"github.com/retroenv/retroasm/pkg/arch"
 	m68000parser "github.com/retroenv/retroasm/pkg/arch/m68000/parser"
-	"github.com/retroenv/retrogolib/arch/cpu/m68000"
+	m68000 "github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
 func encodeMOVE(assigner arch.AddressAssigner, resolved m68000parser.ResolvedInstruction) ([]byte, error) {

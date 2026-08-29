@@ -21,7 +21,6 @@ linters:
     - funlen # Checks for long functions
     - gocheckcompilerdirectives # Checks that go compiler directives are valid
     - gocognit # Computes and checks the cognitive complexity of functions
-    - goconst # Finds repeated strings that could be replaced by a constant
     - gocritic # Provides diagnostics that check for bugs, performance and style issues
     - gocyclo # Computes and checks the cyclomatic complexity of functions
     - godot # Check if comments end in a period

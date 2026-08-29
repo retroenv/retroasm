@@ -6,7 +6,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
-	"github.com/retroenv/retrogolib/arch/cpu/m65816"
+	m65816 "github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
 type addressingSize int

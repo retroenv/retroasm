@@ -9,7 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
+	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -29,8 +29,8 @@ func TestArchitectureRegistration(t *testing.T) {
 	}{
 		{
 			name:        "successful registration",
-			archName:    string(arch.M6502),
-			arch:        NewArchitectureAdapter(string(arch.M6502), m6502.New(), m6502.New()),
+			archName:    string(arch.CPU6502),
+			arch:        NewArchitectureAdapter(string(arch.CPU6502), m6502.New(), m6502.New()),
 			expectedErr: nil,
 		},
 		{
@@ -183,8 +183,8 @@ func TestTextAssembly(t *testing.T) {
 
 			// Register architecture
 			m6502Arch := m6502.New()
-			adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-			err := assembler.RegisterArchitecture(string(arch.M6502), adapter)
+			adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+			err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter)
 			assert.NoError(t, err)
 
 			output, err := assembler.AssembleText(t.Context(), tt.input)
@@ -226,8 +226,8 @@ func TestSymbolHandling(t *testing.T) {
 
 	// Register architecture
 	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	err := assembler.RegisterArchitecture(string(arch.M6502), adapter)
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter)
 	assert.NoError(t, err)
 
 	// Test symbol passing
@@ -302,10 +302,10 @@ func TestDefaultConfigurationMutation(t *testing.T) {
 
 func TestArchitectureAdapter(t *testing.T) {
 	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
 
 	// Test adapter properties
-	assert.Equal(t, string(arch.M6502), adapter.Name())
+	assert.Equal(t, string(arch.CPU6502), adapter.Name())
 	assert.Equal(t, 16, adapter.AddressWidth()) // 6502 default
 
 	// Test assembler creation
@@ -320,7 +320,7 @@ func TestArchitectureAdapter(t *testing.T) {
 
 func TestArchitectureAssemblerImpl(t *testing.T) {
 	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
 	config := ArchitectureConfig{
 		BaseAddr: 0x8000,
 		Symbols:  map[string]uint64{"test": 0x1000},
@@ -406,8 +406,8 @@ func TestSegmentTypes(t *testing.T) {
 func runASTAssembly(ctx context.Context, input *ASTInput) (*AssemblyOutput, error) {
 	assembler := New()
 	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := assembler.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		return nil, fmt.Errorf("registering architecture: %w", err)
 	}
 	output, err := assembler.AssembleAST(ctx, input)

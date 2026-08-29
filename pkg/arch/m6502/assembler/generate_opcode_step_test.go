@@ -3,7 +3,7 @@ package assembler
 import (
 	"testing"
 
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 

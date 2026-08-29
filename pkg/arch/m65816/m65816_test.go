@@ -7,7 +7,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/assembler"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retrogolib/arch/cpu/m65816"
+	m65816 "github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 	"github.com/retroenv/retrogolib/assert"
 )
 
