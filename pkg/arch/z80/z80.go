@@ -2,6 +2,7 @@
 package z80
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -67,6 +68,52 @@ func (ar *architecture) OpcodeID(ins *InstructionGroup) ast.OpcodeID {
 
 func (ar *architecture) ParseIdentifier(p arch.Parser, _ string, ins *InstructionGroup) (ast.Node, error) {
 	return z80parser.ParseIdentifierWithProfile(p, ins.Name, ins.Variants, ar.profile) //nolint:wrapcheck // thin delegation to sub-package
+}
+
+func (ar *architecture) BuildInstruction(
+	mnemonic string,
+	operands z80parser.Operands,
+) (ast.Instruction, error) {
+
+	group, ok := ar.Instruction(mnemonic)
+	if !ok {
+		return ast.Instruction{}, fmt.Errorf("unknown Z80 instruction %q", mnemonic)
+	}
+	instruction, err := z80parser.BuildInstructionWithProfile(
+		group.Name,
+		group.Variants,
+		ar.profile,
+		operands...,
+	)
+	if err != nil {
+		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
+	}
+	instruction.SetOpcodeID(ar.OpcodeID(group))
+	return instruction, nil
+}
+
+func (ar *architecture) ValidateInstruction(instruction ast.Instruction) error {
+	group, ok := ar.Instruction(instruction.Name)
+	if !ok {
+		return fmt.Errorf("unknown Z80 instruction %q", instruction.Name)
+	}
+	expectedID := ar.OpcodeID(group)
+	if instruction.OpcodeID != expectedID {
+		return fmt.Errorf(
+			"Z80 opcode identity %+v does not match mnemonic %q identity %+v",
+			instruction.OpcodeID,
+			instruction.Name,
+			expectedID,
+		)
+	}
+	return z80parser.ValidateInstruction(instruction, group.Variants, ar.profile) //nolint:wrapcheck // architecture codec boundary adds context
+}
+
+func (ar *architecture) FormatInstruction(instruction ast.Instruction) (string, error) {
+	if err := ar.ValidateInstruction(instruction); err != nil {
+		return "", err
+	}
+	return z80parser.FormatInstruction(instruction) //nolint:wrapcheck // architecture codec boundary adds context
 }
 
 func buildInstructionGroups() map[string]*InstructionGroup {

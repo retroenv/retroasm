@@ -19,12 +19,14 @@ type ResolvedInstruction struct {
 	Instruction    *cpuz80.Instruction
 	RegisterParams []cpuz80.RegisterParam
 	OperandValues  []ast.Node
+	Operands       []Operand
 }
 
 // CopyInstructionArgument returns a deep copy suitable for AST duplication.
 func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.RegisterParams = slices.Clone(resolved.RegisterParams)
 	resolved.OperandValues = ast.CopyNodes(resolved.OperandValues)
+	resolved.Operands = copyOperands(resolved.Operands)
 	return resolved
 }
 
@@ -39,16 +41,27 @@ type rawOperand struct {
 }
 
 func resolveInstruction(variants []*cpuz80.Instruction, operands []rawOperand) (*ResolvedInstruction, error) {
+	var resolved *ResolvedInstruction
+	var err error
 	switch len(operands) {
 	case 0:
-		return resolveNoOperand(variants)
+		resolved, err = resolveNoOperand(variants)
 	case 1:
-		return resolveSingleOperand(variants, operands[0])
+		resolved, err = resolveSingleOperand(variants, operands[0])
 	case 2:
-		return resolveTwoOperands(variants, operands[0], operands[1])
+		resolved, err = resolveTwoOperands(variants, operands[0], operands[1])
 	default:
 		return nil, fmt.Errorf("%w: expected at most 2 operands, got %d", errUnsupportedOperandPattern, len(operands))
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	resolved.Operands, err = operandsFromRaw(operands)
+	if err != nil {
+		return nil, fmt.Errorf("retaining resolved operands: %w", err)
+	}
+	return resolved, nil
 }
 
 func resolveNoOperand(variants []*cpuz80.Instruction) (*ResolvedInstruction, error) {

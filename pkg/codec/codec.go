@@ -26,6 +26,12 @@ var (
 	ErrUnknownInstruction = errors.New("unknown target instruction")
 	// ErrExpectedInstruction indicates that a single-instruction parse produced another node shape.
 	ErrExpectedInstruction = errors.New("expected exactly one instruction")
+	// ErrBuildUnsupported indicates that an architecture has no typed builder for the requested operand type.
+	ErrBuildUnsupported = errors.New("typed instruction building is not supported by architecture")
+	// ErrValidationUnsupported indicates that an architecture has no typed instruction validator.
+	ErrValidationUnsupported = errors.New("typed instruction validation is not supported by architecture")
+	// ErrFormattingUnsupported indicates that an architecture has no deterministic instruction formatter.
+	ErrFormattingUnsupported = errors.New("typed instruction formatting is not supported by architecture")
 )
 
 // Assembly is the result of assembling a typed node stream.
@@ -37,6 +43,18 @@ type Assembly struct {
 // Codec binds typed stream operations to one architecture configuration.
 type Codec[T any] struct {
 	configuration *config.Config[T]
+}
+
+type instructionBuilder[O any] interface {
+	BuildInstruction(string, O) (ast.Instruction, error)
+}
+
+type instructionValidator interface {
+	ValidateInstruction(ast.Instruction) error
+}
+
+type instructionFormatter interface {
+	FormatInstruction(ast.Instruction) (string, error)
 }
 
 // New creates a typed stream codec for configuration.
@@ -95,6 +113,46 @@ func (c *Codec[T]) OpcodeID(mnemonic string) (ast.OpcodeID, error) {
 		return ast.OpcodeID{}, fmt.Errorf("%w: %q has no opcode identity", ErrUnknownInstruction, mnemonic)
 	}
 	return identity, nil
+}
+
+// BuildInstruction constructs a typed instruction through the architecture's
+// operand-specific builder. Architectures opt in with their concrete operand-set type.
+func BuildInstruction[T, O any](c *Codec[T], mnemonic string, operands O) (ast.Instruction, error) {
+	builder, ok := c.configuration.Arch.(instructionBuilder[O])
+	if !ok {
+		return ast.Instruction{}, ErrBuildUnsupported
+	}
+	instruction, err := builder.BuildInstruction(mnemonic, operands)
+	if err != nil {
+		return ast.Instruction{}, fmt.Errorf("building typed instruction: %w", err)
+	}
+	return instruction, nil
+}
+
+// ValidateInstruction verifies architecture identity, profile, variant, addressing,
+// register combination, and operands without assembling the instruction.
+func (c *Codec[T]) ValidateInstruction(instruction ast.Instruction) error {
+	validator, ok := c.configuration.Arch.(instructionValidator)
+	if !ok {
+		return ErrValidationUnsupported
+	}
+	if err := validator.ValidateInstruction(instruction); err != nil {
+		return fmt.Errorf("validating typed instruction: %w", err)
+	}
+	return nil
+}
+
+// FormatInstruction returns one deterministic, parseable instruction line.
+func (c *Codec[T]) FormatInstruction(instruction ast.Instruction) (string, error) {
+	formatter, ok := c.configuration.Arch.(instructionFormatter)
+	if !ok {
+		return "", ErrFormattingUnsupported
+	}
+	formatted, err := formatter.FormatInstruction(instruction)
+	if err != nil {
+		return "", fmt.Errorf("formatting typed instruction: %w", err)
+	}
+	return formatted, nil
 }
 
 // Assemble assembles a copy of nodes directly, without formatting or reparsing text.
