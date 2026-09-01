@@ -83,7 +83,7 @@ func readArguments() (*optionFlags, []string) {
 	flags.BoolVar(&options.debug, "debug", false, "enable debug logging")
 	flags.StringVar(&options.config, "c", "", "assembler config file")
 	flags.StringVar(&options.output, "o", "", "name of the output file")
-	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, 65816, chip8, m68000, sm83, z80)")
+	flags.StringVar(&options.cpu, "cpu", "", "target CPU architecture (6502, 65816, chip8, cpu68000, sm83, z80)")
 	flags.StringVar(&options.system, "system", "", "target system (chip8, nes, snes, generic, gameboy, zx-spectrum)")
 	flags.StringVar(
 		&options.z80Profile,

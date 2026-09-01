@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
-	archm65816 "github.com/retroenv/retroasm/pkg/arch/m65816"
-	archm68000 "github.com/retroenv/retroasm/pkg/arch/m68000"
-	archsm83 "github.com/retroenv/retroasm/pkg/arch/sm83"
-	archz80 "github.com/retroenv/retroasm/pkg/arch/z80"
-	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu65816"
+	"github.com/retroenv/retroasm/pkg/arch/cpu68000"
+	"github.com/retroenv/retroasm/pkg/arch/sm83"
+	"github.com/retroenv/retroasm/pkg/arch/z80"
+	"github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
@@ -26,12 +26,12 @@ var (
 
 // Supported architectures and systems.
 const (
-	cpu6502   = string(arch.CPU6502)
-	cpu65816  = string(arch.CPU65816)
-	cpuChip8  = string(arch.CHIP8)
-	cpuM68000 = string(arch.CPU68000)
-	cpuSM83   = string(arch.SM83)
-	cpuZ80    = string(arch.Z80)
+	cpu6502Name  = string(arch.CPU6502)
+	cpu65816Name = string(arch.CPU65816)
+	cpuChip8     = string(arch.CHIP8)
+	cpu68000Name = string(arch.CPU68000)
+	cpuSM83      = string(arch.SM83)
+	cpuZ80       = string(arch.Z80)
 
 	systemChip8      = string(arch.CHIP8System)
 	systemNES        = string(arch.NES)
@@ -42,27 +42,27 @@ const (
 )
 
 var supportedSystemsByCPU = map[string]set.Set[string]{
-	cpu6502:   set.NewFromSlice([]string{systemNES, systemGeneric}),
-	cpu65816:  set.NewFromSlice([]string{systemSNES, systemGeneric}),
-	cpuChip8:  set.NewFromSlice([]string{systemChip8}),
-	cpuM68000: set.NewFromSlice([]string{systemGeneric}),
-	cpuSM83:   set.NewFromSlice([]string{systemGameBoy, systemGeneric}),
-	cpuZ80:    set.NewFromSlice([]string{systemGeneric, systemGameBoy, systemZXSpectrum}),
+	cpu6502Name:  set.NewFromSlice([]string{systemNES, systemGeneric}),
+	cpu65816Name: set.NewFromSlice([]string{systemSNES, systemGeneric}),
+	cpuChip8:     set.NewFromSlice([]string{systemChip8}),
+	cpu68000Name: set.NewFromSlice([]string{systemGeneric}),
+	cpuSM83:      set.NewFromSlice([]string{systemGameBoy, systemGeneric}),
+	cpuZ80:       set.NewFromSlice([]string{systemGeneric, systemGameBoy, systemZXSpectrum}),
 }
 
 var defaultSystemByCPU = map[string]string{
-	cpu6502:   systemNES,
-	cpu65816:  systemSNES,
-	cpuChip8:  systemChip8,
-	cpuM68000: systemGeneric,
-	cpuSM83:   systemGameBoy,
-	cpuZ80:    systemGeneric,
+	cpu6502Name:  systemNES,
+	cpu65816Name: systemSNES,
+	cpuChip8:     systemChip8,
+	cpu68000Name: systemGeneric,
+	cpuSM83:      systemGameBoy,
+	cpuZ80:       systemGeneric,
 }
 
 var defaultCPUBySystem = map[string]string{
 	systemChip8:      cpuChip8,
-	systemNES:        cpu6502,
-	systemSNES:       cpu65816,
+	systemNES:        cpu6502Name,
+	systemSNES:       cpu65816Name,
 	systemGeneric:    cpuZ80,
 	systemGameBoy:    cpuSM83,
 	systemZXSpectrum: cpuZ80,
@@ -118,9 +118,9 @@ func setDefaultArchitecture(options *optionFlags, z80ProfileRequested bool) bool
 		return false
 	}
 
-	options.cpu = cpu6502
+	options.cpu = cpu6502Name
 	options.system = systemNES
-	options.z80Profile = z80profile.Default.String()
+	options.z80Profile = profile.Default.String()
 	return true
 }
 
@@ -152,7 +152,7 @@ func applyDerivedArchitectureDefaults(options *optionFlags, z80ProfileRequested 
 func validateArchitectureCompatibility(options *optionFlags) error {
 	compatibleSystems, ok := supportedSystemsByCPU[options.cpu]
 	if !ok {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502Name, cpu65816Name, cpuChip8, cpu68000Name, cpuSM83, cpuZ80)
 	}
 
 	if !compatibleSystems.Contains(options.system) {
@@ -207,19 +207,19 @@ func validateCPU(options *optionFlags) error {
 
 	cpu, ok := arch.FromString(options.cpu)
 	if !ok {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, options.cpu, cpu6502Name, cpu65816Name, cpuChip8, cpu68000Name, cpuSM83, cpuZ80)
 	}
 	options.cpu = string(cpu)
 
 	if cpu != arch.CPU6502 && cpu != arch.CPU65816 && cpu != arch.CHIP8 && cpu != arch.CPU68000 && cpu != arch.SM83 && cpu != arch.Z80 {
-		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502, cpu65816, cpuChip8, cpuM68000, cpuSM83, cpuZ80)
+		return fmt.Errorf("%w: %s (supported: %s, %s, %s, %s, %s, %s)", ErrUnsupportedCPU, cpu, cpu6502Name, cpu65816Name, cpuChip8, cpu68000Name, cpuSM83, cpuZ80)
 	}
 
 	return nil
 }
 
 func validateZ80Profile(options *optionFlags, requested bool) error {
-	profileKind, err := z80profile.Parse(options.z80Profile)
+	profileKind, err := profile.Parse(options.z80Profile)
 	if err != nil {
 		return fmt.Errorf("parsing z80 profile: %w", err)
 	}
@@ -229,7 +229,7 @@ func validateZ80Profile(options *optionFlags, requested bool) error {
 		return nil
 	}
 
-	if requested && profileKind != z80profile.Default {
+	if requested && profileKind != profile.Default {
 		return fmt.Errorf(
 			"%w: z80 profile '%s' requires cpu '%s'",
 			ErrIncompatibleArch,
@@ -238,7 +238,7 @@ func validateZ80Profile(options *optionFlags, requested bool) error {
 		)
 	}
 
-	options.z80Profile = z80profile.Default.String()
+	options.z80Profile = profile.Default.String()
 	return nil
 }
 
@@ -247,35 +247,35 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName 
 ) error {
 
 	switch cpuName {
-	case cpu6502:
-		cfg := m6502.New()
+	case cpu6502Name:
+		cfg := cpu6502.New()
 		cfg.CompatibilityMode = compatMode
-		adapter := retroasm.NewArchitectureAdapter(cpu6502, cfg, cfg)
-		if err := asm.RegisterArchitecture(cpu6502, adapter); err != nil {
-			return fmt.Errorf("registering architecture '%s': %w", cpu6502, err)
+		adapter := retroasm.NewArchitectureAdapter(cpu6502Name, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpu6502Name, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpu6502Name, err)
 		}
 		return nil
 
-	case cpu65816:
-		cfg := archm65816.New()
+	case cpu65816Name:
+		cfg := cpu65816.New()
 		cfg.CompatibilityMode = compatMode
-		adapter := retroasm.NewArchitectureAdapter(cpu65816, cfg, cfg)
-		if err := asm.RegisterArchitecture(cpu65816, adapter); err != nil {
-			return fmt.Errorf("registering architecture '%s': %w", cpu65816, err)
+		adapter := retroasm.NewArchitectureAdapter(cpu65816Name, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpu65816Name, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpu65816Name, err)
 		}
 		return nil
 
-	case cpuM68000:
-		cfg := archm68000.New()
+	case cpu68000Name:
+		cfg := cpu68000.New()
 		cfg.CompatibilityMode = compatMode
-		adapter := retroasm.NewArchitectureAdapter(cpuM68000, cfg, cfg)
-		if err := asm.RegisterArchitecture(cpuM68000, adapter); err != nil {
-			return fmt.Errorf("registering architecture '%s': %w", cpuM68000, err)
+		adapter := retroasm.NewArchitectureAdapter(cpu68000Name, cfg, cfg)
+		if err := asm.RegisterArchitecture(cpu68000Name, adapter); err != nil {
+			return fmt.Errorf("registering architecture '%s': %w", cpu68000Name, err)
 		}
 		return nil
 
 	case cpuSM83:
-		cfg := archsm83.New()
+		cfg := sm83.New()
 		cfg.CompatibilityMode = compatMode
 		adapter := retroasm.NewArchitectureAdapter(cpuSM83, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpuSM83, adapter); err != nil {
@@ -284,12 +284,12 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName, z80ProfileName 
 		return nil
 
 	case cpuZ80:
-		profileKind, err := z80profile.Parse(z80ProfileName)
+		profileKind, err := profile.Parse(z80ProfileName)
 		if err != nil {
 			return fmt.Errorf("parsing z80 profile: %w", err)
 		}
 
-		cfg := archz80.New(archz80.WithProfile(profileKind))
+		cfg := z80.New(z80.WithProfile(profileKind))
 		cfg.CompatibilityMode = compatMode
 		adapter := retroasm.NewArchitectureAdapter(cpuZ80, cfg, cfg)
 		if err := asm.RegisterArchitecture(cpuZ80, adapter); err != nil {

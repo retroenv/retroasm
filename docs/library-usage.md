@@ -40,7 +40,7 @@ The example below uses the current 6502 implementation:
 package main
 
 import (
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
 )
@@ -48,9 +48,9 @@ import (
 func newAssembler() (retroasm.Assembler, error) {
 	assembler := retroasm.New()
 
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := assembler.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	cpu6502Arch := cpu6502.New()
+	adapter := retroasm.NewArchitectureAdapter(string(arch.CPU6502), cpu6502Arch, cpu6502Arch)
+	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		return nil, err
 	}
 
@@ -71,7 +71,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
 )
@@ -79,9 +79,9 @@ import (
 func main() {
 	assembler := retroasm.New()
 
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := assembler.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	cpu6502Arch := cpu6502.New()
+	adapter := retroasm.NewArchitectureAdapter(string(arch.CPU6502), cpu6502Arch, cpu6502Arch)
+	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		panic(err)
 	}
 
@@ -130,19 +130,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
+	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 func main() {
 	assembler := retroasm.New()
 
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := assembler.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	cpu6502Arch := cpu6502.New()
+	adapter := retroasm.NewArchitectureAdapter(string(arch.CPU6502), cpu6502Arch, cpu6502Arch)
+	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		panic(err)
 	}
 

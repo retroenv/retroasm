@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -27,7 +27,7 @@ SEGMENTS {
 
 func TestConfigReadCa65Config(t *testing.T) {
 	reader := bytes.NewReader(ca65Config)
-	var cfg Config[*m6502.Instruction]
+	var cfg Config[*cpu6502.Instruction]
 	assert.NoError(t, cfg.ReadCa65Config(reader))
 }
 
@@ -37,7 +37,7 @@ func TestConfigReadCa65Config_SegmentOffset(t *testing.T) {
 MEMORY { ROM: start = $8000, size = $4000, type = ro; }
 SEGMENTS { CODE: load = ROM, type = ro, offset = $100; }
 `)
-		var cfg Config[*m6502.Instruction]
+		var cfg Config[*cpu6502.Instruction]
 		assert.NoError(t, cfg.ReadCa65Config(bytes.NewReader(input)))
 		assert.Equal(t, uint64(0x100), cfg.Segments["CODE"].Offset)
 	})
@@ -47,7 +47,7 @@ SEGMENTS { CODE: load = ROM, type = ro, offset = $100; }
 MEMORY { ROM: start = $8000, size = $4000, type = ro; }
 SEGMENTS { CODE: load = ROM, type = ro, offset = xyz; }
 `)
-		var cfg Config[*m6502.Instruction]
+		var cfg Config[*cpu6502.Instruction]
 		assert.Error(t, cfg.ReadCa65Config(bytes.NewReader(input)))
 	})
 }

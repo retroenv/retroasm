@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -30,7 +30,7 @@ func TestArchitectureRegistration(t *testing.T) {
 		{
 			name:        "successful registration",
 			archName:    string(arch.CPU6502),
-			arch:        NewArchitectureAdapter(string(arch.CPU6502), m6502.New(), m6502.New()),
+			arch:        NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502.New(), asmcpu6502.New()),
 			expectedErr: nil,
 		},
 		{
@@ -105,7 +105,7 @@ func TestASTAssembly(t *testing.T) {
 		{
 			name: "simple instruction lowercase",
 			input: &ASTInput{
-				AST:        []ast.Node{ast.NewInstruction("lda", int(cpu.ImmediateAddressing), ast.NewNumber(1), nil)},
+				AST:        []ast.Node{ast.NewInstruction("lda", int(cpu6502.ImmediateAddressing), ast.NewNumber(1), nil)},
 				SourceName: testFilename,
 			},
 			expectedBinary: []byte{0xA9, 0x01}, // LDA #$01
@@ -113,7 +113,7 @@ func TestASTAssembly(t *testing.T) {
 		{
 			name: "simple instruction uppercase",
 			input: &ASTInput{
-				AST:        []ast.Node{ast.NewInstruction("LDA", int(cpu.ImmediateAddressing), ast.NewNumber(1), nil)},
+				AST:        []ast.Node{ast.NewInstruction("LDA", int(cpu6502.ImmediateAddressing), ast.NewNumber(1), nil)},
 				SourceName: testFilename,
 			},
 			expectedBinary: []byte{0xA9, 0x01}, // LDA #$01
@@ -122,8 +122,8 @@ func TestASTAssembly(t *testing.T) {
 			name: "multiple instructions",
 			input: &ASTInput{
 				AST: []ast.Node{
-					ast.NewInstruction("LDA", int(cpu.ImmediateAddressing), ast.NewNumber(1), nil),
-					ast.NewInstruction("STA", int(cpu.AbsoluteAddressing), ast.NewNumber(0x0200), nil),
+					ast.NewInstruction("LDA", int(cpu6502.ImmediateAddressing), ast.NewNumber(1), nil),
+					ast.NewInstruction("STA", int(cpu6502.AbsoluteAddressing), ast.NewNumber(0x0200), nil),
 				},
 				SourceName: testFilename,
 			},
@@ -182,8 +182,8 @@ func TestTextAssembly(t *testing.T) {
 			assembler := New()
 
 			// Register architecture
-			m6502Arch := m6502.New()
-			adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+			asmcpu6502 := asmcpu6502.New()
+			adapter := NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502, asmcpu6502)
 			err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter)
 			assert.NoError(t, err)
 
@@ -225,8 +225,8 @@ func TestSymbolHandling(t *testing.T) {
 	assembler := New()
 
 	// Register architecture
-	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	asmcpu6502 := asmcpu6502.New()
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502, asmcpu6502)
 	err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter)
 	assert.NoError(t, err)
 
@@ -301,8 +301,8 @@ func TestDefaultConfigurationMutation(t *testing.T) {
 }
 
 func TestArchitectureAdapter(t *testing.T) {
-	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	asmcpu6502 := asmcpu6502.New()
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502, asmcpu6502)
 
 	// Test adapter properties
 	assert.Equal(t, string(arch.CPU6502), adapter.Name())
@@ -319,8 +319,8 @@ func TestArchitectureAdapter(t *testing.T) {
 }
 
 func TestArchitectureAssemblerImpl(t *testing.T) {
-	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	asmcpu6502 := asmcpu6502.New()
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502, asmcpu6502)
 	config := ArchitectureConfig{
 		BaseAddr: 0x8000,
 		Symbols:  map[string]uint64{"test": 0x1000},
@@ -405,8 +405,8 @@ func TestSegmentTypes(t *testing.T) {
 
 func runASTAssembly(ctx context.Context, input *ASTInput) (*AssemblyOutput, error) {
 	assembler := New()
-	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	asmcpu6502 := asmcpu6502.New()
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502, asmcpu6502)
 	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		return nil, fmt.Errorf("registering architecture: %w", err)
 	}

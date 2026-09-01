@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	m6502Arch "github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -37,7 +37,7 @@ func TestParserX816NoOpDirectives(t *testing.T) {
 		".message text",
 	}
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	for _, directive := range noOpDirectives {
 		p := New(cfg.Arch, strings.NewReader(directive+"\n"), config.CompatX816)
 		assert.NoError(t, p.Read(t.Context()), "directive: "+directive)
@@ -50,7 +50,7 @@ func TestParserX816NoOpDirectives(t *testing.T) {
 func TestParserX816CommentBlock(t *testing.T) {
 	input := ".comment\nthis is a comment\nspanning multiple lines\n.end\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
@@ -61,21 +61,21 @@ func TestParserX816CommentBlock(t *testing.T) {
 func TestParserX816CommentBlockWithCode(t *testing.T) {
 	input := "nop\n.comment\nskipped\n.end\nnop\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
 	assert.NoError(t, err)
 
 	assert.Len(t, nodes, 2)
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[0])
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
+	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[0])
+	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816SourceInclude(t *testing.T) {
 	input := ".src test.asm\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
@@ -88,7 +88,7 @@ func TestParserX816SourceInclude(t *testing.T) {
 func TestParserX816DotEqu(t *testing.T) {
 	input := "MAX .equ 255\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
@@ -103,7 +103,7 @@ func TestParserX816DotEqu(t *testing.T) {
 func TestParserX816ColonOptionalLabel(t *testing.T) {
 	input := "start\nnop\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
@@ -111,14 +111,14 @@ func TestParserX816ColonOptionalLabel(t *testing.T) {
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, ast.NewLabel("start"), nodes[0])
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
+	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816ColonOptionalLabelBeforeInstruction(t *testing.T) {
 	// In x816 mode, label at column 0 followed by instruction on next token
 	input := "start\n  nop\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
@@ -126,13 +126,13 @@ func TestParserX816ColonOptionalLabelBeforeInstruction(t *testing.T) {
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, ast.NewLabel("start"), nodes[0])
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
+	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816AnonymousLabel(t *testing.T) {
 	input := "+\nnop\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
@@ -148,7 +148,7 @@ func TestParserX816AnonymousLabel(t *testing.T) {
 func TestParserX816EndDirective(t *testing.T) {
 	input := ".end\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()

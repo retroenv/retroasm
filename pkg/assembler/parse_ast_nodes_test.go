@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
-	cpu6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 	"github.com/retroenv/retrogolib/set"
 )
@@ -403,7 +403,7 @@ func TestParseScopeEndWithoutParent(t *testing.T) {
 }
 
 func TestParseSourceIncludeCycle(t *testing.T) {
-	cfg := m6502.New()
+	cfg := asmcpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	p := &parseAST[*cpu6502.Instruction]{

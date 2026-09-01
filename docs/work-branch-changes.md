@@ -29,14 +29,14 @@ but it presents these newer `main` changes as reverse changes:
 - `.golangci.yml`
 - `Makefile`
 - `pkg/arch/arch.go`
-- `pkg/arch/m6502/parser/{instruction.go,instruction_test.go}`
+- `pkg/arch/cpu6502/parser/{instruction.go,instruction_test.go}`
 - `pkg/assembler/{assembler.go,assembler_asm6_test.go,parse_ast_nodes.go,process_macros_step.go}`
 - `pkg/assembler/config/compatibility.go`
 - `pkg/parser/{alias.go,parser.go,parser_asm6_test.go,parser_test.go}`
 - `pkg/parser/directives/{data.go,directives.go,directives_test.go,noop_test.go}`
 
 It also presents the x816 changes merged after P04 as reverse changes in the
-lexer, expression, assembler, parser, and M6502 packages. These must remain
+lexer, expression, assembler, parser, and CPU6502 packages. These must remain
 on the `main` side when P00 is performed.
 
 These paths contain newer `main` changes and must be split by hunk rather than
@@ -49,7 +49,7 @@ Current verification:
 - P02 (compatibility-mode transport and independent parser handler maps) is
   merged to `main` as `f26344c`.
 - P03 (shared label-resolution hooks) is merged to `main` as `38f84d7`.
-- P04 (parenthesized M6502 immediate expressions) is merged to `main` as
+- P04 (parenthesized CPU6502 immediate expressions) is merged to `main` as
   `af8513a`.
 - P05 (x816 compatibility) is merged to `main` as `3ccaa8e`, `e7f54ef`,
   `3fc85ca`, and `bf78324`. P06 is the next extraction part.
@@ -59,7 +59,7 @@ Current verification:
 - `go test ./...` passes on `work2`.
 - The pass uses the local `retrogolib` replacement in `go.mod`.
 - The pinned `retrogolib` version contains Chip-8, x86, and Z80 packages, but
-  does not contain `arch/cpu/m65816`, `arch/cpu/m68000`, or `arch/cpu/sm83`.
+  does not contain `arch/cpu/cpu65816`, `arch/cpu/cpu68000`, or `arch/cpu/sm83`.
   Those three architecture extractions are blocked until a released module
   version contains their dependencies.
 
@@ -147,7 +147,7 @@ it here.
 **Scope:**
 
 - ca65 unnamed/local-label hunks in `pkg/parser/parser.go` and
-  `pkg/arch/m6502/parser/instruction.go`
+  `pkg/arch/cpu6502/parser/instruction.go`
 - ca65 handler hunks in `pkg/parser/directives/directives.go`
 - `pkg/parser/directives/ca65.go`
 - `.endmacro` support in `pkg/parser/directives/macro.go`
@@ -273,7 +273,7 @@ Do not advertise CLI support; `validateCPU` still rejects x86.
 #### P18 — Replace the local dependency with a released module version
 
 **Scope:** update the `retrogolib` requirement in `go.mod` to a published
-version containing M65816, M68000, and SM83. Never copy the local `replace`
+version containing CPU65816, CPU68000, and SM83. Never copy the local `replace`
 directive.
 
 This part is blocked until such a module version exists.
@@ -283,32 +283,32 @@ This part is blocked until such a module version exists.
 
 ### Phase 5: Architectures Requiring P18
 
-#### P19 — M65816 parser
+#### P19 — CPU65816 parser
 
-**Scope:** `pkg/arch/m65816/parser/**`.
+**Scope:** `pkg/arch/cpu65816/parser/**`.
 
 **Prerequisite:** P18.
-**Validation:** `go test ./pkg/arch/m65816/parser/...`.
+**Validation:** `go test ./pkg/arch/cpu65816/parser/...`.
 
-#### P20 — M65816 opcode generation
+#### P20 — CPU65816 opcode generation
 
-**Scope:** `pkg/arch/m65816/assembler/**`.
+**Scope:** `pkg/arch/cpu65816/assembler/**`.
 
 **Prerequisite:** P19.
-**Validation:** `go test ./pkg/arch/m65816/assembler/...`.
+**Validation:** `go test ./pkg/arch/cpu65816/assembler/...`.
 
-#### P21 — M65816 adapter, CLI, and feature plan
+#### P21 — CPU65816 adapter, CLI, and feature plan
 
 **Scope:**
 
-- `pkg/arch/m65816/m65816.go`
-- `pkg/arch/m65816/m65816_test.go`
-- M65816-only CLI hunks
-- `docs/m65816-support-plan.md`
+- `pkg/arch/cpu65816/cpu65816.go`
+- `pkg/arch/cpu65816/cpu65816_test.go`
+- CPU65816-only CLI hunks
+- `docs/cpu65816-support-plan.md`
 
 **Prerequisite:** P20.
 **Validation:**
-`go test ./pkg/arch/m65816/... ./cmd/retroasm/... -run 'M65816|65816'`.
+`go test ./pkg/arch/cpu65816/... ./cmd/retroasm/... -run 'CPU65816|65816'`.
 
 #### P22 — SM83 parser
 
@@ -337,32 +337,32 @@ This part is blocked until such a module version exists.
 **Validation:**
 `go test ./pkg/arch/sm83/... ./cmd/retroasm/... -run SM83`.
 
-#### P25 — M68000 parser
+#### P25 — CPU68000 parser
 
-**Scope:** `pkg/arch/m68000/parser/**`.
+**Scope:** `pkg/arch/cpu68000/parser/**`.
 
 **Prerequisite:** P18.
-**Validation:** `go test ./pkg/arch/m68000/parser/...`.
+**Validation:** `go test ./pkg/arch/cpu68000/parser/...`.
 
-#### P26 — M68000 opcode generation
+#### P26 — CPU68000 opcode generation
 
-**Scope:** `pkg/arch/m68000/assembler/**`.
+**Scope:** `pkg/arch/cpu68000/assembler/**`.
 
 **Prerequisite:** P25.
-**Validation:** `go test ./pkg/arch/m68000/assembler/...`.
+**Validation:** `go test ./pkg/arch/cpu68000/assembler/...`.
 
-#### P27 — M68000 adapter, CLI, and feature plan
+#### P27 — CPU68000 adapter, CLI, and feature plan
 
 **Scope:**
 
-- `pkg/arch/m68000/m68000.go`
-- `pkg/arch/m68000/m68000_test.go`
-- M68000-only CLI hunks
-- `docs/m68000-support-plan.md`
+- `pkg/arch/cpu68000/cpu68000.go`
+- `pkg/arch/cpu68000/cpu68000_test.go`
+- CPU68000-only CLI hunks
+- `docs/cpu68000-support-plan.md`
 
 **Prerequisite:** P26.
 **Validation:**
-`go test ./pkg/arch/m68000/... ./cmd/retroasm/... -run M68000`.
+`go test ./pkg/arch/cpu68000/... ./cmd/retroasm/... -run CPU68000`.
 
 ### Phase 6: Public Documentation and Final Cleanup
 
@@ -389,8 +389,8 @@ clean worktree.
 |---|---|
 | `go.mod` | Drop the local `replace`; create P18 with a real released version. |
 | `.golangci.yml`, `Makefile`, `pkg/assembler/config/compatibility.go` | Keep `main`; current two-dot differences come from newer `main`. |
-| `pkg/arch/m6502/assembler/address_assigning_step.go` | Branch delta is explanatory comments only; behavior is already on `main`. |
-| `pkg/arch/m6502/assembler/generate_opcode_step.go` | Branch delta is explanatory comments only; behavior is already on `main`. |
+| `pkg/arch/cpu6502/assembler/address_assigning_step.go` | Branch delta is explanatory comments only; behavior is already on `main`. |
+| `pkg/arch/cpu6502/assembler/generate_opcode_step.go` | Branch delta is explanatory comments only; behavior is already on `main`. |
 | `pkg/parser/ast/node.go`, `pkg/parser/ast/node_test.go`, `pkg/parser/ast/instruction.go` | Drop unless a production caller is added; all new helpers are currently test-only. |
 | `pkg/retroasm/default.go` | Drop; remaining changes are formatting/comment churn. |
 | `docs/work-branch-changes.md` | Branch tracking only; do not merge as product documentation. |
@@ -410,9 +410,9 @@ Mixed rows require hunk-level extraction.
 | `examples/chip8/**` | 3 | P10 |
 | `go.mod` | 1 | Rework in P18 |
 | `pkg/arch/chip8/**` | 6 | P10 |
-| `pkg/arch/m6502/**` | 6 | P07; preserve the x816-related `main` hunks and drop two comments-only files |
-| `pkg/arch/m65816/**` | 7 | P19-P21 |
-| `pkg/arch/m68000/**` | 20 | P25-P27 |
+| `pkg/arch/cpu6502/**` | 6 | P07; preserve the x816-related `main` hunks and drop two comments-only files |
+| `pkg/arch/cpu65816/**` | 7 | P19-P21 |
+| `pkg/arch/cpu68000/**` | 20 | P25-P27 |
 | `pkg/arch/sm83/**` | 7 | P22-P24 |
 | `pkg/arch/x86/**` | 7 | P12 |
 | `pkg/arch/z80/**` | 29 | P13-P17 |

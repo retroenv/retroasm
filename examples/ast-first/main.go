@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/retroasm"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 func main() {
@@ -41,8 +41,8 @@ func setupAssembler() (retroasm.Assembler, error) {
 	assembler := retroasm.New()
 
 	// Register 6502 architecture
-	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter("6502", m6502Arch, m6502Arch)
+	asmcpu6502 := asmcpu6502.New()
+	adapter := retroasm.NewArchitectureAdapter("6502", asmcpu6502, asmcpu6502)
 	err := assembler.RegisterArchitecture("6502", adapter)
 	if err != nil {
 		return nil, fmt.Errorf("registering architecture: %w", err)
@@ -114,17 +114,17 @@ func createSampleProgram() []ast.Node {
 	//   RTS
 
 	// Load X position (immediate mode: LDA #50)
-	nodes = append(nodes, ast.NewInstruction("LDA", int(cpu.ImmediateAddressing), ast.NewNumber(50), nil))
+	nodes = append(nodes, ast.NewInstruction("LDA", int(cpu6502.ImmediateAddressing), ast.NewNumber(50), nil))
 	// Store to absolute address (STA $0200)
-	nodes = append(nodes, ast.NewInstruction("STA", int(cpu.AbsoluteAddressing), ast.NewNumber(0x0200), nil))
+	nodes = append(nodes, ast.NewInstruction("STA", int(cpu6502.AbsoluteAddressing), ast.NewNumber(0x0200), nil))
 
 	// Load Y position (immediate mode: LDA #100)
-	nodes = append(nodes, ast.NewInstruction("LDA", int(cpu.ImmediateAddressing), ast.NewNumber(100), nil))
+	nodes = append(nodes, ast.NewInstruction("LDA", int(cpu6502.ImmediateAddressing), ast.NewNumber(100), nil))
 	// Store to absolute address (STA $0201)
-	nodes = append(nodes, ast.NewInstruction("STA", int(cpu.AbsoluteAddressing), ast.NewNumber(0x0201), nil))
+	nodes = append(nodes, ast.NewInstruction("STA", int(cpu6502.AbsoluteAddressing), ast.NewNumber(0x0201), nil))
 
 	// Return (implied addressing)
-	nodes = append(nodes, ast.NewInstruction("RTS", int(cpu.ImpliedAddressing), nil, nil))
+	nodes = append(nodes, ast.NewInstruction("RTS", int(cpu6502.ImpliedAddressing), nil, nil))
 
 	return nodes
 }

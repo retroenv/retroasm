@@ -4,17 +4,17 @@ import (
 	"strings"
 	"testing"
 
-	m6502Arch "github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
 func TestParserCa65UnnamedLabelDefinition(t *testing.T) {
 	input := ":\n:\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -28,7 +28,7 @@ func TestParserCa65UnnamedLabelDefinition(t *testing.T) {
 func TestParserCa65UnnamedLabelReference(t *testing.T) {
 	input := ":\n  bne :-\n:\n  bne :+\n:\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -37,10 +37,10 @@ func TestParserCa65UnnamedLabelReference(t *testing.T) {
 	// Expected: unnamed_1, bne __unnamed_1, unnamed_2, bne __unnamed_3, unnamed_3
 	assert.Len(t, nodes, 5)
 	assert.Equal(t, ast.NewLabel("__unnamed_1"), nodes[0])
-	assert.Equal(t, m6502Instruction("bne", int(m6502.RelativeAddressing),
+	assert.Equal(t, cpu6502Instruction("bne", int(cpu6502.RelativeAddressing),
 		ast.NewLabel("__unnamed_1")), nodes[1])
 	assert.Equal(t, ast.NewLabel("__unnamed_2"), nodes[2])
-	assert.Equal(t, m6502Instruction("bne", int(m6502.RelativeAddressing),
+	assert.Equal(t, cpu6502Instruction("bne", int(cpu6502.RelativeAddressing),
 		ast.NewLabel("__unnamed_3")), nodes[3])
 	assert.Equal(t, ast.NewLabel("__unnamed_3"), nodes[4])
 }
@@ -48,7 +48,7 @@ func TestParserCa65UnnamedLabelReference(t *testing.T) {
 func TestParserCa65LocalLabelScoping(t *testing.T) {
 	input := localLabelScopingInput
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -65,7 +65,7 @@ func TestParserCa65LocalLabelScoping(t *testing.T) {
 func TestParserCa65Scope(t *testing.T) {
 	input := ".scope MyScope\n.endscope\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -79,7 +79,7 @@ func TestParserCa65Scope(t *testing.T) {
 func TestParserCa65AnonymousScope(t *testing.T) {
 	input := ".scope\n.endscope\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -93,7 +93,7 @@ func TestParserCa65AnonymousScope(t *testing.T) {
 func TestParserCa65Asciiz(t *testing.T) {
 	input := ".asciiz \"hello\"\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -115,7 +115,7 @@ func TestParserCa65Asciiz(t *testing.T) {
 func TestParserCa65Warning(t *testing.T) {
 	input := ".warning \"test message\"\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -130,7 +130,7 @@ func TestParserCa65Warning(t *testing.T) {
 func TestParserCa65EndMacro(t *testing.T) {
 	input := ".macro test_macro arg1\n  lda arg1\n.endmacro\n"
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(input), config.CompatCa65)
 	assert.NoError(t, parser.Read(t.Context()))
 	nodes, err := parser.TokensToAstNodes()
@@ -166,7 +166,7 @@ func TestParserCa65NoOpDirectives(t *testing.T) {
 		".assert 1, error, \"msg\"",
 	}
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	for _, directive := range noOpDirectives {
 		parser := New(cfg.Arch, strings.NewReader(directive+"\n"), config.CompatCa65)
 		assert.NoError(t, parser.Read(t.Context()), "directive: "+directive)

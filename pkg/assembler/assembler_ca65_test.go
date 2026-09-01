@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -148,7 +148,7 @@ SEGMENTS {
 `
 
 func TestAssemblerCa65BlueExample(t *testing.T) {
-	cfg := m6502.New()
+	cfg := cpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(ca65BasicConfig)))
 
 	reader := strings.NewReader(ca65BlueTestCode)

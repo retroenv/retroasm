@@ -35,8 +35,8 @@ architecture, independent of Z80-specific code.
 
 ### High-Level API (`pkg/retroasm/default.go`)
 
-Refactored from hard-coded M6502 dispatch to architecture-agnostic dispatch:
-- `resolveArchitectureConfig()` selects the registered architecture (backward-compatible M6502 default)
+Refactored from hard-coded CPU6502 dispatch to architecture-agnostic dispatch:
+- `resolveArchitectureConfig()` selects the registered architecture (backward-compatible CPU6502 default)
 - Generic helpers: `assembleASTWithConfig[T]`, `assembleTextWithConfig[T]`, `readAssemblerConfig[T]`, `applyBaseAddress[T]`
 - Sentinel errors: `errAmbiguousArchitecture`, `errArchitectureAdapterMismatch`, `errArchitectureNotRegistered`, `errUnsupportedArchitectureConfig`
 

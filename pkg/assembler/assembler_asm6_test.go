@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -100,7 +100,7 @@ var asm6IncbinTestCode = `
 `
 
 func TestAssemblerAsm6Incbin(t *testing.T) {
-	cfg := m6502.New()
+	cfg := cpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	reader := strings.NewReader(asm6IncbinTestCode)
@@ -648,7 +648,7 @@ func TestAssemblerAsm6BranchOutOfRange(t *testing.T) {
 }
 
 func TestAssemblerContextCancellation(t *testing.T) {
-	cfg := m6502.New()
+	cfg := cpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	// Test cancellation during parsing
@@ -671,7 +671,7 @@ DB myval
 `
 
 func TestAssemblerAsm6SourceInclude(t *testing.T) {
-	cfg := m6502.New()
+	cfg := cpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	reader := strings.NewReader(asm6SourceIncludeTestCode)
@@ -688,7 +688,7 @@ func TestAssemblerAsm6SourceInclude(t *testing.T) {
 }
 
 func TestAssemblerAsm6SourceIncludeCycle(t *testing.T) {
-	cfg := m6502.New()
+	cfg := cpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
 
 	reader := strings.NewReader(asm6SourceIncludeTestCode)
@@ -715,7 +715,7 @@ func TestAssemblerAsm6SourceIncludeCycle(t *testing.T) {
 func runAsm6Test(t *testing.T, testConfig, testCode string) ([]byte, error) {
 	t.Helper()
 
-	cfg := m6502.New()
+	cfg := cpu6502.New()
 	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(testConfig)))
 
 	reader := strings.NewReader(testCode)

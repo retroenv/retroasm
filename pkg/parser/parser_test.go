@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	m6502Arch "github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	m6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -21,27 +21,27 @@ func TestParser_Instruction(t *testing.T) {
 	}{
 		{"asl a:var1", func() []ast.Node {
 			l := ast.NewLabel("var1")
-			return []ast.Node{m6502Instruction("asl", int(m6502.AbsoluteAddressing), l)}
+			return []ast.Node{cpu6502Instruction("asl", int(cpu6502.AbsoluteAddressing), l)}
 		}},
 		{"asl a:1", func() []ast.Node {
-			return []ast.Node{m6502Instruction("asl", int(m6502.AbsoluteAddressing), ast.NewNumber(1))}
+			return []ast.Node{cpu6502Instruction("asl", int(cpu6502.AbsoluteAddressing), ast.NewNumber(1))}
 		}},
 		{"asl", func() []ast.Node {
-			return []ast.Node{m6502Instruction("asl", int(m6502.AccumulatorAddressing), nil)}
+			return []ast.Node{cpu6502Instruction("asl", int(cpu6502.AccumulatorAddressing), nil)}
 		}},
 		{"asl a", func() []ast.Node {
-			return []ast.Node{m6502Instruction("asl", int(m6502.AccumulatorAddressing), nil)}
+			return []ast.Node{cpu6502Instruction("asl", int(cpu6502.AccumulatorAddressing), nil)}
 		}},
 		{"asl\na:", func() []ast.Node {
 			l := ast.NewLabel("a")
 			return []ast.Node{
-				m6502Instruction("asl", int(m6502.AccumulatorAddressing), nil),
+				cpu6502Instruction("asl", int(cpu6502.AccumulatorAddressing), nil),
 				l,
 			}
 		}},
 	}
 
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 
 	for _, tt := range tests {
 		parser := New(cfg.Arch, strings.NewReader(tt.input), config.CompatDefault)
@@ -58,7 +58,7 @@ func TestParser_Instruction(t *testing.T) {
 }
 
 func TestParser_EdgeCases(t *testing.T) {
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 
 	t.Run("empty input", func(t *testing.T) {
 		parser := New(cfg.Arch, strings.NewReader(""), config.CompatDefault)
@@ -87,7 +87,7 @@ func TestParser_EdgeCases(t *testing.T) {
 }
 
 func TestParser_ErrorConditions(t *testing.T) {
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 
 	t.Run("context cancellation during read", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
@@ -131,7 +131,7 @@ func TestParser_ErrorConditions(t *testing.T) {
 }
 
 func TestParser_NextToken(t *testing.T) {
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := NewWithTokens(cfg.Arch, []token.Token{
 		{Type: token.Identifier, Value: "lda"},
 		{Type: token.Number, Value: "#$01"},
@@ -162,7 +162,7 @@ func TestParser_NextToken(t *testing.T) {
 }
 
 func TestParser_AdvanceReadPosition(t *testing.T) {
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := NewWithTokens(cfg.Arch, nil, config.CompatDefault)
 
 	initialPos := parser.readPosition
@@ -174,15 +174,15 @@ func TestParser_AdvanceReadPosition(t *testing.T) {
 }
 
 func TestParser_AddressWidth(t *testing.T) {
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 	parser := New(cfg.Arch, strings.NewReader(""), config.CompatDefault)
 
-	// M6502 has 16-bit addresses
+	// CPU6502 has 16-bit addresses
 	assert.Equal(t, 16, parser.AddressWidth())
 }
 
 func TestParser_PreallocationBenefit(t *testing.T) {
-	cfg := m6502Arch.New()
+	cfg := asmcpu6502.New()
 
 	// Test that pre-allocation doesn't break functionality with large programs
 	largeInput := strings.Repeat("nop\n", 1000)
@@ -194,10 +194,10 @@ func TestParser_PreallocationBenefit(t *testing.T) {
 	assert.Len(t, nodes, 1000)
 }
 
-// m6502Instruction creates an ast.Instruction with OpcodeID pre-populated from
-// the m6502 NameToOpcodeID table, matching what the m6502 parser produces.
-func m6502Instruction(name string, addressing int, arg ast.Node) ast.Instruction {
+// cpu6502Instruction creates an ast.Instruction with OpcodeID pre-populated from
+// the cpu6502 NameToOpcodeID table, matching what the cpu6502 parser produces.
+func cpu6502Instruction(name string, addressing int, arg ast.Node) ast.Instruction {
 	node := ast.NewInstruction(name, addressing, arg, nil)
-	node.OpcodeID = uint8(m6502.NameToOpcodeID[name])
+	node.OpcodeID = uint8(cpu6502.NameToOpcodeID[name])
 	return node
 }

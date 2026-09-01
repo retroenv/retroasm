@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 // ExampleNew demonstrates basic usage of the AST-first assembler library.
@@ -16,8 +16,8 @@ func ExampleNew() {
 	assembler := New()
 
 	// Register 6502 architecture using adapter
-	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	asmcpu6502 := asmcpu6502.New()
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), asmcpu6502, asmcpu6502)
 	err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter)
 	if err != nil {
 		fmt.Printf("registering architecture: %v\n", err)
@@ -26,8 +26,8 @@ func ExampleNew() {
 
 	// AST-first assembly
 	program := []ast.Node{
-		ast.NewInstruction("LDA", int(cpu.ImmediateAddressing), ast.NewNumber(1), nil),
-		ast.NewInstruction("STA", int(cpu.AbsoluteAddressing), ast.NewNumber(0x0200), nil),
+		ast.NewInstruction("LDA", int(cpu6502.ImmediateAddressing), ast.NewNumber(1), nil),
+		ast.NewInstruction("STA", int(cpu6502.AbsoluteAddressing), ast.NewNumber(0x0200), nil),
 	}
 
 	input := &ASTInput{

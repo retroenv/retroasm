@@ -125,7 +125,7 @@ retroasm -cpu chip8 -o game.ch8 program.asm
 retroasm -cpu 65816 -system snes -o game.sfc program.asm
 
 # Assemble a Motorola 68000 program
-retroasm -cpu m68000 -system generic -o program.bin program.asm
+retroasm -cpu cpu68000 -system generic -o program.bin program.asm
 
 # Assemble an SM83 program for Game Boy
 retroasm -cpu sm83 -system gameboy -o game.gb program.asm
@@ -153,7 +153,7 @@ usage: retroasm [options] <file to assemble>
   -compat string
         assembler compatibility mode (asm6, ca65, default, nesasm, x816)
   -cpu string
-        target CPU architecture (6502, 65816, chip8, m68000, sm83, z80)
+        target CPU architecture (6502, 65816, chip8, cpu68000, sm83, z80)
   -debug
         enable debug logging with detailed output
   -m string

@@ -16,8 +16,8 @@
 //	assembler := retroasm.New()
 //
 //	// Register 6502 architecture
-//	m6502Arch := m6502.New()
-//	adapter := retroasm.NewArchitectureAdapter("6502", m6502Arch, m6502Arch)
+//	asmcpu6502 := cpu6502.New()
+//	adapter := retroasm.NewArchitectureAdapter("6502", asmcpu6502, asmcpu6502)
 //	assembler.RegisterArchitecture("6502", adapter)
 //
 //	// Assemble from AST

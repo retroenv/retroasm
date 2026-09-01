@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/retroenv/retroasm/pkg/arch/m6502"
+	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/assembler"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
@@ -191,7 +191,7 @@ func (a *architectureAssembler[T]) AssembleAST(nodes []ast.Node) (*AssemblyOutpu
 func (a *defaultAssembler) resolveArchitectureDispatcher() (architectureDispatcher, error) {
 	switch len(a.architectures) {
 	case 0:
-		return newConfigDispatcher(m6502.New()), nil
+		return newConfigDispatcher(cpu6502.New()), nil
 	case 1:
 		for _, architecture := range a.architectures {
 			return dispatcherForArchitecture(architecture)
