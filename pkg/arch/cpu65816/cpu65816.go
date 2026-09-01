@@ -7,6 +7,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/cpu65816/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
@@ -31,7 +32,11 @@ func (ar *arch65816[T]) Instruction(name string) (*cpu65816.Instruction, bool) {
 	return ins, ok
 }
 
-func (ar *arch65816[T]) ParseIdentifier(p arch.Parser, ins *cpu65816.Instruction) (ast.Node, error) {
+func (ar *arch65816[T]) OpcodeID(ins *cpu65816.Instruction) ast.OpcodeID {
+	return ast.NewOpcodeID(retroarch.CPU65816, uint16(cpu65816.NameToOpcodeID[ins.Name]))
+}
+
+func (ar *arch65816[T]) ParseIdentifier(p arch.Parser, _ string, ins *cpu65816.Instruction) (ast.Node, error) {
 	return parser.ParseIdentifier(p, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 

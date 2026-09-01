@@ -18,7 +18,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	ins.SetAddress(pc)
 
 	var insDetails *cpu6502.Instruction
-	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
+	if id := cpu6502OpcodeID(ins); id != cpu6502.InvalidOpcodeID {
 		insDetails = cpu6502.InstructionsByID[id]
 	}
 	if insDetails == nil {

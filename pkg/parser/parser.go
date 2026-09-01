@@ -347,11 +347,11 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		return n, nil
 	}
 
-	n, err := p.arch.ParseIdentifier(p, ins)
+	n, err := p.arch.ParseIdentifier(p, tok.Value, ins)
 	if err != nil {
 		return nil, fmt.Errorf("parsing identifier '%s': %w", tok.Value, err)
 	}
-	return n, nil
+	return ast.WithInstructionOpcodeID(n, p.arch.OpcodeID(ins)), nil
 }
 
 // isDotIdentifierKeyword checks if the token after a dot is a recognized keyword

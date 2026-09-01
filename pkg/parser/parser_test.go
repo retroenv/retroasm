@@ -9,6 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
@@ -198,6 +199,6 @@ func TestParser_PreallocationBenefit(t *testing.T) {
 // the cpu6502 NameToOpcodeID table, matching what the cpu6502 parser produces.
 func cpu6502Instruction(name string, addressing int, arg ast.Node) ast.Instruction {
 	node := ast.NewInstruction(name, addressing, arg, nil)
-	node.OpcodeID = uint8(cpu6502.NameToOpcodeID[name])
+	node.OpcodeID = ast.NewOpcodeID(retroarch.CPU6502, uint16(cpu6502.NameToOpcodeID[name]))
 	return node
 }

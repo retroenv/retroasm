@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
@@ -14,7 +15,7 @@ import (
 // its addressing mode and parameters.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
 	var instructionInfo *cpu6502.Instruction
-	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
+	if id := cpu6502OpcodeID(ins); id != cpu6502.InvalidOpcodeID {
 		instructionInfo = cpu6502.InstructionsByID[id]
 	}
 	if instructionInfo == nil {
@@ -92,7 +93,7 @@ func upgradeToAbsolute(mode cpu6502.AddressingMode) cpu6502.AddressingMode {
 // upgradeAndGenerateWord re-encodes the instruction using the absolute addressing variant.
 func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode, value uint64) error {
 	var instructionInfo *cpu6502.Instruction
-	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
+	if id := cpu6502OpcodeID(ins); id != cpu6502.InvalidOpcodeID {
 		instructionInfo = cpu6502.InstructionsByID[id]
 	}
 	if instructionInfo == nil {
@@ -115,6 +116,14 @@ func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
 	return nil
+}
+
+func cpu6502OpcodeID(ins arch.Instruction) cpu6502.OpcodeID {
+	identity := ins.OpcodeID()
+	if !identity.ValidFor(retroarch.CPU6502) || identity.Value > uint16(cpu6502.OpcodeIDMax) {
+		return cpu6502.InvalidOpcodeID
+	}
+	return cpu6502.OpcodeID(identity.Value)
 }
 
 func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {

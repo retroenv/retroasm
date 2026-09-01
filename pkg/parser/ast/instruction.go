@@ -2,19 +2,32 @@ package ast
 
 import (
 	"slices"
+
+	"github.com/retroenv/retrogolib/arch"
 )
 
-// OpcodeIDLookup is an optional architecture-specific resolver that maps a
-// lowercase mnemonic name to a numeric OpcodeID. When set, NewInstruction
-// calls it automatically so every created instruction has OpcodeID populated.
-// Set this once at program startup for the target architecture.
-var OpcodeIDLookup func(name string) uint8
+// OpcodeID is an architecture-scoped instruction mnemonic identity. Value is
+// independent of encoded opcode bytes; zero means unset or unknown.
+type OpcodeID struct {
+	Architecture arch.Architecture
+	Value        uint16
+}
+
+// NewOpcodeID returns an architecture-scoped opcode identity.
+func NewOpcodeID(architecture arch.Architecture, value uint16) OpcodeID {
+	return OpcodeID{Architecture: architecture, Value: value}
+}
+
+// ValidFor reports whether the identity is set for architecture.
+func (id OpcodeID) ValidFor(architecture arch.Architecture) bool {
+	return id.Architecture == architecture && id.Value != 0
+}
 
 // Instruction represents a CPU instruction with its addressing mode and operand.
 type Instruction struct {
 	*node
 
-	OpcodeID uint8 // Architecture-defined numeric opcode identifier; 0 = unset/unknown
+	OpcodeID OpcodeID
 	Name     string
 	// Addressing can be any single addressing value or the combined defined
 	// values of this package, to allow the assembler to decide which addressing
@@ -24,16 +37,11 @@ type Instruction struct {
 	Modifier   []Modifier
 }
 
-// NewInstruction returns a new instruction node. If OpcodeIDLookup is
-// registered, OpcodeID is populated automatically from the instruction name.
+// NewInstruction returns a new instruction node with an unset opcode identity.
+// Architecture codecs populate OpcodeID after resolving the instruction.
 func NewInstruction(name string, addressing int, argument Node, modifier []Modifier) Instruction {
-	var opcodeID uint8
-	if OpcodeIDLookup != nil {
-		opcodeID = OpcodeIDLookup(name)
-	}
 	return Instruction{
 		node:       &node{},
-		OpcodeID:   opcodeID,
 		Name:       name,
 		Addressing: addressing,
 		Argument:   argument,
@@ -46,9 +54,24 @@ func (i Instruction) ArgumentSymbolName() string {
 	return SymbolName(i.Argument)
 }
 
-// SetOpcodeID sets the architecture-defined numeric opcode identifier for fast O(1) lookup.
-func (i *Instruction) SetOpcodeID(id uint8) {
+// SetOpcodeID sets the architecture-scoped opcode identifier.
+func (i *Instruction) SetOpcodeID(id OpcodeID) {
 	i.OpcodeID = id
+}
+
+// WithInstructionOpcodeID returns node with an architecture-scoped opcode ID.
+// Value-form instructions are copied; pointer-form instructions are updated in place.
+func WithInstructionOpcodeID(n Node, id OpcodeID) Node {
+	switch instruction := n.(type) {
+	case Instruction:
+		instruction.OpcodeID = id
+		return instruction
+	case *Instruction:
+		if instruction != nil {
+			instruction.OpcodeID = id
+		}
+	}
+	return n
 }
 
 // Copy returns a copy of the instruction node.

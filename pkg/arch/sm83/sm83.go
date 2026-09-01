@@ -10,6 +10,7 @@ import (
 	sm83parser "github.com/retroenv/retroasm/pkg/arch/sm83/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	cpusm83 "github.com/retroenv/retrogolib/arch/cpu/sm83"
 )
 
@@ -55,7 +56,11 @@ func (ar *architecture) Instruction(name string) (*InstructionGroup, bool) {
 	return group, ok
 }
 
-func (ar *architecture) ParseIdentifier(p arch.Parser, ins *InstructionGroup) (ast.Node, error) {
+func (ar *architecture) OpcodeID(ins *InstructionGroup) ast.OpcodeID {
+	return ast.NewOpcodeID(retroarch.SM83, uint16(cpusm83.NameToOpcodeID[ins.Name]))
+}
+
+func (ar *architecture) ParseIdentifier(p arch.Parser, _ string, ins *InstructionGroup) (ast.Node, error) {
 	return sm83parser.ParseIdentifier(p, ins.Name, ins.Variants) //nolint:wrapcheck // thin delegation to sub-package
 }
 

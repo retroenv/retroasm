@@ -17,8 +17,10 @@ type Architecture[T any] interface {
 	GenerateInstructionOpcode(assigner AddressAssigner, ins Instruction) error
 	// Instruction returns the instruction with the given name.
 	Instruction(name string) (T, bool)
+	// OpcodeID returns the architecture-scoped identity of an instruction.
+	OpcodeID(T) ast.OpcodeID
 	// ParseIdentifier parses an identifier and returns the corresponding node.
-	ParseIdentifier(p Parser, ins T) (ast.Node, error)
+	ParseIdentifier(p Parser, mnemonic string, ins T) (ast.Node, error)
 }
 
 // Parser processes an input stream and parses its token to produce an abstract syntax tree (AST) as output.
@@ -61,8 +63,8 @@ type Instruction interface {
 	Argument() any
 	// Name returns the instruction name.
 	Name() string
-	// OpcodeID returns the architecture-defined numeric opcode identifier; 0 means unset/unknown.
-	OpcodeID() uint8
+	// OpcodeID returns the architecture-scoped mnemonic identity.
+	OpcodeID() ast.OpcodeID
 	// Opcodes returns the instruction opcodes.
 	Opcodes() []byte
 	// Size returns the size of the instruction in bytes.

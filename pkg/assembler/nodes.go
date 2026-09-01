@@ -64,7 +64,7 @@ type instruction struct {
 	address  uint64 // assigned start address of the instruction
 	size     int
 	opcodes  []byte
-	opcodeID uint8
+	opcodeID ast.OpcodeID
 
 	name       string
 	addressing int
@@ -139,7 +139,7 @@ func (i *instruction) Name() string {
 	return i.name
 }
 
-func (i *instruction) OpcodeID() uint8 {
+func (i *instruction) OpcodeID() ast.OpcodeID {
 	return i.opcodeID
 }
 

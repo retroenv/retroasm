@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/number"
@@ -18,6 +19,13 @@ type ResolvedInstruction struct {
 	Instruction    *cpuz80.Instruction
 	RegisterParams []cpuz80.RegisterParam
 	OperandValues  []ast.Node
+}
+
+// CopyInstructionArgument returns a deep copy suitable for AST duplication.
+func (resolved ResolvedInstruction) CopyInstructionArgument() any {
+	resolved.RegisterParams = slices.Clone(resolved.RegisterParams)
+	resolved.OperandValues = ast.CopyNodes(resolved.OperandValues)
+	return resolved
 }
 
 type rawOperand struct {

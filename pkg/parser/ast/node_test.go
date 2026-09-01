@@ -5,6 +5,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
+	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -43,6 +44,19 @@ func TestInstructionFromNode(t *testing.T) {
 	var nilInstr *Instruction
 	_, ok := InstructionFromNode(nilInstr)
 	assert.False(t, ok)
+}
+
+func TestWithInstructionOpcodeID(t *testing.T) {
+	identity := NewOpcodeID(arch.Z80, 7)
+	original := NewInstruction("ld", 0, nil, nil)
+
+	updated := WithInstructionOpcodeID(original, identity)
+	instruction, ok := InstructionFromNode(updated)
+	assert.True(t, ok)
+	assert.Equal(t, identity, instruction.OpcodeID)
+	assert.Equal(t, OpcodeID{}, original.OpcodeID)
+	assert.True(t, identity.ValidFor(arch.Z80))
+	assert.False(t, identity.ValidFor(arch.SM83))
 }
 
 func TestIsInstruction(t *testing.T) {

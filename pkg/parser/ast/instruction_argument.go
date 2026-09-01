@@ -1,5 +1,11 @@
 package ast
 
+// InstructionArgumentCopier defines deep-copy behavior for an opaque typed
+// instruction argument. Mutable architecture-specific values must implement it.
+type InstructionArgumentCopier interface {
+	CopyInstructionArgument() any
+}
+
 // InstructionArgument stores an architecture-specific typed instruction argument value.
 type InstructionArgument struct {
 	*node
@@ -32,10 +38,28 @@ func NewInstructionArguments(values ...Node) InstructionArguments {
 
 // Copy returns a copy of the instruction argument node.
 func (a InstructionArgument) Copy() Node {
+	value := a.Value
+	if copier, ok := value.(InstructionArgumentCopier); ok {
+		value = copier.CopyInstructionArgument()
+	}
 	return InstructionArgument{
 		node:  a.node,
-		Value: a.Value,
+		Value: value,
 	}
+}
+
+// CopyNodes deeply copies an AST node slice.
+func CopyNodes(nodes []Node) []Node {
+	if nodes == nil {
+		return nil
+	}
+	copied := make([]Node, len(nodes))
+	for index, node := range nodes {
+		if node != nil {
+			copied[index] = node.Copy()
+		}
+	}
+	return copied
 }
 
 // Copy returns a copy of the instruction argument list node.

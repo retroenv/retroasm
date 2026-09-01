@@ -11,6 +11,7 @@ import (
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
@@ -60,7 +61,11 @@ func (ar *architecture) Instruction(name string) (*InstructionGroup, bool) {
 	return group, ok
 }
 
-func (ar *architecture) ParseIdentifier(p arch.Parser, ins *InstructionGroup) (ast.Node, error) {
+func (ar *architecture) OpcodeID(ins *InstructionGroup) ast.OpcodeID {
+	return ast.NewOpcodeID(retroarch.Z80, uint16(cpuz80.NameToOpcodeID[ins.Name]))
+}
+
+func (ar *architecture) ParseIdentifier(p arch.Parser, _ string, ins *InstructionGroup) (ast.Node, error) {
 	return z80parser.ParseIdentifierWithProfile(p, ins.Name, ins.Variants, ar.profile) //nolint:wrapcheck // thin delegation to sub-package
 }
 

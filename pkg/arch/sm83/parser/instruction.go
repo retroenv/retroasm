@@ -26,6 +26,13 @@ type ResolvedInstruction struct {
 	OperandValues  []ast.Node
 }
 
+// CopyInstructionArgument returns a deep copy suitable for AST duplication.
+func (resolved ResolvedInstruction) CopyInstructionArgument() any {
+	resolved.RegisterParams = slices.Clone(resolved.RegisterParams)
+	resolved.OperandValues = ast.CopyNodes(resolved.OperandValues)
+	return resolved
+}
+
 // ParseIdentifier parses an SM83 instruction and resolves the matching instruction variant.
 func ParseIdentifier(p arch.Parser, mnemonic string, variants []*cpusm83.Instruction) (ast.Node, error) {
 	operands, err := parseOperands(p)

@@ -455,17 +455,17 @@ func (m *mockAssigner) RelativeOffset(destination, addressAfterInstruction uint6
 
 func (m *mockAssigner) ProgramCounter() uint64 { return m.pc }
 
-func (m *mockInstruction) Address() uint64     { return m.address }
-func (m *mockInstruction) Addressing() int     { return m.addressing }
-func (m *mockInstruction) Argument() any       { return m.argument }
-func (m *mockInstruction) Name() string        { return m.name }
-func (m *mockInstruction) Opcodes() []byte     { return m.opcodes }
-func (m *mockInstruction) Size() int           { return m.size }
-func (m *mockInstruction) OpcodeID() uint8     { return 0 }
-func (m *mockInstruction) SetAddress(a uint64) { m.address = a }
-func (m *mockInstruction) SetAddressing(a int) { m.addressing = a }
-func (m *mockInstruction) SetOpcodes(o []byte) { m.opcodes = o }
-func (m *mockInstruction) SetSize(s int)       { m.size = s }
+func (m *mockInstruction) Address() uint64        { return m.address }
+func (m *mockInstruction) Addressing() int        { return m.addressing }
+func (m *mockInstruction) Argument() any          { return m.argument }
+func (m *mockInstruction) Name() string           { return m.name }
+func (m *mockInstruction) Opcodes() []byte        { return m.opcodes }
+func (m *mockInstruction) Size() int              { return m.size }
+func (m *mockInstruction) OpcodeID() ast.OpcodeID { return ast.OpcodeID{} }
+func (m *mockInstruction) SetAddress(a uint64)    { m.address = a }
+func (m *mockInstruction) SetAddressing(a int)    { m.addressing = a }
+func (m *mockInstruction) SetOpcodes(o []byte)    { m.opcodes = o }
+func (m *mockInstruction) SetSize(s int)          { m.size = s }
 
 var _ arch.AddressAssigner = (*mockAssigner)(nil)
 var _ arch.Instruction = (*mockInstruction)(nil)

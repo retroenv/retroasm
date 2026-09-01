@@ -1,10 +1,20 @@
 package ast
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/retroenv/retrogolib/assert"
 )
+
+type mutableInstructionArgument struct {
+	values []int
+}
+
+func (argument mutableInstructionArgument) CopyInstructionArgument() any {
+	argument.values = slices.Clone(argument.values)
+	return argument
+}
 
 func TestInstructionArgument_Copy(t *testing.T) {
 	original := NewInstructionArgument(uint16(0x1234))
@@ -12,6 +22,18 @@ func TestInstructionArgument_Copy(t *testing.T) {
 	copied, ok := original.Copy().(InstructionArgument)
 	assert.True(t, ok)
 	assert.Equal(t, uint16(0x1234), copied.Value)
+}
+
+func TestInstructionArgument_CopyMutableValue(t *testing.T) {
+	original := NewInstructionArgument(mutableInstructionArgument{values: []int{1, 2}})
+
+	copied := original.Copy().(InstructionArgument)
+	copiedValue := copied.Value.(mutableInstructionArgument)
+	copiedValue.values[0] = 9
+	originalValue := original.Value.(mutableInstructionArgument)
+
+	assert.Equal(t, []int{1, 2}, originalValue.values)
+	assert.Equal(t, []int{9, 2}, copiedValue.values)
 }
 
 func TestInstructionArguments_Copy(t *testing.T) {

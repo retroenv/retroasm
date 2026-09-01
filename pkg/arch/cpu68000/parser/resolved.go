@@ -25,3 +25,21 @@ type EffectiveAddress struct {
 	Value     ast.Node             // immediate/displacement/address value
 	RegList   uint16               // MOVEM register list bitmask
 }
+
+// CopyInstructionArgument returns a deep copy suitable for AST duplication.
+func (resolved ResolvedInstruction) CopyInstructionArgument() any {
+	resolved.SrcEA = copyEffectiveAddress(resolved.SrcEA)
+	resolved.DstEA = copyEffectiveAddress(resolved.DstEA)
+	return resolved
+}
+
+func copyEffectiveAddress(address *EffectiveAddress) *EffectiveAddress {
+	if address == nil {
+		return nil
+	}
+	copied := *address
+	if address.Value != nil {
+		copied.Value = address.Value.Copy()
+	}
+	return &copied
+}

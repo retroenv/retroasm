@@ -9,6 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/cpu68000/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
@@ -21,17 +22,13 @@ func New() *config.Config[*cpu68000.Instruction] {
 	return cfg
 }
 
-type architecture struct {
-	lastMnemonic string // original mnemonic from Instruction() lookup, used by ParseIdentifier()
-}
+type architecture struct{}
 
 func (ar *architecture) AddressWidth() int {
 	return 24
 }
 
 func (ar *architecture) Instruction(name string) (*cpu68000.Instruction, bool) {
-	ar.lastMnemonic = name
-
 	// Try exact match first (handles "Bcc", "Scc", "DBcc")
 	if ins, ok := cpu68000.Instructions[strings.ToUpper(name)]; ok {
 		return ins, ok
@@ -62,8 +59,12 @@ func (ar *architecture) Instruction(name string) (*cpu68000.Instruction, bool) {
 	return nil, false
 }
 
-func (ar *architecture) ParseIdentifier(p arch.Parser, ins *cpu68000.Instruction) (ast.Node, error) {
-	return parser.ParseIdentifier(p, ins, ar.lastMnemonic) //nolint:wrapcheck // thin delegation to sub-package
+func (ar *architecture) OpcodeID(ins *cpu68000.Instruction) ast.OpcodeID {
+	return ast.NewOpcodeID(retroarch.CPU68000, uint16(cpu68000.NameToOpcodeID[ins.Name]))
+}
+
+func (ar *architecture) ParseIdentifier(p arch.Parser, mnemonic string, ins *cpu68000.Instruction) (ast.Node, error) {
+	return parser.ParseIdentifier(p, ins, mnemonic) //nolint:wrapcheck // thin delegation to sub-package
 }
 
 func (ar *architecture) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {

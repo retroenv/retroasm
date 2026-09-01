@@ -7,6 +7,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/chip8/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/chip8"
 )
 
@@ -44,8 +45,12 @@ func (_ *archChip8[T]) Instruction(name string) (*chip8.Instruction, bool) {
 	return ins, ok
 }
 
+func (_ *archChip8[T]) OpcodeID(ins *chip8.Instruction) ast.OpcodeID {
+	return ast.NewOpcodeID(retroarch.CHIP8, uint16(chip8.NameToOpcodeID[ins.Name]))
+}
+
 // nolint: wrapcheck
-func (_ *archChip8[T]) ParseIdentifier(p arch.Parser, ins *chip8.Instruction) (ast.Node, error) {
+func (_ *archChip8[T]) ParseIdentifier(p arch.Parser, _ string, ins *chip8.Instruction) (ast.Node, error) {
 	return parser.ParseIdentifier(p, ins)
 }
 

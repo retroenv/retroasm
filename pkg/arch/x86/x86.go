@@ -9,6 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/x86/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	retroarch "github.com/retroenv/retrogolib/arch"
 )
 
 // New returns a new x86 architecture configuration.
@@ -32,7 +33,11 @@ func (_ *archX86[T]) Instruction(name string) (*Instruction, bool) {
 	return ins, ok
 }
 
-func (_ *archX86[T]) ParseIdentifier(p arch.Parser, ins *Instruction) (ast.Node, error) {
+func (_ *archX86[T]) OpcodeID(_ *Instruction) ast.OpcodeID {
+	return ast.NewOpcodeID(retroarch.X86, 0)
+}
+
+func (_ *archX86[T]) ParseIdentifier(p arch.Parser, _ string, ins *Instruction) (ast.Node, error) {
 	node, err := parser.ParseIdentifier(p, ins)
 	if err != nil {
 		return nil, fmt.Errorf("parsing x86 instruction: %w", err)
