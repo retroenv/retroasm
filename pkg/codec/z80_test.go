@@ -114,6 +114,55 @@ func TestZ80Codec_RejectsProfileAndTypedMetadataMismatches(t *testing.T) {
 	assert.Error(t, defaultCodec.ValidateInstruction(instruction))
 }
 
+func TestZ80Codec_RejectsOutOfWidthTypedOperands(t *testing.T) {
+	t.Parallel()
+
+	c := newZ80Codec(t)
+	tests := []struct {
+		name     string
+		mnemonic string
+		operands z80parser.Operands
+	}{
+		{
+			name: "byte immediate", mnemonic: cpuz80.LdName,
+			operands: z80parser.Operands{
+				z80parser.RegisterOperand(cpuz80.RegA),
+				z80parser.ValueOperand(ast.NewNumber(0x100)),
+			},
+		},
+		{
+			name: "bit number", mnemonic: cpuz80.BitName,
+			operands: z80parser.Operands{
+				z80parser.ValueOperand(ast.NewNumber(8)),
+				z80parser.RegisterOperand(cpuz80.RegA),
+			},
+		},
+		{
+			name: "port", mnemonic: cpuz80.InName,
+			operands: z80parser.Operands{
+				z80parser.RegisterOperand(cpuz80.RegA),
+				z80parser.IndirectValueOperand(ast.NewNumber(0x100)),
+			},
+		},
+		{
+			name: "indexed displacement", mnemonic: cpuz80.LdName,
+			operands: z80parser.Operands{
+				z80parser.RegisterOperand(cpuz80.RegA),
+				z80parser.IndexedOperand(cpuz80.RegIX, ast.NewNumber(0x100)),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := codec.BuildInstruction(c, test.mnemonic, test.operands)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestCodec_BuildUnsupportedArchitecture(t *testing.T) {
 	t.Parallel()
 

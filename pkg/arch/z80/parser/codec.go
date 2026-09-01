@@ -60,6 +60,9 @@ func BuildInstructionWithProfile(
 	); err != nil {
 		return ast.Instruction{}, fmt.Errorf("%w: validating profile '%s': %w", ErrInvalidInstruction, profileKind.String(), err)
 	}
+	if err := validateResolvedValues(*resolved); err != nil {
+		return ast.Instruction{}, fmt.Errorf("%w: %w", ErrInvalidInstruction, err)
+	}
 
 	argument := ast.NewInstructionArgument(*resolved)
 	return ast.NewInstruction(mnemonic, int(resolved.Addressing), argument, nil), nil
@@ -76,6 +79,37 @@ func ValidateInstruction(
 	if err != nil {
 		return err
 	}
+	if err := validateResolvedMetadata(instruction, resolved, variants, profileKind); err != nil {
+		return err
+	}
+
+	rebuilt, err := BuildInstructionWithProfile(instruction.Name, variants, profileKind, resolved.Operands...)
+	if err != nil {
+		return fmt.Errorf("%w: rebuilding operands: %w", ErrInvalidInstruction, err)
+	}
+	rebuiltResolved, err := resolvedArgument(rebuilt.Argument)
+	if err != nil {
+		return err
+	}
+	if rebuiltResolved.Instruction != resolved.Instruction ||
+		rebuiltResolved.Addressing != resolved.Addressing ||
+		!slices.Equal(rebuiltResolved.RegisterParams, resolved.RegisterParams) {
+
+		return fmt.Errorf("%w: resolved variant does not match operands", ErrInvalidInstruction)
+	}
+	if !sameValues(rebuiltResolved.OperandValues, resolved.OperandValues) {
+		return fmt.Errorf("%w: resolved values do not match operands", ErrInvalidInstruction)
+	}
+	return nil
+}
+
+func validateResolvedMetadata(
+	instruction ast.Instruction,
+	resolved ResolvedInstruction,
+	variants []*cpuz80.Instruction,
+	profileKind profile.Kind,
+) error {
+
 	if resolved.Instruction == nil {
 		return fmt.Errorf("%w: missing instruction variant", ErrInvalidInstruction)
 	}
@@ -106,23 +140,63 @@ func ValidateInstruction(
 	); err != nil {
 		return fmt.Errorf("%w: validating profile '%s': %w", ErrInvalidInstruction, profileKind.String(), err)
 	}
-
-	rebuilt, err := BuildInstructionWithProfile(instruction.Name, variants, profileKind, resolved.Operands...)
-	if err != nil {
-		return fmt.Errorf("%w: rebuilding operands: %w", ErrInvalidInstruction, err)
+	if err := validateResolvedValues(resolved); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidInstruction, err)
 	}
-	rebuiltResolved, err := resolvedArgument(rebuilt.Argument)
+	return nil
+}
+
+func validateResolvedValues(resolved ResolvedInstruction) error {
+	opcodeInfo, addressing, err := resolved.OpcodeInfo()
 	if err != nil {
 		return err
 	}
-	if rebuiltResolved.Instruction != resolved.Instruction ||
-		rebuiltResolved.Addressing != resolved.Addressing ||
-		!slices.Equal(rebuiltResolved.RegisterParams, resolved.RegisterParams) {
 
-		return fmt.Errorf("%w: resolved variant does not match operands", ErrInvalidInstruction)
+	if isBitOperation(resolved.Instruction) && len(resolved.OperandValues) > 0 {
+		if value, ok := ast.NumberValue(resolved.OperandValues[0]); ok && value > 7 {
+			return fmt.Errorf("bit number %d exceeds 7", value)
+		}
 	}
-	if !sameValues(rebuiltResolved.OperandValues, resolved.OperandValues) {
-		return fmt.Errorf("%w: resolved values do not match operands", ErrInvalidInstruction)
+	for _, operand := range resolved.Operands {
+		if operand.Kind != OperandIndexed {
+			continue
+		}
+		if value, ok := ast.NumberValue(operand.Value); ok && value > 0xff {
+			return fmt.Errorf("indexed displacement %d exceeds byte", value)
+		}
+	}
+
+	baseWidth := 1
+	if opcodeInfo.Prefix != 0 {
+		baseWidth++
+	}
+	remaining := int(opcodeInfo.Size) - baseWidth
+	switch addressing {
+	case cpuz80.ImmediateAddressing:
+		if len(resolved.OperandValues) >= 2 {
+			return validateNumberWidths(resolved.OperandValues, 0xff)
+		}
+		if remaining == 1 {
+			return validateNumberWidths(resolved.OperandValues, 0xff)
+		}
+		if remaining == 2 {
+			return validateNumberWidths(resolved.OperandValues, 0xffff)
+		}
+	case cpuz80.ExtendedAddressing, cpuz80.RelativeAddressing:
+		return validateNumberWidths(resolved.OperandValues, 0xffff)
+	case cpuz80.RegisterIndirectAddressing, cpuz80.PortAddressing:
+		if remaining > 0 {
+			return validateNumberWidths(resolved.OperandValues, 0xff)
+		}
+	}
+	return nil
+}
+
+func validateNumberWidths(values []ast.Node, maximum uint64) error {
+	for index, value := range values {
+		if numberValue, ok := ast.NumberValue(value); ok && numberValue > maximum {
+			return fmt.Errorf("operand %d value %d exceeds 0x%X", index, numberValue, maximum)
+		}
 	}
 	return nil
 }

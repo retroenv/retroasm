@@ -13,6 +13,13 @@ import (
 
 var errUnsupportedOperandPattern = errors.New("unsupported operand pattern")
 
+var (
+	// ErrMissingInstruction indicates incomplete resolved instruction metadata.
+	ErrMissingInstruction = errors.New("resolved instruction details are missing")
+	// ErrOpcodeNotFound indicates that resolved operands do not select an encoded variant.
+	ErrOpcodeNotFound = errors.New("opcode mapping not found")
+)
+
 // ResolvedInstruction contains the selected Z80 instruction variant and parsed operand data.
 type ResolvedInstruction struct {
 	Addressing     cpuz80.AddressingMode
@@ -28,6 +35,52 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.OperandValues = ast.CopyNodes(resolved.OperandValues)
 	resolved.Operands = copyOperands(resolved.Operands)
 	return resolved
+}
+
+// OpcodeInfo returns the selected encoded form and effective addressing mode.
+func (resolved ResolvedInstruction) OpcodeInfo() (cpuz80.OpcodeInfo, cpuz80.AddressingMode, error) {
+	if resolved.Instruction == nil {
+		return cpuz80.OpcodeInfo{}, cpuz80.NoAddressing, ErrMissingInstruction
+	}
+
+	if len(resolved.RegisterParams) > 0 {
+		switch len(resolved.RegisterParams) {
+		case 1:
+			if info, ok := resolved.Instruction.RegisterOpcodes[resolved.RegisterParams[0]]; ok {
+				return info, resolved.effectiveAddressing(), nil
+			}
+		case 2:
+			key := [2]cpuz80.RegisterParam{resolved.RegisterParams[0], resolved.RegisterParams[1]}
+			if info, ok := resolved.Instruction.RegisterPairOpcodes[key]; ok {
+				return info, resolved.effectiveAddressing(), nil
+			}
+		}
+	}
+
+	if resolved.Addressing != cpuz80.NoAddressing {
+		if info, ok := resolved.Instruction.Addressing[resolved.Addressing]; ok {
+			return info, resolved.Addressing, nil
+		}
+		return cpuz80.OpcodeInfo{}, cpuz80.NoAddressing, ErrOpcodeNotFound
+	}
+	if len(resolved.Instruction.Addressing) == 1 {
+		for addressing, info := range resolved.Instruction.Addressing {
+			return info, addressing, nil
+		}
+	}
+	return cpuz80.OpcodeInfo{}, cpuz80.NoAddressing, ErrOpcodeNotFound
+}
+
+func (resolved ResolvedInstruction) effectiveAddressing() cpuz80.AddressingMode {
+	if resolved.Addressing != cpuz80.NoAddressing {
+		return resolved.Addressing
+	}
+	if len(resolved.Instruction.Addressing) == 1 {
+		for addressing := range resolved.Instruction.Addressing {
+			return addressing
+		}
+	}
+	return cpuz80.NoAddressing
 }
 
 type rawOperand struct {
