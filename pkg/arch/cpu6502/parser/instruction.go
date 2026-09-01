@@ -11,7 +11,6 @@ import (
 	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/parser/directives"
-	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
@@ -38,12 +37,10 @@ type instruction struct {
 	arg2           token.Token
 }
 
-// newInstruction creates an ast.Instruction with OpcodeID pre-populated from the
-// cpu6502 instruction definition, avoiding a string lookup in the hot assembler path.
+// newInstruction creates an unresolved CPU6502 AST instruction. The
+// architecture-bound parser/codec applies the scoped opcode identity.
 func newInstruction(ins *cpu6502.Instruction, addressing int, arg ast.Node, modifiers []ast.Modifier) ast.Instruction {
-	node := ast.NewInstruction(ins.Name, addressing, arg, modifiers)
-	node.OpcodeID = ast.NewOpcodeID(retroarch.CPU6502, uint16(cpu6502.NameToOpcodeID[ins.Name]))
-	return node
+	return ast.NewInstruction(ins.Name, addressing, arg, modifiers)
 }
 
 func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instruction) (ast.Node, error) {
