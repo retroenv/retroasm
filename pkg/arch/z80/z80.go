@@ -78,6 +78,9 @@ func buildInstructionGroups() map[string]*InstructionGroup {
 	addInstructionsFromOpcodeTable(instructionGroups, cpuz80.FDOpcodes)
 	addInstructionSlice(instructionGroups, cbFamilyInstructions)
 	addInstructionSlice(instructionGroups, indexedBitInstructions)
+	for _, instruction := range cpuz80.Instructions {
+		addInstruction(instructionGroups, instruction)
+	}
 
 	return instructionGroups
 }

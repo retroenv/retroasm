@@ -1,5 +1,10 @@
 package ast
 
+import (
+	"fmt"
+	"reflect"
+)
+
 // InstructionArgumentCopier defines deep-copy behavior for an opaque typed
 // instruction argument. Mutable architecture-specific values must implement it.
 type InstructionArgumentCopier interface {
@@ -20,8 +25,10 @@ type InstructionArguments struct {
 	Values []Node
 }
 
-// NewInstructionArgument returns a new typed instruction argument.
+// NewInstructionArgument returns a new typed instruction argument. It panics
+// when a mutable value does not implement InstructionArgumentCopier.
 func NewInstructionArgument(value any) InstructionArgument {
+	validateInstructionArgumentValue(value)
 	return InstructionArgument{
 		node:  &node{},
 		Value: value,
@@ -38,13 +45,79 @@ func NewInstructionArguments(values ...Node) InstructionArguments {
 
 // Copy returns a copy of the instruction argument node.
 func (a InstructionArgument) Copy() Node {
-	value := a.Value
-	if copier, ok := value.(InstructionArgumentCopier); ok {
-		value = copier.CopyInstructionArgument()
-	}
+	value := copyInstructionArgumentValue(a.Value)
 	return InstructionArgument{
 		node:  a.node,
 		Value: value,
+	}
+}
+
+func copyInstructionArgumentValue(value any) any {
+	validateInstructionArgumentValue(value)
+	if instructionArgumentValueIsNil(value) {
+		return value
+	}
+	if copier, ok := value.(InstructionArgumentCopier); ok {
+		return copier.CopyInstructionArgument()
+	}
+	return value
+}
+
+func validateInstructionArgumentValue(value any) {
+	if instructionArgumentValueIsNil(value) {
+		return
+	}
+	if _, ok := value.(InstructionArgumentCopier); ok {
+		return
+	}
+	if !instructionArgumentValueIsImmutable(reflect.ValueOf(value)) {
+		panic(fmt.Sprintf("ast: mutable instruction argument %T must implement InstructionArgumentCopier", value))
+	}
+}
+
+func instructionArgumentValueIsNil(value any) bool {
+	if value == nil {
+		return true
+	}
+	reflected := reflect.ValueOf(value)
+	switch reflected.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return reflected.IsNil()
+	default:
+		return false
+	}
+}
+
+func instructionArgumentValueIsImmutable(value reflect.Value) bool {
+	if !value.IsValid() {
+		return true
+	}
+
+	switch value.Kind() {
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.String:
+		return true
+	case reflect.Array:
+		for index := range value.Len() {
+			if !instructionArgumentValueIsImmutable(value.Index(index)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Struct:
+		for index := range value.NumField() {
+			if !instructionArgumentValueIsImmutable(value.Field(index)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Interface:
+		return value.IsNil() || instructionArgumentValueIsImmutable(value.Elem())
+	default:
+		return false
 	}
 }
 
@@ -64,13 +137,8 @@ func CopyNodes(nodes []Node) []Node {
 
 // Copy returns a copy of the instruction argument list node.
 func (a InstructionArguments) Copy() Node {
-	values := make([]Node, 0, len(a.Values))
-	for _, value := range a.Values {
-		values = append(values, value.Copy())
-	}
-
 	return InstructionArguments{
 		node:   a.node,
-		Values: values,
+		Values: CopyNodes(a.Values),
 	}
 }

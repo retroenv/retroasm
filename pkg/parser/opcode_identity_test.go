@@ -17,8 +17,43 @@ import (
 	asmparser "github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	retroarch "github.com/retroenv/retrogolib/arch"
+	retrochip8 "github.com/retroenv/retrogolib/arch/cpu/chip8"
+	retro6502 "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
+	retro65816 "github.com/retroenv/retrogolib/arch/cpu/cpu65816"
+	retro68000 "github.com/retroenv/retrogolib/arch/cpu/cpu68000"
+	retrosm83 "github.com/retroenv/retrogolib/arch/cpu/sm83"
+	retroz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 	"github.com/retroenv/retrogolib/assert"
 )
+
+func TestArchitectureOpcodeIDRegistries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("cpu6502", func(t *testing.T) {
+		t.Parallel()
+		assertRegisteredOpcodeIDs(t, asmcpu6502.New().Arch, retroarch.CPU6502, retro6502.NameToOpcodeID)
+	})
+	t.Run("cpu65816", func(t *testing.T) {
+		t.Parallel()
+		assertRegisteredOpcodeIDs(t, asmcpu65816.New().Arch, retroarch.CPU65816, retro65816.NameToOpcodeID)
+	})
+	t.Run("cpu68000", func(t *testing.T) {
+		t.Parallel()
+		assertRegisteredOpcodeIDs(t, asmcpu68000.New().Arch, retroarch.CPU68000, retro68000.NameToOpcodeID)
+	})
+	t.Run("sm83", func(t *testing.T) {
+		t.Parallel()
+		assertRegisteredOpcodeIDs(t, asmsm83.New().Arch, retroarch.SM83, retrosm83.NameToOpcodeID)
+	})
+	t.Run("z80", func(t *testing.T) {
+		t.Parallel()
+		assertRegisteredOpcodeIDs(t, asmz80.New().Arch, retroarch.Z80, retroz80.NameToOpcodeID)
+	})
+	t.Run("chip8", func(t *testing.T) {
+		t.Parallel()
+		assertRegisteredOpcodeIDs(t, asmchip8.New().Arch, retroarch.CHIP8, retrochip8.NameToOpcodeID)
+	})
+}
 
 func TestParser_ParallelArchitectureOpcodeIDs(t *testing.T) {
 	t.Parallel()
@@ -87,6 +122,32 @@ func TestParser_CPU68000ConcurrentMnemonicResolution(t *testing.T) {
 func parseOpcodeID[T any](t *testing.T, architecture arch.Architecture[T], source string) ast.OpcodeID {
 	t.Helper()
 	return parseInstruction(t, architecture, source).OpcodeID
+}
+
+func assertRegisteredOpcodeIDs[T any, ID ~uint8](
+	t *testing.T,
+	architecture arch.Architecture[T],
+	expectedArchitecture retroarch.Architecture,
+	registered map[string]ID,
+) {
+
+	t.Helper()
+	for name, expectedValue := range registered {
+		instruction, ok := architecture.Instruction(name)
+		if !ok {
+			t.Errorf("registered mnemonic %q is not exposed by the architecture", name)
+			continue
+		}
+
+		identity := architecture.OpcodeID(instruction)
+		if !identity.ValidFor(expectedArchitecture) {
+			t.Errorf("registered mnemonic %q has invalid identity %+v", name, identity)
+			continue
+		}
+		if identity.Value != uint16(expectedValue) {
+			t.Errorf("registered mnemonic %q has identity value %d, want %d", name, identity.Value, expectedValue)
+		}
+	}
 }
 
 func parseInstruction[T any](t *testing.T, architecture arch.Architecture[T], source string) ast.Instruction {

@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 
@@ -11,17 +12,29 @@ type mutableInstructionArgument struct {
 	values []int
 }
 
+type immutableInstructionArgument struct {
+	name   string
+	values [2]uint16
+}
+
+type unsupportedMutableInstructionArgument struct {
+	values []int
+}
+
 func (argument mutableInstructionArgument) CopyInstructionArgument() any {
 	argument.values = slices.Clone(argument.values)
 	return argument
 }
 
 func TestInstructionArgument_Copy(t *testing.T) {
-	original := NewInstructionArgument(uint16(0x1234))
+	original := NewInstructionArgument(immutableInstructionArgument{
+		name:   "register",
+		values: [2]uint16{0x12, 0x34},
+	})
 
 	copied, ok := original.Copy().(InstructionArgument)
 	assert.True(t, ok)
-	assert.Equal(t, uint16(0x1234), copied.Value)
+	assert.Equal(t, original.Value, copied.Value)
 }
 
 func TestInstructionArgument_CopyMutableValue(t *testing.T) {
@@ -34,6 +47,35 @@ func TestInstructionArgument_CopyMutableValue(t *testing.T) {
 
 	assert.Equal(t, []int{1, 2}, originalValue.values)
 	assert.Equal(t, []int{9, 2}, copiedValue.values)
+}
+
+func TestInstructionArgument_CopyRejectsUnsupportedMutableValues(t *testing.T) {
+	values := []any{
+		[]int{1},
+		map[string]int{"a": 1},
+		new(int),
+		unsupportedMutableInstructionArgument{values: []int{1}},
+	}
+
+	for _, value := range values {
+		t.Run(reflect.TypeOf(value).String(), func(t *testing.T) {
+			defer func() {
+				if recovered := recover(); recovered == nil {
+					t.Fatal("expected copy to reject a mutable value without InstructionArgumentCopier")
+				}
+			}()
+			NewInstructionArgument(value).Copy()
+		})
+	}
+}
+
+func TestInstructionArgument_CopyNilValue(t *testing.T) {
+	copied := NewInstructionArgument(nil).Copy().(InstructionArgument)
+	assert.Nil(t, copied.Value)
+
+	var pointer *int
+	copied = NewInstructionArgument(pointer).Copy().(InstructionArgument)
+	assert.Nil(t, copied.Value)
 }
 
 func TestInstructionArguments_Copy(t *testing.T) {
@@ -56,6 +98,15 @@ func TestInstructionArguments_Copy(t *testing.T) {
 	typedArg, ok := copied.Values[2].(InstructionArgument)
 	assert.True(t, ok)
 	assert.Equal(t, "register", typedArg.Value)
+}
+
+func TestInstructionArguments_CopyPreservesNilNodes(t *testing.T) {
+	original := NewInstructionArguments(nil, NewNumber(1))
+
+	copied := original.Copy().(InstructionArguments)
+	assert.Len(t, copied.Values, 2)
+	assert.Nil(t, copied.Values[0])
+	assert.Equal(t, uint64(1), copied.Values[1].(Number).Value)
 }
 
 func TestRegisterValue_Copy(t *testing.T) {

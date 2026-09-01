@@ -65,3 +65,37 @@ func TestParseIdentifierWithProfile(t *testing.T) {
 		assert.ErrorContains(t, err, "gameboy-z80-subset")
 	})
 }
+
+func TestParseIdentifierWithProfile_UndocumentedPortInstruction(t *testing.T) {
+	t.Run("default profile allows inf", func(t *testing.T) {
+		parser := newMockParser(
+			token.Token{Type: token.Identifier, Value: "inf"},
+			token.Token{Type: token.EOL},
+		)
+
+		_, err := ParseIdentifierWithProfile(
+			parser,
+			cpuz80.InfName,
+			[]*cpuz80.Instruction{cpuz80.INF},
+			z80profile.Default,
+		)
+		assert.NoError(t, err)
+	})
+
+	t.Run("strict profile rejects inf", func(t *testing.T) {
+		parser := newMockParser(
+			token.Token{Type: token.Identifier, Value: "inf"},
+			token.Token{Type: token.EOL},
+		)
+
+		_, err := ParseIdentifierWithProfile(
+			parser,
+			cpuz80.InfName,
+			[]*cpuz80.Instruction{cpuz80.INF},
+			z80profile.StrictDocumented,
+		)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "strict-documented")
+		assert.ErrorContains(t, err, "undocumented")
+	})
+}

@@ -26,6 +26,24 @@ var coreEncodingTests = []struct {
 		want: []byte{0x00},
 	},
 	{
+		name:    "inf",
+		address: 0x8000,
+		resolved: z80parser.ResolvedInstruction{
+			Addressing:  cpuz80.ImpliedAddressing,
+			Instruction: cpuz80.INF,
+		},
+		want: []byte{0xED, 0xAA},
+	},
+	{
+		name:    "outf",
+		address: 0x8000,
+		resolved: z80parser.ResolvedInstruction{
+			Addressing:  cpuz80.ImpliedAddressing,
+			Instruction: cpuz80.OUTF,
+		},
+		want: []byte{0xED, 0xAB},
+	},
+	{
 		name:    "ld bc,nn",
 		address: 0x8000,
 		resolved: z80parser.ResolvedInstruction{

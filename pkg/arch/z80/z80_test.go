@@ -56,6 +56,15 @@ func TestInstructionLookup(t *testing.T) {
 		assert.True(t, containsInstruction(group.Variants, cpuz80.DdcbShift))
 	})
 
+	t.Run("registered unofficial instructions are available", func(t *testing.T) {
+		for _, instruction := range []*cpuz80.Instruction{cpuz80.INF, cpuz80.OUTF} {
+			group, ok := cfg.Arch.Instruction(instruction.Name)
+			assert.True(t, ok)
+			assert.NotNil(t, group)
+			assert.True(t, containsInstruction(group.Variants, instruction))
+		}
+	})
+
 	t.Run("unknown instruction returns false", func(t *testing.T) {
 		group, ok := cfg.Arch.Instruction("unknown")
 		assert.False(t, ok)
