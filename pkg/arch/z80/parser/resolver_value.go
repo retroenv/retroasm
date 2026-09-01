@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
@@ -8,6 +9,9 @@ import (
 func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
 	candidates := operandRegisterCandidates(operand1)
 	if len(candidates) == 0 {
+		return nil, false, nil
+	}
+	if operand2.token.Type == token.Identifier && len(operandRegisterCandidates(operand2)) > 0 {
 		return nil, false, nil
 	}
 
@@ -62,6 +66,9 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, oper
 }
 
 func resolveValueRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+	if operand1.token.Type == token.Identifier && len(operandRegisterCandidates(operand1)) > 0 {
+		return nil, false, nil
+	}
 	value, ok, err := operandValue(operand1)
 	if err != nil {
 		return nil, false, err

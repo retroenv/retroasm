@@ -193,6 +193,20 @@ func TestZ80Codec_RejectsOutOfWidthTypedOperands(t *testing.T) {
 	}
 }
 
+func TestZ80Codec_RejectsInvalidTextRegisterCombinations(t *testing.T) {
+	t.Parallel()
+
+	c := newZ80Codec(t)
+	for _, source := range []string{"ld a,sp", "bit c,a"} {
+		t.Run(source, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := c.ParseInstruction(t.Context(), strings.NewReader(source))
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestCodec_BuildUnsupportedArchitecture(t *testing.T) {
 	t.Parallel()
 

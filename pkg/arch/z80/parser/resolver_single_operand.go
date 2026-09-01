@@ -101,6 +101,12 @@ func matchRegisterOpcodeVariant(variants []*cpuz80.Instruction, operand rawOpera
 		}
 
 		for _, candidate := range candidates {
+			if isConditionRegister(candidate) &&
+				(variant.HasAddressing(cpuz80.ExtendedAddressing) ||
+					variant.HasAddressing(cpuz80.RelativeAddressing)) {
+
+				continue
+			}
 			opcodeInfo, ok := variant.RegisterOpcodes[candidate]
 			if !ok {
 				continue
