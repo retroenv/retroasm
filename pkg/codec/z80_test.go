@@ -100,6 +100,36 @@ func TestZ80Codec_ParsedInstructionRoundTrips(t *testing.T) {
 	}
 }
 
+func TestZ80Codec_SymbolAndConditionRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	c := newZ80Codec(t)
+	sources := []string{
+		"jp c",
+		"jp hl",
+		"jp c,target",
+		"jr nz,target",
+		"ld a,(table+index)",
+		"ld a,(ix+offset)",
+		"ld a,(iy - offset)",
+	}
+
+	for _, source := range sources {
+		t.Run(source, func(t *testing.T) {
+			t.Parallel()
+
+			parsed, err := c.ParseInstruction(t.Context(), strings.NewReader(source))
+			assert.NoError(t, err)
+			assert.NoError(t, c.ValidateInstruction(parsed))
+			formatted, err := c.FormatInstruction(parsed)
+			assert.NoError(t, err)
+			roundTripped, err := c.ParseInstruction(t.Context(), strings.NewReader(formatted))
+			assert.NoError(t, err)
+			assert.NoError(t, c.ValidateInstruction(roundTripped))
+		})
+	}
+}
+
 func TestZ80Codec_RejectsProfileAndTypedMetadataMismatches(t *testing.T) {
 	t.Parallel()
 

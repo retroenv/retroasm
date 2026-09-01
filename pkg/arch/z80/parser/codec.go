@@ -306,7 +306,10 @@ func formatOperand(operand Operand) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return "(" + name + "+(" + value + "))", nil
+		if strings.HasPrefix(value, "0x0-(") && strings.HasSuffix(value, ")") {
+			return "(" + name + " - " + strings.TrimSuffix(strings.TrimPrefix(value, "0x0-("), ")") + ")", nil
+		}
+		return "(" + name + "+" + value + ")", nil
 
 	default:
 		return "", errInvalidOperandKind

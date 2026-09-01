@@ -110,7 +110,7 @@ func resolveInstruction(variants []*cpuz80.Instruction, operands []rawOperand) (
 		return nil, err
 	}
 
-	resolved.Operands, err = operandsFromRaw(operands)
+	resolved.Operands, err = operandsFromRaw(operands, resolved.OperandValues)
 	if err != nil {
 		return nil, fmt.Errorf("retaining resolved operands: %w", err)
 	}

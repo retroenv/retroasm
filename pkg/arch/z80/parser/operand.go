@@ -78,13 +78,13 @@ func copyOperands(operands []Operand) []Operand {
 	return copied
 }
 
-func operandsFromRaw(operands []rawOperand) ([]Operand, error) {
+func operandsFromRaw(operands []rawOperand, resolvedValues []ast.Node) ([]Operand, error) {
 	if operands == nil {
 		return nil, nil
 	}
 	result := make([]Operand, len(operands))
 	for index, operand := range operands {
-		converted, err := operandFromRaw(operand)
+		converted, err := operandFromRaw(operand, resolvedValues)
 		if err != nil {
 			return nil, fmt.Errorf("operand %d: %w", index, err)
 		}
@@ -93,7 +93,7 @@ func operandsFromRaw(operands []rawOperand) ([]Operand, error) {
 	return result, nil
 }
 
-func operandFromRaw(operand rawOperand) (Operand, error) {
+func operandFromRaw(operand rawOperand, resolvedValues []ast.Node) (Operand, error) {
 	if operand.displacement != nil {
 		register, ok := operandIndexedRegister(operand)
 		if !ok {
@@ -116,6 +116,9 @@ func operandFromRaw(operand rawOperand) (Operand, error) {
 		return IndirectRegisterOperand(register), nil
 	}
 
+	if resolvedIdentifierValue, ok := resolvedIdentifierOperandValue(operand, resolvedValues); ok {
+		return ValueOperand(resolvedIdentifierValue.Copy()), nil
+	}
 	if register, ok := sourceRegister(operand); ok {
 		return RegisterOperand(register), nil
 	}
@@ -127,6 +130,18 @@ func operandFromRaw(operand rawOperand) (Operand, error) {
 		return Operand{}, errInvalidOperandValue
 	}
 	return ValueOperand(value.Copy()), nil
+}
+
+func resolvedIdentifierOperandValue(operand rawOperand, resolvedValues []ast.Node) (ast.Node, bool) {
+	if operand.token.Type != token.Identifier || operand.value != nil || operand.parenthesized {
+		return nil, false
+	}
+	for _, value := range resolvedValues {
+		if strings.EqualFold(ast.SymbolName(value), operand.token.Value) {
+			return value, true
+		}
+	}
+	return nil, false
 }
 
 func sourceRegister(operand rawOperand) (cpuz80.RegisterParam, bool) {
