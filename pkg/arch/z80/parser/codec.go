@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch/z80/profile"
@@ -201,8 +202,29 @@ func validateNumberWidths(values []ast.Node, maximum uint64) error {
 	return nil
 }
 
+// FormatOptions controls deterministic Z80 instruction spelling without
+// changing the typed instruction or its encoding.
+type FormatOptions struct {
+	Indent                      string
+	Uppercase                   bool
+	MinimumHexDigits            int
+	PairImmediateHexDigits      int
+	DecimalBitIndexes           bool
+	DecimalIndexedDisplacements bool
+}
+
 // FormatInstruction returns one deterministic, parseable Z80 instruction line.
 func FormatInstruction(instruction ast.Instruction) (string, error) {
+	return FormatInstructionWithOptions(instruction, FormatOptions{})
+}
+
+// FormatInstructionWithOptions returns one deterministic, parseable Z80
+// instruction line using the requested presentation policy.
+func FormatInstructionWithOptions(
+	instruction ast.Instruction,
+	options FormatOptions,
+) (string, error) {
+
 	resolved, err := resolvedArgument(instruction.Argument)
 	if err != nil {
 		return "", err
@@ -212,18 +234,31 @@ func FormatInstruction(instruction ast.Instruction) (string, error) {
 	if mnemonic == "" {
 		return "", fmt.Errorf("%w: missing mnemonic", ErrInvalidInstruction)
 	}
+	if options.Uppercase {
+		mnemonic = strings.ToUpper(mnemonic)
+	}
 	if len(resolved.Operands) == 0 {
-		return mnemonic, nil
+		return options.Indent + mnemonic, nil
 	}
 
 	formatted := make([]string, len(resolved.Operands))
 	for index, operand := range resolved.Operands {
-		formatted[index], err = formatOperand(operand)
+		operandOptions := options
+		decimalValue := options.DecimalBitIndexes && index == 0 &&
+			(strings.EqualFold(mnemonic, cpuz80.BitName) ||
+				strings.EqualFold(mnemonic, cpuz80.SetName) ||
+				strings.EqualFold(mnemonic, cpuz80.ResName))
+		if index == 1 && strings.EqualFold(mnemonic, cpuz80.LdName) &&
+			len(resolved.Operands) == 2 && z80PairRegisterOperand(resolved.Operands[0]) {
+
+			operandOptions.MinimumHexDigits = options.PairImmediateHexDigits
+		}
+		formatted[index], err = formatOperandWithOptions(operand, operandOptions, decimalValue)
 		if err != nil {
 			return "", fmt.Errorf("formatting operand %d: %w", index, err)
 		}
 	}
-	return mnemonic + " " + strings.Join(formatted, ","), nil
+	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
 }
 
 func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
@@ -269,67 +304,105 @@ func sameValues(left, right []ast.Node) bool {
 // It lets downstream typed consumers retain symbolic operand shapes without
 // formatting and splitting a complete instruction.
 func FormatOperand(operand Operand) (string, error) {
+	return formatOperandWithOptions(operand, FormatOptions{}, false)
+}
+
+func formatOperandWithOptions(
+	operand Operand,
+	options FormatOptions,
+	decimalValue bool,
+) (string, error) {
+
 	switch operand.Kind {
 	case OperandRegister:
 		if !validRegisterParam(operand.Register) {
 			return "", errInvalidOperandRegister
 		}
-		return operand.Register.String(), nil
+		return formatRegisterName(operand.Register.String(), options), nil
 
 	case OperandValue:
-		return formatValue(operand.Value)
+		return formatValueWithOptions(operand.Value, options.MinimumHexDigits, decimalValue)
 
 	case OperandIndirectRegister:
 		register := sourceRegisterParam(operand.Register)
 		if !validRegisterParam(register) {
 			return "", errInvalidOperandRegister
 		}
-		return "(" + register.String() + ")", nil
+		return "(" + formatRegisterName(register.String(), options) + ")", nil
 
 	case OperandIndirectValue:
-		value, err := formatValue(operand.Value)
+		value, err := formatValueWithOptions(operand.Value, options.MinimumHexDigits, false)
 		if err != nil {
 			return "", err
 		}
 		return "(" + value + ")", nil
 
 	case OperandIndexed:
-		register := indexedRegisterParam(operand.Register)
-		if register == cpuz80.RegNone {
-			return "", errInvalidOperandRegister
-		}
-		name := strings.Trim(register.String(), "()")
-		if value, ok := ast.NumberValue(operand.Value); ok {
-			if value >= 0x80 && value <= 0xff {
-				return fmt.Sprintf("(%s-0x%X)", name, 0x100-value), nil
-			}
-			return fmt.Sprintf("(%s+0x%X)", name, value), nil
-		}
-		value, err := formatValue(operand.Value)
-		if err != nil {
-			return "", err
-		}
-		if strings.HasPrefix(value, "0x0-(") && strings.HasSuffix(value, ")") {
-			return "(" + name + " - " + strings.TrimSuffix(strings.TrimPrefix(value, "0x0-("), ")") + ")", nil
-		}
-		return "(" + name + "+" + value + ")", nil
+		return formatIndexedOperand(operand, options)
 
 	default:
 		return "", errInvalidOperandKind
 	}
 }
 
-func formatOperand(operand Operand) (string, error) {
-	return FormatOperand(operand)
+func formatIndexedOperand(operand Operand, options FormatOptions) (string, error) {
+	register := indexedRegisterParam(operand.Register)
+	if register == cpuz80.RegNone {
+		return "", errInvalidOperandRegister
+	}
+	name := formatRegisterName(strings.Trim(register.String(), "()"), options)
+	if value, ok := ast.NumberValue(operand.Value); ok {
+		if options.DecimalIndexedDisplacements {
+			if value >= 0x80 && value <= 0xff {
+				return fmt.Sprintf("(%s-%d)", name, 0x100-value), nil
+			}
+			return fmt.Sprintf("(%s+%d)", name, value), nil
+		}
+		if value >= 0x80 && value <= 0xff {
+			return fmt.Sprintf("(%s-0x%X)", name, 0x100-value), nil
+		}
+		return fmt.Sprintf("(%s+0x%X)", name, value), nil
+	}
+	value, err := formatValue(operand.Value)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(value, "0x0-(") && strings.HasSuffix(value, ")") {
+		return "(" + name + " - " + strings.TrimSuffix(strings.TrimPrefix(value, "0x0-("), ")") + ")", nil
+	}
+	return "(" + name + "+" + value + ")", nil
+}
+
+func formatRegisterName(name string, options FormatOptions) string {
+	if options.Uppercase {
+		return strings.ToUpper(name)
+	}
+	return name
+}
+
+func z80PairRegisterOperand(operand Operand) bool {
+	if operand.Kind != OperandRegister {
+		return false
+	}
+	switch operand.Register {
+	case cpuz80.RegBC, cpuz80.RegDE, cpuz80.RegHL, cpuz80.RegIX, cpuz80.RegIY, cpuz80.RegSP:
+		return true
+	default:
+		return false
+	}
 }
 
 func formatValue(value ast.Node) (string, error) {
+	return formatValueWithOptions(value, 0, false)
+}
+
+func formatValueWithOptions(value ast.Node, minimumHexDigits int, decimal bool) (string, error) {
 	switch typed := value.(type) {
 	case ast.Number:
-		return fmt.Sprintf("0x%X", typed.Value), nil
+		return formatNumberValue(typed.Value, minimumHexDigits, decimal), nil
 	case *ast.Number:
 		if typed != nil {
-			return fmt.Sprintf("0x%X", typed.Value), nil
+			return formatNumberValue(typed.Value, minimumHexDigits, decimal), nil
 		}
 	case ast.Label:
 		return typed.Name, nil
@@ -351,6 +424,16 @@ func formatValue(value ast.Node) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%w: %T", ErrUnsupportedValue, value)
+}
+
+func formatNumberValue(value uint64, minimumHexDigits int, decimal bool) string {
+	if decimal {
+		return strconv.FormatUint(value, 10)
+	}
+	if minimumHexDigits > 0 {
+		return fmt.Sprintf("0x%0*X", minimumHexDigits, value)
+	}
+	return fmt.Sprintf("0x%X", value)
 }
 
 func formatExpression(expression *expression.Expression) (string, error) {

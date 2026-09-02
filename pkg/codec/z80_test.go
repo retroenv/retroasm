@@ -16,6 +16,15 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
+var retroGoZ80FormatOptions = z80parser.FormatOptions{
+	Indent:                      "  ",
+	Uppercase:                   true,
+	MinimumHexDigits:            2,
+	PairImmediateHexDigits:      4,
+	DecimalBitIndexes:           true,
+	DecimalIndexedDisplacements: true,
+}
+
 func TestZ80Codec_BuildValidateFormatAndAssemble(t *testing.T) {
 	t.Parallel()
 
@@ -45,6 +54,64 @@ func TestZ80Codec_BuildValidateFormatAndAssemble(t *testing.T) {
 	parsedAssembly, err := c.Assemble(t.Context(), []ast.Node{parsed})
 	assert.NoError(t, err)
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
+}
+
+func TestZ80TypedInstructionFormattingOptions(t *testing.T) {
+	t.Parallel()
+
+	c := newZ80Codec(t)
+	tests := []struct {
+		name     string
+		mnemonic string
+		operands z80parser.Operands
+		want     string
+	}{
+		{
+			name: "byte immediate", mnemonic: cpuz80.LdName,
+			operands: z80parser.Operands{
+				z80parser.RegisterOperand(cpuz80.RegA),
+				z80parser.ValueOperand(ast.NewNumber(5)),
+			},
+			want: "  LD A,0x05",
+		},
+		{
+			name: "pair immediate", mnemonic: cpuz80.LdName,
+			operands: z80parser.Operands{
+				z80parser.RegisterOperand(cpuz80.RegHL),
+				z80parser.ValueOperand(ast.NewNumber(4)),
+			},
+			want: "  LD HL,0x0004",
+		},
+		{
+			name: "bit index", mnemonic: cpuz80.BitName,
+			operands: z80parser.Operands{
+				z80parser.ValueOperand(ast.NewNumber(3)),
+				z80parser.RegisterOperand(cpuz80.RegA),
+			},
+			want: "  BIT 3,A",
+		},
+		{
+			name: "negative index", mnemonic: cpuz80.LdName,
+			operands: z80parser.Operands{
+				z80parser.RegisterOperand(cpuz80.RegA),
+				z80parser.IndexedOperand(cpuz80.RegIX, ast.NewNumber(0xfe)),
+			},
+			want: "  LD A,(IX-2)",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			instruction, err := codec.BuildInstruction(c, test.mnemonic, test.operands)
+			assert.NoError(t, err)
+
+			formatted, err := z80parser.FormatInstructionWithOptions(instruction, retroGoZ80FormatOptions)
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, formatted)
+		})
+	}
 }
 
 func TestZ80Codec_ParsedInstructionRoundTrips(t *testing.T) {
