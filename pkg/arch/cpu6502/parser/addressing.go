@@ -78,7 +78,13 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu6502.A
 	switch ins.arg2.Value {
 	case "x", "X":
 		if indirectAccess {
-			return []cpu6502.AddressingMode{cpu6502.IndirectXAddressing}, nil
+			if absolute {
+				addressings = append(addressings, cpu6502.AbsoluteXIndirectAddressing)
+			}
+			if zeropage {
+				addressings = append(addressings, cpu6502.IndirectXAddressing)
+			}
+			return addressings, nil
 		}
 
 		if absolute {

@@ -30,7 +30,7 @@ func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 				argument:   tt.value,
 			}
 
-			err := GenerateInstructionOpcode(assigner, ins)
+			err := GenerateInstructionOpcode(assigner, ins, cpu6502.LdaInst)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -40,6 +40,18 @@ func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 			assert.Equal(t, byte(tt.value), ins.opcodes[1])
 		})
 	}
+}
+
+func TestGenerateInstructionOpcode_ImpliedPadding(t *testing.T) {
+	t.Parallel()
+
+	ins := &mockInstruction{
+		name:       cpu6502.BrkName,
+		addressing: int(cpu6502.ImpliedAddressing),
+	}
+	assert.NoError(t, GenerateInstructionOpcode(&mockAssigner{}, ins, cpu6502.BrkInst))
+	assert.Equal(t, 2, ins.size)
+	assert.Equal(t, []byte{0x00, 0x00}, ins.opcodes)
 }
 
 type mockAssigner struct {

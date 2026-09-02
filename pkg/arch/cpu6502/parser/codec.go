@@ -34,7 +34,9 @@ func BuildInstruction(
 
 	var argument ast.Node
 	var modifiers []ast.Modifier
-	if len(operands) == 1 && operands[0].Kind != OperandAccumulator {
+	if len(operands) == 2 {
+		argument = ast.NewInstructionArguments(operands[0].Value.Copy(), operands[1].Value.Copy())
+	} else if len(operands) == 1 && operands[0].Kind != OperandAccumulator {
 		argument = operands[0].Value.Copy()
 		modifiers = slices.Clone(operands[0].Modifiers)
 	}
@@ -79,11 +81,15 @@ func FormatInstructionWithOptions(
 	if len(resolved.Operands) == 0 {
 		return options.Indent + mnemonic, nil
 	}
-	formatted, err := formatOperand(resolved, resolved.Operands[0], options)
-	if err != nil {
-		return "", err
+	formatted := make([]string, 0, len(resolved.Operands))
+	for _, operand := range resolved.Operands {
+		value, err := formatOperand(resolved, operand, options)
+		if err != nil {
+			return "", err
+		}
+		formatted = append(formatted, value)
 	}
-	return options.Indent + mnemonic + " " + formatted, nil
+	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
 }
 
 func normalizeOperands(instruction *cpu6502.Instruction, operands Operands) Operands {
@@ -117,6 +123,8 @@ func formatOperand(resolved ResolvedInstruction, operand Operand, options Format
 		return "#" + value, nil
 	case OperandAddress:
 		return prefix + value, nil
+	case OperandRelativeTarget:
+		return value, nil
 	case OperandIndexedX:
 		return prefix + value + "," + registerX, nil
 	case OperandIndexedY:
@@ -178,7 +186,8 @@ func operandHexDigits(resolved ResolvedInstruction, operand Operand, options For
 	}
 	if operand.Kind == OperandImmediate || operand.Size == AddressZeroPage ||
 		resolved.Addressing == cpu6502.IndirectXAddressing ||
-		resolved.Addressing == cpu6502.IndirectYAddressing {
+		resolved.Addressing == cpu6502.IndirectYAddressing ||
+		resolved.Addressing == cpu6502.ZeroPageIndirectAddressing {
 
 		return byteDigits
 	}

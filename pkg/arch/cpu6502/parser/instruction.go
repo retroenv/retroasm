@@ -62,7 +62,10 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instructio
 	next1 := parser.NextToken(1)
 	if next1.Type == token.Comma {
 		parser.AdvanceReadPosition(2)
-		ins.arg2 = parser.NextToken(0)
+		ins.arg2 = resolveArg1Token(parser)
+		if ins.instruction.HasAddressing(cpu6502.ZeroPageRelativeAddressing) {
+			return parseZeroPageRelativeInstruction(ins)
+		}
 		return parseInstructionSecondIdentifier(ins, false)
 	}
 
@@ -84,7 +87,7 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instructio
 		return parseInstructionImmediateAddressingWithToken(parser, ins, next1)
 
 	case ins.arg1.Type == token.Number:
-		return parseInstructionNumberParameter(ins)
+		return parseInstructionNumber(parser, ins)
 
 	case ins.arg1.Type == token.Identifier || ins.instruction.HasAddressing(cpu6502.AccumulatorAddressing) || ins.arg1.Type.IsTerminator():
 		return parseInstructionSingleIdentifier(parser, ins)
@@ -92,6 +95,13 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instructio
 	default:
 		return nil, fmt.Errorf("unsupported instruction argument type %s", ins.arg1.Type)
 	}
+}
+
+func parseInstructionNumber(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	if _, ok := cpu6502.BranchingInstructions[ins.instruction.Name]; ok {
+		return parseBranchingInstruction(parser, ins)
+	}
+	return parseInstructionNumberParameter(ins)
 }
 
 func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node, error) {
@@ -111,14 +121,15 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 		case token.RightParentheses:
 			next = parser.NextToken(1)
 			if next.Type != token.Comma {
-				if ins.instruction.HasAddressing(cpu6502.IndirectAddressing) {
+				addressing, ok := parenthesizedAddressing(ins)
+				if ok {
 					argument, err := argumentFromToken(ins.arg1)
 					if err != nil {
 						return nil, err
 					}
 					return newInstruction(
 						ins.instruction,
-						int(cpu6502.IndirectAddressing),
+						int(addressing),
 						argument,
 						ins.modifiers,
 					), nil
@@ -134,6 +145,43 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 			return nil, fmt.Errorf("unexpected parentheses token type %s", next.Type)
 		}
 	}
+}
+
+func parenthesizedAddressing(ins *instruction) (cpu6502.AddressingMode, bool) {
+	switch ins.addressingSize {
+	case addressingZeroPage:
+		return cpu6502.ZeroPageIndirectAddressing,
+			ins.instruction.HasAddressing(cpu6502.ZeroPageIndirectAddressing)
+	case addressingAbsolute:
+		return cpu6502.IndirectAddressing, ins.instruction.HasAddressing(cpu6502.IndirectAddressing)
+	default:
+		if ins.instruction.HasAddressing(cpu6502.ZeroPageIndirectAddressing) {
+			return cpu6502.ZeroPageIndirectAddressing, true
+		}
+		return cpu6502.IndirectAddressing, ins.instruction.HasAddressing(cpu6502.IndirectAddressing)
+	}
+}
+
+func parseZeroPageRelativeInstruction(ins *instruction) (ast.Node, error) {
+	if ins.addressingSize == addressingAbsolute {
+		return nil, errors.New("zero-page-relative instruction cannot use absolute addressing")
+	}
+	if len(ins.modifiers) != 0 {
+		return nil, errors.New("zero-page-relative instruction does not support modifiers")
+	}
+	zeroPage, err := argumentFromToken(ins.arg1)
+	if err != nil {
+		return nil, fmt.Errorf("parsing zero-page operand: %w", err)
+	}
+	if value, ok := ast.NumberValue(zeroPage); ok && value > math.MaxUint8 {
+		return nil, errors.New("zeropage address exceeds byte value")
+	}
+	target, err := argumentFromToken(ins.arg2)
+	if err != nil {
+		return nil, fmt.Errorf("parsing relative target: %w", err)
+	}
+	arguments := ast.NewInstructionArguments(zeroPage, target)
+	return newInstruction(ins.instruction, int(cpu6502.ZeroPageRelativeAddressing), arguments, nil), nil
 }
 
 func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast.Node, error) {
@@ -287,12 +335,15 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 	var addressing cpu6502.AddressingMode
 	switch len(availableAddressing) {
 	case 1:
-		addressing = addressings[0]
+		addressing = availableAddressing[0]
 	case 2:
-		if addressings[0] == cpu6502.AbsoluteXAddressing {
+		switch availableAddressing[0] {
+		case cpu6502.AbsoluteXAddressing:
 			addressing = XAddressing
-		} else {
+		case cpu6502.AbsoluteYAddressing:
 			addressing = YAddressing
+		default:
+			return nil, errors.New("indirect addressing size is ambiguous")
 		}
 	default:
 		return nil, errors.New("invalid second parameter addressing mode usage")

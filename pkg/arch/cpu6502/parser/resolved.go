@@ -58,6 +58,13 @@ func operandsFromInstruction(instruction ast.Instruction) (Operands, error) {
 	if instruction.Argument == nil {
 		return nil, fmt.Errorf("%w: missing operand", ErrInvalidInstruction)
 	}
+	if addressing == cpu6502.ZeroPageRelativeAddressing {
+		arguments, ok := instruction.Argument.(ast.InstructionArguments)
+		if !ok || len(arguments.Values) != 2 || len(instruction.Modifier) != 0 {
+			return nil, fmt.Errorf("%w: zero-page-relative mode requires two unmodified operands", ErrInvalidInstruction)
+		}
+		return ZeroPageRelativeOperands(arguments.Values[0].Copy(), arguments.Values[1].Copy()), nil
+	}
 
 	kind, size, err := operandShape(addressing)
 	if err != nil {
@@ -85,20 +92,22 @@ type operandShapeInfo struct {
 }
 
 var addressingOperandShapes = map[cpu6502.AddressingMode]operandShapeInfo{
-	cpu6502.ImmediateAddressing: {OperandImmediate, AddressDefault},
-	cpu6502.RelativeAddressing:  {OperandAddress, AddressDefault},
-	cpu6502.ZeroPageAddressing:  {OperandAddress, AddressZeroPage},
-	cpu6502.AbsoluteAddressing:  {OperandAddress, AddressAbsolute},
-	AbsoluteZeroPageAddressing:  {OperandAddress, AddressDefault},
-	cpu6502.ZeroPageXAddressing: {OperandIndexedX, AddressZeroPage},
-	cpu6502.AbsoluteXAddressing: {OperandIndexedX, AddressAbsolute},
-	XAddressing:                 {OperandIndexedX, AddressDefault},
-	cpu6502.ZeroPageYAddressing: {OperandIndexedY, AddressZeroPage},
-	cpu6502.AbsoluteYAddressing: {OperandIndexedY, AddressAbsolute},
-	YAddressing:                 {OperandIndexedY, AddressDefault},
-	cpu6502.IndirectAddressing:  {OperandIndirect, AddressAbsolute},
-	cpu6502.IndirectXAddressing: {OperandIndexedXIndirect, AddressZeroPage},
-	cpu6502.IndirectYAddressing: {OperandIndirectIndexedY, AddressZeroPage},
+	cpu6502.ImmediateAddressing:         {OperandImmediate, AddressDefault},
+	cpu6502.RelativeAddressing:          {OperandAddress, AddressDefault},
+	cpu6502.ZeroPageAddressing:          {OperandAddress, AddressZeroPage},
+	cpu6502.AbsoluteAddressing:          {OperandAddress, AddressAbsolute},
+	AbsoluteZeroPageAddressing:          {OperandAddress, AddressDefault},
+	cpu6502.ZeroPageXAddressing:         {OperandIndexedX, AddressZeroPage},
+	cpu6502.AbsoluteXAddressing:         {OperandIndexedX, AddressAbsolute},
+	XAddressing:                         {OperandIndexedX, AddressDefault},
+	cpu6502.ZeroPageYAddressing:         {OperandIndexedY, AddressZeroPage},
+	cpu6502.AbsoluteYAddressing:         {OperandIndexedY, AddressAbsolute},
+	YAddressing:                         {OperandIndexedY, AddressDefault},
+	cpu6502.IndirectAddressing:          {OperandIndirect, AddressAbsolute},
+	cpu6502.ZeroPageIndirectAddressing:  {OperandIndirect, AddressZeroPage},
+	cpu6502.IndirectXAddressing:         {OperandIndexedXIndirect, AddressZeroPage},
+	cpu6502.AbsoluteXIndirectAddressing: {OperandIndexedXIndirect, AddressAbsolute},
+	cpu6502.IndirectYAddressing:         {OperandIndirectIndexedY, AddressZeroPage},
 }
 
 func resolveOperands(instruction *cpu6502.Instruction, operands Operands) (cpu6502.AddressingMode, error) {
@@ -112,6 +121,13 @@ func resolveOperands(instruction *cpu6502.Instruction, operands Operands) (cpu65
 		}
 	case 1:
 		return resolveOperand(instruction, operands[0])
+	case 2:
+		if operands[0].Kind == OperandAddress && operands[0].Size == AddressZeroPage &&
+			operands[1].Kind == OperandRelativeTarget &&
+			instruction.HasAddressing(cpu6502.ZeroPageRelativeAddressing) {
+
+			return cpu6502.ZeroPageRelativeAddressing, nil
+		}
 	}
 	return cpu6502.NoAddressing, ErrUnsupportedAddressing
 }
@@ -130,9 +146,19 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 	case OperandIndexedY:
 		addressing = resolveIndexed(instruction, operand, cpu6502.ZeroPageYAddressing, cpu6502.AbsoluteYAddressing, YAddressing)
 	case OperandIndirect:
-		addressing = cpu6502.IndirectAddressing
+		addressing = resolveIndirect(
+			instruction,
+			operand,
+			cpu6502.ZeroPageIndirectAddressing,
+			cpu6502.IndirectAddressing,
+		)
 	case OperandIndexedXIndirect:
-		addressing = cpu6502.IndirectXAddressing
+		addressing = resolveIndirect(
+			instruction,
+			operand,
+			cpu6502.IndirectXAddressing,
+			cpu6502.AbsoluteXIndirectAddressing,
+		)
 	case OperandIndirectIndexedY:
 		addressing = cpu6502.IndirectYAddressing
 	default:
@@ -142,6 +168,32 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 		return cpu6502.NoAddressing, ErrUnsupportedAddressing
 	}
 	return addressing, nil
+}
+
+func resolveIndirect(
+	instruction *cpu6502.Instruction,
+	operand Operand,
+	zeroPage, absolute cpu6502.AddressingMode,
+) cpu6502.AddressingMode {
+
+	if operand.Size == AddressZeroPage {
+		return zeroPage
+	}
+	if operand.Size == AddressAbsolute {
+		return absolute
+	}
+	if numberValue, ok := ast.NumberValue(operand.Value); ok && numberValue <= math.MaxUint8 &&
+		instruction.HasAddressing(zeroPage) {
+
+		return zeroPage
+	}
+	if instruction.HasAddressing(absolute) {
+		return absolute
+	}
+	if instruction.HasAddressing(zeroPage) {
+		return zeroPage
+	}
+	return cpu6502.NoAddressing
 }
 
 func resolveAddress(instruction *cpu6502.Instruction, operand Operand) cpu6502.AddressingMode {
@@ -240,6 +292,9 @@ func validateResolved(resolved ResolvedInstruction) error {
 			return fmt.Errorf("%w: operand %d has no value", ErrInvalidInstruction, index)
 		}
 		for _, modifier := range operand.Modifiers {
+			if len(resolved.Operands) > 1 {
+				return fmt.Errorf("%w: multi-operand instructions do not support modifiers", ErrInvalidInstruction)
+			}
 			if modifier.Operator.Operator != "+" && modifier.Operator.Operator != "-" {
 				return fmt.Errorf("%w: unsupported modifier operator %q", ErrInvalidInstruction, modifier.Operator.Operator)
 			}
@@ -252,14 +307,21 @@ func validateResolved(resolved ResolvedInstruction) error {
 }
 
 func validateWidths(resolved ResolvedInstruction) error {
-	maximum := uint64(math.MaxUint16)
-	switch resolved.Addressing {
-	case cpu6502.ImmediateAddressing, cpu6502.ZeroPageAddressing,
-		cpu6502.ZeroPageXAddressing, cpu6502.ZeroPageYAddressing,
-		cpu6502.IndirectXAddressing, cpu6502.IndirectYAddressing:
-		maximum = math.MaxUint8
-	}
 	for index, operand := range resolved.Operands {
+		maximum := uint64(math.MaxUint16)
+		switch {
+		case resolved.Addressing == cpu6502.ZeroPageRelativeAddressing && index == 0:
+			maximum = math.MaxUint8
+		case resolved.Addressing == cpu6502.ImmediateAddressing,
+			resolved.Addressing == cpu6502.ZeroPageAddressing,
+			resolved.Addressing == cpu6502.ZeroPageXAddressing,
+			resolved.Addressing == cpu6502.ZeroPageYAddressing,
+			resolved.Addressing == cpu6502.IndirectXAddressing,
+			resolved.Addressing == cpu6502.IndirectYAddressing,
+			resolved.Addressing == cpu6502.ZeroPageIndirectAddressing:
+
+			maximum = math.MaxUint8
+		}
 		if value, ok := ast.NumberValue(operand.Value); ok && value > maximum {
 			return fmt.Errorf("%w: operand %d value %d exceeds 0x%X", ErrInvalidInstruction, index, value, maximum)
 		}

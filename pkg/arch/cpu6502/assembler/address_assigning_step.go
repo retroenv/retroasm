@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu6502/parser"
@@ -13,21 +12,16 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
-func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
+func AssignInstructionAddress(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	insDetails *cpu6502.Instruction,
+) (uint64, error) {
+
 	pc := assigner.ProgramCounter()
 	ins.SetAddress(pc)
-
-	var insDetails *cpu6502.Instruction
-	if id := cpu6502OpcodeID(ins); id != cpu6502.InvalidOpcodeID {
-		insDetails = cpu6502.InstructionsByID[id]
-	}
 	if insDetails == nil {
-		name := strings.ToLower(ins.Name())
-		var ok bool
-		insDetails, ok = cpu6502.Instructions[name]
-		if !ok {
-			return 0, fmt.Errorf("unsupported instruction '%s'", name)
-		}
+		return 0, fmt.Errorf("unsupported instruction '%s'", ins.Name())
 	}
 
 	addressing := cpu6502.AddressingMode(ins.Addressing())

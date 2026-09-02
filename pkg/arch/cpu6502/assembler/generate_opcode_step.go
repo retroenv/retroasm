@@ -4,22 +4,21 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
-func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	var instructionInfo *cpu6502.Instruction
-	if id := cpu6502OpcodeID(ins); id != cpu6502.InvalidOpcodeID {
-		instructionInfo = cpu6502.InstructionsByID[id]
-	}
+func GenerateInstructionOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	instructionInfo *cpu6502.Instruction,
+) error {
+
 	if instructionInfo == nil {
-		instructionInfo = cpu6502.Instructions[strings.ToLower(ins.Name())]
+		return fmt.Errorf("unsupported instruction %q", ins.Name())
 	}
 	addressing := cpu6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
@@ -27,18 +26,24 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	ins.SetSize(int(addressingInfo.Size))
 
 	switch addressing {
-	case cpu6502.ImpliedAddressing, cpu6502.AccumulatorAddressing:
+	case cpu6502.ImpliedAddressing:
+		if err := generateImpliedAddressingOpcode(ins); err != nil {
+			return fmt.Errorf("generating opcode: %w", err)
+		}
+
+	case cpu6502.AccumulatorAddressing:
 
 	case cpu6502.ImmediateAddressing,
 		cpu6502.ZeroPageAddressing, cpu6502.ZeroPageXAddressing, cpu6502.ZeroPageYAddressing,
-		cpu6502.IndirectXAddressing, cpu6502.IndirectYAddressing:
+		cpu6502.IndirectXAddressing, cpu6502.IndirectYAddressing,
+		cpu6502.ZeroPageIndirectAddressing:
 
-		if err := generateByteAddressingOpcode(assigner, ins); err != nil {
+		if err := generateByteAddressingOpcode(assigner, ins, instructionInfo); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
 	case cpu6502.AbsoluteAddressing, cpu6502.AbsoluteXAddressing, cpu6502.AbsoluteYAddressing,
-		cpu6502.IndirectAddressing:
+		cpu6502.IndirectAddressing, cpu6502.AbsoluteXIndirectAddressing:
 
 		if err := generateWordAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
@@ -49,6 +54,11 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
+	case cpu6502.ZeroPageRelativeAddressing:
+		if err := generateZeroPageRelativeAddressingOpcode(assigner, ins); err != nil {
+			return fmt.Errorf("generating opcode: %w", err)
+		}
+
 	default:
 		return fmt.Errorf("unsupported instruction addressing %d", addressing)
 	}
@@ -56,7 +66,21 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
+func generateImpliedAddressingOpcode(ins arch.Instruction) error {
+	paddingSize := ins.Size() - len(ins.Opcodes())
+	if paddingSize < 0 {
+		return fmt.Errorf("instruction size %d is smaller than opcode size %d", ins.Size(), len(ins.Opcodes()))
+	}
+	ins.SetOpcodes(append(ins.Opcodes(), make([]byte, paddingSize)...))
+	return nil
+}
+
+func generateByteAddressingOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	instructionInfo *cpu6502.Instruction,
+) error {
+
 	value, err := assigner.ArgumentValue(ins.Argument())
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
@@ -66,7 +90,7 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 		addressing := cpu6502.AddressingMode(ins.Addressing())
 		upgraded := upgradeToAbsolute(addressing)
 		if upgraded != addressing {
-			return upgradeAndGenerateWord(ins, upgraded, value)
+			return upgradeAndGenerateWord(ins, instructionInfo, upgraded, value)
 		}
 		return fmt.Errorf("value %d exceeds byte", value)
 	}
@@ -91,14 +115,13 @@ func upgradeToAbsolute(mode cpu6502.AddressingMode) cpu6502.AddressingMode {
 }
 
 // upgradeAndGenerateWord re-encodes the instruction using the absolute addressing variant.
-func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode, value uint64) error {
-	var instructionInfo *cpu6502.Instruction
-	if id := cpu6502OpcodeID(ins); id != cpu6502.InvalidOpcodeID {
-		instructionInfo = cpu6502.InstructionsByID[id]
-	}
-	if instructionInfo == nil {
-		instructionInfo = cpu6502.Instructions[strings.ToLower(ins.Name())]
-	}
+func upgradeAndGenerateWord(
+	ins arch.Instruction,
+	instructionInfo *cpu6502.Instruction,
+	newMode cpu6502.AddressingMode,
+	value uint64,
+) error {
+
 	if instructionInfo == nil {
 		return fmt.Errorf("value %d exceeds byte (no instruction info for upgrade)", value)
 	}
@@ -116,14 +139,6 @@ func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
 	return nil
-}
-
-func cpu6502OpcodeID(ins arch.Instruction) cpu6502.OpcodeID {
-	identity := ins.OpcodeID()
-	if !identity.ValidFor(retroarch.CPU6502) || identity.Value > uint16(cpu6502.OpcodeIDMax) {
-		return cpu6502.InvalidOpcodeID
-	}
-	return cpu6502.OpcodeID(identity.Value)
 }
 
 func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
@@ -155,5 +170,36 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 
 	opcodes := append(ins.Opcodes(), b)
 	ins.SetOpcodes(opcodes)
+	return nil
+}
+
+func generateZeroPageRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
+	arguments, ok := ins.Argument().([]any)
+	if !ok || len(arguments) != 2 {
+		return fmt.Errorf("zero-page-relative instruction requires two operands, got %T", ins.Argument())
+	}
+	zeroPage, err := assigner.ArgumentValue(arguments[0])
+	if err != nil {
+		return fmt.Errorf("getting zero-page argument: %w", err)
+	}
+	if zeroPage > math.MaxUint8 {
+		return fmt.Errorf("value %d exceeds byte", zeroPage)
+	}
+	target, err := assigner.ArgumentValue(arguments[1])
+	if err != nil {
+		return fmt.Errorf("getting relative target: %w", err)
+	}
+	addressAfterInstruction := ins.Address() + uint64(ins.Size())
+	offset, err := assigner.RelativeOffset(target, addressAfterInstruction)
+	if err != nil {
+		difference := int64(target) - int64(addressAfterInstruction)
+		return fmt.Errorf(
+			"branch target 0x%X too far from instruction at 0x%X (offset %d, limit -128..127)",
+			target,
+			ins.Address(),
+			difference,
+		)
+	}
+	ins.SetOpcodes(append(ins.Opcodes(), byte(zeroPage), offset))
 	return nil
 }

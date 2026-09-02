@@ -15,8 +15,18 @@ import (
 )
 
 // New returns a new 6502 architecture configuration.
-func New() *config.Config[*cpu6502.Instruction] {
-	p := &arch6502[*cpu6502.Instruction]{}
+func New(optionList ...Option) *config.Config[*cpu6502.Instruction] {
+	settings := options{}
+	for _, option := range optionList {
+		if option != nil {
+			option(&settings)
+		}
+	}
+	instructions := cpu6502.Instructions
+	if settings.strictVariant {
+		instructions = cpu6502.InstructionsForVariant(settings.variant)
+	}
+	p := &arch6502[*cpu6502.Instruction]{instructions: instructions}
 	cfg := &config.Config[*cpu6502.Instruction]{
 		Arch: p,
 	}
@@ -24,6 +34,7 @@ func New() *config.Config[*cpu6502.Instruction] {
 }
 
 type arch6502[T any] struct {
+	instructions map[string]*cpu6502.Instruction
 }
 
 func (ar *arch6502[T]) AddressWidth() int {
@@ -49,7 +60,7 @@ func (ar *arch6502[T]) BuildInstruction(
 }
 
 func (ar *arch6502[T]) Instruction(name string) (*cpu6502.Instruction, bool) {
-	ins, ok := cpu6502.Instructions[name]
+	ins, ok := ar.instructions[name]
 	return ins, ok
 }
 
@@ -90,9 +101,17 @@ func (ar *arch6502[T]) FormatInstruction(instruction ast.Instruction) (string, e
 }
 
 func (ar *arch6502[T]) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
-	return assembler.AssignInstructionAddress(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
+	details, ok := ar.Instruction(strings.ToLower(ins.Name()))
+	if !ok {
+		return 0, fmt.Errorf("unknown CPU6502 instruction %q", ins.Name())
+	}
+	return assembler.AssignInstructionAddress(assigner, ins, details) //nolint:wrapcheck // thin delegation to sub-package
 }
 
 func (ar *arch6502[T]) GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	return assembler.GenerateInstructionOpcode(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
+	details, ok := ar.Instruction(strings.ToLower(ins.Name()))
+	if !ok {
+		return fmt.Errorf("unknown CPU6502 instruction %q", ins.Name())
+	}
+	return assembler.GenerateInstructionOpcode(assigner, ins, details) //nolint:wrapcheck // thin delegation to sub-package
 }

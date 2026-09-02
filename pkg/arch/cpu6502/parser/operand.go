@@ -19,6 +19,7 @@ const (
 	OperandIndirect
 	OperandIndexedXIndirect
 	OperandIndirectIndexedY
+	OperandRelativeTarget
 )
 
 // AddressSize identifies explicit zero-page or absolute source intent.
@@ -54,6 +55,15 @@ func ImmediateOperand(value ast.Node) Operand {
 // MemoryOperand constructs a value-bearing addressing operand.
 func MemoryOperand(kind OperandKind, size AddressSize, value ast.Node) Operand {
 	return Operand{Kind: kind, Size: size, Value: value}
+}
+
+// ZeroPageRelativeOperands constructs the two operands used by Rockwell-style
+// BBR/BBS instructions.
+func ZeroPageRelativeOperands(zeroPage, target ast.Node) Operands {
+	return Operands{
+		MemoryOperand(OperandAddress, AddressZeroPage, zeroPage),
+		MemoryOperand(OperandRelativeTarget, AddressDefault, target),
+	}
 }
 
 // WithModifiers returns an operand with a private copy of address modifiers.
