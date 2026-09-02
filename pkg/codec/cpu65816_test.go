@@ -278,6 +278,67 @@ func TestCPU65816Codec_StatefulBuilderTransitions(t *testing.T) {
 	assert.Equal(t, []byte{0xc2, 0x20, 0xa9, 0x34, 0x12}, assembly.Binary)
 }
 
+func TestCPU65816Codec_TracksNativeAndEmulationTransitions(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU65816Codec(t)
+	source := strings.NewReader(strings.Join([]string{
+		"clc",
+		"xce",
+		"rep #$30",
+		"lda #$1234",
+		"ldx #$5678",
+		"sec",
+		"xce",
+		"rep #$30",
+		"lda #$12",
+		"ldx #$34",
+		"clc",
+		"xce",
+	}, "\n"))
+
+	nodes, state, err := codec.ParseWithState(t.Context(), c, source, cpu65816parser.DefaultState())
+	assert.NoError(t, err)
+	assert.Equal(t, cpu65816parser.WidthByte, state.AccumulatorWidth)
+	assert.Equal(t, cpu65816parser.WidthByte, state.IndexWidth)
+	assert.Equal(t, cpu65816parser.StatusSet, state.Carry)
+	assert.Equal(t, cpu65816parser.StatusClear, state.Emulation)
+
+	assembly, err := c.Assemble(t.Context(), nodes)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{
+		0x18, 0xfb, 0xc2, 0x30, 0xa9, 0x34, 0x12, 0xa2, 0x78, 0x56,
+		0x38, 0xfb, 0xc2, 0x30, 0xa9, 0x12, 0xa2, 0x34, 0x18, 0xfb,
+	}, assembly.Binary)
+}
+
+func TestCPU65816Codec_ParsesCompilerEntryPrologue(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU65816Codec(t)
+	source := strings.NewReader(strings.Join([]string{
+		"sei",
+		"clc",
+		"xce",
+		"lda #$1f",
+		"xba",
+		"lda #$ff",
+		"tcs",
+		"sep #$30",
+		"rts",
+	}, "\n"))
+
+	nodes, state, err := codec.ParseWithState(t.Context(), c, source, cpu65816parser.DefaultState())
+	assert.NoError(t, err)
+	assert.Equal(t, cpu65816parser.WidthByte, state.AccumulatorWidth)
+	assert.Equal(t, cpu65816parser.WidthByte, state.IndexWidth)
+	assert.Equal(t, cpu65816parser.StatusClear, state.Emulation)
+
+	assembly, err := c.Assemble(t.Context(), nodes)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0x78, 0x18, 0xfb, 0xa9, 0x1f, 0xeb, 0xa9, 0xff, 0x1b, 0xe2, 0x30, 0x60}, assembly.Binary)
+}
+
 func TestCPU65816Codec_RejectsInvalidStateAndOperands(t *testing.T) {
 	t.Parallel()
 

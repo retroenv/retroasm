@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	statusCarry            = 0x01
 	statusIndexWidth       = 0x10
 	statusAccumulatorWidth = 0x20
 )
@@ -25,15 +26,30 @@ const (
 	WidthWord
 )
 
-// State is the M/X width state before one CPU65816 instruction.
+// StatusBit is a known CPU65816 processor-status bit. Zero means runtime-dependent.
+type StatusBit uint8
+
+const (
+	StatusUnknown StatusBit = iota
+	StatusClear
+	StatusSet
+)
+
+// State is the processor state needed to resolve width-sensitive instructions.
 type State struct {
 	AccumulatorWidth Width
 	IndexWidth       Width
+	Carry            StatusBit
+	Emulation        StatusBit
 }
 
-// DefaultState returns the compiler and assembler entry state with 8-bit M/X widths.
+// DefaultState returns the compiler and assembler entry state in native mode with 8-bit M/X widths.
 func DefaultState() State {
-	return State{AccumulatorWidth: WidthByte, IndexWidth: WidthByte}
+	return State{
+		AccumulatorWidth: WidthByte,
+		IndexWidth:       WidthByte,
+		Emulation:        StatusClear,
+	}
 }
 
 func stateFromParser(p arch.Parser) (State, arch.StatefulParser, error) {
@@ -64,6 +80,17 @@ func (state State) validate() error {
 	if !validWidth(state.IndexWidth) {
 		return fmt.Errorf("%w: index width %d", errInvalidState, state.IndexWidth)
 	}
+	if !validStatusBit(state.Carry) {
+		return fmt.Errorf("%w: carry state %d", errInvalidState, state.Carry)
+	}
+	if !validStatusBit(state.Emulation) {
+		return fmt.Errorf("%w: emulation state %d", errInvalidState, state.Emulation)
+	}
+	if state.Emulation == StatusSet &&
+		(state.AccumulatorWidth != WidthByte || state.IndexWidth != WidthByte) {
+
+		return fmt.Errorf("%w: emulation mode requires 8-bit M/X widths", errInvalidState)
+	}
 	return nil
 }
 
@@ -71,11 +98,22 @@ func validWidth(width Width) bool {
 	return width == WidthUnknown || width == WidthByte || width == WidthWord
 }
 
+func validStatusBit(bit StatusBit) bool {
+	return bit == StatusUnknown || bit == StatusClear || bit == StatusSet
+}
+
 func nextState(state State, instruction *cpu65816.Instruction, operands Operands) State {
 	switch instruction.Name {
-	case cpu65816.PlpName, cpu65816.RtiName, cpu65816.XceName:
-		// These instructions restore or derive M/X from runtime processor state.
-		return State{}
+	case cpu65816.ClcName:
+		state.Carry = StatusClear
+		return state
+	case cpu65816.SecName:
+		state.Carry = StatusSet
+		return state
+	case cpu65816.PlpName, cpu65816.RtiName:
+		return stateAfterStatusRestore(state)
+	case cpu65816.XceName:
+		return stateAfterExchangeCarryEmulation(state)
 	case cpu65816.RepName, cpu65816.SepName:
 		return applyStatusMask(state, instruction.Name, operands)
 	default:
@@ -93,15 +131,55 @@ func applyStatusMask(state State, mnemonic string, operands Operands) State {
 		return State{}
 	}
 
-	width := WidthWord
-	if mnemonic == cpu65816.SepName {
-		width = WidthByte
+	if mask&statusCarry != 0 {
+		state.Carry = StatusClear
+		if mnemonic == cpu65816.SepName {
+			state.Carry = StatusSet
+		}
 	}
 	if mask&statusAccumulatorWidth != 0 {
-		state.AccumulatorWidth = width
+		state.AccumulatorWidth = statusWidth(state, mnemonic)
 	}
 	if mask&statusIndexWidth != 0 {
-		state.IndexWidth = width
+		state.IndexWidth = statusWidth(state, mnemonic)
+	}
+	return state
+}
+
+func statusWidth(state State, mnemonic string) Width {
+	if mnemonic == cpu65816.SepName || state.Emulation == StatusSet {
+		return WidthByte
+	}
+	if state.Emulation == StatusClear {
+		return WidthWord
+	}
+	return WidthUnknown
+}
+
+func stateAfterStatusRestore(state State) State {
+	state.Carry = StatusUnknown
+	if state.Emulation == StatusSet {
+		state.AccumulatorWidth = WidthByte
+		state.IndexWidth = WidthByte
+		return state
+	}
+	state.AccumulatorWidth = WidthUnknown
+	state.IndexWidth = WidthUnknown
+	return state
+}
+
+func stateAfterExchangeCarryEmulation(state State) State {
+	state.Carry, state.Emulation = state.Emulation, state.Carry
+	switch state.Emulation {
+	case StatusSet:
+		state.AccumulatorWidth = WidthByte
+		state.IndexWidth = WidthByte
+	case StatusUnknown:
+		// Both possible XCE outcomes retain byte widths when M/X are already set.
+		if state.AccumulatorWidth != WidthByte || state.IndexWidth != WidthByte {
+			state.AccumulatorWidth = WidthUnknown
+			state.IndexWidth = WidthUnknown
+		}
 	}
 	return state
 }
