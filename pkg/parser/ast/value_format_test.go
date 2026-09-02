@@ -36,6 +36,15 @@ func TestFormatValue(t *testing.T) {
 			),
 			want: "base+0x10",
 		},
+		{
+			name: "modulo expression",
+			value: NewExpression(
+				token.Token{Type: token.Identifier, Value: "base"},
+				token.Token{Type: token.Percent, Value: "%"},
+				token.Token{Type: token.Number, Value: "16"},
+			),
+			want: "base % 0x10",
+		},
 	}
 
 	for _, test := range tests {

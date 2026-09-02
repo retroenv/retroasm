@@ -6,166 +6,137 @@ import (
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	coreasm "github.com/retroenv/retroasm/pkg/assembler"
-	retrochip8 "github.com/retroenv/retrogolib/arch/cpu/chip8"
+	"github.com/retroenv/retroasm/pkg/arch/chip8/parser"
+	"github.com/retroenv/retrogolib/arch/cpu/chip8"
 )
 
-// GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
-// its addressing mode and parameters.
-// nolint: cyclop
+var errUnsupportedArgumentType = errors.New("unsupported CHIP-8 argument type")
+
+// GenerateInstructionOpcode generates one typed CHIP-8 instruction opcode.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	instructionInfo := retrochip8.Instructions[ins.Name()]
-	addressing := retrochip8.Mode(ins.Addressing())
-	addressingInfo := instructionInfo.Addressing[addressing]
-
-	// Start with the base opcode value
+	resolved, err := resolvedInstruction(ins.Argument())
+	if err != nil {
+		return fmt.Errorf("resolving instruction argument: %w", err)
+	}
+	addressingInfo, err := resolved.OpcodeInfo()
+	if err != nil {
+		return fmt.Errorf("resolving opcode info: %w", err)
+	}
 	opcode := addressingInfo.Value
-
-	if err := generateInstructionArgumentOpcode(assigner, ins, addressing, &opcode); err != nil {
+	if err := generateInstructionArgumentOpcode(assigner, resolved, &opcode); err != nil {
 		return fmt.Errorf("generating opcode: %w", err)
 	}
 
-	// Encode opcode as big-endian 16-bit value
 	opcodeBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(opcodeBytes, opcode)
 	ins.SetOpcodes(opcodeBytes)
-
 	return nil
 }
 
-// nolint: cyclop
-func generateInstructionArgumentOpcode(assigner arch.AddressAssigner, ins arch.Instruction, addressing retrochip8.Mode, opcode *uint16) error {
-	switch addressing {
-	case retrochip8.ImpliedAddressing:
+func resolvedInstruction(argument any) (parser.ResolvedInstruction, error) {
+	resolved, ok := argument.(parser.ResolvedInstruction)
+	if !ok {
+		return parser.ResolvedInstruction{}, fmt.Errorf("%w: %T", errUnsupportedArgumentType, argument)
+	}
+	return resolved, nil
+}
+
+//nolint:cyclop // one explicit dispatch case is retained for every CHIP-8 addressing family
+func generateInstructionArgumentOpcode(
+	assigner arch.AddressAssigner,
+	resolved parser.ResolvedInstruction,
+	opcode *uint16,
+) error {
+
+	switch resolved.Addressing {
+	case chip8.ImpliedAddressing:
 		return nil
-	case retrochip8.AbsoluteAddressing, retrochip8.V0AbsoluteAddressing, retrochip8.IAbsoluteAddressing:
-		return generateAbsoluteAddressingOpcode(assigner, ins, opcode)
-	case retrochip8.RegisterAddressing:
-		return generateSingleRegisterOpcode(ins, opcode)
-	case retrochip8.RegisterValueAddressing:
-		return generateRegisterValueOpcode(assigner, ins, opcode)
-	case retrochip8.RegisterRegisterAddressing:
-		return generateRegisterRegisterOpcode(ins, opcode)
-	case retrochip8.RegisterRegisterNibbleAddressing:
-		return generateRegisterRegisterNibbleOpcode(assigner, ins, opcode)
-	case retrochip8.RegisterDTAddressing, retrochip8.RegisterKAddressing,
-		retrochip8.DTRegisterAddressing, retrochip8.STRegisterAddressing,
-		retrochip8.FRegisterAddressing, retrochip8.BRegisterAddressing,
-		retrochip8.IRegisterAddressing, retrochip8.IIndirectRegisterAddressing,
-		retrochip8.RegisterIndirectIAddressing:
-		return generateSingleRegisterOpcode(ins, opcode)
+	case chip8.AbsoluteAddressing:
+		return generateValueOpcode(assigner, resolved.Operands, 0, 0xfff, opcode)
+	case chip8.V0AbsoluteAddressing, chip8.IAbsoluteAddressing:
+		return generateValueOpcode(assigner, resolved.Operands, 1, 0xfff, opcode)
+	case chip8.RegisterAddressing:
+		return generateRegisterOpcode(resolved.Operands, 0, opcode)
+	case chip8.RegisterValueAddressing:
+		if err := generateRegisterOpcode(resolved.Operands, 0, opcode); err != nil {
+			return err
+		}
+		if len(resolved.Operands) == 1 {
+			return nil
+		}
+		return generateValueOpcode(assigner, resolved.Operands, 1, 0xff, opcode)
+	case chip8.RegisterRegisterAddressing:
+		return generateRegisterPairOpcode(resolved.Operands, opcode)
+	case chip8.RegisterRegisterNibbleAddressing:
+		if err := generateRegisterPairOpcode(resolved.Operands, opcode); err != nil {
+			return err
+		}
+		return generateValueOpcode(assigner, resolved.Operands, 2, 0xf, opcode)
+	case chip8.RegisterDTAddressing, chip8.RegisterKAddressing,
+		chip8.DTRegisterAddressing, chip8.STRegisterAddressing,
+		chip8.FRegisterAddressing, chip8.BRegisterAddressing,
+		chip8.IRegisterAddressing, chip8.IIndirectRegisterAddressing,
+		chip8.RegisterIndirectIAddressing:
+		return generateSpecialRegisterOpcode(resolved.Operands, opcode)
 	default:
-		return fmt.Errorf("unsupported instruction addressing %d", addressing)
+		return fmt.Errorf("unsupported instruction addressing %d", resolved.Addressing)
 	}
 }
 
-func generateAbsoluteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcode *uint16) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateRegisterOpcode(operands parser.Operands, index int, opcode *uint16) error {
+	if index < 0 || index >= len(operands) || operands[index].Kind != parser.OperandRegister {
+		return fmt.Errorf("operand %d is not a register", index)
+	}
+	register := operands[index].Register
+	if register > 0xf {
+		return fmt.Errorf("register %d exceeds 4-bit range", register)
+	}
+	*opcode |= uint16(register) << 8
+	return nil
+}
+
+func generateRegisterPairOpcode(operands parser.Operands, opcode *uint16) error {
+	if err := generateRegisterOpcode(operands, 0, opcode); err != nil {
+		return err
+	}
+	if len(operands) < 2 || operands[1].Kind != parser.OperandRegister {
+		return errors.New("operand 1 is not a register")
+	}
+	register := operands[1].Register
+	if register > 0xf {
+		return fmt.Errorf("register %d exceeds 4-bit range", register)
+	}
+	*opcode |= uint16(register) << 4
+	return nil
+}
+
+func generateSpecialRegisterOpcode(operands parser.Operands, opcode *uint16) error {
+	for index, operand := range operands {
+		if operand.Kind == parser.OperandRegister {
+			return generateRegisterOpcode(operands, index, opcode)
+		}
+	}
+	return errors.New("instruction has no register operand")
+}
+
+func generateValueOpcode(
+	assigner arch.AddressAssigner,
+	operands parser.Operands,
+	index int,
+	maximum uint64,
+	opcode *uint16,
+) error {
+
+	if index < 0 || index >= len(operands) || operands[index].Value == nil {
+		return fmt.Errorf("operand %d has no value", index)
+	}
+	value, err := assigner.ArgumentValue(operands[index].Value)
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
-	if value > 0xFFF {
-		return fmt.Errorf("address %d exceeds 12-bit range", value)
+	if value > maximum {
+		return fmt.Errorf("value %d exceeds 0x%X", value, maximum)
 	}
-
-	// Encode 12-bit address in lower 12 bits
-	*opcode |= uint16(value & 0xFFF)
+	*opcode |= uint16(value)
 	return nil
-}
-
-func generateRegisterValueOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcode *uint16) error {
-	switch arg := ins.Argument().(type) {
-	case coreasm.RegisterValueArgument:
-		value, err := resolveValue(assigner, arg.Value)
-		if err != nil {
-			return err
-		}
-		if value > 0xFF {
-			return fmt.Errorf("value %d exceeds byte range", value)
-		}
-		*opcode |= uint16((uint64(arg.Register) << 8) | value)
-		return nil
-	case uint64:
-		// Extract register (upper 4 bits) and value (lower 8 bits)
-		register := (arg >> 8) & 0xF
-		byteValue := arg & 0xFF
-		*opcode |= uint16((register << 8) | byteValue)
-		return nil
-	default:
-		return errors.New("argument is not a register-value argument")
-	}
-}
-
-func generateRegisterRegisterOpcode(ins arch.Instruction, opcode *uint16) error {
-	value, err := getArgumentValue(ins)
-	if err != nil {
-		return err
-	}
-
-	// Extract registers
-	register1 := (value >> 4) & 0xF
-	register2 := value & 0xF
-
-	// Encode register1 in bits 8-11 and register2 in bits 4-7
-	*opcode |= uint16((register1 << 8) | (register2 << 4))
-	return nil
-}
-
-func generateRegisterRegisterNibbleOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcode *uint16) error {
-	switch arg := ins.Argument().(type) {
-	case coreasm.RegisterRegisterValueArgument:
-		value, err := resolveValue(assigner, arg.Value)
-		if err != nil {
-			return err
-		}
-		if value > 0xF {
-			return fmt.Errorf("nibble %d exceeds 4-bit range", value)
-		}
-		*opcode |= uint16((uint64(arg.Register1) << 8) | (uint64(arg.Register2) << 4) | value)
-		return nil
-	case uint64:
-		register1 := (arg >> 8) & 0xF
-		register2 := (arg >> 4) & 0xF
-		nibble := arg & 0xF
-		*opcode |= uint16((register1 << 8) | (register2 << 4) | nibble)
-		return nil
-	default:
-		return errors.New("argument is not a register-register-nibble argument")
-	}
-}
-
-func generateSingleRegisterOpcode(ins arch.Instruction, opcode *uint16) error {
-	value, err := getArgumentValue(ins)
-	if err != nil {
-		return err
-	}
-
-	if value > 0xF {
-		return fmt.Errorf("register %d exceeds 4-bit range", value)
-	}
-
-	// Encode register in bits 8-11
-	*opcode |= uint16(value << 8)
-	return nil
-}
-
-func getArgumentValue(ins arch.Instruction) (uint64, error) {
-	arg := ins.Argument()
-	if arg == nil {
-		return 0, errors.New("missing instruction argument")
-	}
-
-	if v, ok := arg.(uint64); ok {
-		return v, nil
-	}
-
-	return 0, errors.New("argument is not a number")
-}
-
-func resolveValue(assigner arch.AddressAssigner, arg any) (uint64, error) {
-	value, err := assigner.ArgumentValue(arg)
-	if err != nil {
-		return 0, fmt.Errorf("getting instruction argument: %w", err)
-	}
-	return value, nil
 }

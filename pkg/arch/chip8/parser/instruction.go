@@ -15,16 +15,27 @@ import (
 
 // ParseIdentifier parses a Chip-8 instruction and returns the corresponding AST node.
 func ParseIdentifier(parser arch.Parser, ins *chip8.Instruction) (ast.Node, error) {
+	var node ast.Node
 	// Handle implied addressing (no operands)
 	if len(ins.Addressing) == 1 && hasAddressing(ins, chip8.ImpliedAddressing) {
-		return ast.NewInstruction(ins.Name, int(chip8.ImpliedAddressing), nil, nil), nil
+		node = ast.NewInstruction(ins.Name, int(chip8.ImpliedAddressing), nil, nil)
+	} else {
+		var err error
+		node, err = parseInstruction(parser, ins)
+		if err != nil {
+			return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
+		}
 	}
 
-	node, err := parseInstruction(parser, ins)
-	if err != nil {
-		return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
+	instruction, ok := ast.InstructionFromNode(node)
+	if !ok {
+		return nil, fmt.Errorf("parsing instruction %s: unexpected node %T", ins.Name, node)
 	}
-	return node, nil
+	typed, err := resolvedFromParsed(instruction, ins)
+	if err != nil {
+		return nil, fmt.Errorf("resolving instruction %s: %w", ins.Name, err)
+	}
+	return typed, nil
 }
 
 func parseInstruction(parser arch.Parser, ins *chip8.Instruction) (ast.Node, error) {

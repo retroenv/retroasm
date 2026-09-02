@@ -67,6 +67,11 @@ func formatExpressionValue(value *expression.Expression) (string, error) {
 
 	var builder strings.Builder
 	for _, expressionToken := range value.Tokens() {
+		if expressionToken.Type == token.Percent {
+			// Keep modulo distinct from the assembly binary-number prefix.
+			builder.WriteString(" % ")
+			continue
+		}
 		tokenValue := expressionToken.Value
 		if expressionToken.Type == token.Number && tokenValue != "$" {
 			parsed, err := number.Parse(tokenValue)

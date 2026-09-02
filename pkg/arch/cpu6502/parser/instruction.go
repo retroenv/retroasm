@@ -111,6 +111,18 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 		case token.RightParentheses:
 			next = parser.NextToken(1)
 			if next.Type != token.Comma {
+				if ins.instruction.HasAddressing(cpu6502.IndirectAddressing) {
+					argument, err := argumentFromToken(ins.arg1)
+					if err != nil {
+						return nil, err
+					}
+					return newInstruction(
+						ins.instruction,
+						int(cpu6502.IndirectAddressing),
+						argument,
+						ins.modifiers,
+					), nil
+				}
 				return parseInstructionSingleIdentifier(parser, ins)
 			}
 
@@ -220,8 +232,26 @@ func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, 
 		parser.AdvanceReadPosition(2)
 	}
 
-	l := ast.NewLabel(ins.arg1.Value)
-	return newInstruction(ins.instruction, int(addressing), l, nil), nil
+	argument, err := argumentFromToken(ins.arg1)
+	if err != nil {
+		return nil, err
+	}
+	return newInstruction(ins.instruction, int(addressing), argument, nil), nil
+}
+
+func argumentFromToken(argument token.Token) (ast.Node, error) {
+	switch argument.Type {
+	case token.Number:
+		value, err := number.Parse(argument.Value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing number %q: %w", argument.Value, err)
+		}
+		return ast.NewNumber(value), nil
+	case token.Identifier:
+		return ast.NewLabel(argument.Value), nil
+	default:
+		return nil, fmt.Errorf("unsupported argument type %s", argument.Type)
+	}
 }
 
 func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (ast.Node, error) {

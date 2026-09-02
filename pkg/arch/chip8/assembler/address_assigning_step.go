@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	retrochip8 "github.com/retroenv/retrogolib/arch/cpu/chip8"
 )
 
 // AssignInstructionAddress assigns an address to the instruction and calculates its size.
@@ -13,23 +12,24 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	pc := assigner.ProgramCounter()
 	ins.SetAddress(pc)
 
-	name := ins.Name()
-	insDetails, ok := retrochip8.Instructions[name]
-	if !ok {
-		return 0, fmt.Errorf("unsupported instruction '%s'", name)
+	resolved, err := resolvedInstruction(ins.Argument())
+	if err != nil {
+		return 0, fmt.Errorf("resolving instruction argument: %w", err)
 	}
-
-	addressing := retrochip8.Mode(ins.Addressing())
-	addressingInfo, ok := insDetails.Addressing[addressing]
-	if !ok {
-		return 0, fmt.Errorf("unsupported instruction '%s' addressing %d", name, addressing)
+	if _, err := resolved.OpcodeInfo(); err != nil {
+		return 0, fmt.Errorf("resolving opcode info: %w", err)
+	}
+	if ins.Addressing() != int(resolved.Addressing) {
+		return 0, fmt.Errorf(
+			"instruction addressing %d does not match retained addressing %d",
+			ins.Addressing(),
+			resolved.Addressing,
+		)
 	}
 
 	// All Chip-8 instructions are 2 bytes (16-bit)
 	const instructionSize = 2
 	ins.SetSize(instructionSize)
-
-	_ = addressingInfo // Used for validation
 
 	programCounter := pc + instructionSize
 	return programCounter, nil

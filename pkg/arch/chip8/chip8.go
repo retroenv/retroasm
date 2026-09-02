@@ -2,6 +2,9 @@
 package chip8
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/chip8/assembler"
 	"github.com/retroenv/retroasm/pkg/arch/chip8/parser"
@@ -40,6 +43,24 @@ func (_ *archChip8[T]) AddressWidth() int {
 	return 12
 }
 
+func (ar *archChip8[T]) BuildInstruction(
+	mnemonic string,
+	operands parser.Operands,
+) (ast.Instruction, error) {
+
+	lookupName := strings.ToLower(strings.TrimSpace(mnemonic))
+	instruction, ok := ar.Instruction(lookupName)
+	if !ok {
+		return ast.Instruction{}, fmt.Errorf("unknown CHIP-8 instruction %q", mnemonic)
+	}
+	built, err := parser.BuildInstruction(lookupName, instruction, operands)
+	if err != nil {
+		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
+	}
+	built.SetOpcodeID(ar.OpcodeID(instruction))
+	return built, nil
+}
+
 func (_ *archChip8[T]) Instruction(name string) (*chip8.Instruction, bool) {
 	ins, ok := chip8.Instructions[name]
 	return ins, ok
@@ -47,6 +68,30 @@ func (_ *archChip8[T]) Instruction(name string) (*chip8.Instruction, bool) {
 
 func (_ *archChip8[T]) OpcodeID(ins *chip8.Instruction) ast.OpcodeID {
 	return ast.NewOpcodeID(retroarch.CHIP8, uint16(chip8.NameToOpcodeID[ins.Name]))
+}
+
+func (ar *archChip8[T]) ValidateInstruction(instruction ast.Instruction) error {
+	details, ok := ar.Instruction(strings.ToLower(strings.TrimSpace(instruction.Name)))
+	if !ok {
+		return fmt.Errorf("unknown CHIP-8 instruction %q", instruction.Name)
+	}
+	expectedID := ar.OpcodeID(details)
+	if instruction.OpcodeID != expectedID {
+		return fmt.Errorf(
+			"CHIP-8 opcode identity %+v does not match mnemonic %q identity %+v",
+			instruction.OpcodeID,
+			instruction.Name,
+			expectedID,
+		)
+	}
+	return parser.ValidateInstruction(instruction, details) //nolint:wrapcheck // architecture codec boundary adds context
+}
+
+func (ar *archChip8[T]) FormatInstruction(instruction ast.Instruction) (string, error) {
+	if err := ar.ValidateInstruction(instruction); err != nil {
+		return "", err
+	}
+	return parser.FormatInstruction(instruction) //nolint:wrapcheck // architecture codec boundary adds context
 }
 
 // nolint: wrapcheck
