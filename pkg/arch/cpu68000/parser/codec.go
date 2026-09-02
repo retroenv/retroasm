@@ -84,8 +84,11 @@ func ValidateInstruction(instruction ast.Instruction, expected *cpu68000.Instruc
 
 // FormatOptions controls deterministic CPU68000 instruction spelling.
 type FormatOptions struct {
-	Indent    string
-	Uppercase bool
+	Indent               string
+	Uppercase            bool
+	DecimalValues        bool
+	StackPointerAlias    bool
+	OmitWordBranchSuffix bool
 }
 
 // FormatInstruction returns one deterministic, parseable CPU68000 instruction line.
@@ -99,7 +102,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 	if err != nil {
 		return "", err
 	}
-	mnemonic, err := formatMnemonic(resolved)
+	mnemonic, err := formatMnemonic(resolved, options)
 	if err != nil {
 		return "", err
 	}
@@ -333,7 +336,7 @@ func validateSpecialValues(resolved ResolvedInstruction) error {
 	return nil
 }
 
-func formatMnemonic(resolved ResolvedInstruction) (string, error) {
+func formatMnemonic(resolved ResolvedInstruction, options FormatOptions) (string, error) {
 	name := strings.ToLower(resolved.Instruction.Name)
 	if isConditionalInstruction(resolved.Instruction.Name) {
 		if int(resolved.Extra) >= len(canonicalConditions) {
@@ -349,6 +352,11 @@ func formatMnemonic(resolved ResolvedInstruction) (string, error) {
 			name = "s" + condition
 		}
 	}
+	if options.OmitWordBranchSuffix && isBranchInstruction(resolved.Instruction.Name) &&
+		resolved.Size == cpu68000.SizeWord {
+
+		return name, nil
+	}
 	if instructionUsesSizeSuffix(resolved.Instruction.Name) {
 		name += sizeSuffix(resolved.Size)
 	}
@@ -359,7 +367,7 @@ func instructionUsesSizeSuffix(name string) bool {
 	if isNoOperandInstruction(name) || name == cpu68000.MOVEQName || name == cpu68000.TRAPName ||
 		name == cpu68000.STOPName || name == cpu68000.LINKName || name == cpu68000.UNLKName ||
 		name == cpu68000.SWAPName || name == cpu68000.EXGName || name == cpu68000.JMPName ||
-		name == cpu68000.JSRName || name == cpu68000.PEAName || name == cpu68000.SccName ||
+		name == cpu68000.JSRName || name == cpu68000.LEAName || name == cpu68000.PEAName || name == cpu68000.SccName ||
 		name == cpu68000.DBccName {
 
 		return false
@@ -391,6 +399,16 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 	}
 	formatted := make([]string, len(addresses))
 	for index, address := range addresses {
+		if isDirectFlowInstruction(resolved.Instruction.Name) ||
+			resolved.Instruction.Name == cpu68000.DBccName && address == resolved.DstEA {
+
+			value, err := format68000Value(address.Value, math.MaxUint32, options.DecimalValues)
+			if err != nil {
+				return nil, fmt.Errorf("formatting flow target: %w", err)
+			}
+			formatted[index] = signedCPU68000Value(value, address.Negative)
+			continue
+		}
 		value, err := formatEffectiveAddress(address, resolved.Size, options)
 		if err != nil {
 			return nil, fmt.Errorf("formatting operand %d: %w", index, err)
@@ -398,6 +416,10 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 		formatted[index] = value
 	}
 	return formatted, nil
+}
+
+func isDirectFlowInstruction(name string) bool {
+	return isBranchInstruction(name) || name == cpu68000.JMPName || name == cpu68000.JSRName
 }
 
 func formatMOVEMOperands(resolved ResolvedInstruction, options FormatOptions) ([]string, error) {
@@ -444,6 +466,9 @@ func formatEffectiveAddress(
 		return name
 	}
 	addressRegister := register("a", address.Register)
+	if address.Register == 7 && options.StackPointerAlias {
+		addressRegister = formatKeyword("sp", options)
+	}
 
 	switch address.Mode {
 	case cpu68000.DataRegDirectMode:
@@ -460,25 +485,31 @@ func formatEffectiveAddress(
 	case cpu68000.PreDecrementMode:
 		return "-(" + addressRegister + ")", nil
 	case cpu68000.DisplacementMode:
-		return formatDisplacement(address.Value, addressRegister, address.Negative)
+		return formatDisplacement(address.Value, addressRegister, address.Negative, options.DecimalValues)
 	case cpu68000.IndexedMode:
 		return formatIndexedAddress(address, addressRegister, options)
 	case cpu68000.AbsShortMode:
-		return formatAbsoluteAddress(address.Value, ".w", math.MaxUint16, address.Negative)
+		return formatAbsoluteAddress(
+			address.Value, ".w", math.MaxUint16, address.Negative, options.DecimalValues,
+		)
 	case cpu68000.AbsLongMode:
-		return formatAbsoluteAddress(address.Value, ".l", math.MaxUint32, address.Negative)
+		return formatAbsoluteAddress(
+			address.Value, ".l", math.MaxUint32, address.Negative, options.DecimalValues,
+		)
 	case cpu68000.PCDisplacementMode:
-		return formatDisplacement(address.Value, formatKeyword("pc", options), address.Negative)
+		return formatDisplacement(
+			address.Value, formatKeyword("pc", options), address.Negative, options.DecimalValues,
+		)
 	case cpu68000.PCIndexedMode:
 		return formatIndexedAddress(address, formatKeyword("pc", options), options)
 	case cpu68000.ImmediateMode:
-		value, err := format68000Value(address.Value, sizeMaximum(operandSize))
+		value, err := format68000Value(address.Value, sizeMaximum(operandSize), options.DecimalValues)
 		if err != nil {
 			return "", err
 		}
 		return "#" + signedCPU68000Value(value, address.Negative), nil
 	case cpu68000.QuickImmediateMode:
-		value, err := format68000Value(address.Value, math.MaxUint8)
+		value, err := format68000Value(address.Value, math.MaxUint8, options.DecimalValues)
 		if err != nil {
 			return "", err
 		}
@@ -493,8 +524,8 @@ func formatEffectiveAddress(
 	}
 }
 
-func formatDisplacement(value ast.Node, base string, negative bool) (string, error) {
-	formatted, err := format68000Value(value, math.MaxUint16)
+func formatDisplacement(value ast.Node, base string, negative, decimal bool) (string, error) {
+	formatted, err := format68000Value(value, math.MaxUint16, decimal)
 	if err != nil {
 		return "", err
 	}
@@ -502,7 +533,7 @@ func formatDisplacement(value ast.Node, base string, negative bool) (string, err
 }
 
 func formatIndexedAddress(address *EffectiveAddress, base string, options FormatOptions) (string, error) {
-	formatted, err := format68000Value(address.Value, math.MaxUint8)
+	formatted, err := format68000Value(address.Value, math.MaxUint8, options.DecimalValues)
 	if err != nil {
 		return "", err
 	}
@@ -517,8 +548,8 @@ func formatIndexedAddress(address *EffectiveAddress, base string, options Format
 	return signedCPU68000Value(formatted, address.Negative) + "(" + base + "," + index + ")", nil
 }
 
-func formatAbsoluteAddress(value ast.Node, suffix string, maximum uint64, negative bool) (string, error) {
-	formatted, err := format68000Value(value, maximum)
+func formatAbsoluteAddress(value ast.Node, suffix string, maximum uint64, negative, decimal bool) (string, error) {
+	formatted, err := format68000Value(value, maximum, decimal)
 	if err != nil {
 		return "", err
 	}
@@ -532,7 +563,7 @@ func signedCPU68000Value(value string, negative bool) string {
 	return value
 }
 
-func format68000Value(value ast.Node, maximum uint64) (string, error) {
+func format68000Value(value ast.Node, maximum uint64, decimal bool) (string, error) {
 	digits := 0
 	if _, ok := ast.NumberValue(value); ok {
 		switch maximum {
@@ -544,7 +575,10 @@ func format68000Value(value ast.Node, maximum uint64) (string, error) {
 			digits = 8
 		}
 	}
-	formatted, err := ast.FormatValue(value, ast.ValueFormatOptions{MinimumHexDigits: digits})
+	formatted, err := ast.FormatValue(value, ast.ValueFormatOptions{
+		Decimal:          decimal,
+		MinimumHexDigits: digits,
+	})
 	if err != nil {
 		return "", err //nolint:wrapcheck // shared AST formatter identifies unsupported values
 	}
