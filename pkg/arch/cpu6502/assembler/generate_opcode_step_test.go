@@ -42,18 +42,6 @@ func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 	}
 }
 
-func TestGenerateInstructionOpcode_ImpliedPadding(t *testing.T) {
-	t.Parallel()
-
-	ins := &mockInstruction{
-		name:       cpu6502.BrkName,
-		addressing: int(cpu6502.ImpliedAddressing),
-	}
-	assert.NoError(t, GenerateInstructionOpcode(&mockAssigner{}, ins, cpu6502.BrkInst))
-	assert.Equal(t, 2, ins.size)
-	assert.Equal(t, []byte{0x00, 0x00}, ins.opcodes)
-}
-
 type mockAssigner struct {
 	value uint64
 }

@@ -26,12 +26,7 @@ func GenerateInstructionOpcode(
 	ins.SetSize(int(addressingInfo.Size))
 
 	switch addressing {
-	case cpu6502.ImpliedAddressing:
-		if err := generateImpliedAddressingOpcode(ins); err != nil {
-			return fmt.Errorf("generating opcode: %w", err)
-		}
-
-	case cpu6502.AccumulatorAddressing:
+	case cpu6502.ImpliedAddressing, cpu6502.AccumulatorAddressing:
 
 	case cpu6502.ImmediateAddressing,
 		cpu6502.ZeroPageAddressing, cpu6502.ZeroPageXAddressing, cpu6502.ZeroPageYAddressing,
@@ -63,15 +58,6 @@ func GenerateInstructionOpcode(
 		return fmt.Errorf("unsupported instruction addressing %d", addressing)
 	}
 
-	return nil
-}
-
-func generateImpliedAddressingOpcode(ins arch.Instruction) error {
-	paddingSize := ins.Size() - len(ins.Opcodes())
-	if paddingSize < 0 {
-		return fmt.Errorf("instruction size %d is smaller than opcode size %d", ins.Size(), len(ins.Opcodes()))
-	}
-	ins.SetOpcodes(append(ins.Opcodes(), make([]byte, paddingSize)...))
 	return nil
 }
 
