@@ -109,7 +109,7 @@ func resolveAluRegisterPairOperands(variants []*cpuz80.Instruction, operand1, op
 	}
 
 	for _, variant := range variants {
-		if len(variant.RegisterOpcodes) == 0 || variant.Name == cpuz80.LdName {
+		if len(variant.RegisterOpcodes) == 0 || !twoRegisterALUMnemonic(variant.Name) {
 			continue
 		}
 
@@ -120,7 +120,7 @@ func resolveAluRegisterPairOperands(variants []*cpuz80.Instruction, operand1, op
 			}
 
 			for _, c1 := range candidates1 {
-				if !firstOperandMatchesPrefix(c1, opcodeInfo.Prefix) {
+				if !aluFirstOperandMatches(c1, c2, opcodeInfo.Prefix) {
 					continue
 				}
 
@@ -139,6 +139,36 @@ func resolveAluRegisterPairOperands(variants []*cpuz80.Instruction, operand1, op
 	}
 
 	return nil
+}
+
+func twoRegisterALUMnemonic(mnemonic string) bool {
+	return mnemonic == cpuz80.AddName || mnemonic == cpuz80.AdcName || mnemonic == cpuz80.SbcName
+}
+
+func aluFirstOperandMatches(first, second cpuz80.RegisterParam, prefix byte) bool {
+	if !z80PairOperand(second) {
+		return first == cpuz80.RegA
+	}
+
+	switch prefix {
+	case cpuz80.PrefixDD:
+		return first == cpuz80.RegIX
+	case cpuz80.PrefixFD:
+		return first == cpuz80.RegIY
+	default:
+		return first == cpuz80.RegHL
+	}
+}
+
+func z80PairOperand(register cpuz80.RegisterParam) bool {
+	switch register {
+	case cpuz80.RegAF, cpuz80.RegBC, cpuz80.RegDE, cpuz80.RegHL,
+		cpuz80.RegIX, cpuz80.RegIY, cpuz80.RegSP:
+
+		return true
+	default:
+		return false
+	}
 }
 
 // resolveSpecialRegisterPairOperands handles explicit register-pair patterns
@@ -204,19 +234,6 @@ var specialRegisterPairs = map[[2]cpuz80.RegisterParam]*cpuz80.Instruction{
 	{cpuz80.RegSP, cpuz80.RegIY}: cpuz80.FdLdSpIY,
 	{cpuz80.RegDE, cpuz80.RegHL}: cpuz80.ExDeHl,
 	{cpuz80.RegAF, cpuz80.RegAF}: cpuz80.ExAf,
-}
-
-// firstOperandMatchesPrefix checks if a register used as the first operand
-// in a two-register instruction matches the expected prefix for the variant.
-func firstOperandMatchesPrefix(register cpuz80.RegisterParam, prefix byte) bool {
-	switch register {
-	case cpuz80.RegIX, cpuz80.RegIXIndirect:
-		return prefix == cpuz80.PrefixDD
-	case cpuz80.RegIY, cpuz80.RegIYIndirect:
-		return prefix == cpuz80.PrefixFD
-	default:
-		return prefix == 0x00 || prefix == cpuz80.PrefixED
-	}
 }
 
 func containsVariant(variants []*cpuz80.Instruction, target *cpuz80.Instruction) bool {

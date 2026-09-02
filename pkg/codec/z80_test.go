@@ -246,7 +246,7 @@ func TestZ80Codec_RejectsInvalidTextRegisterCombinations(t *testing.T) {
 	t.Parallel()
 
 	c := newZ80Codec(t)
-	for _, source := range []string{"ld a,sp", "bit c,a"} {
+	for _, source := range []string{"ld a,sp", "bit c,a", "add bc,de", "pop bc,de"} {
 		t.Run(source, func(t *testing.T) {
 			t.Parallel()
 
