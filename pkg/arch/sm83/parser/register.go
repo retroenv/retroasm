@@ -23,10 +23,10 @@ var registerParamByName = map[string]cpusm83.RegisterParam{
 }
 
 var conditionParamByName = map[string]cpusm83.RegisterParam{
+	"c":  cpusm83.RegCondC,
 	"nc": cpusm83.RegCondNC,
 	"nz": cpusm83.RegCondNZ,
 	"z":  cpusm83.RegCondZ,
-	// NOTE: "c" is NOT here — it's ambiguous with register C.
 }
 
 var indirectRegisterParamsByName = map[string]cpusm83.RegisterParam{

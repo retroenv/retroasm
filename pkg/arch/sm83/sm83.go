@@ -2,6 +2,7 @@
 package sm83
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -62,6 +63,47 @@ func (ar *architecture) OpcodeID(ins *InstructionGroup) ast.OpcodeID {
 
 func (ar *architecture) ParseIdentifier(p arch.Parser, _ string, ins *InstructionGroup) (ast.Node, error) {
 	return sm83parser.ParseIdentifier(p, ins.Name, ins.Variants) //nolint:wrapcheck // thin delegation to sub-package
+}
+
+func (ar *architecture) BuildInstruction(
+	mnemonic string,
+	operands sm83parser.Operands,
+) (ast.Instruction, error) {
+
+	group, ok := ar.Instruction(mnemonic)
+	if !ok {
+		return ast.Instruction{}, fmt.Errorf("unknown SM83 instruction %q", mnemonic)
+	}
+	instruction, err := sm83parser.BuildInstruction(group.Name, group.Variants, operands...)
+	if err != nil {
+		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
+	}
+	instruction.SetOpcodeID(ar.OpcodeID(group))
+	return instruction, nil
+}
+
+func (ar *architecture) ValidateInstruction(instruction ast.Instruction) error {
+	group, ok := ar.Instruction(instruction.Name)
+	if !ok {
+		return fmt.Errorf("unknown SM83 instruction %q", instruction.Name)
+	}
+	expectedID := ar.OpcodeID(group)
+	if instruction.OpcodeID != expectedID {
+		return fmt.Errorf(
+			"SM83 opcode identity %+v does not match mnemonic %q identity %+v",
+			instruction.OpcodeID,
+			instruction.Name,
+			expectedID,
+		)
+	}
+	return sm83parser.ValidateInstruction(instruction, group.Variants) //nolint:wrapcheck // architecture codec boundary adds context
+}
+
+func (ar *architecture) FormatInstruction(instruction ast.Instruction) (string, error) {
+	if err := ar.ValidateInstruction(instruction); err != nil {
+		return "", err
+	}
+	return sm83parser.FormatInstruction(instruction) //nolint:wrapcheck // architecture codec boundary adds context
 }
 
 func buildInstructionGroups() map[string]*InstructionGroup {

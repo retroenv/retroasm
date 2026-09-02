@@ -17,14 +17,20 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 			ast.NewExpression(token.Token{Type: token.Identifier, Value: "source"}),
 			nil,
 		},
+		Operands: []Operand{
+			ValueOperand(ast.NewExpression(token.Token{Type: token.Identifier, Value: "operand"})),
+		},
 	}
 
 	copied := original.CopyInstructionArgument().(ResolvedInstruction)
 	copied.RegisterParams[0] = cpusm83.RegB
 	copiedExpression := copied.OperandValues[0].(ast.Expression)
 	copiedExpression.Value.Tokens()[0].Value = "changed"
+	copiedOperandExpression := copied.Operands[0].Value.(ast.Expression)
+	copiedOperandExpression.Value.Tokens()[0].Value = "changed operand"
 
 	assert.Equal(t, cpusm83.RegA, original.RegisterParams[0])
 	assert.Equal(t, "source", original.OperandValues[0].(ast.Expression).Value.Tokens()[0].Value)
+	assert.Equal(t, "operand", original.Operands[0].Value.(ast.Expression).Value.Tokens()[0].Value)
 	assert.Nil(t, copied.OperandValues[1])
 }
