@@ -88,6 +88,20 @@ func TestAssembleMOVEQ(t *testing.T) {
 	assertBytes(t, expected, result)
 }
 
+func TestAssembleNegativeMOVEQ(t *testing.T) {
+	tests := []struct {
+		source string
+		want   []byte
+	}{
+		{source: "MOVEQ #-1,D0", want: []byte{0x70, 0xFF}},
+		{source: "MOVEQ #-128,D0", want: []byte{0x70, 0x80}},
+	}
+	for _, test := range tests {
+		result := assembleCPU68000(t, ".segment \"CODE\"\n"+test.source+"\n")
+		assertBytes(t, test.want, result)
+	}
+}
+
 func TestAssembleCLR(t *testing.T) {
 	asm := ".segment \"CODE\"\nCLR.L D0\n"
 	result := assembleCPU68000(t, asm)

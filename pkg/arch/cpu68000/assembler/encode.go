@@ -144,6 +144,9 @@ func eaValue(assigner arch.AddressAssigner, ea *parser.EffectiveAddress) (uint64
 	if err != nil {
 		return 0, fmt.Errorf("resolving EA value: %w", err)
 	}
+	if ea.Negative {
+		v = uint64(-int64(v))
+	}
 	return v, nil
 }
 

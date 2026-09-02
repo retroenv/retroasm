@@ -24,6 +24,7 @@ type EffectiveAddress struct {
 	IsAddrReg bool                 // index is address reg (vs data reg)
 	Value     ast.Node             // immediate/displacement/address value
 	RegList   uint16               // MOVEM register list bitmask
+	Negative  bool                 // numeric value was written with a leading minus
 }
 
 // CopyInstructionArgument returns a deep copy suitable for AST duplication.

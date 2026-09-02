@@ -460,15 +460,15 @@ func formatEffectiveAddress(
 	case cpu68000.PreDecrementMode:
 		return "-(" + addressRegister + ")", nil
 	case cpu68000.DisplacementMode:
-		return formatDisplacement(address.Value, addressRegister)
+		return formatDisplacement(address.Value, addressRegister, address.Negative)
 	case cpu68000.IndexedMode:
 		return formatIndexedAddress(address, addressRegister, options)
 	case cpu68000.AbsShortMode:
-		return formatAbsoluteAddress(address.Value, ".w", math.MaxUint16)
+		return formatAbsoluteAddress(address.Value, ".w", math.MaxUint16, address.Negative)
 	case cpu68000.AbsLongMode:
-		return formatAbsoluteAddress(address.Value, ".l", math.MaxUint32)
+		return formatAbsoluteAddress(address.Value, ".l", math.MaxUint32, address.Negative)
 	case cpu68000.PCDisplacementMode:
-		return formatDisplacement(address.Value, formatKeyword("pc", options))
+		return formatDisplacement(address.Value, formatKeyword("pc", options), address.Negative)
 	case cpu68000.PCIndexedMode:
 		return formatIndexedAddress(address, formatKeyword("pc", options), options)
 	case cpu68000.ImmediateMode:
@@ -476,13 +476,13 @@ func formatEffectiveAddress(
 		if err != nil {
 			return "", err
 		}
-		return "#" + value, nil
+		return "#" + signedCPU68000Value(value, address.Negative), nil
 	case cpu68000.QuickImmediateMode:
 		value, err := format68000Value(address.Value, math.MaxUint8)
 		if err != nil {
 			return "", err
 		}
-		return "#" + value, nil
+		return "#" + signedCPU68000Value(value, address.Negative), nil
 	case cpu68000.StatusRegMode:
 		if address.Register == regCCR {
 			return formatKeyword("ccr", options), nil
@@ -493,12 +493,12 @@ func formatEffectiveAddress(
 	}
 }
 
-func formatDisplacement(value ast.Node, base string) (string, error) {
+func formatDisplacement(value ast.Node, base string, negative bool) (string, error) {
 	formatted, err := format68000Value(value, math.MaxUint16)
 	if err != nil {
 		return "", err
 	}
-	return formatted + "(" + base + ")", nil
+	return signedCPU68000Value(formatted, negative) + "(" + base + ")", nil
 }
 
 func formatIndexedAddress(address *EffectiveAddress, base string, options FormatOptions) (string, error) {
@@ -514,15 +514,22 @@ func formatIndexedAddress(address *EffectiveAddress, base string, options Format
 	if options.Uppercase {
 		index = strings.ToUpper(index)
 	}
-	return formatted + "(" + base + "," + index + ")", nil
+	return signedCPU68000Value(formatted, address.Negative) + "(" + base + "," + index + ")", nil
 }
 
-func formatAbsoluteAddress(value ast.Node, suffix string, maximum uint64) (string, error) {
+func formatAbsoluteAddress(value ast.Node, suffix string, maximum uint64, negative bool) (string, error) {
 	formatted, err := format68000Value(value, maximum)
 	if err != nil {
 		return "", err
 	}
-	return formatted + suffix, nil
+	return signedCPU68000Value(formatted, negative) + suffix, nil
+}
+
+func signedCPU68000Value(value string, negative bool) string {
+	if negative {
+		return "-" + value
+	}
+	return value
 }
 
 func format68000Value(value ast.Node, maximum uint64) (string, error) {

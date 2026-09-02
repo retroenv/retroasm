@@ -33,6 +33,14 @@ func parseEffectiveAddress(p arch.Parser) (*EffectiveAddress, error) {
 	case tok.Type == token.Minus && p.NextToken(1).Type == token.LeftParentheses:
 		return parsePreDecrementEA(p)
 
+	case tok.Type == token.Minus && p.NextToken(1).Type == token.Number:
+		p.AdvanceReadPosition(1)
+		address, err := parseDisplacementOrAbsoluteEA(p, p.NextToken(0))
+		if address != nil {
+			address.Negative = true
+		}
+		return address, err
+
 	case tok.Type == token.LeftParentheses:
 		return parseIndirectEA(p)
 
@@ -78,6 +86,21 @@ func parseImmediateHashEA(p arch.Parser) (*EffectiveAddress, error) {
 		return &EffectiveAddress{
 			Mode:  cpu68000.ImmediateMode,
 			Value: ast.NewLabel(tok.Value),
+		}, nil
+	case token.Minus:
+		numberToken := p.NextToken(1)
+		if numberToken.Type != token.Number {
+			return nil, fmt.Errorf("expected immediate number after #-, got %s", numberToken.Type)
+		}
+		v, err := number.Parse(numberToken.Value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing immediate value '-%s': %w", numberToken.Value, err)
+		}
+		p.AdvanceReadPosition(1)
+		return &EffectiveAddress{
+			Mode:     cpu68000.ImmediateMode,
+			Value:    ast.NewNumber(v),
+			Negative: true,
 		}, nil
 	default:
 		return nil, fmt.Errorf("expected immediate value after #, got %s", tok.Type)
