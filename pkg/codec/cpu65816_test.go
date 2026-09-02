@@ -83,6 +83,13 @@ func TestCPU65816Codec_AddressingFamiliesRoundTrip(t *testing.T) {
 			wantText: "lda f:$123456", wantCode: []byte{0xaf, 0x56, 0x34, 0x12},
 		},
 		{
+			name: "absolute long indexed X", mnemonic: cpu65816.LdaName,
+			operands: cpu65816parser.Operands{cpu65816parser.MemoryOperand(
+				cpu65816parser.OperandIndexedX, cpu65816parser.AddressLong, ast.NewNumber(0x123456),
+			)},
+			wantText: "lda f:$123456,x", wantCode: []byte{0xbf, 0x56, 0x34, 0x12},
+		},
+		{
 			name: "direct page indexed X", mnemonic: cpu65816.LdaName,
 			operands: cpu65816parser.Operands{cpu65816parser.MemoryOperand(
 				cpu65816parser.OperandIndexedX, cpu65816parser.AddressDirectPage, ast.NewNumber(0x10),

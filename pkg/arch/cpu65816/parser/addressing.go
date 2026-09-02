@@ -65,6 +65,12 @@ func parseAddressSize(parser arch.Parser, ins *cpu65816.Instruction) (addressing
 }
 
 func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu65816.AddressingMode, error) {
+	if ins.addressingSize == addressingLong {
+		if !indirectAccess && (ins.arg2.Value == "x" || ins.arg2.Value == "X") {
+			return []cpu65816.AddressingMode{cpu65816.AbsoluteLongIndexedXAddressing}, nil
+		}
+		return nil, fmt.Errorf("invalid long indexed register '%s'", ins.arg2.Value)
+	}
 	absolute, directPage := addressingSizeAvailability(ins.addressingSize)
 
 	switch ins.arg2.Value {
