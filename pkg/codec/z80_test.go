@@ -9,6 +9,7 @@ import (
 	z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/codec"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
@@ -126,6 +127,54 @@ func TestZ80Codec_SymbolAndConditionRoundTrips(t *testing.T) {
 			roundTripped, err := c.ParseInstruction(t.Context(), strings.NewReader(formatted))
 			assert.NoError(t, err)
 			assert.NoError(t, c.ValidateInstruction(roundTripped))
+		})
+	}
+}
+
+func TestZ80TypedOperandsHaveCanonicalFormatting(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		operand z80parser.Operand
+		want    string
+	}{
+		{
+			name: "symbolic value",
+			operand: z80parser.ValueOperand(ast.NewExpression(
+				token.Token{Type: token.Identifier, Value: "target"},
+				token.Token{Type: token.Plus},
+				token.Token{Type: token.Number, Value: "$2"},
+			)),
+			want: "target+0x2",
+		},
+		{
+			name: "symbolic address",
+			operand: z80parser.IndirectValueOperand(ast.NewExpression(
+				token.Token{Type: token.Identifier, Value: "table"},
+				token.Token{Type: token.Plus},
+				token.Token{Type: token.Identifier, Value: "index"},
+			)),
+			want: "(table+index)",
+		},
+		{
+			name: "symbolic index",
+			operand: z80parser.IndexedOperand(cpuz80.RegIX, ast.NewExpression(
+				token.Token{Type: token.Identifier, Value: "offset"},
+				token.Token{Type: token.Plus},
+				token.Token{Type: token.Number, Value: "1"},
+			)),
+			want: "(ix+offset+0x1)",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := z80parser.FormatOperand(test.operand)
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, got)
 		})
 	}
 }

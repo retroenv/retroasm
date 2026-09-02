@@ -265,7 +265,10 @@ func sameValues(left, right []ast.Node) bool {
 	return true
 }
 
-func formatOperand(operand Operand) (string, error) {
+// FormatOperand returns the canonical Z80 spelling for one typed operand.
+// It lets downstream typed consumers retain symbolic operand shapes without
+// formatting and splitting a complete instruction.
+func FormatOperand(operand Operand) (string, error) {
 	switch operand.Kind {
 	case OperandRegister:
 		if !validRegisterParam(operand.Register) {
@@ -314,6 +317,10 @@ func formatOperand(operand Operand) (string, error) {
 	default:
 		return "", errInvalidOperandKind
 	}
+}
+
+func formatOperand(operand Operand) (string, error) {
+	return FormatOperand(operand)
 }
 
 func formatValue(value ast.Node) (string, error) {
