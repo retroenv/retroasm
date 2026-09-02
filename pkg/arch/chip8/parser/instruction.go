@@ -209,11 +209,8 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		n := ast.NewNumber(uint64(reg2))
 		return ast.NewInstruction(ins.Name, int(chip8.BRegisterAddressing), n, nil), nil
 
-	case isI && isReg2:
+	case isI && isReg2 && hasAddressing(ins, chip8.IRegisterAddressing):
 		// I, Vx - Add Vx to I
-		if !hasAddressing(ins, chip8.IRegisterAddressing) {
-			return nil, errors.New("instruction does not support ADD I, Vx addressing")
-		}
 		n := ast.NewNumber(uint64(reg2))
 		return ast.NewInstruction(ins.Name, int(chip8.IRegisterAddressing), n, nil), nil
 

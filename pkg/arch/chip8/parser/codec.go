@@ -64,8 +64,11 @@ func ValidateInstruction(instruction ast.Instruction, expected *chip8.Instructio
 
 // FormatOptions controls deterministic CHIP-8 instruction spelling.
 type FormatOptions struct {
-	Indent    string
-	Uppercase bool
+	Indent            string
+	Uppercase         bool
+	UppercaseMnemonic bool
+	UppercaseOperands bool
+	SpaceAfterComma   bool
 }
 
 // FormatInstruction returns one deterministic, parseable CHIP-8 instruction line.
@@ -80,7 +83,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 		return "", err
 	}
 	mnemonic := strings.ToLower(strings.TrimSpace(instruction.Name))
-	if options.Uppercase {
+	if options.Uppercase || options.UppercaseMnemonic {
 		mnemonic = strings.ToUpper(mnemonic)
 	}
 	formatted := make([]string, len(resolved.Operands))
@@ -93,7 +96,11 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 	if len(formatted) == 0 {
 		return options.Indent + mnemonic, nil
 	}
-	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
+	separator := ","
+	if options.SpaceAfterComma {
+		separator = ", "
+	}
+	return options.Indent + mnemonic + " " + strings.Join(formatted, separator), nil
 }
 
 func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
@@ -122,7 +129,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 
 func formatOperand(operand Operand, options FormatOptions) (string, error) {
 	keyword := func(value string) string {
-		if options.Uppercase {
+		if options.Uppercase || options.UppercaseOperands {
 			return strings.ToUpper(value)
 		}
 		return value
@@ -157,7 +164,7 @@ func formatOperand(operand Operand, options FormatOptions) (string, error) {
 
 func formatRegister(register byte, options FormatOptions) string {
 	formatted := fmt.Sprintf("v%x", register)
-	if options.Uppercase {
+	if options.Uppercase || options.UppercaseOperands {
 		return strings.ToUpper(formatted)
 	}
 	return formatted

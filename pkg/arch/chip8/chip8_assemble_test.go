@@ -150,6 +150,17 @@ cls
 	assert.Equal(t, []byte{0xA2, 0x04, 0x00, 0xE0, 0x00, 0xE0}, out)
 }
 
+func TestAssembleChip8_LdILabelNamedLikeRegister(t *testing.T) {
+	src := `
+ld i, v4
+cls
+v4:
+cls
+`
+	out := assembleChip8Source(t, src)
+	assert.Equal(t, []byte{0xA2, 0x04, 0x00, 0xE0, 0x00, 0xE0}, out)
+}
+
 func TestAssembleChip8_LdRegisterDT(t *testing.T) {
 	out := assembleChip8Source(t, "ld v2, dt\n")
 	assert.Equal(t, []byte{0xF2, 0x07}, out)
