@@ -754,6 +754,10 @@ func resolveSpecialADD(variants []*cpusm83.Instruction, op1, op2 rawOperand) *Re
 
 func resolveSpecialLDH(variants []*cpusm83.Instruction, op1, op2 rawOperand) *ResolvedInstruction {
 	switch {
+	case op1.indirect && op1.register == cpusm83.RegC && op2.register == cpusm83.RegA && !op2.indirect:
+		return matchSpecialImplied(variants, cpusm83.LdhCA)
+	case op1.register == cpusm83.RegA && !op1.indirect && op2.indirect && op2.register == cpusm83.RegC:
+		return matchSpecialImplied(variants, cpusm83.LdhAC)
 	case op1.indirect && op1.value != nil && op2.register == cpusm83.RegA && !op2.indirect:
 		return matchSpecialWithValue(variants, cpusm83.LdhNA, cpusm83.ImmediateAddressing, op1.value)
 	case op1.register == cpusm83.RegA && !op1.indirect && op2.indirect && op2.value != nil:
@@ -773,9 +777,6 @@ func resolveSpecialLDAccumulator(variants []*cpusm83.Instruction, op1, op2 rawOp
 	if op2.isHLMinus {
 		return matchSpecialImplied(variants, cpusm83.LdAHLMinus)
 	}
-	if op2.register == cpusm83.RegC {
-		return matchSpecialImplied(variants, cpusm83.LdAC)
-	}
 	return nil
 }
 
@@ -788,9 +789,6 @@ func resolveSpecialLDIndirectStore(variants []*cpusm83.Instruction, op1, op2 raw
 	}
 	if op1.isHLMinus {
 		return matchSpecialImplied(variants, cpusm83.LdHLMinusA)
-	}
-	if op1.register == cpusm83.RegC {
-		return matchSpecialImplied(variants, cpusm83.LdCA)
 	}
 	return nil
 }

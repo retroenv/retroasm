@@ -187,6 +187,22 @@ func TestSM83Codec_CurrentEmittedFormsRoundTrip(t *testing.T) {
 			wantText: "ldh a,(0x12)", wantCode: []byte{0xf0, 0x12},
 		},
 		{
+			name: "high C store", mnemonic: sm83.LdhName,
+			operands: sm83parser.Operands{
+				sm83parser.IndirectRegisterOperand(sm83.RegC),
+				sm83parser.RegisterOperand(sm83.RegA),
+			},
+			wantText: "ldh (c),a", wantCode: []byte{0xe2},
+		},
+		{
+			name: "high C load", mnemonic: sm83.LdhName,
+			operands: sm83parser.Operands{
+				sm83parser.RegisterOperand(sm83.RegA),
+				sm83parser.IndirectRegisterOperand(sm83.RegC),
+			},
+			wantText: "ldh a,(c)", wantCode: []byte{0xf2},
+		},
+		{
 			name: "conditional jump", mnemonic: sm83.JpName,
 			operands: sm83parser.Operands{
 				sm83parser.RegisterOperand(sm83.RegCondNZ),
