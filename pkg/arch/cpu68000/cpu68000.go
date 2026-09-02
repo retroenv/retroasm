@@ -2,6 +2,7 @@
 package cpu68000
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -26,6 +27,23 @@ type architecture struct{}
 
 func (ar *architecture) AddressWidth() int {
 	return 24
+}
+
+func (ar *architecture) BuildInstruction(
+	mnemonic string,
+	operands parser.Operands,
+) (ast.Instruction, error) {
+
+	instruction, ok := ar.Instruction(strings.TrimSpace(mnemonic))
+	if !ok {
+		return ast.Instruction{}, fmt.Errorf("unknown CPU68000 instruction %q", mnemonic)
+	}
+	built, err := parser.BuildInstruction(mnemonic, instruction, operands)
+	if err != nil {
+		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
+	}
+	built.SetOpcodeID(ar.OpcodeID(instruction))
+	return built, nil
 }
 
 func (ar *architecture) Instruction(name string) (*cpu68000.Instruction, bool) {
@@ -65,6 +83,30 @@ func (ar *architecture) OpcodeID(ins *cpu68000.Instruction) ast.OpcodeID {
 
 func (ar *architecture) ParseIdentifier(p arch.Parser, mnemonic string, ins *cpu68000.Instruction) (ast.Node, error) {
 	return parser.ParseIdentifier(p, ins, mnemonic) //nolint:wrapcheck // thin delegation to sub-package
+}
+
+func (ar *architecture) ValidateInstruction(instruction ast.Instruction) error {
+	details, ok := ar.Instruction(instruction.Name)
+	if !ok {
+		return fmt.Errorf("unknown CPU68000 instruction %q", instruction.Name)
+	}
+	expectedID := ar.OpcodeID(details)
+	if instruction.OpcodeID != expectedID {
+		return fmt.Errorf(
+			"CPU68000 opcode identity %+v does not match mnemonic %q identity %+v",
+			instruction.OpcodeID,
+			instruction.Name,
+			expectedID,
+		)
+	}
+	return parser.ValidateInstruction(instruction, details) //nolint:wrapcheck // architecture codec boundary adds context
+}
+
+func (ar *architecture) FormatInstruction(instruction ast.Instruction) (string, error) {
+	if err := ar.ValidateInstruction(instruction); err != nil {
+		return "", err
+	}
+	return parser.FormatInstruction(instruction) //nolint:wrapcheck // architecture codec boundary adds context
 }
 
 func (ar *architecture) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {

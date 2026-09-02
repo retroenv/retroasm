@@ -128,6 +128,7 @@ func TestLexerReadNumber(t *testing.T) {
 		{"%01010101", token.Token{Type: token.Number, Value: "%01010101"}},
 		{"01010101b", token.Token{Type: token.Number, Value: "01010101b"}},
 		{"#%10001000", token.Token{Type: token.Number, Value: "#%10001000"}},
+		{"#0x3c", token.Token{Type: token.Number, Value: "#0x3c"}},
 		{"0x3c", token.Token{Type: token.Number, Value: "0x3c"}},
 	}
 

@@ -43,6 +43,13 @@ type Parser interface {
 	ResolveDotLocalLabel(name string) string
 }
 
+// StatefulParser exposes architecture-specific state owned by one parser
+// stream. Targets use it for syntax whose meaning depends on preceding nodes.
+type StatefulParser interface {
+	ArchitectureState() any
+	SetArchitectureState(any)
+}
+
 // AddressAssigner resolves instruction arguments and computes addresses during the assembly process.
 type AddressAssigner interface {
 	// ArgumentValue returns the value of an instruction argument, either a number or a symbol value.

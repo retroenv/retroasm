@@ -3,6 +3,7 @@ package assembler
 import (
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/arch/cpu65816/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 	"github.com/retroenv/retrogolib/assert"
@@ -24,11 +25,11 @@ func TestGenerateInstructionOpcode_ByteAddressing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assigner := &mockAssigner{value: tt.value}
+			assigner := &mockAssigner{}
 			ins := &mockInstruction{
 				name:       tt.insName,
 				addressing: int(tt.addressing),
-				argument:   tt.value,
+				argument:   testResolvedInstruction(tt.insName, tt.addressing, tt.value),
 			}
 
 			err := GenerateInstructionOpcode(assigner, ins)
@@ -44,11 +45,11 @@ func TestGenerateInstructionOpcode_ByteAddressing(t *testing.T) {
 }
 
 func TestGenerateInstructionOpcode_LongAddress(t *testing.T) {
-	assigner := &mockAssigner{value: 0x012345}
+	assigner := &mockAssigner{}
 	ins := &mockInstruction{
 		name:       "jml",
 		addressing: int(cpu65816.AbsoluteLongAddressing),
-		argument:   uint64(0x012345),
+		argument:   testResolvedInstruction("jml", cpu65816.AbsoluteLongAddressing, 0x012345),
 	}
 
 	err := GenerateInstructionOpcode(assigner, ins)
@@ -63,11 +64,11 @@ func TestGenerateInstructionOpcode_LongAddress(t *testing.T) {
 func TestGenerateInstructionOpcode_RelativeLong(t *testing.T) {
 	// BRL from address 0x0000 (after instruction = 0x0003) to target 0x0100
 	// offset = 0x0100 - 0x0003 = 0x00FD
-	assigner := &mockAssigner{value: 0x0100}
+	assigner := &mockAssigner{}
 	ins := &mockInstruction{
 		name:       "brl",
 		addressing: int(cpu65816.RelativeLongAddressing),
-		argument:   uint64(0x0100),
+		argument:   testResolvedInstruction("brl", cpu65816.RelativeLongAddressing, 0x0100),
 		address:    0x0000,
 		size:       3,
 	}
@@ -81,13 +82,17 @@ func TestGenerateInstructionOpcode_RelativeLong(t *testing.T) {
 }
 
 func TestGenerateInstructionOpcode_BlockMove(t *testing.T) {
-	// MVN $01,$02 → packed as (0x01 << 8) | 0x02 = 0x0102
 	// Encoding: opcode, dst(0x02), src(0x01)
-	assigner := &mockAssigner{value: 0x0102}
+	assigner := &mockAssigner{}
 	ins := &mockInstruction{
 		name:       "mvn",
 		addressing: int(cpu65816.BlockMoveAddressing),
-		argument:   uint64(0x0102),
+		argument: parser.ResolvedInstruction{
+			Instruction: cpu65816.MvnInst,
+			Addressing:  cpu65816.BlockMoveAddressing,
+			Operands:    parser.BlockMoveOperands(ast.NewNumber(1), ast.NewNumber(2)),
+			State:       parser.DefaultState(),
+		},
 	}
 
 	err := GenerateInstructionOpcode(assigner, ins)
@@ -98,9 +103,7 @@ func TestGenerateInstructionOpcode_BlockMove(t *testing.T) {
 	assert.Equal(t, byte(0x01), ins.opcodes[2]) // src bank
 }
 
-type mockAssigner struct {
-	value uint64
-}
+type mockAssigner struct{}
 
 type mockInstruction struct {
 	name       string
@@ -111,7 +114,10 @@ type mockInstruction struct {
 	address    uint64
 }
 
-func (m *mockAssigner) ArgumentValue(_ any) (uint64, error)      { return m.value, nil }
+func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
+	value, _ := ast.NumberValue(argument.(ast.Node))
+	return value, nil
+}
 func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
 func (m *mockAssigner) ProgramCounter() uint64                   { return 0 }
 
@@ -126,3 +132,19 @@ func (m *mockInstruction) SetAddress(a uint64)    { m.address = a }
 func (m *mockInstruction) SetAddressing(a int)    { m.addressing = a }
 func (m *mockInstruction) SetOpcodes(o []byte)    { m.opcodes = o }
 func (m *mockInstruction) SetSize(s int)          { m.size = s }
+
+func testResolvedInstruction(
+	name string,
+	addressing cpu65816.AddressingMode,
+	value uint64,
+) parser.ResolvedInstruction {
+
+	return parser.ResolvedInstruction{
+		Instruction: cpu65816.Instructions[name],
+		Addressing:  addressing,
+		Operands: parser.Operands{
+			{Kind: parser.OperandAddress, Value: ast.NewNumber(value)},
+		},
+		State: parser.DefaultState(),
+	}
+}

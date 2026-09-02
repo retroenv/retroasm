@@ -4,61 +4,77 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/arch/cpu65816/parser"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
+//
+//nolint:cyclop,funlen // one explicit dispatch case is retained for each encoded addressing-width family
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	instructionInfo := cpu65816.Instructions[strings.ToLower(ins.Name())]
+	resolved, err := resolvedInstruction(ins.Argument())
+	if err != nil {
+		return fmt.Errorf("resolving instruction argument: %w", err)
+	}
 	addressing := cpu65816.AddressingMode(ins.Addressing())
-	addressingInfo := instructionInfo.Addressing[addressing]
+	addressingInfo, err := resolved.OpcodeInfo(addressing)
+	if err != nil {
+		return fmt.Errorf("resolving opcode info: %w", err)
+	}
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
-	ins.SetSize(int(addressingInfo.BaseSize))
+	size, err := resolved.EncodedSize(addressing)
+	if err != nil {
+		return fmt.Errorf("resolving instruction size: %w", err)
+	}
+	ins.SetSize(size)
 
 	switch addressing {
 	case cpu65816.ImpliedAddressing, cpu65816.AccumulatorAddressing:
 
-	case cpu65816.ImmediateAddressing,
-		cpu65816.DirectPageAddressing, cpu65816.DirectPageIndexedXAddressing, cpu65816.DirectPageIndexedYAddressing,
+	case cpu65816.ImmediateAddressing:
+		if err := generateImmediateOpcode(assigner, ins, resolved); err != nil {
+			return fmt.Errorf("generating opcode: %w", err)
+		}
+
+	case cpu65816.DirectPageAddressing, cpu65816.DirectPageIndexedXAddressing, cpu65816.DirectPageIndexedYAddressing,
 		cpu65816.DirectPageIndirectAddressing, cpu65816.DirectPageIndexedXIndirectAddressing,
 		cpu65816.DirectPageIndirectIndexedYAddressing,
 		cpu65816.DirectPageIndirectLongAddressing, cpu65816.DirectPageIndirectLongIndexedYAddressing,
 		cpu65816.StackRelativeAddressing, cpu65816.StackRelativeIndirectIndexedYAddressing:
 
-		if err := generateByteAddressingOpcode(assigner, ins); err != nil {
+		if err := generateByteAddressingOpcode(assigner, ins, resolved); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
 	case cpu65816.AbsoluteAddressing, cpu65816.AbsoluteIndexedXAddressing, cpu65816.AbsoluteIndexedYAddressing,
-		cpu65816.AbsoluteIndirectAddressing, cpu65816.AbsoluteIndexedXIndirectAddressing:
+		cpu65816.AbsoluteIndirectAddressing, cpu65816.AbsoluteIndexedXIndirectAddressing,
+		cpu65816.AbsoluteIndirectLongAddressing:
 
-		if err := generateWordAddressingOpcode(assigner, ins); err != nil {
+		if err := generateWordAddressingOpcode(assigner, ins, resolved); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case cpu65816.AbsoluteLongAddressing, cpu65816.AbsoluteLongIndexedXAddressing,
-		cpu65816.AbsoluteIndirectLongAddressing:
+	case cpu65816.AbsoluteLongAddressing, cpu65816.AbsoluteLongIndexedXAddressing:
 
-		if err := generateLongAddressingOpcode(assigner, ins); err != nil {
+		if err := generateLongAddressingOpcode(assigner, ins, resolved); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
 	case cpu65816.RelativeAddressing:
-		if err := generateRelativeAddressingOpcode(assigner, ins); err != nil {
+		if err := generateRelativeAddressingOpcode(assigner, ins, resolved); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
 	case cpu65816.RelativeLongAddressing:
-		if err := generateRelativeLongOpcode(assigner, ins); err != nil {
+		if err := generateRelativeLongOpcode(assigner, ins, resolved); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
 	case cpu65816.BlockMoveAddressing:
-		if err := generateBlockMoveOpcode(assigner, ins); err != nil {
+		if err := generateBlockMoveOpcode(assigner, ins, resolved); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
@@ -69,8 +85,40 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateImmediateOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	value, err := resolvedOperandValue(assigner, resolved, 0)
+	if err != nil {
+		return fmt.Errorf("getting instruction argument: %w", err)
+	}
+	switch ins.Size() - 1 {
+	case 1:
+		if value > math.MaxUint8 {
+			return fmt.Errorf("value %d exceeds byte", value)
+		}
+		ins.SetOpcodes(append(ins.Opcodes(), byte(value)))
+	case 2:
+		if value > math.MaxUint16 {
+			return fmt.Errorf("value %d exceeds word", value)
+		}
+		ins.SetOpcodes(binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value)))
+	default:
+		return fmt.Errorf("unsupported immediate width %d", ins.Size()-1)
+	}
+	return nil
+}
+
+func generateByteAddressingOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
@@ -83,8 +131,13 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	return nil
 }
 
-func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateWordAddressingOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
@@ -97,8 +150,13 @@ func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	return nil
 }
 
-func generateLongAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateLongAddressingOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
@@ -112,8 +170,13 @@ func generateLongAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	return nil
 }
 
-func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateRelativeAddressingOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
@@ -130,8 +193,13 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 	return nil
 }
 
-func generateRelativeLongOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateRelativeLongOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
@@ -149,18 +217,26 @@ func generateRelativeLongOpcode(assigner arch.AddressAssigner, ins arch.Instruct
 	return nil
 }
 
-func generateBlockMoveOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func generateBlockMoveOpcode(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+) error {
+
+	src, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
-		return fmt.Errorf("getting instruction argument: %w", err)
+		return fmt.Errorf("getting source bank: %w", err)
+	}
+	dst, err := resolvedOperandValue(assigner, resolved, 1)
+	if err != nil {
+		return fmt.Errorf("getting destination bank: %w", err)
+	}
+	if src > math.MaxUint8 || dst > math.MaxUint8 {
+		return fmt.Errorf("block-move banks %d,%d exceed byte", src, dst)
 	}
 
-	// Packed as (src << 8) | dst during parsing
-	dst := byte(value & 0xFF)
-	src := byte((value >> 8) & 0xFF)
-
 	// 65816 encodes MVN/MVP as: opcode, dst_bank, src_bank
-	opcodes := append(ins.Opcodes(), dst, src)
+	opcodes := append(ins.Opcodes(), byte(dst), byte(src))
 	ins.SetOpcodes(opcodes)
 	return nil
 }

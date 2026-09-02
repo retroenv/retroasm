@@ -32,6 +32,8 @@ var (
 	ErrValidationUnsupported = errors.New("typed instruction validation is not supported by architecture")
 	// ErrFormattingUnsupported indicates that an architecture has no deterministic instruction formatter.
 	ErrFormattingUnsupported = errors.New("typed instruction formatting is not supported by architecture")
+	// ErrStateType indicates that an architecture returned a different stream-state type.
+	ErrStateType = errors.New("unexpected architecture stream state type")
 )
 
 // Assembly is the result of assembling a typed node stream.
@@ -47,6 +49,10 @@ type Codec[T any] struct {
 
 type instructionBuilder[O any] interface {
 	BuildInstruction(string, O) (ast.Instruction, error)
+}
+
+type statefulInstructionBuilder[O, S any] interface {
+	BuildInstructionWithState(string, O, S) (ast.Instruction, S, error)
 }
 
 type instructionValidator interface {
@@ -70,19 +76,46 @@ func New[T any](configuration *config.Config[T]) (*Codec[T], error) {
 
 // Parse reads an assembly stream into architecture-resolved AST nodes.
 func (c *Codec[T]) Parse(ctx context.Context, source io.Reader) ([]ast.Node, error) {
+	nodes, _, err := c.parse(ctx, source, nil)
+	return nodes, err
+}
+
+// ParseWithState reads an assembly stream from an explicit target state and
+// returns the state after the last parsed instruction.
+func ParseWithState[T, S any](
+	ctx context.Context,
+	c *Codec[T],
+	source io.Reader,
+	initialState S,
+) ([]ast.Node, S, error) {
+
+	var zero S
+	nodes, finalState, err := c.parse(ctx, source, initialState)
+	if err != nil {
+		return nil, zero, err
+	}
+	typedState, ok := finalState.(S)
+	if !ok {
+		return nil, zero, fmt.Errorf("%w: got %T", ErrStateType, finalState)
+	}
+	return nodes, typedState, nil
+}
+
+func (c *Codec[T]) parse(ctx context.Context, source io.Reader, initialState any) ([]ast.Node, any, error) {
 	if source == nil {
-		return nil, ErrNilSource
+		return nil, nil, ErrNilSource
 	}
 
 	p := parser.New(c.configuration.Arch, source, c.configuration.CompatibilityMode)
+	p.SetArchitectureState(initialState)
 	if err := p.Read(ctx); err != nil {
-		return nil, fmt.Errorf("reading assembly stream: %w", err)
+		return nil, nil, fmt.Errorf("reading assembly stream: %w", err)
 	}
 	nodes, err := p.TokensToAstNodes()
 	if err != nil {
-		return nil, fmt.Errorf("resolving assembly stream: %w", err)
+		return nil, nil, fmt.Errorf("resolving assembly stream: %w", err)
 	}
-	return nodes, nil
+	return nodes, p.ArchitectureState(), nil
 }
 
 // ParseInstruction resolves a source stream containing exactly one instruction.
@@ -91,6 +124,31 @@ func (c *Codec[T]) ParseInstruction(ctx context.Context, source io.Reader) (ast.
 	if err != nil {
 		return ast.Instruction{}, err
 	}
+	return singleInstruction(nodes)
+}
+
+// ParseInstructionWithState resolves exactly one instruction from an explicit
+// target state and returns the state after that instruction.
+func ParseInstructionWithState[T, S any](
+	ctx context.Context,
+	c *Codec[T],
+	source io.Reader,
+	initialState S,
+) (ast.Instruction, S, error) {
+
+	var zero S
+	nodes, finalState, err := ParseWithState(ctx, c, source, initialState)
+	if err != nil {
+		return ast.Instruction{}, zero, err
+	}
+	instruction, err := singleInstruction(nodes)
+	if err != nil {
+		return ast.Instruction{}, zero, err
+	}
+	return instruction, finalState, nil
+}
+
+func singleInstruction(nodes []ast.Node) (ast.Instruction, error) {
 	if len(nodes) != 1 {
 		return ast.Instruction{}, fmt.Errorf("%w: got %d nodes", ErrExpectedInstruction, len(nodes))
 	}
@@ -127,6 +185,27 @@ func BuildInstruction[T, O any](c *Codec[T], mnemonic string, operands O) (ast.I
 		return ast.Instruction{}, fmt.Errorf("building typed instruction: %w", err)
 	}
 	return instruction, nil
+}
+
+// BuildInstructionWithState constructs a typed instruction using explicit
+// target stream state and returns the state after the instruction.
+func BuildInstructionWithState[T, O, S any](
+	c *Codec[T],
+	mnemonic string,
+	operands O,
+	state S,
+) (ast.Instruction, S, error) {
+
+	var zero S
+	builder, ok := c.configuration.Arch.(statefulInstructionBuilder[O, S])
+	if !ok {
+		return ast.Instruction{}, zero, ErrBuildUnsupported
+	}
+	instruction, nextState, err := builder.BuildInstructionWithState(mnemonic, operands, state)
+	if err != nil {
+		return ast.Instruction{}, zero, fmt.Errorf("building stateful typed instruction: %w", err)
+	}
+	return instruction, nextState, nil
 }
 
 // ValidateInstruction verifies architecture identity, profile, variant, addressing,

@@ -4,12 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
-	"github.com/retroenv/retroasm/pkg/expression"
-	"github.com/retroenv/retroasm/pkg/lexer/token"
-	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/sm83"
 )
@@ -354,7 +350,14 @@ func formatSignedOffset(value ast.Node, options FormatOptions) (string, error) {
 	if negative {
 		numberValue = 0x100 - numberValue
 	}
-	formatted := formatNumberValue(numberValue, options.MinimumHexDigits, options.DecimalSignedOffsets)
+	formatted, err := formatValueWithOptions(
+		ast.NewNumber(numberValue),
+		options.MinimumHexDigits,
+		options.DecimalSignedOffsets,
+	)
+	if err != nil {
+		return "", err
+	}
 	if negative {
 		return "-" + formatted, nil
 	}
@@ -385,67 +388,12 @@ func formatValue(value ast.Node) (string, error) {
 }
 
 func formatValueWithOptions(value ast.Node, minimumHexDigits int, decimal bool) (string, error) {
-	switch typed := value.(type) {
-	case ast.Number:
-		return formatNumberValue(typed.Value, minimumHexDigits, decimal), nil
-	case *ast.Number:
-		if typed != nil {
-			return formatNumberValue(typed.Value, minimumHexDigits, decimal), nil
-		}
-	case ast.Label:
-		return typed.Name, nil
-	case *ast.Label:
-		if typed != nil {
-			return typed.Name, nil
-		}
-	case ast.Identifier:
-		return typed.Name, nil
-	case *ast.Identifier:
-		if typed != nil {
-			return typed.Name, nil
-		}
-	case ast.Expression:
-		return formatExpression(typed.Value)
-	case *ast.Expression:
-		if typed != nil {
-			return formatExpression(typed.Value)
-		}
+	formatted, err := ast.FormatValue(value, ast.ValueFormatOptions{
+		Decimal:          decimal,
+		MinimumHexDigits: minimumHexDigits,
+	})
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrUnsupportedValue, err)
 	}
-	return "", fmt.Errorf("%w: %T", ErrUnsupportedValue, value)
-}
-
-func formatNumberValue(value uint64, minimumHexDigits int, decimal bool) string {
-	if decimal {
-		return strconv.FormatUint(value, 10)
-	}
-	if minimumHexDigits > 0 {
-		return fmt.Sprintf("0x%0*X", minimumHexDigits, value)
-	}
-	return fmt.Sprintf("0x%X", value)
-}
-
-func formatExpression(value *expression.Expression) (string, error) {
-	if value == nil {
-		return "", ErrUnsupportedValue
-	}
-
-	var builder strings.Builder
-	for _, expressionToken := range value.Tokens() {
-		tokenValue := expressionToken.Value
-		if expressionToken.Type == token.Number && tokenValue != "$" {
-			parsed, err := number.Parse(tokenValue)
-			if err != nil {
-				return "", fmt.Errorf("%w: invalid number %q: %w", ErrUnsupportedValue, tokenValue, err)
-			}
-			tokenValue = fmt.Sprintf("0x%X", parsed)
-		}
-		if tokenValue == "" {
-			tokenValue = expressionToken.Type.String()
-		}
-		builder.WriteString(tokenValue)
-	}
-	if builder.Len() == 0 {
-		return "", ErrUnsupportedValue
-	}
-	return builder.String(), nil
+	return formatted, nil
 }

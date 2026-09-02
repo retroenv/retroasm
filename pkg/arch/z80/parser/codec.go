@@ -4,13 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch/z80/profile"
-	"github.com/retroenv/retroasm/pkg/expression"
-	"github.com/retroenv/retroasm/pkg/lexer/token"
-	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
@@ -397,67 +393,12 @@ func formatValue(value ast.Node) (string, error) {
 }
 
 func formatValueWithOptions(value ast.Node, minimumHexDigits int, decimal bool) (string, error) {
-	switch typed := value.(type) {
-	case ast.Number:
-		return formatNumberValue(typed.Value, minimumHexDigits, decimal), nil
-	case *ast.Number:
-		if typed != nil {
-			return formatNumberValue(typed.Value, minimumHexDigits, decimal), nil
-		}
-	case ast.Label:
-		return typed.Name, nil
-	case *ast.Label:
-		if typed != nil {
-			return typed.Name, nil
-		}
-	case ast.Identifier:
-		return typed.Name, nil
-	case *ast.Identifier:
-		if typed != nil {
-			return typed.Name, nil
-		}
-	case ast.Expression:
-		return formatExpression(typed.Value)
-	case *ast.Expression:
-		if typed != nil {
-			return formatExpression(typed.Value)
-		}
+	formatted, err := ast.FormatValue(value, ast.ValueFormatOptions{
+		Decimal:          decimal,
+		MinimumHexDigits: minimumHexDigits,
+	})
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrUnsupportedValue, err)
 	}
-	return "", fmt.Errorf("%w: %T", ErrUnsupportedValue, value)
-}
-
-func formatNumberValue(value uint64, minimumHexDigits int, decimal bool) string {
-	if decimal {
-		return strconv.FormatUint(value, 10)
-	}
-	if minimumHexDigits > 0 {
-		return fmt.Sprintf("0x%0*X", minimumHexDigits, value)
-	}
-	return fmt.Sprintf("0x%X", value)
-}
-
-func formatExpression(expression *expression.Expression) (string, error) {
-	if expression == nil {
-		return "", ErrUnsupportedValue
-	}
-
-	var builder strings.Builder
-	for _, expressionToken := range expression.Tokens() {
-		value := expressionToken.Value
-		if expressionToken.Type == token.Number && value != "$" {
-			parsed, err := number.Parse(value)
-			if err != nil {
-				return "", fmt.Errorf("%w: invalid number %q: %w", ErrUnsupportedValue, value, err)
-			}
-			value = fmt.Sprintf("0x%X", parsed)
-		}
-		if value == "" {
-			value = expressionToken.Type.String()
-		}
-		builder.WriteString(value)
-	}
-	if builder.Len() == 0 {
-		return "", ErrUnsupportedValue
-	}
-	return builder.String(), nil
+	return formatted, nil
 }

@@ -65,8 +65,22 @@ func parseAddressSize(parser arch.Parser, ins *cpu65816.Instruction) (addressing
 }
 
 func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu65816.AddressingMode, error) {
-	var absolute, directPage bool
-	switch ins.addressingSize {
+	absolute, directPage := addressingSizeAvailability(ins.addressingSize)
+
+	switch ins.arg2.Value {
+	case "x", "X":
+		return indexedXAddressings(absolute, directPage, indirectAccess), nil
+	case "y", "Y":
+		return indexedYAddressings(absolute, directPage, indirectAccess), nil
+	case "s", "S":
+		return []cpu65816.AddressingMode{cpu65816.StackRelativeAddressing}, nil
+	default:
+		return nil, fmt.Errorf("invalid second argument '%s'", ins.arg2.Value)
+	}
+}
+
+func addressingSizeAvailability(size addressingSize) (absolute, directPage bool) {
+	switch size {
 	case addressingDefault:
 		absolute = true
 		directPage = true
@@ -76,42 +90,39 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu65816.
 		directPage = true
 	case addressingLong:
 	}
+	return absolute, directPage
+}
 
-	secondArg := ins.arg2.Value
-
-	switch {
-	case secondArg == "x" || secondArg == "X":
-		if indirectAccess {
-			return []cpu65816.AddressingMode{cpu65816.DirectPageIndexedXIndirectAddressing}, nil
-		}
-
-		var addressings []cpu65816.AddressingMode
+func indexedXAddressings(absolute, directPage, indirect bool) []cpu65816.AddressingMode {
+	var addressings []cpu65816.AddressingMode
+	if indirect {
 		if absolute {
-			addressings = append(addressings, cpu65816.AbsoluteIndexedXAddressing)
+			addressings = append(addressings, cpu65816.AbsoluteIndexedXIndirectAddressing)
 		}
 		if directPage {
-			addressings = append(addressings, cpu65816.DirectPageIndexedXAddressing)
+			addressings = append(addressings, cpu65816.DirectPageIndexedXIndirectAddressing)
 		}
-		return addressings, nil
-
-	case secondArg == "y" || secondArg == "Y":
-		if indirectAccess {
-			return []cpu65816.AddressingMode{cpu65816.DirectPageIndirectIndexedYAddressing}, nil
-		}
-
-		var addressings []cpu65816.AddressingMode
-		if absolute {
-			addressings = append(addressings, cpu65816.AbsoluteIndexedYAddressing)
-		}
-		if directPage {
-			addressings = append(addressings, cpu65816.DirectPageIndexedYAddressing)
-		}
-		return addressings, nil
-
-	case secondArg == "s" || secondArg == "S":
-		return []cpu65816.AddressingMode{cpu65816.StackRelativeAddressing}, nil
-
-	default:
-		return nil, fmt.Errorf("invalid second argument '%s'", ins.arg2.Value)
+		return addressings
 	}
+	if absolute {
+		addressings = append(addressings, cpu65816.AbsoluteIndexedXAddressing)
+	}
+	if directPage {
+		addressings = append(addressings, cpu65816.DirectPageIndexedXAddressing)
+	}
+	return addressings
+}
+
+func indexedYAddressings(absolute, directPage, indirect bool) []cpu65816.AddressingMode {
+	if indirect {
+		return []cpu65816.AddressingMode{cpu65816.DirectPageIndirectIndexedYAddressing}
+	}
+	var addressings []cpu65816.AddressingMode
+	if absolute {
+		addressings = append(addressings, cpu65816.AbsoluteIndexedYAddressing)
+	}
+	if directPage {
+		addressings = append(addressings, cpu65816.DirectPageIndexedYAddressing)
+	}
+	return addressings
 }

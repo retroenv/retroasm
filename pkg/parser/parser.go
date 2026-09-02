@@ -36,13 +36,14 @@ var errMissingParameter = errors.New("missing parameter")
 
 // Parser is the input stream parser.
 type Parser[T any] struct {
-	arch          arch.Architecture[T]
-	compatMode    config.CompatibilityMode
-	handlers      map[string]directives.Handler
-	lexer         *lexer.Lexer
-	program       []token.Token
-	readPosition  int
-	programLength int
+	arch              arch.Architecture[T]
+	architectureState any
+	compatMode        config.CompatibilityMode
+	handlers          map[string]directives.Handler
+	lexer             *lexer.Lexer
+	program           []token.Token
+	readPosition      int
+	programLength     int
 
 	// anonymous label tracking for +/- labels
 	anonForwardCount  int // total forward labels seen so far
@@ -109,6 +110,11 @@ func (p *Parser[T]) AddressWidth() int {
 	return p.arch.AddressWidth()
 }
 
+// ArchitectureState returns target-specific state scoped to this parser stream.
+func (p *Parser[T]) ArchitectureState() any {
+	return p.architectureState
+}
+
 // ScopeLocalLabel applies @local label scoping to a name if applicable.
 func (p *Parser[T]) ScopeLocalLabel(name string) string {
 	return p.scopeLocalLabel(name)
@@ -128,6 +134,11 @@ func (p *Parser[T]) ResolveUnnamedLabel(forward bool, level int) string {
 		return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount+level)
 	}
 	return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount-level+1)
+}
+
+// SetArchitectureState replaces target-specific state for this parser stream.
+func (p *Parser[T]) SetArchitectureState(state any) {
+	p.architectureState = state
 }
 
 // TokensToAstNodes converts tokens previously read or passed to the constructor to AST nodes.

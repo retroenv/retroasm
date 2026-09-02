@@ -18,15 +18,33 @@ var errMissingParameter = errors.New("missing parameter")
 
 // ParseIdentifier parses an instruction identifier and returns an AST node.
 func ParseIdentifier(parser arch.Parser, ins *cpu65816.Instruction) (ast.Node, error) {
-	if len(ins.Addressing) == 1 && ins.HasAddressing(cpu65816.ImpliedAddressing) {
-		return ast.NewInstruction(ins.Name, int(cpu65816.ImpliedAddressing), nil, nil), nil
+	state, stateful, err := stateFromParser(parser)
+	if err != nil {
+		return nil, err
 	}
 
-	node, err := parseInstruction(parser, ins)
-	if err != nil {
-		return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
+	var node ast.Node
+	if len(ins.Addressing) == 1 && ins.HasAddressing(cpu65816.ImpliedAddressing) {
+		node = ast.NewInstruction(ins.Name, int(cpu65816.ImpliedAddressing), nil, nil)
+	} else {
+		node, err = parseInstruction(parser, ins)
+		if err != nil {
+			return nil, fmt.Errorf("parsing instruction %s: %w", ins.Name, err)
+		}
 	}
-	return node, nil
+
+	instruction, ok := ast.InstructionFromNode(node)
+	if !ok {
+		return nil, fmt.Errorf("parsing instruction %s: unexpected node %T", ins.Name, node)
+	}
+	typed, resolved, err := resolvedFromParsed(instruction, ins, state)
+	if err != nil {
+		return nil, fmt.Errorf("resolving instruction %s: %w", ins.Name, err)
+	}
+	if stateful != nil {
+		stateful.SetArchitectureState(nextState(state, ins, resolved.Operands))
+	}
+	return typed, nil
 }
 
 type instruction struct {
@@ -523,8 +541,8 @@ func resolveImmediateArgument(tokenType token.Type, tokenValue string) (ast.Node
 	if err != nil {
 		return nil, fmt.Errorf("parsing immediate argument '%s': %w", tokenValue, err)
 	}
-	if i > math.MaxUint8 {
-		return nil, fmt.Errorf("immediate argument '%s' exceeds byte value", tokenValue)
+	if i > math.MaxUint16 {
+		return nil, fmt.Errorf("immediate argument '%s' exceeds word value", tokenValue)
 	}
 	return ast.NewNumber(i), nil
 }
