@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
@@ -30,6 +31,33 @@ type ResolvedInstruction struct {
 func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.Operands = copyOperands(resolved.Operands)
 	return resolved
+}
+
+// InstructionFormKey returns the selected addressing, processor state, and operand shapes.
+func (resolved ResolvedInstruction) InstructionFormKey() string {
+	operands := make([]string, len(resolved.Operands))
+	for index, operand := range resolved.Operands {
+		modifiers := make([]string, len(operand.Modifiers))
+		for modifierIndex, modifier := range operand.Modifiers {
+			modifiers[modifierIndex] = modifier.Operator.Operator
+		}
+		operands[index] = fmt.Sprintf(
+			"%d/%d/%s/%s",
+			operand.Kind,
+			operand.Size,
+			strings.Join(modifiers, ""),
+			ast.InstructionArgumentForm(operand.Value),
+		)
+	}
+	return fmt.Sprintf(
+		"addressing=%d;state=%d/%d/%d/%d;operands=%s",
+		resolved.Addressing,
+		resolved.State.AccumulatorWidth,
+		resolved.State.IndexWidth,
+		resolved.State.Carry,
+		resolved.State.Emulation,
+		strings.Join(operands, ","),
+	)
 }
 
 // OpcodeInfo returns encoding metadata for one concrete addressing mode.

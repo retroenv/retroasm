@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -51,4 +52,28 @@ func TestResolvedInstruction_InstructionReferences(t *testing.T) {
 
 	references[0].Value.(ast.Expression).Value.Tokens()[0].Value = "changed"
 	assert.Equal(t, "source", resolved.SrcEA.Value.(ast.Expression).Value.Tokens()[0].Value)
+}
+
+func TestResolvedInstruction_InstructionFormKey(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolvedInstruction{
+		Size:         cpu68000.SizeLong,
+		ExplicitSize: true,
+		SrcEA:        Indexed(2, 3, true, cpu68000.SizeWord, ast.NewLabel("source")),
+		DstEA:        Absolute(true, ast.NewNumber(1)),
+		Extra:        4,
+	}
+	want := fmt.Sprintf(
+		"size=%d;explicit=true;source=mode=%d/register=2/index=3/%d/true/register-list=false/negative=false/value=ast.Label;destination=mode=%d/register=0/index=0/0/false/register-list=false/negative=false/value=ast.Number;extra=true",
+		cpu68000.SizeLong,
+		cpu68000.IndexedMode,
+		cpu68000.SizeWord,
+		cpu68000.AbsLongMode,
+	)
+
+	assert.Equal(t, want, resolved.InstructionFormKey())
+	resolved.SrcEA.Value = ast.NewLabel("other")
+	resolved.DstEA.Value = ast.NewNumber(99)
+	assert.Equal(t, want, resolved.InstructionFormKey())
 }

@@ -40,6 +40,29 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	return resolved
 }
 
+// InstructionFormKey returns the selected addressing, register, and operand shapes.
+func (resolved ResolvedInstruction) InstructionFormKey() string {
+	registers := make([]string, len(resolved.RegisterParams))
+	for index, register := range resolved.RegisterParams {
+		registers[index] = fmt.Sprintf("%d", register)
+	}
+	operands := make([]string, len(resolved.Operands))
+	for index, operand := range resolved.Operands {
+		operands[index] = fmt.Sprintf(
+			"%d/%d/%s",
+			operand.Kind,
+			operand.Register,
+			ast.InstructionArgumentForm(operand.Value),
+		)
+	}
+	return fmt.Sprintf(
+		"addressing=%d;registers=%s;operands=%s",
+		resolved.Addressing,
+		strings.Join(registers, ","),
+		strings.Join(operands, ","),
+	)
+}
+
 // InstructionReferences returns copied symbol-bearing values for stream validation.
 func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionReference {
 	references := make([]ast.InstructionReference, 0, len(resolved.OperandValues))

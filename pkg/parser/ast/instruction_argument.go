@@ -3,6 +3,7 @@ package ast
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // InstructionArgumentCopier defines deep-copy behavior for an opaque typed
@@ -21,6 +22,11 @@ type InstructionReference struct {
 // InstructionReferenceProvider exposes symbol-bearing values from an opaque instruction argument.
 type InstructionReferenceProvider interface {
 	InstructionReferences() []InstructionReference
+}
+
+// InstructionFormProvider returns a stable target-specific operand and state form key.
+type InstructionFormProvider interface {
+	InstructionFormKey() string
 }
 
 // InstructionArgument stores an architecture-specific typed instruction argument value.
@@ -53,6 +59,44 @@ func NewInstructionArguments(values ...Node) InstructionArguments {
 		node:   &node{},
 		Values: values,
 	}
+}
+
+// InstructionArgumentForm returns a stable form key without literal values or symbol names.
+func InstructionArgumentForm(argument Node) string {
+	switch value := argument.(type) {
+	case nil:
+		return "none"
+	case InstructionArgument:
+		return instructionArgumentValueForm(value.Value)
+	case *InstructionArgument:
+		if value == nil {
+			return "none"
+		}
+		return instructionArgumentValueForm(value.Value)
+	case InstructionArguments:
+		forms := make([]string, len(value.Values))
+		for index, item := range value.Values {
+			forms[index] = InstructionArgumentForm(item)
+		}
+		return "list[" + strings.Join(forms, ",") + "]"
+	case *InstructionArguments:
+		if value == nil {
+			return "none"
+		}
+		return InstructionArgumentForm(*value)
+	default:
+		return fmt.Sprintf("%T", argument)
+	}
+}
+
+func instructionArgumentValueForm(value any) string {
+	if instructionArgumentValueIsNil(value) {
+		return "none"
+	}
+	if provider, ok := value.(InstructionFormProvider); ok {
+		return provider.InstructionFormKey()
+	}
+	return fmt.Sprintf("%T", value)
 }
 
 // Copy returns a copy of the instruction argument node.

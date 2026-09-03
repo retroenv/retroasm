@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/chip8"
@@ -27,6 +28,20 @@ type ResolvedInstruction struct {
 func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.Operands = copyOperands(resolved.Operands)
 	return resolved
+}
+
+// InstructionFormKey returns the selected addressing, register, and operand shapes.
+func (resolved ResolvedInstruction) InstructionFormKey() string {
+	operands := make([]string, len(resolved.Operands))
+	for index, operand := range resolved.Operands {
+		operands[index] = fmt.Sprintf(
+			"%d/%d/%s",
+			operand.Kind,
+			operand.Register,
+			ast.InstructionArgumentForm(operand.Value),
+		)
+	}
+	return fmt.Sprintf("addressing=%d;operands=%s", resolved.Addressing, strings.Join(operands, ","))
 }
 
 // InstructionReferences returns copied symbol-bearing operand values for stream validation.

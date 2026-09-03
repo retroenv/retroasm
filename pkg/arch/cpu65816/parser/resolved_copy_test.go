@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -50,4 +51,39 @@ func TestResolvedInstruction_InstructionReferences(t *testing.T) {
 
 	references[0].Modifiers[0].Value = "changed"
 	assert.Equal(t, "2", resolved.Operands[1].Modifiers[0].Value)
+}
+
+func TestResolvedInstruction_InstructionFormKey(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolvedInstruction{
+		Addressing: cpu65816.AbsoluteAddressing,
+		Operands: Operands{{
+			Kind: OperandAddress, Size: AddressLong, Value: ast.NewLabel("target"),
+			Modifiers: []ast.Modifier{{Operator: ast.NewOperator("+"), Value: "2"}},
+		}},
+		State: State{
+			AccumulatorWidth: WidthWord,
+			IndexWidth:       WidthByte,
+			Carry:            StatusSet,
+			Emulation:        StatusClear,
+		},
+	}
+	want := fmt.Sprintf(
+		"addressing=%d;state=%d/%d/%d/%d;operands=%d/%d/+/ast.Label",
+		cpu65816.AbsoluteAddressing,
+		WidthWord,
+		WidthByte,
+		StatusSet,
+		StatusClear,
+		OperandAddress,
+		AddressLong,
+	)
+
+	assert.Equal(t, want, resolved.InstructionFormKey())
+	resolved.Operands[0].Value = ast.NewLabel("other")
+	resolved.Operands[0].Modifiers[0].Value = "9"
+	assert.Equal(t, want, resolved.InstructionFormKey())
+	resolved.Operands[0].Value = ast.NewNumber(99)
+	assert.NotEqual(t, want, resolved.InstructionFormKey())
 }

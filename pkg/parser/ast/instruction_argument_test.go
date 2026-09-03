@@ -21,6 +21,12 @@ type unsupportedMutableInstructionArgument struct {
 	values []int
 }
 
+type formedInstructionArgument string
+
+func (argument formedInstructionArgument) InstructionFormKey() string {
+	return string(argument)
+}
+
 func (argument mutableInstructionArgument) CopyInstructionArgument() any {
 	argument.values = slices.Clone(argument.values)
 	return argument
@@ -107,6 +113,19 @@ func TestInstructionArguments_CopyPreservesNilNodes(t *testing.T) {
 	assert.Len(t, copied.Values, 2)
 	assert.Nil(t, copied.Values[0])
 	assert.Equal(t, uint64(1), copied.Values[1].(Number).Value)
+}
+
+func TestInstructionArgumentForm(t *testing.T) {
+	t.Parallel()
+
+	argument := NewInstructionArguments(
+		NewInstructionArgument(formedInstructionArgument("register/value")),
+		NewLabel("target"),
+		nil,
+	)
+
+	assert.Equal(t, "list[register/value,ast.Label,none]", InstructionArgumentForm(argument))
+	assert.Equal(t, "none", InstructionArgumentForm(&InstructionArgument{}))
 }
 
 func TestRegisterValue_Copy(t *testing.T) {

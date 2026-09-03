@@ -2,6 +2,9 @@
 package parser
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
@@ -33,6 +36,33 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.SrcEA = copyEffectiveAddress(resolved.SrcEA)
 	resolved.DstEA = copyEffectiveAddress(resolved.DstEA)
 	return resolved
+}
+
+// InstructionFormKey returns the selected size and effective-address shapes.
+func (resolved ResolvedInstruction) InstructionFormKey() string {
+	return fmt.Sprintf(
+		"size=%d;explicit=%t;source=%s;destination=%s;extra=%t",
+		resolved.Size,
+		resolved.ExplicitSize,
+		cpu68000EffectiveAddressForm(resolved.SrcEA),
+		cpu68000EffectiveAddressForm(resolved.DstEA),
+		resolved.Extra != 0,
+	)
+}
+
+func cpu68000EffectiveAddressForm(address *EffectiveAddress) string {
+	if address == nil {
+		return "none"
+	}
+	parts := []string{
+		fmt.Sprintf("mode=%d", address.Mode),
+		fmt.Sprintf("register=%d", address.Register),
+		fmt.Sprintf("index=%d/%d/%t", address.IndexReg, address.IndexSize, address.IsAddrReg),
+		fmt.Sprintf("register-list=%t", address.RegList != 0),
+		fmt.Sprintf("negative=%t", address.Negative),
+		"value=" + ast.InstructionArgumentForm(address.Value),
+	}
+	return strings.Join(parts, "/")
 }
 
 // InstructionReferences returns copied symbol-bearing effective-address values for stream validation.

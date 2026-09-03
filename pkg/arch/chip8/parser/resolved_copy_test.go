@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/lexer/token"
@@ -51,4 +52,28 @@ func TestResolvedInstruction_InstructionReferences(t *testing.T) {
 
 	references[0].Value.(ast.Expression).Value.Tokens()[0].Value = "changed"
 	assert.Equal(t, "target", resolved.Operands[1].Value.(ast.Expression).Value.Tokens()[0].Value)
+}
+
+func TestResolvedInstruction_InstructionFormKey(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolvedInstruction{
+		Addressing: chip8.RegisterRegisterNibbleAddressing,
+		Operands: Operands{
+			RegisterOperand(1),
+			RegisterOperand(2),
+			NibbleOperand(ast.NewNumber(5)),
+		},
+	}
+	want := fmt.Sprintf(
+		"addressing=%d;operands=%d/1/none,%d/2/none,%d/0/ast.Number",
+		chip8.RegisterRegisterNibbleAddressing,
+		OperandRegister,
+		OperandRegister,
+		OperandNibble,
+	)
+
+	assert.Equal(t, want, resolved.InstructionFormKey())
+	resolved.Operands[2].Value = ast.NewNumber(9)
+	assert.Equal(t, want, resolved.InstructionFormKey())
 }
