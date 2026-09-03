@@ -7,6 +7,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu65816/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
@@ -95,20 +96,24 @@ func generateImmediateOpcode(
 	if err != nil {
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
+	var width ast.DataWidth
 	switch ins.Size() - 1 {
 	case 1:
 		if value > math.MaxUint8 {
 			return fmt.Errorf("value %d exceeds byte", value)
 		}
 		ins.SetOpcodes(append(ins.Opcodes(), byte(value)))
+		width = ast.WidthByte
 	case 2:
 		if value > math.MaxUint16 {
 			return fmt.Errorf("value %d exceeds word", value)
 		}
 		ins.SetOpcodes(binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value)))
+		width = ast.WidthWord
 	default:
 		return fmt.Errorf("unsupported immediate width %d", ins.Size()-1)
 	}
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, width)
 	return nil
 }
 
@@ -128,6 +133,7 @@ func generateByteAddressingOpcode(
 
 	opcodes := append(ins.Opcodes(), byte(value))
 	ins.SetOpcodes(opcodes)
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, ast.WidthByte)
 	return nil
 }
 
@@ -147,6 +153,7 @@ func generateWordAddressingOpcode(
 
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, ast.WidthWord)
 	return nil
 }
 
@@ -167,6 +174,7 @@ func generateLongAddressingOpcode(
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value&0xFFFF))
 	opcodes = append(opcodes, byte(value>>16))
 	ins.SetOpcodes(opcodes)
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, ast.WidthLong)
 	return nil
 }
 
@@ -190,6 +198,7 @@ func generateRelativeAddressingOpcode(
 
 	opcodes := append(ins.Opcodes(), b)
 	ins.SetOpcodes(opcodes)
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.RelativeRelocation, ast.WidthByte)
 	return nil
 }
 
@@ -214,6 +223,7 @@ func generateRelativeLongOpcode(
 
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(int16(offset)))
 	ins.SetOpcodes(opcodes)
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.RelativeRelocation, ast.WidthWord)
 	return nil
 }
 
@@ -238,5 +248,34 @@ func generateBlockMoveOpcode(
 	// 65816 encodes MVN/MVP as: opcode, dst_bank, src_bank
 	opcodes := append(ins.Opcodes(), byte(dst), byte(src))
 	ins.SetOpcodes(opcodes)
+	recordCPU65816Relocation(assigner, ins, resolved, 1, 1, ast.AbsoluteRelocation, ast.WidthByte)
+	recordCPU65816Relocation(assigner, ins, resolved, 0, 2, ast.AbsoluteRelocation, ast.WidthByte)
 	return nil
+}
+
+func recordCPU65816Relocation(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved parser.ResolvedInstruction,
+	operandIndex int,
+	byteOffset uint64,
+	kind ast.RelocationKind,
+	width ast.DataWidth,
+) {
+
+	if operandIndex < 0 || operandIndex >= len(resolved.Operands) {
+		return
+	}
+	operand := resolved.Operands[operandIndex]
+	arch.RecordInstructionRelocation(assigner, ins, ast.InstructionReference{
+		Value:         operand.Value,
+		Modifiers:     operand.Modifiers,
+		ReferenceType: ast.FullAddress,
+	}, arch.RelocationEncoding{
+		ByteOffset:    byteOffset,
+		Kind:          kind,
+		Width:         width,
+		ByteOrder:     ast.ByteOrderLittle,
+		ReferenceType: ast.FullAddress,
+	})
 }

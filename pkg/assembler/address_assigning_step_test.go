@@ -87,15 +87,30 @@ func TestAddressAssign_RecordInstructionRelocation(t *testing.T) {
 		ReferenceType: ast.FullAddress,
 	}
 	aa.RecordInstructionRelocation(ins, reference{name: "target+2"}, encoding)
+	aa.RecordInstructionRelocation(ins, ast.InstructionReference{
+		Value:         ast.NewLabel("other"),
+		Modifiers:     []ast.Modifier{{Operator: ast.NewOperator("-"), Value: "3"}},
+		ReferenceType: ast.FullAddress,
+	}, encoding)
 	aa.RecordInstructionRelocation(ins, uint64(1), encoding)
 	aa.RecordInstructionRelocation(&instruction{}, reference{name: "expanded"}, encoding)
 
-	assert.Equal(t, []ast.Relocation{{
-		EntryIndex: 3,
-		ByteOffset: 1,
-		Kind:       ast.RelativeRelocation,
-		Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress),
-		Width:      ast.WidthByte,
-		ByteOrder:  ast.ByteOrderLittle,
-	}}, relocations)
+	assert.Equal(t, []ast.Relocation{
+		{
+			EntryIndex: 3,
+			ByteOffset: 1,
+			Kind:       ast.RelativeRelocation,
+			Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress),
+			Width:      ast.WidthByte,
+			ByteOrder:  ast.ByteOrderLittle,
+		},
+		{
+			EntryIndex: 3,
+			ByteOffset: 1,
+			Kind:       ast.RelativeRelocation,
+			Expression: ast.NewSymbolExpression("other", -3, ast.FullAddress),
+			Width:      ast.WidthByte,
+			ByteOrder:  ast.ByteOrderLittle,
+		},
+	}, relocations)
 }

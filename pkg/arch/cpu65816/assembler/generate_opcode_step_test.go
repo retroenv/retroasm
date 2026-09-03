@@ -3,6 +3,7 @@ package assembler
 import (
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu65816/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
@@ -101,9 +102,80 @@ func TestGenerateInstructionOpcode_BlockMove(t *testing.T) {
 	assert.Equal(t, byte(0x54), ins.opcodes[0]) // MVN opcode
 	assert.Equal(t, byte(0x02), ins.opcodes[1]) // dst bank
 	assert.Equal(t, byte(0x01), ins.opcodes[2]) // src bank
+	assert.Len(t, assigner.relocations, 2)
+	assert.Equal(t, cpu65816Relocation(ast.AbsoluteRelocation, ast.WidthByte, 1), assigner.relocations[0].encoding)
+	assert.Equal(t, cpu65816Relocation(ast.AbsoluteRelocation, ast.WidthByte, 2), assigner.relocations[1].encoding)
+	destination := assigner.relocations[0].argument.(ast.InstructionReference)
+	source := assigner.relocations[1].argument.(ast.InstructionReference)
+	destinationValue, _ := ast.NumberValue(destination.Value)
+	sourceValue, _ := ast.NumberValue(source.Value)
+	assert.Equal(t, uint64(2), destinationValue)
+	assert.Equal(t, uint64(1), sourceValue)
 }
 
-type mockAssigner struct{}
+//nolint:funlen // The table keeps all encoded width families in one audit point.
+func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
+	t.Parallel()
+
+	wordState := parser.DefaultState()
+	wordState.AccumulatorWidth = parser.WidthWord
+	tests := []struct {
+		name       string
+		mnemonic   string
+		addressing cpu65816.AddressingMode
+		state      parser.State
+		kind       ast.RelocationKind
+		width      ast.DataWidth
+	}{
+		{name: "immediate byte", mnemonic: cpu65816.LdaName, addressing: cpu65816.ImmediateAddressing, state: parser.DefaultState(), kind: ast.AbsoluteRelocation, width: ast.WidthByte},
+		{name: "immediate word", mnemonic: cpu65816.LdaName, addressing: cpu65816.ImmediateAddressing, state: wordState, kind: ast.AbsoluteRelocation, width: ast.WidthWord},
+		{name: "direct page", mnemonic: cpu65816.LdaName, addressing: cpu65816.DirectPageAddressing, state: parser.DefaultState(), kind: ast.AbsoluteRelocation, width: ast.WidthByte},
+		{name: "absolute", mnemonic: cpu65816.JmpName, addressing: cpu65816.AbsoluteAddressing, state: parser.DefaultState(), kind: ast.AbsoluteRelocation, width: ast.WidthWord},
+		{name: "absolute long", mnemonic: cpu65816.JmlName, addressing: cpu65816.AbsoluteLongAddressing, state: parser.DefaultState(), kind: ast.AbsoluteRelocation, width: ast.WidthLong},
+		{name: "relative", mnemonic: cpu65816.BneName, addressing: cpu65816.RelativeAddressing, state: parser.DefaultState(), kind: ast.RelativeRelocation, width: ast.WidthByte},
+		{name: "relative long", mnemonic: cpu65816.BrlName, addressing: cpu65816.RelativeLongAddressing, state: parser.DefaultState(), kind: ast.RelativeRelocation, width: ast.WidthWord},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolved := testResolvedInstructionWithValue(
+				test.mnemonic,
+				test.addressing,
+				ast.NewLabel("target"),
+				test.state,
+			)
+			assigner := &mockAssigner{}
+			ins := &mockInstruction{name: test.mnemonic, addressing: int(test.addressing), argument: resolved}
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.NoError(t, err)
+			assert.Len(t, assigner.relocations, 1)
+			assert.Equal(t, cpu65816Relocation(test.kind, test.width, 1), assigner.relocations[0].encoding)
+			reference := assigner.relocations[0].argument.(ast.InstructionReference)
+			assert.Equal(t, "target", ast.SymbolName(reference.Value))
+		})
+	}
+}
+
+func cpu65816Relocation(kind ast.RelocationKind, width ast.DataWidth, byteOffset uint64) arch.RelocationEncoding {
+	return arch.RelocationEncoding{
+		ByteOffset:    byteOffset,
+		Kind:          kind,
+		Width:         width,
+		ByteOrder:     ast.ByteOrderLittle,
+		ReferenceType: ast.FullAddress,
+	}
+}
+
+type mockAssigner struct {
+	relocations []recordedRelocation
+}
+
+type recordedRelocation struct {
+	argument any
+	encoding arch.RelocationEncoding
+}
 
 type mockInstruction struct {
 	name       string
@@ -120,6 +192,9 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 }
 func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
 func (m *mockAssigner) ProgramCounter() uint64                   { return 0 }
+func (m *mockAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any, encoding arch.RelocationEncoding) {
+	m.relocations = append(m.relocations, recordedRelocation{argument: argument, encoding: encoding})
+}
 
 func (m *mockInstruction) Address() uint64        { return m.address }
 func (m *mockInstruction) Addressing() int        { return m.addressing }
@@ -139,12 +214,22 @@ func testResolvedInstruction(
 	value uint64,
 ) parser.ResolvedInstruction {
 
+	return testResolvedInstructionWithValue(name, addressing, ast.NewNumber(value), parser.DefaultState())
+}
+
+func testResolvedInstructionWithValue(
+	name string,
+	addressing cpu65816.AddressingMode,
+	value ast.Node,
+	state parser.State,
+) parser.ResolvedInstruction {
+
 	return parser.ResolvedInstruction{
 		Instruction: cpu65816.Instructions[name],
 		Addressing:  addressing,
 		Operands: parser.Operands{
-			{Kind: parser.OperandAddress, Value: ast.NewNumber(value)},
+			{Kind: parser.OperandAddress, Value: value},
 		},
-		State: parser.DefaultState(),
+		State: state,
 	}
 }

@@ -290,6 +290,70 @@ func TestCPU65816Codec_StatefulImmediateWidths(t *testing.T) {
 	}, assembly.Binary)
 }
 
+func TestCPU65816Codec_RecordsInstructionRelocations(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU65816Codec(t)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader(strings.Join([]string{
+		"target:",
+		"lda #target",
+		"lda z:target",
+		"lda a:target + 1",
+		"jml f:target + 2",
+		"bra target",
+		"brl target",
+	}, "\n")))
+	assert.NoError(t, err)
+	assert.Empty(t, stream.Relocations())
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{
+		0xa9, 0x00,
+		0xa5, 0x00,
+		0xad, 0x01, 0x00,
+		0x5c, 0x02, 0x00, 0x00,
+		0x80, 0xf3,
+		0x82, 0xf0, 0xff,
+	}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 1, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 2, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 3, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 1, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 4, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress), Width: ast.WidthLong, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 5, ByteOffset: 1, Kind: ast.RelativeRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 6, ByteOffset: 1, Kind: ast.RelativeRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+
+	reassembled, err := c.AssembleStream(t.Context(), assembly.Stream)
+	assert.NoError(t, err)
+	assert.Equal(t, assembly.Binary, reassembled.Binary)
+	assert.Equal(t, assembly.Stream.Relocations(), reassembled.Stream.Relocations())
+}
+
+func TestCPU65816Codec_RecordsStateSelectedImmediateRelocations(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU65816Codec(t)
+	stream, err := c.ParseStream(t.Context(), "stateful.asm", strings.NewReader(strings.Join([]string{
+		"rep #$30",
+		"target:",
+		"lda #target",
+		"ldx #target",
+	}, "\n")))
+	assert.NoError(t, err)
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0xc2, 0x30, 0xa9, 0x02, 0x00, 0xa2, 0x02, 0x00}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 2, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 3, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+}
+
 func TestCPU65816Codec_ParallelStreamsKeepIndependentState(t *testing.T) {
 	t.Parallel()
 

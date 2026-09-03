@@ -11,6 +11,18 @@ type InstructionArgumentCopier interface {
 	CopyInstructionArgument() any
 }
 
+// InstructionReference describes one symbol-bearing value in a typed instruction argument.
+type InstructionReference struct {
+	Value         Node
+	Modifiers     []Modifier
+	ReferenceType ReferenceType
+}
+
+// InstructionReferenceProvider exposes symbol-bearing values from an opaque instruction argument.
+type InstructionReferenceProvider interface {
+	InstructionReferences() []InstructionReference
+}
+
 // InstructionArgument stores an architecture-specific typed instruction argument value.
 type InstructionArgument struct {
 	*node

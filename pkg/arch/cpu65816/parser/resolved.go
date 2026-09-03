@@ -69,6 +69,38 @@ func (resolved ResolvedInstruction) EncodedSize(addressing cpu65816.AddressingMo
 	return size, nil
 }
 
+// InstructionReferences returns copied symbol-bearing operand views for stream validation.
+func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionReference {
+	references := make([]ast.InstructionReference, 0, len(resolved.Operands))
+
+	for _, operand := range resolved.Operands {
+		if !operandReferencesSymbol(operand.Value) {
+			continue
+		}
+		references = append(references, ast.InstructionReference{
+			Value:         operand.Value.Copy(),
+			Modifiers:     slices.Clone(operand.Modifiers),
+			ReferenceType: ast.FullAddress,
+		})
+	}
+	return references
+}
+
+func operandReferencesSymbol(value ast.Node) bool {
+	if value == nil {
+		return false
+	}
+	if ast.SymbolName(value) != "" {
+		return true
+	}
+	expression, ok := value.(ast.Expression)
+	if !ok {
+		return false
+	}
+	_, _, ok = ast.ParseSymbolReference(expression.Value)
+	return ok
+}
+
 func resolvedFromParsed(
 	instruction ast.Instruction,
 	details *cpu65816.Instruction,

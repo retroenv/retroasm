@@ -682,16 +682,11 @@ func instructionReferencesExpression(instruction Instruction, expected SymbolExp
 		return nodeReferencesExpression(instruction.Argument, expected)
 	}
 
-	symbol, addend, ok := nodeSymbolReference(instruction.Argument)
-	if !ok {
-		return false
-	}
-	modifierAddend, ok := instructionModifierAddend(instruction.Modifier)
-	if !ok {
-		return false
-	}
-	addend, ok = combineInstructionAddends(addend, modifierAddend)
-	return ok && symbol == expected.Symbol && addend == expected.Addend && expected.ReferenceType == FullAddress
+	return instructionReferenceMatchesExpression(InstructionReference{
+		Value:         instruction.Argument,
+		Modifiers:     instruction.Modifier,
+		ReferenceType: FullAddress,
+	}, expected)
 }
 
 func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
@@ -701,6 +696,13 @@ func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
 
 	switch argument := node.(type) {
 	case InstructionArgument:
+		if provider, ok := argument.Value.(InstructionReferenceProvider); ok {
+			for _, reference := range provider.InstructionReferences() {
+				if instructionReferenceMatchesExpression(reference, expected) {
+					return true
+				}
+			}
+		}
 		nested, ok := argument.Value.(Node)
 		return ok && nodeReferencesExpression(nested, expected)
 	case InstructionArguments:
@@ -711,6 +713,19 @@ func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
 		}
 	}
 	return false
+}
+
+func instructionReferenceMatchesExpression(reference InstructionReference, expected SymbolExpression) bool {
+	symbol, addend, ok := nodeSymbolReference(reference.Value)
+	if !ok {
+		return false
+	}
+	modifierAddend, ok := instructionModifierAddend(reference.Modifiers)
+	if !ok {
+		return false
+	}
+	addend, ok = combineInstructionAddends(addend, modifierAddend)
+	return ok && symbol == expected.Symbol && addend == expected.Addend && reference.ReferenceType == expected.ReferenceType
 }
 
 func nodeSymbolReference(node Node) (string, int64, bool) {

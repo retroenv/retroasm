@@ -165,6 +165,17 @@ func instructionArgumentReference(argument any) (string, int64, bool) {
 		name, offset := parseReferenceOffset(arg.name)
 		combined, err := applyInt64Offset(offset, arg.offset)
 		return name, combined, err == nil
+	case ast.InstructionReference:
+		symbol, addend, ok := instructionArgumentReference(arg.Value)
+		if !ok {
+			return "", 0, false
+		}
+		modifierAddend, err := modifierOffset(arg.Modifiers)
+		if err != nil {
+			return "", 0, false
+		}
+		combined, err := applyInt64Offset(addend, modifierAddend)
+		return symbol, combined, err == nil
 	case ast.Label:
 		return arg.Name, 0, true
 	case ast.Identifier:

@@ -29,3 +29,25 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 
 	assert.Equal(t, "source", original.Operands[0].Value.(ast.Expression).Value.Tokens()[0].Value)
 }
+
+func TestResolvedInstruction_InstructionReferences(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolvedInstruction{Operands: Operands{
+		{Kind: OperandImmediate, Value: ast.NewNumber(1)},
+		{
+			Kind:      OperandAddress,
+			Value:     ast.NewLabel("target"),
+			Modifiers: []ast.Modifier{{Operator: ast.NewOperator("+"), Value: "2"}},
+		},
+	}}
+
+	references := resolved.InstructionReferences()
+	assert.Len(t, references, 1)
+	assert.Equal(t, "target", ast.SymbolName(references[0].Value))
+	assert.Equal(t, "2", references[0].Modifiers[0].Value)
+	assert.Equal(t, ast.FullAddress, references[0].ReferenceType)
+
+	references[0].Modifiers[0].Value = "changed"
+	assert.Equal(t, "2", resolved.Operands[1].Modifiers[0].Value)
+}

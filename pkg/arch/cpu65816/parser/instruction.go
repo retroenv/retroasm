@@ -378,7 +378,7 @@ func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, 
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
-	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, nil), nil
+	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, ins.modifiers), nil
 }
 
 func parseBranchingIndirect(parser arch.Parser, ins *instruction) (ast.Node, error) {

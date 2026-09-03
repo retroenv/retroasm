@@ -13,6 +13,10 @@ type streamTestAnnotation struct {
 	Value string
 }
 
+type streamTestInstructionReferences struct {
+	Symbol string
+}
+
 type invalidStreamMetadataCase struct {
 	name   string
 	stream *Stream
@@ -24,6 +28,14 @@ func (ann *streamTestAnnotation) CopyStreamAnnotation() Annotation {
 	}
 	copied := *ann
 	return &copied
+}
+
+func (ref streamTestInstructionReferences) InstructionReferences() []InstructionReference {
+	return []InstructionReference{{
+		Value:         NewLabel(ref.Symbol),
+		Modifiers:     []Modifier{{Operator: NewOperator("+"), Value: "2"}},
+		ReferenceType: FullAddress,
+	}}
 }
 
 func TestStream_OwnsEntriesAndMetadata(t *testing.T) {
@@ -168,6 +180,12 @@ func TestStream_ValidateInstructionRelocationMatchesExpression(t *testing.T) {
 	stream = NewStreamFromNodes(instruction)
 	stream.RecordRelocation(relocation)
 	assert.ErrorIs(t, stream.Validate(), ErrInvalidStream)
+
+	instruction = NewInstruction("jml", 0, NewInstructionArgument(streamTestInstructionReferences{Symbol: "target"}), nil)
+	relocation.Expression = NewSymbolExpression("target", 2, FullAddress)
+	stream = NewStreamFromNodes(instruction)
+	stream.RecordRelocation(relocation)
+	assert.NoError(t, stream.Validate())
 }
 
 func TestStream_ValidateRejectsInvalidMetadata(t *testing.T) {
