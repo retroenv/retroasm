@@ -38,9 +38,7 @@ func TestInstructionRegistrationsAreStableAndArchitectureScoped(t *testing.T) {
 		assert.True(t, ok)
 		registrations := provider.InstructionRegistrations()
 		assert.NotEmpty(t, registrations)
-		assert.True(t, slices.IsSortedFunc(registrations, func(left, right asmarch.InstructionRegistration) int {
-			return strings.Compare(left.Name, right.Name)
-		}))
+		assert.True(t, slices.IsSortedFunc(registrations, compareInstructionRegistrations))
 
 		names := set.New[string]()
 		for _, registration := range registrations {
@@ -69,4 +67,8 @@ func TestCPU65816InstructionRegistrationsIncludeCombinedAddressings(t *testing.T
 	assert.True(t, slices.Contains(adc.Addressings, int(cpu65816parser.XAddressing)))
 	ldx := registrations[retrocpu65816.LdxName]
 	assert.True(t, slices.Contains(ldx.Addressings, int(cpu65816parser.YAddressing)))
+}
+
+func compareInstructionRegistrations(left, right asmarch.InstructionRegistration) int {
+	return strings.Compare(left.Name, right.Name)
 }
