@@ -6,8 +6,15 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu68000/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
+
+type instructionRelocationAssigner struct {
+	arch.AddressAssigner
+
+	instruction arch.Instruction
+}
 
 // GenerateInstructionOpcode generates CPU68000 opcode bytes for an already resolved instruction.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
@@ -16,7 +23,8 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 		return fmt.Errorf("resolving instruction argument: %w", err)
 	}
 
-	opcodes, err := encodeInstruction(assigner, ins, resolved)
+	encodingAssigner := &instructionRelocationAssigner{AddressAssigner: assigner, instruction: ins}
+	opcodes, err := encodeInstruction(encodingAssigner, ins, resolved)
 	if err != nil {
 		return fmt.Errorf("encoding instruction '%s': %w", ins.Name(), err)
 	}
@@ -24,6 +32,27 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	ins.SetOpcodes(opcodes)
 	ins.SetSize(len(opcodes))
 	return nil
+}
+
+func (ass *instructionRelocationAssigner) recordRelocation(argument any, encoding arch.RelocationEncoding) {
+	arch.RecordInstructionRelocation(ass.AddressAssigner, ass.instruction, argument, encoding)
+}
+
+func recordCPU68000Relocation(assigner arch.AddressAssigner, argument any, encoding arch.RelocationEncoding) {
+	recorder, ok := assigner.(*instructionRelocationAssigner)
+	if ok {
+		recorder.recordRelocation(argument, encoding)
+	}
+}
+
+func cpu68000RelocationEncoding(byteOffset uint64, kind ast.RelocationKind, width ast.DataWidth) arch.RelocationEncoding {
+	return arch.RelocationEncoding{
+		ByteOffset:    byteOffset,
+		Kind:          kind,
+		Width:         width,
+		ByteOrder:     ast.ByteOrderBig,
+		ReferenceType: ast.FullAddress,
+	}
 }
 
 func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, resolved parser.ResolvedInstruction) ([]byte, error) { //nolint:cyclop,gocyclo,funlen,maintidx // instruction encoding requires many cases

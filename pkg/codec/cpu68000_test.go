@@ -8,6 +8,7 @@ import (
 	cpu68000parser "github.com/retroenv/retroasm/pkg/arch/cpu68000/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/codec"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
@@ -61,6 +62,86 @@ func TestCPU68000Codec_DataUsesNativeByteOrder(t *testing.T) {
 	assembly, err := c.AssembleStream(t.Context(), stream)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{0x12, 0x34, 0x00, 0x00, 0x05, 0x00}, assembly.Binary)
+}
+
+func TestCPU68000Codec_RecordsInstructionRelocations(t *testing.T) { //nolint:funlen // The table covers each encoded field layout.
+	t.Parallel()
+
+	c := newCPU68000Codec(t)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader(strings.Join([]string{
+		"target:",
+		"move.w #target,d0",
+		"move.l target.l,d1",
+		"lea.l target(pc),a0",
+		"bra.w target(pc)",
+		"moveq #target,d0",
+		"link a0,#target",
+		"stop #target",
+		"movep.w d0,target(a0)",
+		"btst #target,target.w",
+		"movem.w d0,target.w",
+	}, "\n")))
+	assert.NoError(t, err)
+	assert.Empty(t, stream.Relocations())
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{
+		0x30, 0x3c, 0x00, 0x00,
+		0x22, 0x39, 0x00, 0x00, 0x00, 0x00,
+		0x41, 0xfa, 0xff, 0xf4,
+		0x60, 0x00, 0xff, 0xf0,
+		0x70, 0x00,
+		0x4e, 0x50, 0x00, 0x00,
+		0x4e, 0x72, 0x00, 0x00,
+		0x01, 0x88, 0x00, 0x00,
+		0x08, 0x38, 0x00, 0x00, 0x00, 0x00,
+		0x48, 0xb8, 0x00, 0x01, 0x00, 0x00,
+	}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 1, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 2, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthLong, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 3, ByteOffset: 2, Kind: ast.RelativeRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 4, ByteOffset: 2, Kind: ast.RelativeRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 5, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 6, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 7, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 8, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 9, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 9, ByteOffset: 4, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+		{EntryIndex: 10, ByteOffset: 4, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+
+	reassembled, err := c.AssembleStream(t.Context(), assembly.Stream)
+	assert.NoError(t, err)
+	assert.Equal(t, assembly.Binary, reassembled.Binary)
+	assert.Equal(t, assembly.Stream.Relocations(), reassembled.Stream.Relocations())
+}
+
+func TestCPU68000Codec_RecordsTypedInstructionRelocationAddends(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU68000Codec(t)
+	value := ast.NewExpression(
+		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{Type: token.Plus},
+		token.Token{Type: token.Number, Value: "2"},
+	)
+	instruction, err := codec.BuildInstruction(c, "move.w", cpu68000parser.BinaryOperands(
+		cpu68000.SizeWord,
+		cpu68000parser.Immediate(value),
+		cpu68000parser.DataRegister(0),
+	))
+	assert.NoError(t, err)
+
+	assembly, err := c.Assemble(t.Context(), []ast.Node{ast.NewLabel("target"), instruction})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0x30, 0x3c, 0x00, 0x02}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 1, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
 }
 
 //nolint:funlen // Effective-address coverage is intentionally one auditable table.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu68000/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
@@ -61,41 +62,109 @@ func appendEAExtensionWords(
 		return buf, nil
 
 	case cpu68000.DisplacementMode, cpu68000.PCDisplacementMode:
-		v, err := eaValue(assigner, ea)
-		if err != nil {
-			return nil, err
-		}
-		return binary.BigEndian.AppendUint16(buf, uint16(v)), nil
+		return appendDisplacementEAExtension(buf, assigner, ea, opSize)
 
 	case cpu68000.IndexedMode, cpu68000.PCIndexedMode:
-		return appendIndexExtensionWord(buf, assigner, ea)
+		return appendIndexedEAExtension(buf, assigner, ea, opSize)
 
-	case cpu68000.AbsShortMode:
-		v, err := eaValue(assigner, ea)
-		if err != nil {
-			return nil, err
-		}
-		return binary.BigEndian.AppendUint16(buf, uint16(v)), nil
-
-	case cpu68000.AbsLongMode:
-		v, err := eaValue(assigner, ea)
-		if err != nil {
-			return nil, err
-		}
-		return binary.BigEndian.AppendUint32(buf, uint32(v)), nil
+	case cpu68000.AbsShortMode, cpu68000.AbsLongMode:
+		return appendAbsoluteEAExtension(buf, assigner, ea, opSize)
 
 	case cpu68000.ImmediateMode:
-		return appendImmediateExtension(buf, assigner, ea, opSize)
+		return appendImmediateEAExtension(buf, assigner, ea, opSize)
 
 	default:
 		return buf, nil
 	}
 }
 
+func appendDisplacementEAExtension(
+	buf []byte,
+	assigner arch.AddressAssigner,
+	ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize,
+) ([]byte, error) {
+
+	v, err := eaValue(assigner, ea)
+	if err != nil {
+		return nil, err
+	}
+	byteOffset := uint64(len(buf))
+	if ea.Mode == cpu68000.PCDisplacementMode && effectiveAddressReferencesSymbol(ea) {
+		v, err = pcRelativeValue(assigner, v, byteOffset, 16)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	buf = binary.BigEndian.AppendUint16(buf, uint16(v))
+	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+	return buf, nil
+}
+
+func appendIndexedEAExtension(
+	buf []byte,
+	assigner arch.AddressAssigner,
+	ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize,
+) ([]byte, error) {
+
+	byteOffset := uint64(len(buf))
+	buf, err := appendIndexExtensionWord(buf, assigner, ea)
+	if err != nil {
+		return nil, err
+	}
+	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+	return buf, nil
+}
+
+func appendAbsoluteEAExtension(
+	buf []byte,
+	assigner arch.AddressAssigner,
+	ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize,
+) ([]byte, error) {
+
+	v, err := eaValue(assigner, ea)
+	if err != nil {
+		return nil, err
+	}
+	byteOffset := uint64(len(buf))
+	if ea.Mode == cpu68000.AbsLongMode {
+		buf = binary.BigEndian.AppendUint32(buf, uint32(v))
+	} else {
+		buf = binary.BigEndian.AppendUint16(buf, uint16(v))
+	}
+	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+	return buf, nil
+}
+
+func appendImmediateEAExtension(
+	buf []byte,
+	assigner arch.AddressAssigner,
+	ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize,
+) ([]byte, error) {
+
+	byteOffset := uint64(len(buf))
+	buf, err := appendImmediateExtension(buf, assigner, ea, opSize)
+	if err != nil {
+		return nil, err
+	}
+	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+	return buf, nil
+}
+
 func appendIndexExtensionWord(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress) ([]byte, error) {
 	disp, err := eaValue(assigner, ea)
 	if err != nil {
 		return nil, err
+	}
+	if ea.Mode == cpu68000.PCIndexedMode && effectiveAddressReferencesSymbol(ea) {
+		disp, err = pcRelativeValue(assigner, disp, uint64(len(buf)), 8)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Brief extension word format:
@@ -115,6 +184,76 @@ func appendIndexExtensionWord(buf []byte, assigner arch.AddressAssigner, ea *par
 	ext |= uint16(disp) & 0xFF
 
 	return binary.BigEndian.AppendUint16(buf, ext), nil
+}
+
+func recordEAExtensionRelocation(
+	assigner arch.AddressAssigner,
+	ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize,
+	byteOffset uint64,
+) {
+
+	if ea == nil || ea.Value == nil {
+		return
+	}
+
+	kind := ast.AbsoluteRelocation
+	width := ast.WidthWord
+	switch ea.Mode {
+	case cpu68000.IndexedMode:
+		byteOffset++
+		width = ast.WidthByte
+	case cpu68000.PCIndexedMode:
+		byteOffset++
+		kind = ast.RelativeRelocation
+		width = ast.WidthByte
+	case cpu68000.PCDisplacementMode:
+		kind = ast.RelativeRelocation
+	case cpu68000.AbsLongMode:
+		width = ast.WidthLong
+	case cpu68000.ImmediateMode:
+		switch opSize {
+		case cpu68000.SizeByte:
+			byteOffset++
+			width = ast.WidthByte
+		case cpu68000.SizeLong:
+			width = ast.WidthLong
+		}
+	}
+	recordCPU68000Relocation(assigner, ea.Value, cpu68000RelocationEncoding(byteOffset, kind, width))
+}
+
+func effectiveAddressReferencesSymbol(ea *parser.EffectiveAddress) bool {
+	if ea == nil || ea.Value == nil {
+		return false
+	}
+	if ast.SymbolName(ea.Value) != "" {
+		return true
+	}
+	expression, ok := ea.Value.(ast.Expression)
+	if !ok {
+		return false
+	}
+	_, _, ok = ast.ParseSymbolReference(expression.Value)
+	return ok
+}
+
+func pcRelativeValue(assigner arch.AddressAssigner, target, byteOffset uint64, bits int) (uint64, error) {
+	context, ok := assigner.(*instructionRelocationAssigner)
+	if !ok {
+		return target, nil
+	}
+
+	displacement := int64(target) - int64(context.instruction.Address()+byteOffset)
+	minimum := -(int64(1) << (bits - 1))
+	maximum := (int64(1) << (bits - 1)) - 1
+	if displacement < minimum || displacement > maximum {
+		return 0, fmt.Errorf("PC-relative displacement %d exceeds %d-bit field", displacement, bits)
+	}
+	if displacement < 0 {
+		return uint64((int64(1) << bits) + displacement), nil
+	}
+	return uint64(displacement), nil
 }
 
 func appendImmediateExtension(

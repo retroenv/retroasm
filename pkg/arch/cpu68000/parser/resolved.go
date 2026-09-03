@@ -35,6 +35,22 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	return resolved
 }
 
+// InstructionReferences returns copied symbol-bearing effective-address values for stream validation.
+func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionReference {
+	references := make([]ast.InstructionReference, 0, 2)
+
+	for _, address := range []*EffectiveAddress{resolved.SrcEA, resolved.DstEA} {
+		if address == nil || !effectiveAddressReferencesSymbol(address.Value) {
+			continue
+		}
+		references = append(references, ast.InstructionReference{
+			Value:         address.Value.Copy(),
+			ReferenceType: ast.FullAddress,
+		})
+	}
+	return references
+}
+
 func copyEffectiveAddress(address *EffectiveAddress) *EffectiveAddress {
 	if address == nil {
 		return nil
@@ -44,4 +60,19 @@ func copyEffectiveAddress(address *EffectiveAddress) *EffectiveAddress {
 		copied.Value = address.Value.Copy()
 	}
 	return &copied
+}
+
+func effectiveAddressReferencesSymbol(value ast.Node) bool {
+	if value == nil {
+		return false
+	}
+	if ast.SymbolName(value) != "" {
+		return true
+	}
+	expression, ok := value.(ast.Expression)
+	if !ok {
+		return false
+	}
+	_, _, ok = ast.ParseSymbolReference(expression.Value)
+	return ok
 }

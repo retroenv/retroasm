@@ -5,6 +5,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu68000/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
@@ -29,6 +30,8 @@ func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction, resolved 
 	if resolved.Size == cpu68000.SizeByte && disp >= -128 && disp <= 127 && disp != 0 {
 		// Short branch: 8-bit displacement in opcode word
 		opcode := uint16(0x6000) | cond<<8 | uint16(byte(disp))
+		recordCPU68000Relocation(assigner, resolved.DstEA.Value,
+			cpu68000RelocationEncoding(1, ast.RelativeRelocation, ast.WidthByte))
 		return encodeWord(opcode), nil
 	}
 
@@ -36,6 +39,8 @@ func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction, resolved 
 	opcode := uint16(0x6000) | cond<<8 // displacement 0 means word follows
 	buf := encodeWord(opcode)
 	buf = binary.BigEndian.AppendUint16(buf, uint16(int16(disp)))
+	recordCPU68000Relocation(assigner, resolved.DstEA.Value,
+		cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord))
 	return buf, nil
 }
 
@@ -54,6 +59,8 @@ func encodeDBcc(assigner arch.AddressAssigner, ins arch.Instruction, resolved pa
 	opcode := uint16(0x50C8) | cond<<8 | dn
 	buf := encodeWord(opcode)
 	buf = binary.BigEndian.AppendUint16(buf, uint16(int16(disp)))
+	recordCPU68000Relocation(assigner, resolved.DstEA.Value,
+		cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord))
 	return buf, nil
 }
 
@@ -78,6 +85,8 @@ func encodeMOVEQ(assigner arch.AddressAssigner, resolved parser.ResolvedInstruct
 	}
 
 	opcode := uint16(0x7000) | dn<<9 | uint16(v)&0xFF
+	recordCPU68000Relocation(assigner, resolved.SrcEA.Value,
+		cpu68000RelocationEncoding(1, ast.AbsoluteRelocation, ast.WidthByte))
 	return encodeWord(opcode), nil
 }
 
@@ -175,6 +184,8 @@ func encodeLINK(assigner arch.AddressAssigner, resolved parser.ResolvedInstructi
 	opcode := uint16(0x4E50) | an
 	buf := encodeWord(opcode)
 	buf = binary.BigEndian.AppendUint16(buf, uint16(int16(v)))
+	recordCPU68000Relocation(assigner, resolved.DstEA.Value,
+		cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord))
 	return buf, nil
 }
 
@@ -198,6 +209,8 @@ func encodeSTOP(assigner arch.AddressAssigner, resolved parser.ResolvedInstructi
 	}
 	buf := encodeWord(0x4E72)
 	buf = binary.BigEndian.AppendUint16(buf, uint16(v))
+	recordCPU68000Relocation(assigner, resolved.SrcEA.Value,
+		cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord))
 	return buf, nil
 }
 
@@ -274,6 +287,8 @@ func encodeMOVEP(assigner arch.AddressAssigner, resolved parser.ResolvedInstruct
 		return nil, err
 	}
 	buf = binary.BigEndian.AppendUint16(buf, uint16(v))
+	recordCPU68000Relocation(assigner, dispEA.Value,
+		cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord))
 	return buf, nil
 }
 
@@ -301,6 +316,8 @@ func encodeBitOp(assigner arch.AddressAssigner, resolved parser.ResolvedInstruct
 		return nil, err
 	}
 	buf = binary.BigEndian.AppendUint16(buf, uint16(v))
+	recordCPU68000Relocation(assigner, resolved.SrcEA.Value,
+		cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord))
 	buf, err = appendEAExtensionWords(buf, assigner, resolved.DstEA, cpu68000.SizeByte)
 	if err != nil {
 		return nil, err

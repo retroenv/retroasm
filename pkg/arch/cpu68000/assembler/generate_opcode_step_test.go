@@ -3,6 +3,7 @@ package assembler
 import (
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu68000/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
@@ -194,4 +195,260 @@ func TestGenerateInstructionOpcode_InvalidArgument(t *testing.T) {
 
 	err := GenerateInstructionOpcode(assigner, ins)
 	assert.Error(t, err)
+}
+
+func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) { //nolint:funlen // The table audits extension layouts.
+	tests := []struct {
+		name        string
+		address     uint64
+		resolved    parser.ResolvedInstruction
+		values      map[string]uint64
+		want        []arch.RelocationEncoding
+		wantOpcodes []byte
+	}{
+		{
+			name: "word immediate and absolute destination",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.MOVEName], Size: cpu68000.SizeWord,
+				SrcEA: parser.Immediate(ast.NewLabel("source")), DstEA: parser.Absolute(false, ast.NewLabel("destination")),
+			},
+			values: map[string]uint64{"source": 0x1234, "destination": 0x5678},
+			want: []arch.RelocationEncoding{
+				cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord),
+				cpu68000RelocationEncoding(4, ast.AbsoluteRelocation, ast.WidthWord),
+			},
+		},
+		{
+			name: "two long absolute operands",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.MOVEName], Size: cpu68000.SizeLong,
+				SrcEA: parser.Absolute(true, ast.NewLabel("source")), DstEA: parser.Absolute(true, ast.NewLabel("destination")),
+			},
+			values: map[string]uint64{"source": 0x123456, "destination": 0x789abc},
+			want: []arch.RelocationEncoding{
+				cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthLong),
+				cpu68000RelocationEncoding(6, ast.AbsoluteRelocation, ast.WidthLong),
+			},
+		},
+		{
+			name: "byte immediate uses low extension byte",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.MOVEName], Size: cpu68000.SizeByte,
+				SrcEA: parser.Immediate(ast.NewLabel("source")), DstEA: parser.DataRegister(0),
+			},
+			values: map[string]uint64{"source": 0x12},
+			want:   []arch.RelocationEncoding{cpu68000RelocationEncoding(3, ast.AbsoluteRelocation, ast.WidthByte)},
+		},
+		{
+			name:    "PC displacement",
+			address: 0x1000,
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
+				SrcEA: parser.PCDisplacement(ast.NewLabel("target")), DstEA: parser.AddressRegister(0),
+			},
+			values:      map[string]uint64{"target": 0x1010},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord)},
+			wantOpcodes: []byte{0x41, 0xfa, 0x00, 0x0e},
+		},
+		{
+			name:    "PC indexed displacement",
+			address: 0x1000,
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
+				SrcEA: parser.PCIndexed(1, false, cpu68000.SizeWord, ast.NewLabel("target")),
+				DstEA: parser.AddressRegister(0),
+			},
+			values:      map[string]uint64{"target": 0x1010},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(3, ast.RelativeRelocation, ast.WidthByte)},
+			wantOpcodes: []byte{0x41, 0xfb, 0x10, 0x0e},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assigner := &relocationAssigner{mockAssigner: mockAssigner{pc: test.address, values: test.values}}
+			ins := &mockInstruction{name: test.resolved.Instruction.Name, address: test.address, argument: test.resolved}
+
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.NoError(t, err)
+			assert.Len(t, assigner.relocations, len(test.want))
+			for index, relocation := range assigner.relocations {
+				assert.Equal(t, test.want[index], relocation.encoding)
+			}
+			if test.wantOpcodes != nil {
+				assert.Equal(t, test.wantOpcodes, ins.Opcodes())
+			}
+		})
+	}
+}
+
+func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) { //nolint:funlen // The table audits direct field layouts.
+	tests := []struct {
+		name        string
+		address     uint64
+		resolved    parser.ResolvedInstruction
+		values      map[string]uint64
+		want        []arch.RelocationEncoding
+		wantSymbols []string
+	}{
+		{
+			name:    "byte branch",
+			address: 0x1000,
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.BRAName], Size: cpu68000.SizeByte,
+				DstEA: parser.PCDisplacement(ast.NewLabel("target")),
+			},
+			values:      map[string]uint64{"target": 0x1010},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(1, ast.RelativeRelocation, ast.WidthByte)},
+			wantSymbols: []string{"target"},
+		},
+		{
+			name:    "word branch",
+			address: 0x1000,
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.BSRName], Size: cpu68000.SizeWord,
+				DstEA: parser.PCDisplacement(ast.NewLabel("target")),
+			},
+			values:      map[string]uint64{"target": 0x1200},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord)},
+			wantSymbols: []string{"target"},
+		},
+		{
+			name:    "decrement and branch",
+			address: 0x1000,
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.DBccName], Extra: 6,
+				SrcEA: parser.DataRegister(0), DstEA: parser.PCDisplacement(ast.NewLabel("target")),
+			},
+			values:      map[string]uint64{"target": 0x1200},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord)},
+			wantSymbols: []string{"target"},
+		},
+		{
+			name: "quick move",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.MOVEQName], Size: cpu68000.SizeLong,
+				SrcEA: parser.Immediate(ast.NewLabel("source")), DstEA: parser.DataRegister(0),
+			},
+			values:      map[string]uint64{"source": 0x12},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(1, ast.AbsoluteRelocation, ast.WidthByte)},
+			wantSymbols: []string{"source"},
+		},
+		{
+			name: "link displacement",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.LINKName],
+				SrcEA:       parser.AddressRegister(0), DstEA: parser.Immediate(ast.NewLabel("frame")),
+			},
+			values:      map[string]uint64{"frame": 0xfffc},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord)},
+			wantSymbols: []string{"frame"},
+		},
+		{
+			name: "stop immediate",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.STOPName],
+				SrcEA:       parser.Immediate(ast.NewLabel("status")),
+			},
+			values:      map[string]uint64{"status": 0x2700},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord)},
+			wantSymbols: []string{"status"},
+		},
+		{
+			name: "peripheral displacement",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.MOVEPName], Size: cpu68000.SizeWord,
+				SrcEA: parser.DataRegister(0), DstEA: parser.Displacement(0, ast.NewLabel("port")),
+			},
+			values:      map[string]uint64{"port": 0x1234},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord)},
+			wantSymbols: []string{"port"},
+		},
+		{
+			name: "immediate bit and destination",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.BTSTName],
+				SrcEA:       parser.Immediate(ast.NewLabel("bit")), DstEA: parser.Absolute(false, ast.NewLabel("target")),
+			},
+			values: map[string]uint64{"bit": 3, "target": 0x1234},
+			want: []arch.RelocationEncoding{
+				cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord),
+				cpu68000RelocationEncoding(4, ast.AbsoluteRelocation, ast.WidthWord),
+			},
+			wantSymbols: []string{"bit", "target"},
+		},
+		{
+			name: "register list before destination",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.MOVEMName], Size: cpu68000.SizeWord,
+				SrcEA: parser.RegisterList(1), DstEA: parser.Absolute(false, ast.NewLabel("target")),
+			},
+			values:      map[string]uint64{"target": 0x1234},
+			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(4, ast.AbsoluteRelocation, ast.WidthWord)},
+			wantSymbols: []string{"target"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assigner := &relocationAssigner{mockAssigner: mockAssigner{pc: test.address, values: test.values}}
+			ins := &mockInstruction{name: test.resolved.Instruction.Name, address: test.address, argument: test.resolved}
+
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.NoError(t, err)
+			assert.Len(t, assigner.relocations, len(test.want))
+			for index, relocation := range assigner.relocations {
+				assert.Equal(t, test.want[index], relocation.encoding)
+				assert.Equal(t, test.wantSymbols[index], ast.SymbolName(relocation.argument.(ast.Node)))
+			}
+		})
+	}
+}
+
+func TestGenerateInstructionOpcode_RejectsSymbolicPCRelativeOverflow(t *testing.T) {
+	tests := []struct {
+		name     string
+		resolved parser.ResolvedInstruction
+	}{
+		{
+			name: "word displacement",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
+				SrcEA: parser.PCDisplacement(ast.NewLabel("target")), DstEA: parser.AddressRegister(0),
+			},
+		},
+		{
+			name: "byte indexed displacement",
+			resolved: parser.ResolvedInstruction{
+				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
+				SrcEA: parser.PCIndexed(0, false, cpu68000.SizeWord, ast.NewLabel("target")),
+				DstEA: parser.AddressRegister(0),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assigner := &mockAssigner{values: map[string]uint64{"target": 0x10000}}
+			ins := &mockInstruction{name: cpu68000.LEAName, argument: test.resolved}
+
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.ErrorContains(t, err, "PC-relative displacement")
+		})
+	}
+}
+
+type recordedRelocation struct {
+	argument any
+	encoding arch.RelocationEncoding
+}
+
+type relocationAssigner struct {
+	mockAssigner
+
+	relocations []recordedRelocation
+}
+
+func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any, encoding arch.RelocationEncoding) {
+	ass.relocations = append(ass.relocations, recordedRelocation{argument: argument, encoding: encoding})
 }
