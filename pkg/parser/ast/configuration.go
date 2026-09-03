@@ -46,10 +46,15 @@ func NewConfiguration(item ConfigurationItem) Configuration {
 
 // Copy returns a copy of the configuration node.
 func (c Configuration) Copy() Node {
+	var expressionCopy *expression.Expression
+	if c.Expression != nil {
+		expressionCopy = c.Expression.Copy()
+	}
+
 	return Configuration{
 		node:       c.node.copyNode(),
 		Item:       c.Item,
 		Value:      c.Value,
-		Expression: c.Expression.Copy(),
+		Expression: expressionCopy,
 	}
 }

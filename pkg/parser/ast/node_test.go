@@ -398,6 +398,18 @@ func TestOffsetCounter_Copy(t *testing.T) {
 	assert.Equal(t, uint64(42), copyOC.Number)
 }
 
+func TestConfiguration_CopyWithoutExpression(t *testing.T) {
+	// A numeric configuration has no expression, so its copy must keep a nil expression.
+	original := NewConfiguration(ConfigMapper)
+	original.Value = 4
+
+	copied, ok := original.Copy().(Configuration)
+	assert.True(t, ok)
+	assert.Equal(t, ConfigMapper, copied.Item)
+	assert.Equal(t, uint64(4), copied.Value)
+	assert.Nil(t, copied.Expression)
+}
+
 func TestAST_EdgeCases(t *testing.T) {
 	t.Run("empty string values", func(t *testing.T) {
 		label := NewLabel("")

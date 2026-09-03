@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/retroenv/retroasm/pkg/assembler"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
@@ -48,6 +50,21 @@ var (
 		{fill: false, width: 4}: ".dcd",
 		{fill: true, width: 3}:  ".dsl",
 		{fill: true, width: 4}:  ".dsd",
+	}
+	configurationDirectiveNames = map[ast.ConfigurationItem]string{
+		ast.ConfigMapper:      ".inesmap",
+		ast.ConfigSubMapper:   ".inessubmap",
+		ast.ConfigPrg:         ".inesprg",
+		ast.ConfigChr:         ".ineschr",
+		ast.ConfigBattery:     ".inesbat",
+		ast.ConfigMirror:      ".inesmir",
+		ast.ConfigNes2ChrRAM:  ".nes2chrram",
+		ast.ConfigNes2PrgRAM:  ".nes2prgram",
+		ast.ConfigNes2Sub:     ".nes2sub",
+		ast.ConfigNes2TV:      ".nes2tv",
+		ast.ConfigNes2VS:      ".nes2vs",
+		ast.ConfigNes2BRam:    ".nes2bram",
+		ast.ConfigNes2ChrBRam: ".nes2chrbram",
 	}
 )
 
@@ -375,7 +392,70 @@ func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {
 		}
 		return "; " + comment.Message, nil
 	}
-	return "", fmt.Errorf("%w: %T", ErrFormattingUnsupported, node)
+	return c.formatLayoutNode(node)
+}
+
+func (c *Codec[T]) formatLayoutNode(node ast.Node) (string, error) {
+	switch typed := node.(type) {
+	case ast.Alias:
+		return formatAlias(typed)
+	case ast.Base:
+		return formatBase(typed)
+	case ast.Bank:
+		return formatBank(typed)
+	case ast.Segment:
+		return formatSegment(typed)
+	case ast.OffsetCounter:
+		return ".rsset " + strconv.FormatUint(typed.Number, 10), nil
+	case ast.Variable:
+		return formatVariable(typed)
+	case ast.Configuration:
+		return c.formatConfiguration(typed)
+	default:
+		return c.formatStructuralNode(node)
+	}
+}
+
+func (c *Codec[T]) formatConfiguration(configuration ast.Configuration) (string, error) {
+	if configuration.Item == ast.ConfigFillValue {
+		if configuration.Value != 0 {
+			return "", fmt.Errorf("%w: fill configuration has numeric value %d", ErrFormattingUnsupported, configuration.Value)
+		}
+		value, err := ast.FormatExpression(configuration.Expression)
+		if err != nil {
+			return "", fmt.Errorf("%w: formatting fill configuration: %w", ErrFormattingUnsupported, err)
+		}
+		return ".fillvalue " + value, nil
+	}
+	if configuration.Expression != nil {
+		return "", fmt.Errorf("%w: numeric configuration has an expression", ErrFormattingUnsupported)
+	}
+
+	directive, ok := configurationDirectiveNames[configuration.Item]
+	if !ok {
+		return "", fmt.Errorf("%w: configuration item %d", ErrFormattingUnsupported, configuration.Item)
+	}
+	if isAsm6Configuration(configuration.Item) &&
+		c.configuration.CompatibilityMode != config.CompatAsm6 {
+
+		return "", fmt.Errorf(
+			"%w: configuration item %d in %s mode",
+			ErrFormattingUnsupported,
+			configuration.Item,
+			c.configuration.CompatibilityMode,
+		)
+	}
+
+	value, ok := configurationSourceValue(configuration.Item, configuration.Value)
+	if !ok {
+		return "", fmt.Errorf(
+			"%w: configuration item %d value %d",
+			ErrFormattingUnsupported,
+			configuration.Item,
+			configuration.Value,
+		)
+	}
+	return directive + " " + strconv.FormatUint(value, 10), nil
 }
 
 func (c *Codec[T]) formatData(data ast.Data) (string, error) {
@@ -457,6 +537,119 @@ func (c *Codec[T]) addressDirective(data ast.Data) (string, error) {
 		data.Width,
 		c.configuration.CompatibilityMode,
 	)
+}
+
+func formatAlias(alias ast.Alias) (string, error) {
+	if !validIdentifier(alias.Name) {
+		return "", fmt.Errorf("%w: alias name %q", ErrFormattingUnsupported, alias.Name)
+	}
+
+	value, err := ast.FormatExpression(alias.Expression)
+	if err != nil {
+		return "", fmt.Errorf("%w: formatting alias expression: %w", ErrFormattingUnsupported, err)
+	}
+
+	switch {
+	case alias.SymbolReusable && alias.Expression.IsEvaluatedOnce():
+		return alias.Name + " = " + value, nil
+	case !alias.SymbolReusable && !alias.Expression.IsEvaluatedOnce():
+		return alias.Name + " EQU " + value, nil
+	default:
+		return "", fmt.Errorf("%w: alias evaluation and reuse policy differ", ErrFormattingUnsupported)
+	}
+}
+
+func formatBase(base ast.Base) (string, error) {
+	value, err := ast.FormatExpression(base.Address)
+	if err != nil {
+		return "", fmt.Errorf("%w: formatting base expression: %w", ErrFormattingUnsupported, err)
+	}
+	return ".org " + value, nil
+}
+
+func formatBank(bank ast.Bank) (string, error) {
+	if bank.Number < 0 {
+		return "", fmt.Errorf("%w: negative bank %d", ErrFormattingUnsupported, bank.Number)
+	}
+	return ".bank " + strconv.Itoa(bank.Number), nil
+}
+
+func formatSegment(segment ast.Segment) (string, error) {
+	if validIdentifier(segment.Name) || validQuotedValue(segment.Name) {
+		return ".segment " + segment.Name, nil
+	}
+	return "", fmt.Errorf("%w: segment name %q", ErrFormattingUnsupported, segment.Name)
+}
+
+func formatVariable(variable ast.Variable) (string, error) {
+	if variable.Size < 0 {
+		return "", fmt.Errorf("%w: negative variable size %d", ErrFormattingUnsupported, variable.Size)
+	}
+
+	size := strconv.Itoa(variable.Size)
+	switch {
+	case variable.UseOffsetCounter && validIdentifier(variable.Name):
+		return variable.Name + " .rs " + size, nil
+	case !variable.UseOffsetCounter && variable.Name == "":
+		return ".res " + size, nil
+	default:
+		return "", fmt.Errorf("%w: variable name and offset-counter policy differ", ErrFormattingUnsupported)
+	}
+}
+
+func configurationSourceValue(item ast.ConfigurationItem, value uint64) (uint64, bool) {
+	switch item {
+	case ast.ConfigPrg:
+		return compressedConfigurationValue(value, 16384)
+	case ast.ConfigChr:
+		return compressedConfigurationValue(value, 8192)
+	default:
+		return value, true
+	}
+}
+
+func compressedConfigurationValue(value, unit uint64) (uint64, bool) {
+	// The parser expands small PRG and CHR counts into byte sizes.
+	if value%unit == 0 {
+		units := value / unit
+		if units < 0xeff {
+			return units, true
+		}
+	}
+	if value >= 0xeff {
+		return value, true
+	}
+	return 0, false
+}
+
+func isAsm6Configuration(item ast.ConfigurationItem) bool {
+	return item >= ast.ConfigNes2ChrRAM && item <= ast.ConfigNes2ChrBRam
+}
+
+func validIdentifier(value string) bool {
+	for index, character := range value {
+		if index == 0 && !unicode.IsLetter(character) && character != '_' && character != '@' {
+			return false
+		}
+		if index > 0 &&
+			!unicode.IsLetter(character) &&
+			!unicode.IsDigit(character) &&
+			character != '$' &&
+			character != '_' &&
+			character != '-' {
+
+			return false
+		}
+	}
+	return value != ""
+}
+
+func validQuotedValue(value string) bool {
+	if len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
+		return false
+	}
+	_, err := strconv.Unquote(value)
+	return err == nil
 }
 
 func streamEntryError(action string, index int, position ast.SourcePosition, err error) error {
