@@ -8,6 +8,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	sm83parser "github.com/retroenv/retroasm/pkg/arch/sm83/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpusm83 "github.com/retroenv/retrogolib/arch/cpu/sm83"
 )
 
@@ -61,16 +62,16 @@ func buildOpcodeBytes(
 		return opcodes, nil
 
 	case cpusm83.ImmediateAddressing:
-		return appendImmediateOperand(assigner, resolved, opcodeInfo, opcodes)
+		return appendImmediateOperand(assigner, ins, resolved, opcodeInfo, opcodes)
 
 	case cpusm83.ExtendedAddressing:
-		return appendExtendedOperand(assigner, resolved, opcodes)
+		return appendExtendedOperand(assigner, ins, resolved, opcodes)
 
 	case cpusm83.RelativeAddressing:
 		return appendRelativeOperand(assigner, ins, resolved, opcodeInfo, opcodes)
 
 	case cpusm83.RegisterIndirectAddressing:
-		return appendOptionalByteOperand(assigner, resolved, opcodeInfo, opcodes)
+		return appendOptionalByteOperand(assigner, ins, resolved, opcodeInfo, opcodes)
 
 	default:
 		return nil, fmt.Errorf("%w: %d", errUnsupportedAddressing, addressing)
@@ -79,6 +80,7 @@ func buildOpcodeBytes(
 
 func appendImmediateOperand(
 	assigner arch.AddressAssigner,
+	ins arch.Instruction,
 	resolved sm83parser.ResolvedInstruction,
 	opcodeInfo cpusm83.OpcodeInfo,
 	opcodes []byte,
@@ -97,7 +99,10 @@ func appendImmediateOperand(
 		if value > math.MaxUint8 {
 			return nil, fmt.Errorf("immediate value %d exceeds byte", value)
 		}
-		return append(opcodes, byte(value)), nil
+		byteOffset := uint64(len(opcodes))
+		opcodes = append(opcodes, byte(value))
+		recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+		return opcodes, nil
 
 	case 2:
 		value, err := resolvedOperandValue(assigner, resolved)
@@ -107,14 +112,23 @@ func appendImmediateOperand(
 		if value > math.MaxUint16 {
 			return nil, fmt.Errorf("immediate value %d exceeds word", value)
 		}
-		return binary.LittleEndian.AppendUint16(opcodes, uint16(value)), nil
+		byteOffset := uint64(len(opcodes))
+		opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
+		recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+		return opcodes, nil
 
 	default:
 		return nil, fmt.Errorf("%w: immediate operand byte width %d", errUnsupportedAddressing, remaining)
 	}
 }
 
-func appendExtendedOperand(assigner arch.AddressAssigner, resolved sm83parser.ResolvedInstruction, opcodes []byte) ([]byte, error) {
+func appendExtendedOperand(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved sm83parser.ResolvedInstruction,
+	opcodes []byte,
+) ([]byte, error) {
+
 	value, err := resolvedOperandValue(assigner, resolved)
 	if err != nil {
 		return nil, err
@@ -122,7 +136,10 @@ func appendExtendedOperand(assigner arch.AddressAssigner, resolved sm83parser.Re
 	if value > math.MaxUint16 {
 		return nil, fmt.Errorf("extended address %d exceeds word", value)
 	}
-	return binary.LittleEndian.AppendUint16(opcodes, uint16(value)), nil
+	byteOffset := uint64(len(opcodes))
+	opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
+	recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+	return opcodes, nil
 }
 
 func appendRelativeOperand(
@@ -143,11 +160,15 @@ func appendRelativeOperand(
 	if err != nil {
 		return nil, fmt.Errorf("resolving relative offset: %w", err)
 	}
-	return append(opcodes, offset), nil
+	byteOffset := uint64(len(opcodes))
+	opcodes = append(opcodes, offset)
+	recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.RelativeRelocation, ast.WidthByte)
+	return opcodes, nil
 }
 
 func appendOptionalByteOperand(
 	assigner arch.AddressAssigner,
+	ins arch.Instruction,
 	resolved sm83parser.ResolvedInstruction,
 	opcodeInfo cpusm83.OpcodeInfo,
 	opcodes []byte,
@@ -168,7 +189,31 @@ func appendOptionalByteOperand(
 	if value > math.MaxUint8 {
 		return nil, fmt.Errorf("operand value %d exceeds byte", value)
 	}
-	return append(opcodes, byte(value)), nil
+	byteOffset := uint64(len(opcodes))
+	opcodes = append(opcodes, byte(value))
+	recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+	return opcodes, nil
+}
+
+func recordSM83Relocation(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved sm83parser.ResolvedInstruction,
+	byteOffset uint64,
+	kind ast.RelocationKind,
+	width ast.DataWidth,
+) {
+
+	if len(resolved.OperandValues) == 0 {
+		return
+	}
+	arch.RecordInstructionRelocation(assigner, ins, resolved.OperandValues[0], arch.RelocationEncoding{
+		ByteOffset:    byteOffset,
+		Kind:          kind,
+		Width:         width,
+		ByteOrder:     ast.ByteOrderLittle,
+		ReferenceType: ast.FullAddress,
+	})
 }
 
 func baseOpcodeBytes(opcodeInfo cpusm83.OpcodeInfo) []byte {

@@ -219,6 +219,74 @@ func TestGenerateInstructionOpcode_Errors(t *testing.T) {
 	}
 }
 
+//nolint:funlen // The table keeps all encoded field layouts in one audit point.
+func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
+	tests := []struct {
+		name       string
+		resolved   sm83parser.ResolvedInstruction
+		value      uint64
+		wantOffset uint64
+		wantKind   ast.RelocationKind
+		wantWidth  ast.DataWidth
+	}{
+		{
+			name: "immediate byte",
+			resolved: sm83parser.ResolvedInstruction{
+				Addressing: cpusm83.ImmediateAddressing, Instruction: cpusm83.LdImm8,
+				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegA}, OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			value: 0x12, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthByte,
+		},
+		{
+			name: "immediate word",
+			resolved: sm83parser.ResolvedInstruction{
+				Addressing: cpusm83.ImmediateAddressing, Instruction: cpusm83.LdReg16,
+				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegBC}, OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			value: 0x1234, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthWord,
+		},
+		{
+			name: "extended word",
+			resolved: sm83parser.ResolvedInstruction{
+				Addressing: cpusm83.ExtendedAddressing, Instruction: cpusm83.JpAbs,
+				OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			value: 0x1234, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthWord,
+		},
+		{
+			name: "relative byte",
+			resolved: sm83parser.ResolvedInstruction{
+				Addressing: cpusm83.RelativeAddressing, Instruction: cpusm83.JrRel,
+				OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			value: 2, wantOffset: 1, wantKind: ast.RelativeRelocation, wantWidth: ast.WidthByte,
+		},
+		{
+			name: "indirect immediate byte",
+			resolved: sm83parser.ResolvedInstruction{
+				Addressing: cpusm83.RegisterIndirectAddressing, Instruction: cpusm83.LdIndirectImm,
+				OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			value: 0x12, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthByte,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assigner := &mockAssigner{values: map[string]uint64{"value": test.value}}
+			ins := &mockInstruction{name: test.resolved.Instruction.Name, argument: test.resolved}
+
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.NoError(t, err)
+			assert.Len(t, assigner.relocations, 1)
+			assert.Equal(t, arch.RelocationEncoding{
+				ByteOffset: test.wantOffset, Kind: test.wantKind, Width: test.wantWidth,
+				ByteOrder: ast.ByteOrderLittle, ReferenceType: ast.FullAddress,
+			}, assigner.relocations[0])
+		})
+	}
+}
+
 var boundaryTests = []struct {
 	name     string
 	address  uint64
@@ -406,8 +474,9 @@ func TestAssignInstructionAddress_Errors(t *testing.T) {
 }
 
 type mockAssigner struct {
-	pc     uint64
-	values map[string]uint64
+	pc          uint64
+	values      map[string]uint64
+	relocations []arch.RelocationEncoding
 }
 
 type mockInstruction struct {
@@ -454,6 +523,10 @@ func (m *mockAssigner) RelativeOffset(destination, addressAfterInstruction uint6
 }
 
 func (m *mockAssigner) ProgramCounter() uint64 { return m.pc }
+
+func (m *mockAssigner) RecordInstructionRelocation(_ arch.Instruction, _ any, encoding arch.RelocationEncoding) {
+	m.relocations = append(m.relocations, encoding)
+}
 
 func (m *mockInstruction) Address() uint64        { return m.address }
 func (m *mockInstruction) Addressing() int        { return m.addressing }

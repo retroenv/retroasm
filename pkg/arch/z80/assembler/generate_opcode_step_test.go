@@ -3,6 +3,7 @@ package assembler
 import (
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/arch"
 	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
@@ -198,6 +199,104 @@ func TestGenerateInstructionOpcode_Errors(t *testing.T) {
 	}
 }
 
+//nolint:funlen // The table keeps all encoded field layouts in one audit point.
+func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
+	tests := []struct {
+		name        string
+		resolved    z80parser.ResolvedInstruction
+		values      map[string]uint64
+		wantOffsets []uint64
+		wantKinds   []ast.RelocationKind
+		wantWidths  []ast.DataWidth
+	}{
+		{
+			name: "immediate byte",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.ImmediateAddressing, Instruction: cpuz80.LdImm8,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA}, OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"value": 0x12}, wantOffsets: []uint64{1},
+			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthByte},
+		},
+		{
+			name: "prefixed immediate word",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.ImmediateAddressing, Instruction: cpuz80.DdLdIXnn,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegIX}, OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"value": 0x1234}, wantOffsets: []uint64{2},
+			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthWord},
+		},
+		{
+			name: "extended word",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.ExtendedAddressing, Instruction: cpuz80.JpAbs,
+				OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"value": 0x1234}, wantOffsets: []uint64{1},
+			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthWord},
+		},
+		{
+			name: "relative byte",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.RelativeAddressing, Instruction: cpuz80.JrRel,
+				OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"value": 2}, wantOffsets: []uint64{1},
+			wantKinds: []ast.RelocationKind{ast.RelativeRelocation}, wantWidths: []ast.DataWidth{ast.WidthByte},
+		},
+		{
+			name: "prefixed displacement",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.RegisterIndirectAddressing, Instruction: cpuz80.DdLdAIXd,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA}, OperandValues: []ast.Node{ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"value": 5}, wantOffsets: []uint64{2},
+			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthByte},
+		},
+		{
+			name: "indexed bit displacement",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.BitAddressing, Instruction: cpuz80.FdcbBit,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegHLIndirect},
+				OperandValues:  []ast.Node{ast.NewNumber(3), ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"value": 5}, wantOffsets: []uint64{2},
+			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthByte},
+		},
+		{
+			name: "displacement and immediate bytes",
+			resolved: z80parser.ResolvedInstruction{
+				Addressing: cpuz80.ImmediateAddressing, Instruction: cpuz80.DdLdIXdN,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegImm8},
+				OperandValues:  []ast.Node{ast.NewLabel("displacement"), ast.NewLabel("value")},
+			},
+			values: map[string]uint64{"displacement": 5, "value": 7}, wantOffsets: []uint64{2, 3},
+			wantKinds:  []ast.RelocationKind{ast.AbsoluteRelocation, ast.AbsoluteRelocation},
+			wantWidths: []ast.DataWidth{ast.WidthByte, ast.WidthByte},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assigner := &relocationAssigner{mockAssigner: mockAssigner{values: test.values}}
+			ins := &mockInstruction{name: test.resolved.Instruction.Name, argument: test.resolved}
+
+			err := GenerateInstructionOpcode(assigner, ins)
+			assert.NoError(t, err)
+			assert.Len(t, assigner.relocations, len(test.wantOffsets))
+
+			for index, relocation := range assigner.relocations {
+				assert.Equal(t, test.wantOffsets[index], relocation.ByteOffset)
+				assert.Equal(t, test.wantKinds[index], relocation.Kind)
+				assert.Equal(t, test.wantWidths[index], relocation.Width)
+				assert.Equal(t, ast.ByteOrderLittle, relocation.ByteOrder)
+				assert.Equal(t, ast.FullAddress, relocation.ReferenceType)
+			}
+		})
+	}
+}
+
 var boundaryMatrixTests = []struct {
 	name     string
 	address  uint64
@@ -326,4 +425,14 @@ func TestGenerateInstructionOpcode_BoundaryMatrix(t *testing.T) {
 			assert.Len(t, tt.want, ins.Size())
 		})
 	}
+}
+
+type relocationAssigner struct {
+	mockAssigner
+
+	relocations []arch.RelocationEncoding
+}
+
+func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, _ any, encoding arch.RelocationEncoding) {
+	ass.relocations = append(ass.relocations, encoding)
 }

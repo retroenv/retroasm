@@ -40,6 +40,22 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	return resolved
 }
 
+// InstructionReferences returns copied symbol-bearing values for stream validation.
+func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionReference {
+	references := make([]ast.InstructionReference, 0, len(resolved.OperandValues))
+
+	for _, value := range resolved.OperandValues {
+		if !operandReferencesSymbol(value) {
+			continue
+		}
+		references = append(references, ast.InstructionReference{
+			Value:         value.Copy(),
+			ReferenceType: ast.FullAddress,
+		})
+	}
+	return references
+}
+
 // OpcodeInfo returns the selected encoded form and effective addressing mode.
 func (resolved ResolvedInstruction) OpcodeInfo() (cpusm83.OpcodeInfo, cpusm83.AddressingMode, error) {
 	if resolved.Instruction == nil {
@@ -88,6 +104,21 @@ func (resolved ResolvedInstruction) effectiveAddressing() cpusm83.AddressingMode
 		}
 	}
 	return cpusm83.NoAddressing
+}
+
+func operandReferencesSymbol(value ast.Node) bool {
+	if value == nil {
+		return false
+	}
+	if ast.SymbolName(value) != "" {
+		return true
+	}
+	expression, ok := value.(ast.Expression)
+	if !ok {
+		return false
+	}
+	_, _, ok = ast.ParseSymbolReference(expression.Value)
+	return ok
 }
 
 // ParseIdentifier parses an SM83 instruction and resolves the matching instruction variant.

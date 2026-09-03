@@ -45,6 +45,48 @@ func TestSM83Codec_BuildValidateFormatAndAssemble(t *testing.T) {
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
 }
 
+func TestSM83Codec_RecordsInstructionRelocations(t *testing.T) {
+	t.Parallel()
+
+	c := newSM83Codec(t)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader(strings.Join([]string{
+		"target:",
+		"ld a,target",
+		"ld bc,target+1",
+		"jp target+2",
+		"jr target",
+		"ld (hl),target+3",
+		"ldh (target),a",
+	}, "\n")))
+	assert.NoError(t, err)
+	assert.Empty(t, stream.Relocations())
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{
+		0x3e, 0x00,
+		0x01, 0x01, 0x00,
+		0xc3, 0x02, 0x00,
+		0x18, 0xf6,
+		0x36, 0x03,
+		0xe0, 0x00,
+	}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 1, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 2, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 1, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 3, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 4, ByteOffset: 1, Kind: ast.RelativeRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 5, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 3, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 6, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+
+	reassembled, err := c.AssembleStream(t.Context(), assembly.Stream)
+	assert.NoError(t, err)
+	assert.Equal(t, assembly.Binary, reassembled.Binary)
+	assert.Equal(t, assembly.Stream.Relocations(), reassembled.Stream.Relocations())
+}
+
 //nolint:funlen // Emitted-form coverage is intentionally kept in one auditable table.
 func TestSM83Codec_CurrentEmittedFormsRoundTrip(t *testing.T) {
 	t.Parallel()

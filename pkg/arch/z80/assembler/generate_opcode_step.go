@@ -8,6 +8,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
@@ -51,7 +52,7 @@ func buildOpcodeBytes(
 ) ([]byte, error) {
 
 	if isIndexedBitInstruction(resolved.Instruction) {
-		return buildIndexedBitOpcode(assigner, resolved, opcodeInfo)
+		return buildIndexedBitOpcode(assigner, ins, resolved, opcodeInfo)
 	}
 
 	if isCBBitInstruction(resolved.Instruction) {
@@ -65,16 +66,16 @@ func buildOpcodeBytes(
 		return opcodes, nil
 
 	case cpuz80.ImmediateAddressing:
-		return appendImmediateOperand(assigner, resolved, opcodeInfo, opcodes)
+		return appendImmediateOperand(assigner, ins, resolved, opcodeInfo, opcodes)
 
 	case cpuz80.ExtendedAddressing:
-		return appendExtendedOperand(assigner, resolved, opcodes)
+		return appendExtendedOperand(assigner, ins, resolved, opcodes)
 
 	case cpuz80.RelativeAddressing:
 		return appendRelativeOperand(assigner, ins, resolved, opcodeInfo, opcodes)
 
 	case cpuz80.RegisterIndirectAddressing, cpuz80.PortAddressing:
-		return appendOptionalByteOperand(assigner, resolved, opcodeInfo, opcodes)
+		return appendOptionalByteOperand(assigner, ins, resolved, opcodeInfo, opcodes)
 
 	default:
 		return nil, fmt.Errorf("%w: %d", errUnsupportedAddressing, addressing)
@@ -83,6 +84,7 @@ func buildOpcodeBytes(
 
 func appendImmediateOperand(
 	assigner arch.AddressAssigner,
+	ins arch.Instruction,
 	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 	opcodes []byte,
@@ -101,7 +103,10 @@ func appendImmediateOperand(
 		if value > math.MaxUint8 {
 			return nil, fmt.Errorf("immediate value %d exceeds byte", value)
 		}
-		return append(opcodes, byte(value)), nil
+		byteOffset := uint64(len(opcodes))
+		opcodes = append(opcodes, byte(value))
+		recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+		return opcodes, nil
 
 	case 2:
 		// Two separate byte operands (e.g., LD (IX+d),n: displacement + immediate).
@@ -115,6 +120,9 @@ func appendImmediateOperand(
 					return nil, fmt.Errorf("immediate byte %d value %d exceeds byte", i, v)
 				}
 				opcodes = append(opcodes, byte(v))
+				recordZ80Relocation(
+					assigner, ins, resolved, i, uint64(len(opcodes)-1), ast.AbsoluteRelocation, ast.WidthByte,
+				)
 			}
 			return opcodes, nil
 		}
@@ -126,14 +134,23 @@ func appendImmediateOperand(
 		if value > math.MaxUint16 {
 			return nil, fmt.Errorf("immediate value %d exceeds word", value)
 		}
-		return binary.LittleEndian.AppendUint16(opcodes, uint16(value)), nil
+		byteOffset := uint64(len(opcodes))
+		opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
+		recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+		return opcodes, nil
 
 	default:
 		return nil, fmt.Errorf("%w: immediate operand byte width %d", errUnsupportedAddressing, remaining)
 	}
 }
 
-func appendExtendedOperand(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, opcodes []byte) ([]byte, error) {
+func appendExtendedOperand(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved z80parser.ResolvedInstruction,
+	opcodes []byte,
+) ([]byte, error) {
+
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
 		return nil, err
@@ -141,11 +158,15 @@ func appendExtendedOperand(assigner arch.AddressAssigner, resolved z80parser.Res
 	if value > math.MaxUint16 {
 		return nil, fmt.Errorf("extended address %d exceeds word", value)
 	}
-	return binary.LittleEndian.AppendUint16(opcodes, uint16(value)), nil
+	byteOffset := uint64(len(opcodes))
+	opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
+	recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+	return opcodes, nil
 }
 
 func appendOptionalByteOperand(
 	assigner arch.AddressAssigner,
+	ins arch.Instruction,
 	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 	opcodes []byte,
@@ -166,7 +187,10 @@ func appendOptionalByteOperand(
 	if value > math.MaxUint8 {
 		return nil, fmt.Errorf("operand value %d exceeds byte", value)
 	}
-	return append(opcodes, byte(value)), nil
+	byteOffset := uint64(len(opcodes))
+	opcodes = append(opcodes, byte(value))
+	recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+	return opcodes, nil
 }
 
 func appendRelativeOperand(
@@ -187,7 +211,10 @@ func appendRelativeOperand(
 	if err != nil {
 		return nil, fmt.Errorf("resolving relative offset: %w", err)
 	}
-	return append(opcodes, offset), nil
+	byteOffset := uint64(len(opcodes))
+	opcodes = append(opcodes, offset)
+	recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.RelativeRelocation, ast.WidthByte)
+	return opcodes, nil
 }
 
 func baseOpcodeBytes(opcodeInfo cpuz80.OpcodeInfo) []byte {
@@ -222,6 +249,7 @@ func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedIn
 
 func buildIndexedBitOpcode(
 	assigner arch.AddressAssigner,
+	ins arch.Instruction,
 	resolved z80parser.ResolvedInstruction,
 	opcodeInfo cpuz80.OpcodeInfo,
 ) ([]byte, error) {
@@ -256,7 +284,31 @@ func buildIndexedBitOpcode(
 	}
 
 	opcode := opcodeInfo.Opcode + byte(bitNumber<<bitNumberShift) + registerCode
-	return []byte{opcodeInfo.Prefix, cpuz80.PrefixCB, byte(displacement), opcode}, nil
+	opcodes := []byte{opcodeInfo.Prefix, cpuz80.PrefixCB, byte(displacement), opcode}
+	recordZ80Relocation(assigner, ins, resolved, displacementIndex, 2, ast.AbsoluteRelocation, ast.WidthByte)
+	return opcodes, nil
+}
+
+func recordZ80Relocation(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	resolved z80parser.ResolvedInstruction,
+	operandIndex int,
+	byteOffset uint64,
+	kind ast.RelocationKind,
+	width ast.DataWidth,
+) {
+
+	if operandIndex < 0 || operandIndex >= len(resolved.OperandValues) {
+		return
+	}
+	arch.RecordInstructionRelocation(assigner, ins, resolved.OperandValues[operandIndex], arch.RelocationEncoding{
+		ByteOffset:    byteOffset,
+		Kind:          kind,
+		Width:         width,
+		ByteOrder:     ast.ByteOrderLittle,
+		ReferenceType: ast.FullAddress,
+	})
 }
 
 func resolvedOperandValue(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, index int) (uint64, error) {
