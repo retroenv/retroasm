@@ -104,11 +104,11 @@ func TestParserCa65Asciiz(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, ast.DataType, data.Type)
 	assert.Equal(t, 1, data.Width)
-	// Values should include the string tokens plus a trailing 0
-	tokens := data.Values.Tokens()
-	assert.True(t, len(tokens) > 0)
-	// Last token should be the null terminator
-	lastToken := tokens[len(tokens)-1]
+	assert.Len(t, data.Values, 2)
+	assert.Equal(t, "\"hello\"", data.Values[0].Tokens()[0].Value)
+	lastTokens := data.Values[len(data.Values)-1].Tokens()
+	assert.Len(t, lastTokens, 1)
+	lastToken := lastTokens[0]
 	assert.Equal(t, "0", lastToken.Value)
 }
 

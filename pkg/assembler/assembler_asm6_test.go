@@ -129,6 +129,17 @@ func TestAssemblerAsm6DataModifier(t *testing.T) {
 	assert.Equal(t, []byte{'B', 'C', 'D', 32, 33, 34}, b)
 }
 
+var asm6DataItemExpressionsTestCode = `
+.segment "HEADER"
+DB 1+2, 3*4, (5+1)
+`
+
+func TestAssemblerAsm6DataItemExpressions(t *testing.T) {
+	b, err := runAsm6Test(t, unitTestConfig, asm6DataItemExpressionsTestCode)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{3, 12, 6}, b)
+}
+
 var asm6AddressTestCode = `
 .segment "HEADER"
 DB 2

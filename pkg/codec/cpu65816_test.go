@@ -43,6 +43,38 @@ func TestCPU65816Codec_BuildValidateFormatAndAssemble(t *testing.T) {
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
 }
 
+func TestCPU65816Codec_FormatStreamRoundTripsX816DataWidths(t *testing.T) {
+	t.Parallel()
+
+	configuration := asmcpu65816.New()
+	configuration.CompatibilityMode = config.CompatX816
+	c := newCPU65816CodecWithConfig(t, configuration)
+	stream, err := c.ParseStream(
+		t.Context(),
+		"input.asm",
+		strings.NewReader(".dcl $123456,1+2\n.dcd $12345678\n.dsl 2,$abcdef\n.dsd 2,$12345678"),
+	)
+	assert.NoError(t, err)
+
+	formatted, err := c.FormatStream(stream)
+	assert.NoError(t, err)
+	assert.Equal(t, ".dcl 0x123456, 0x1+0x2\n.dcd 0x12345678\n.dsl 0x2, 0xABCDEF\n.dsd 0x2, 0x12345678", formatted)
+
+	roundTripped, err := c.ParseStream(t.Context(), "formatted.asm", strings.NewReader(formatted))
+	assert.NoError(t, err)
+	originalAssembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	roundTripAssembly, err := c.AssembleStream(t.Context(), roundTripped)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{
+		0x56, 0x34, 0x12, 0x03, 0x00, 0x00,
+		0x78, 0x56, 0x34, 0x12,
+		0xef, 0xcd, 0xab, 0xef, 0xcd, 0xab,
+		0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12,
+	}, originalAssembly.Binary)
+	assert.Equal(t, originalAssembly.Binary, roundTripAssembly.Binary)
+}
+
 //nolint:funlen // Addressing-family coverage is intentionally one auditable table.
 func TestCPU65816Codec_AddressingFamiliesRoundTrip(t *testing.T) {
 	t.Parallel()
@@ -466,7 +498,15 @@ func TestCPU65816TypedInstructionFormattingOptions(t *testing.T) {
 
 func newCPU65816Codec(t *testing.T) *codec.Codec[*cpu65816.Instruction] {
 	t.Helper()
-	configuration := asmcpu65816.New()
+	return newCPU65816CodecWithConfig(t, asmcpu65816.New())
+}
+
+func newCPU65816CodecWithConfig(
+	t *testing.T,
+	configuration *config.Config[*cpu65816.Instruction],
+) *codec.Codec[*cpu65816.Instruction] {
+
+	t.Helper()
 	segment := &config.Segment{
 		Memory: config.Memory{
 			Name:  "code",

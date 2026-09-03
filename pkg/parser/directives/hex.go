@@ -20,7 +20,7 @@ func Hex(p arch.Parser) (ast.Node, error) {
 	data := ast.NewData(ast.DataType, 1)
 	p.AdvanceReadPosition(2)
 
-	var tokens []token.Token
+	var values []*expression.Expression
 
 	for {
 		tok := p.NextToken(0)
@@ -40,11 +40,11 @@ func Hex(p arch.Parser) (ast.Node, error) {
 				}
 				tok.Type = token.Number
 				tok.Value = strconv.FormatUint(i, 10)
-				tokens = append(tokens, tok)
+				values = append(values, expression.New(tok))
 			}
 
 		default:
-			data.Values = expression.New(tokens...)
+			data.Values = values
 			return data, nil
 		}
 

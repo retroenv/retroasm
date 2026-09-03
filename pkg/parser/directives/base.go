@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
@@ -21,15 +20,14 @@ func Base(p arch.Parser) (ast.Node, error) {
 		return ast.NewBase(addressTokens), nil
 	}
 
-	p.AdvanceReadPosition(-1)
-	tokens, err := readDataTokens(p, false)
+	values, err := readDataValueExpressions(p)
 	if err != nil {
-		return nil, fmt.Errorf("reading base data tokens: %w", err)
+		return nil, fmt.Errorf("reading base fill values: %w", err)
 	}
 
 	data := ast.NewData(ast.DataType, 1)
 	data.Fill = true
 	data.Size.AddTokens(addressTokens...)
-	data.Values = expression.New(tokens...)
+	data.Values = values
 	return addSizeProgramCounterReference(data)
 }

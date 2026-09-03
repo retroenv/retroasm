@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
@@ -32,11 +31,11 @@ func createAddressData(p arch.Parser, refType ast.ReferenceType) (ast.Data, erro
 	data.ReferenceType = refType
 
 	p.AdvanceReadPosition(1)
-	tokens, err := readDataTokens(p, false)
+	values, err := readDataValueExpressions(p)
 	if err != nil {
-		return ast.Data{}, fmt.Errorf("reading data tokens: %w", err)
+		return ast.Data{}, fmt.Errorf("reading address values: %w", err)
 	}
-	data.Values = expression.New(tokens...)
+	data.Values = values
 
 	return data, nil
 }

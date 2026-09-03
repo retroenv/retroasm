@@ -15,12 +15,14 @@ func TestNumberParseToBytes(t *testing.T) {
 	}{
 		{input: "0x12", dataByteWidth: 1, expected: []byte{0x12}},
 		{input: "0x1234", dataByteWidth: 2, expected: []byte{0x34, 0x12}},
+		{input: "0x123456", dataByteWidth: 3, expected: []byte{0x56, 0x34, 0x12}},
 		{input: "0x12345678", dataByteWidth: 4, expected: []byte{0x78, 0x56, 0x34, 0x12}},
 		{input: "0x123456789abcdef0", dataByteWidth: 8, expected: []byte{0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12}},
 		{input: "0xx12", dataByteWidth: 1, expectedErr: ErrInvalidNumberChar},
 		{input: "0x12", dataByteWidth: 0, expectedErr: ErrUnsupportedDataWidth},
 		{input: "0x123", dataByteWidth: 1, expectedErr: ErrNumberExceedsWidth},
 		{input: "0x12345", dataByteWidth: 2, expectedErr: ErrNumberExceedsWidth},
+		{input: "0x1234567", dataByteWidth: 3, expectedErr: ErrNumberExceedsWidth},
 		{input: "0x123456789", dataByteWidth: 4, expectedErr: ErrNumberExceedsWidth},
 	}
 

@@ -86,6 +86,10 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 		if i > math.MaxUint16 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 2)
 		}
+	case 3:
+		if i > 0xffffff {
+			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 3)
+		}
 	case 4:
 		if i > math.MaxUint32 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 4)
@@ -108,6 +112,8 @@ func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
 		data := make([]byte, 2)
 		binary.LittleEndian.PutUint16(data, uint16(i))
 		return data, nil
+	case 3:
+		return []byte{byte(i), byte(i >> 8), byte(i >> 16)}, nil
 	case 4:
 		data := make([]byte, 4)
 		binary.LittleEndian.PutUint32(data, uint32(i))

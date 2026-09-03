@@ -47,11 +47,11 @@ func Data(p arch.Parser) (ast.Node, error) {
 
 	data := ast.NewData(ast.DataType, width)
 
-	tokens, err := readDataTokens(p, false)
+	values, err := readDataValueExpressions(p)
 	if err != nil {
-		return nil, fmt.Errorf("reading data tokens: %w", err)
+		return nil, fmt.Errorf("reading data values: %w", err)
 	}
-	data.Values = expression.New(tokens...)
+	data.Values = values
 
 	return data, nil
 }
@@ -144,17 +144,35 @@ func readDataStorageTokens(p arch.Parser) (ast.Data, error) {
 		return data, nil
 	}
 
-	tokens, err = readDataTokens(p, false)
+	values, err := readDataValueExpressions(p)
 	if err != nil {
-		return ast.Data{}, fmt.Errorf("reading data tokens: %w", err)
+		return ast.Data{}, fmt.Errorf("reading data values: %w", err)
 	}
-	data.Values = expression.New(tokens...)
+	data.Values = values
 	return data, nil
 }
 
-// readDataTokens reads size or data tokens of a data directive.
-// For size tokens a comma indicates the end of the tokens,
-// for data values it acts as a separator.
+func readDataValueExpressions(p arch.Parser) ([]*expression.Expression, error) {
+	var values []*expression.Expression
+
+	for {
+		tokens, err := readDataTokens(p, true)
+		if err != nil {
+			return nil, err
+		}
+		if len(tokens) == 0 {
+			return nil, errMissingParameter
+		}
+		values = append(values, expression.New(tokens...))
+
+		if p.NextToken(1).Type.IsTerminator() {
+			return values, nil
+		}
+	}
+}
+
+// readDataTokens reads one expression from a directive.
+// A comma ends the expression when returnOnComma is true.
 func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 	var tokens []token.Token
 
@@ -166,6 +184,8 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 		switch {
 		case tok.Type == token.Number,
 			tok.Type == token.Identifier,
+			tok.Type == token.LeftParentheses,
+			tok.Type == token.RightParentheses,
 			tok.Type.IsOperator():
 			if tok.Type == token.Identifier {
 				tok.Value = p.ScopeLocalLabel(tok.Value)

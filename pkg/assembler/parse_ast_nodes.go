@@ -140,7 +140,7 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 		}
 
 	case ast.DataType:
-		dat.expression = astData.Values
+		dat.expressions = astData.Values
 
 	default:
 		return nil, fmt.Errorf("unsupported data type %d", astData.Type)
@@ -149,14 +149,22 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 	return []ast.Node{dat}, nil
 }
 
-func parseDataAddress(dat *data, expression *expression.Expression, refType referenceType) error {
+func parseDataAddress(dat *data, expressions []*expression.Expression, refType referenceType) error {
 	width := dat.width
 	if refType == lowAddressByte || refType == highAddressByte || refType == bankAddressByte {
 		width = 1
 	}
 
-	tokens := expression.Tokens()
-	for _, tok := range tokens {
+	for index, item := range expressions {
+		if item == nil {
+			return fmt.Errorf("data address item %d is nil", index)
+		}
+		tokens := item.Tokens()
+		if len(tokens) != 1 {
+			return fmt.Errorf("data address item %d has %d tokens", index, len(tokens))
+		}
+		tok := tokens[0]
+
 		switch tok.Type {
 		case token.Identifier:
 			ref := reference{

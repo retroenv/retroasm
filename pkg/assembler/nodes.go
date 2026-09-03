@@ -49,13 +49,10 @@ type data struct {
 	// the reserved space, the fill values will be repeated.
 	fill bool
 
-	size       *expression.Expression // item count
-	expression *expression.Expression
-	// values will be filled by evaluating the expression.
-	// each value can be of type []byte or reference.
-	// since expressions are evaluated before addresses are assigned,
-	// the references will be replaced by the resolved addresses at the
-	// opcode generation step.
+	size        *expression.Expression // item count
+	expressions []*expression.Expression
+	// Values contain encoded byte slices or unresolved references.
+	// Reference entries are resolved after address assignment.
 	values []any
 }
 
@@ -94,13 +91,23 @@ type symbol struct {
 
 // Copy returns a copy of the data node.
 func (d *data) Copy() ast.Node {
+	var expressions []*expression.Expression
+	if d.expressions != nil {
+		expressions = make([]*expression.Expression, len(d.expressions))
+		for index, item := range d.expressions {
+			if item != nil {
+				expressions[index] = item.Copy()
+			}
+		}
+	}
+
 	return &data{
-		address:    d.address,
-		width:      d.width,
-		fill:       d.fill,
-		size:       d.size.Copy(),
-		expression: d.expression.Copy(),
-		values:     slices.Clone(d.values),
+		address:     d.address,
+		width:       d.width,
+		fill:        d.fill,
+		size:        d.size.Copy(),
+		expressions: expressions,
+		values:      slices.Clone(d.values),
 	}
 }
 

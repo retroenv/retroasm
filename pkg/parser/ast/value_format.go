@@ -41,26 +41,17 @@ func FormatValue(value Node, options ValueFormatOptions) (string, error) {
 			return typed.Name, nil
 		}
 	case Expression:
-		return formatExpressionValue(typed.Value)
+		return FormatExpression(typed.Value)
 	case *Expression:
 		if typed != nil {
-			return formatExpressionValue(typed.Value)
+			return FormatExpression(typed.Value)
 		}
 	}
 	return "", fmt.Errorf("%w: %T", ErrUnsupportedValueFormat, value)
 }
 
-func formatNumberValue(value uint64, options ValueFormatOptions) string {
-	if options.Decimal {
-		return strconv.FormatUint(value, 10)
-	}
-	if options.MinimumHexDigits > 0 {
-		return fmt.Sprintf("0x%0*X", options.MinimumHexDigits, value)
-	}
-	return fmt.Sprintf("0x%X", value)
-}
-
-func formatExpressionValue(value *expression.Expression) (string, error) {
+// FormatExpression returns deterministic assembly spelling for an expression.
+func FormatExpression(value *expression.Expression) (string, error) {
 	if value == nil {
 		return "", ErrUnsupportedValueFormat
 	}
@@ -68,7 +59,7 @@ func formatExpressionValue(value *expression.Expression) (string, error) {
 	var builder strings.Builder
 	for _, expressionToken := range value.Tokens() {
 		if expressionToken.Type == token.Percent {
-			// Keep modulo distinct from the assembly binary-number prefix.
+			// Spaces keep modulo distinct from the assembly binary-number prefix.
 			builder.WriteString(" % ")
 			continue
 		}
@@ -89,4 +80,14 @@ func formatExpressionValue(value *expression.Expression) (string, error) {
 		return "", ErrUnsupportedValueFormat
 	}
 	return builder.String(), nil
+}
+
+func formatNumberValue(value uint64, options ValueFormatOptions) string {
+	if options.Decimal {
+		return strconv.FormatUint(value, 10)
+	}
+	if options.MinimumHexDigits > 0 {
+		return fmt.Sprintf("0x%0*X", options.MinimumHexDigits, value)
+	}
+	return fmt.Sprintf("0x%X", value)
 }

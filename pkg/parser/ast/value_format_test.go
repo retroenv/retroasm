@@ -3,6 +3,7 @@ package ast
 import (
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/expression"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retrogolib/assert"
 )
@@ -65,4 +66,23 @@ func TestFormatValue_RejectsUnsupportedNode(t *testing.T) {
 	_, err := FormatValue(nil, ValueFormatOptions{})
 
 	assert.Error(t, err)
+}
+
+func TestFormatExpression(t *testing.T) {
+	t.Parallel()
+
+	value := expression.New(
+		token.Token{Type: token.LeftParentheses},
+		token.Token{Type: token.Number, Value: "1"},
+		token.Token{Type: token.Plus, Value: "+"},
+		token.Token{Type: token.Number, Value: "$20"},
+		token.Token{Type: token.RightParentheses},
+	)
+
+	formatted, err := FormatExpression(value)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "(0x1+0x20)", formatted)
+	_, err = FormatExpression(nil)
+	assert.ErrorIs(t, err, ErrUnsupportedValueFormat)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/scope"
 )
 
@@ -110,7 +111,10 @@ func generateReferenceDataBytes(currentScope *scope.Scope, d *data) error {
 
 		switch ref.typ {
 		case fullAddress:
-			b = []byte{byte(address), byte(address >> 8)}
+			b, err = number.WriteToBytes(address, d.width)
+			if err != nil {
+				return fmt.Errorf("writing full address as bytes: %w", err)
+			}
 		case lowAddressByte:
 			b = []byte{byte(address)}
 		case highAddressByte:

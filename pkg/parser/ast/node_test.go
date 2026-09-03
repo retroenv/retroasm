@@ -294,21 +294,74 @@ func TestData_Copy(t *testing.T) {
 		assert.Nil(t, copied.Values)
 	})
 
-	t.Run("data with values expression", func(t *testing.T) {
+	t.Run("data with value expressions", func(t *testing.T) {
 		original := NewData(AddressType, 2)
-		original.Values = expression.New()
+		original.Values = []*expression.Expression{
+			expression.New(token.Token{Type: token.Identifier, Value: "target"}),
+			expression.New(token.Token{Type: token.Number, Value: "1"}),
+		}
 		original.ReferenceType = FullAddress
 		original.Fill = true
 
 		copied, ok := original.Copy().(Data)
+		original.Values[0].AddTokens(token.Token{Type: token.Plus})
+
 		assert.True(t, ok)
 		assert.Equal(t, AddressType, copied.Type)
 		assert.Equal(t, 2, copied.Width)
 		assert.Equal(t, FullAddress, copied.ReferenceType)
 		assert.True(t, copied.Fill)
-		assert.NotNil(t, copied.Values)
+		assert.Len(t, copied.Values, 2)
+		assert.Len(t, copied.Values[0].Tokens(), 1)
 		assert.NotNil(t, copied.Size)
 	})
+}
+
+func TestData_Validate(t *testing.T) {
+	newValue := func() *expression.Expression {
+		return expression.New(token.Token{Type: token.Number, Value: "1"})
+	}
+
+	validData := NewData(DataType, 1)
+	validData.Values = []*expression.Expression{newValue()}
+	assert.NoError(t, validData.Validate())
+
+	validFill := NewData(DataType, 2)
+	validFill.Fill = true
+	validFill.Size = newValue()
+	assert.NoError(t, validFill.Validate())
+
+	tests := []struct {
+		name string
+		data Data
+	}{
+		{name: "invalid type", data: NewData(InvalidDataType, 1)},
+		{name: "invalid width", data: NewData(DataType, 0)},
+		{name: "nil size", data: Data{node: &node{}, Type: DataType, Width: 1, Values: []*expression.Expression{newValue()}}},
+		{name: "missing values", data: NewData(DataType, 1)},
+		{name: "nil value", data: Data{node: &node{}, Type: DataType, Width: 1, Size: expression.New(), Values: []*expression.Expression{nil}}},
+		{name: "empty value", data: Data{node: &node{}, Type: DataType, Width: 1, Size: expression.New(), Values: []*expression.Expression{expression.New()}}},
+		{name: "data with reference type", data: Data{node: &node{}, Type: DataType, Width: 1, ReferenceType: FullAddress, Size: expression.New(), Values: []*expression.Expression{newValue()}}},
+		{name: "address with invalid reference", data: Data{node: &node{}, Type: AddressType, Width: 2, Size: expression.New(), Values: []*expression.Expression{newValue()}}},
+		{name: "address with expression", data: Data{node: &node{}, Type: AddressType, Width: 2, ReferenceType: FullAddress, Size: expression.New(), Values: []*expression.Expression{expression.New(token.Token{Type: token.Number, Value: "1"}, token.Token{Type: token.Plus, Value: "+"}, token.Token{Type: token.Number, Value: "2"})}}},
+		{name: "address fill", data: Data{node: &node{}, Type: AddressType, Width: 2, ReferenceType: FullAddress, Fill: true, Size: newValue(), Values: []*expression.Expression{newValue()}}},
+		{name: "fill without size", data: Data{node: &node{}, Type: DataType, Width: 1, Fill: true, Size: expression.New()}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.ErrorIs(t, test.data.Validate(), ErrInvalidData)
+		})
+	}
+
+	address := NewData(AddressType, 2)
+	address.ReferenceType = FullAddress
+	address.Values = []*expression.Expression{newValue()}
+	for _, candidate := range []Node{address, &address} {
+		data, ok := DataFromNode(candidate)
+		assert.True(t, ok)
+		assert.Equal(t, AddressType, data.Type)
+	}
 }
 
 func TestScope_Copy(t *testing.T) {

@@ -146,19 +146,33 @@ func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) err
 		}
 	}
 
-	// if no fill value expression is specified, use the current fill value config expression
-	if dat.expression == nil {
-		dat.expression = expEval.fillValues
-	}
-	if dat.expression == nil || dat.expression.IsEvaluatedAtAddressAssign() {
-		return nil
+	// A storage directive without values uses the active fill configuration.
+	if len(dat.expressions) == 0 && expEval.fillValues != nil {
+		dat.expressions = []*expression.Expression{expEval.fillValues}
 	}
 
-	value, err := dat.expression.Evaluate(expEval.currentScope, dat.width)
-	if err != nil {
-		return fmt.Errorf("evaluating data expression: %w", err)
+	for _, item := range dat.expressions {
+		if item != nil && item.IsEvaluatedAtAddressAssign() {
+			return nil
+		}
 	}
 
+	for index, item := range dat.expressions {
+		if item == nil {
+			return fmt.Errorf("data expression item %d is nil", index)
+		}
+		value, err := item.Evaluate(expEval.currentScope, dat.width)
+		if err != nil {
+			return fmt.Errorf("evaluating data expression item %d: %w", index, err)
+		}
+		if err := appendDataExpressionValue(dat, value); err != nil {
+			return fmt.Errorf("appending data expression item %d: %w", index, err)
+		}
+	}
+	return nil
+}
+
+func appendDataExpressionValue(dat *data, value any) error {
 	switch v := value.(type) {
 	case int64:
 		b, err := number.WriteToBytes(uint64(v), dat.width)

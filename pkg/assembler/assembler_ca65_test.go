@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -162,6 +163,25 @@ func TestAssemblerCa65BlueExample(t *testing.T) {
 	b := buf.Bytes()
 	sum := crc32.Checksum(b[16:], crc32q) // skip header for checksum
 	assert.Equal(t, 0x79de3906, sum)
+}
+
+func TestAssemblerCa65FarAddressUsesDeclaredWidth(t *testing.T) {
+	cfg := cpu6502.New()
+	cfg.CompatibilityMode = config.CompatCa65
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(unitTestConfig)))
+
+	reader := strings.NewReader(`
+.segment "HEADER"
+.faraddr $123456, target
+.byte 0
+target:
+.byte 1
+`)
+	var buf bytes.Buffer
+	asm := New(cfg, &buf)
+
+	assert.NoError(t, asm.Process(t.Context(), reader))
+	assert.Equal(t, []byte{0x56, 0x34, 0x12, 0x07, 0x00, 0x00, 0x00, 0x01}, buf.Bytes())
 }
 
 var unitTestConfig = `

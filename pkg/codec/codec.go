@@ -32,10 +32,23 @@ var (
 	ErrBuildUnsupported = errors.New("typed instruction building is not supported by architecture")
 	// ErrValidationUnsupported indicates that an architecture has no typed instruction validator.
 	ErrValidationUnsupported = errors.New("typed instruction validation is not supported by architecture")
-	// ErrFormattingUnsupported indicates that an architecture has no deterministic instruction formatter.
-	ErrFormattingUnsupported = errors.New("typed instruction formatting is not supported by architecture")
+	// ErrFormattingUnsupported indicates that a node has no deterministic spelling for the active configuration.
+	ErrFormattingUnsupported = errors.New("typed stream formatting is not supported by configuration")
 	// ErrStateType indicates that an architecture returned a different stream-state type.
 	ErrStateType = errors.New("unexpected architecture stream state type")
+
+	dataDirectiveNames = map[dataDirectiveKey]string{
+		{fill: false, width: 1}: ".byte",
+		{fill: false, width: 2}: ".word",
+		{fill: true, width: 1}:  ".dsb",
+		{fill: true, width: 2}:  ".dsw",
+	}
+	x816DataDirectiveNames = map[dataDirectiveKey]string{
+		{fill: false, width: 3}: ".dcl",
+		{fill: false, width: 4}: ".dcd",
+		{fill: true, width: 3}:  ".dsl",
+		{fill: true, width: 4}:  ".dsd",
+	}
 )
 
 // Assembly is the result of assembling a typed node stream.
@@ -47,6 +60,11 @@ type Assembly struct {
 // Codec binds typed stream operations to one architecture configuration.
 type Codec[T any] struct {
 	configuration *config.Config[T]
+}
+
+type dataDirectiveKey struct {
+	fill  bool
+	width int
 }
 
 type instructionBuilder[O any] interface {
@@ -256,7 +274,7 @@ func (c *Codec[T]) ValidateInstruction(instruction ast.Instruction) error {
 	return nil
 }
 
-// ValidateStream checks stream metadata and every architecture-specific instruction.
+// ValidateStream checks stream metadata, data nodes, and architecture-specific instructions.
 func (c *Codec[T]) ValidateStream(stream *ast.Stream) error {
 	if stream == nil {
 		return ErrNilStream
@@ -266,19 +284,18 @@ func (c *Codec[T]) ValidateStream(stream *ast.Stream) error {
 	}
 
 	for index, entry := range stream.Entries() {
+		if data, ok := ast.DataFromNode(entry.Node); ok {
+			if err := data.Validate(); err != nil {
+				return streamEntryError("validating", index, entry.Position, err)
+			}
+			continue
+		}
 		instruction, ok := ast.InstructionFromNode(entry.Node)
 		if !ok {
 			continue
 		}
 		if err := c.ValidateInstruction(instruction); err != nil {
-			return fmt.Errorf(
-				"validating typed stream entry %d at %s:%d:%d: %w",
-				index,
-				entry.Position.Source,
-				entry.Position.Line,
-				entry.Position.Column,
-				err,
-			)
+			return streamEntryError("validating", index, entry.Position, err)
 		}
 	}
 	return nil
@@ -297,7 +314,7 @@ func (c *Codec[T]) FormatInstruction(instruction ast.Instruction) (string, error
 	return formatted, nil
 }
 
-// FormatStream formats labels, comments, and typed instructions as deterministic assembly source.
+// FormatStream formats supported typed stream nodes as deterministic assembly source.
 func (c *Codec[T]) FormatStream(stream *ast.Stream) (string, error) {
 	if stream == nil {
 		return "", ErrNilStream
@@ -310,14 +327,7 @@ func (c *Codec[T]) FormatStream(stream *ast.Stream) (string, error) {
 	for index, entry := range stream.Entries() {
 		line, err := c.formatStreamNode(entry.Node)
 		if err != nil {
-			return "", fmt.Errorf(
-				"formatting typed stream entry %d at %s:%d:%d: %w",
-				index,
-				entry.Position.Source,
-				entry.Position.Line,
-				entry.Position.Column,
-				err,
-			)
+			return "", streamEntryError("formatting", index, entry.Position, err)
 		}
 		if comment := ast.InlineComment(entry.Node); comment != "" {
 			line += " ; " + comment
@@ -356,6 +366,9 @@ func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {
 	if label, ok := ast.LabelName(node); ok {
 		return label + ":", nil
 	}
+	if data, ok := ast.DataFromNode(node); ok {
+		return c.formatData(data)
+	}
 	if comment, ok := node.(*ast.Comment); ok {
 		if comment.Message == "" {
 			return ";", nil
@@ -363,4 +376,97 @@ func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {
 		return "; " + comment.Message, nil
 	}
 	return "", fmt.Errorf("%w: %T", ErrFormattingUnsupported, node)
+}
+
+func (c *Codec[T]) formatData(data ast.Data) (string, error) {
+	directive, err := c.dataDirective(data)
+	if err != nil {
+		return "", err
+	}
+
+	values := make([]string, 0, len(data.Values)+1)
+	if data.Fill {
+		size, err := ast.FormatExpression(data.Size)
+		if err != nil {
+			return "", fmt.Errorf("formatting data size: %w", err)
+		}
+		values = append(values, size)
+	}
+	for index, value := range data.Values {
+		formatted, err := ast.FormatExpression(value)
+		if err != nil {
+			return "", fmt.Errorf("formatting data value %d: %w", index, err)
+		}
+		values = append(values, formatted)
+	}
+	if len(values) == 0 {
+		return "", fmt.Errorf("%w: data node has no values", ErrFormattingUnsupported)
+	}
+	return directive + " " + strings.Join(values, ", "), nil
+}
+
+func (c *Codec[T]) dataDirective(data ast.Data) (string, error) {
+	if data.Type == ast.AddressType {
+		return c.addressDirective(data)
+	}
+	if data.Type != ast.DataType {
+		return "", fmt.Errorf("%w: data type %d", ErrFormattingUnsupported, data.Type)
+	}
+
+	key := dataDirectiveKey{fill: data.Fill, width: data.Width}
+	if directive, ok := dataDirectiveNames[key]; ok {
+		return directive, nil
+	}
+	if c.configuration.CompatibilityMode == config.CompatX816 {
+		if directive, ok := x816DataDirectiveNames[key]; ok {
+			return directive, nil
+		}
+	}
+	return "", fmt.Errorf(
+		"%w: data width %d in %s mode",
+		ErrFormattingUnsupported,
+		data.Width,
+		c.configuration.CompatibilityMode,
+	)
+}
+
+func (c *Codec[T]) addressDirective(data ast.Data) (string, error) {
+	switch data.ReferenceType {
+	case ast.FullAddress:
+		if data.Width*8 == c.configuration.Arch.AddressWidth() {
+			return ".addr", nil
+		}
+		if data.Width == 3 && c.configuration.CompatibilityMode == config.CompatCa65 {
+			return ".faraddr", nil
+		}
+	case ast.LowAddressByte:
+		if c.configuration.CompatibilityMode != config.CompatX816 {
+			return ".dl", nil
+		}
+	case ast.HighAddressByte:
+		return ".dh", nil
+	case ast.BankAddressByte:
+		if c.configuration.CompatibilityMode == config.CompatCa65 {
+			return ".bankbytes", nil
+		}
+	}
+	return "", fmt.Errorf(
+		"%w: address reference type %d with width %d in %s mode",
+		ErrFormattingUnsupported,
+		data.ReferenceType,
+		data.Width,
+		c.configuration.CompatibilityMode,
+	)
+}
+
+func streamEntryError(action string, index int, position ast.SourcePosition, err error) error {
+	return fmt.Errorf(
+		"%s typed stream entry %d at %s:%d:%d: %w",
+		action,
+		index,
+		position.Source,
+		position.Line,
+		position.Column,
+		err,
+	)
 }

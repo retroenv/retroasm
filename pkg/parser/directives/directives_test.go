@@ -38,6 +38,32 @@ func TestDirectiveIntegration(t *testing.T) {
 		data, ok := node.(ast.Data)
 		assert.True(t, ok)
 		assert.Equal(t, ast.DataType, data.Type)
+		assert.Len(t, data.Values, 1)
+		assert.Equal(t, "$10", data.Values[0].Tokens()[0].Value)
+	})
+
+	t.Run("data_value_expressions", func(t *testing.T) {
+		parser := newMockParser([]token.Token{
+			{Type: token.Dot, Value: "."},
+			{Type: token.Identifier, Value: "byte"},
+			{Type: token.Number, Value: "1"},
+			{Type: token.Plus, Value: "+"},
+			{Type: token.Number, Value: "2"},
+			{Type: token.Comma, Value: ","},
+			{Type: token.Number, Value: "3"},
+			{Type: token.Asterisk, Value: "*"},
+			{Type: token.Number, Value: "4"},
+			{Type: token.EOL},
+		})
+
+		node, err := Data(parser)
+		assert.NoError(t, err)
+
+		data, ok := node.(ast.Data)
+		assert.True(t, ok)
+		assert.Len(t, data.Values, 2)
+		assert.Len(t, data.Values[0].Tokens(), 3)
+		assert.Len(t, data.Values[1].Tokens(), 3)
 	})
 
 	t.Run("base_directive", func(t *testing.T) {

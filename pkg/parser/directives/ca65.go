@@ -36,20 +36,19 @@ func Asciiz(p arch.Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(1)
-	tokens, err := readDataTokens(p, false)
+	values, err := readDataValueExpressions(p)
 	if err != nil {
-		return nil, fmt.Errorf("reading asciiz data tokens: %w", err)
+		return nil, fmt.Errorf("reading asciiz data values: %w", err)
 	}
 
-	// Append a null terminator byte.
-	nullTok := token.Token{
+	nullToken := token.Token{
 		Type:  token.Number,
 		Value: "0",
 	}
-	tokens = append(tokens, nullTok)
+	values = append(values, expression.New(nullToken))
 
 	data := ast.NewData(ast.DataType, 1)
-	data.Values = expression.New(tokens...)
+	data.Values = values
 	return data, nil
 }
 
@@ -63,11 +62,11 @@ func FarAddr(p arch.Parser) (ast.Node, error) {
 	data.ReferenceType = ast.FullAddress
 
 	p.AdvanceReadPosition(1)
-	tokens, err := readDataTokens(p, false)
+	values, err := readDataValueExpressions(p)
 	if err != nil {
-		return nil, fmt.Errorf("reading faraddr tokens: %w", err)
+		return nil, fmt.Errorf("reading faraddr values: %w", err)
 	}
-	data.Values = expression.New(tokens...)
+	data.Values = values
 
 	return data, nil
 }
