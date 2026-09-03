@@ -81,7 +81,7 @@ func (i Instruction) Copy() Node {
 		arg = i.Argument.Copy()
 	}
 	return Instruction{
-		node:       i.node,
+		node:       i.node.copyNode(),
 		OpcodeID:   i.OpcodeID,
 		Name:       i.Name,
 		Addressing: i.Addressing,

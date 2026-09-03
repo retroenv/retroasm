@@ -32,6 +32,29 @@ func TestNode_SetComment(t *testing.T) {
 	})
 }
 
+func TestInstructionAndLabelCopiesOwnInlineComments(t *testing.T) {
+	tests := []struct {
+		name string
+		node Node
+	}{
+		{name: "instruction", node: NewInstruction("nop", 0, nil, nil)},
+		{name: "label", node: NewLabel("entry")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.node.SetComment("original")
+			copied := test.node.Copy()
+			copied.SetComment("copy")
+
+			assert.Equal(t, "original", InlineComment(test.node))
+			assert.Equal(t, "copy", InlineComment(copied))
+		})
+	}
+
+	assert.Empty(t, InlineComment(&Comment{Message: "standalone"}))
+}
+
 func TestInstructionFromNode(t *testing.T) {
 	instr := NewInstruction("lda", 1, NewNumber(42), nil)
 

@@ -31,6 +31,29 @@ func (n *node) SetComment(message string) {
 	n.comment.Message = message
 }
 
+// InlineComment returns the comment attached to a non-comment node.
+func InlineComment(n Node) string {
+	commented, ok := n.(interface{ inlineComment() string })
+	if !ok {
+		return ""
+	}
+	return commented.inlineComment()
+}
+
+func (n *node) copyNode() *node {
+	if n == nil {
+		return &node{}
+	}
+	return &node{comment: n.comment}
+}
+
+func (n *node) inlineComment() string {
+	if n == nil {
+		return ""
+	}
+	return n.comment.Message
+}
+
 // FillLabelIndices clears and fills dest with label names and node indices.
 func FillLabelIndices(nodes []Node, dest map[string]int) {
 	clear(dest)
