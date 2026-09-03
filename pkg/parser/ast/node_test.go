@@ -53,6 +53,17 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "base", node: NewBase(nil)},
 		{name: "offset counter", node: NewOffsetCounter(1)},
 		{name: "segment", node: NewSegment("code")},
+		{name: "if", node: NewIf(nil)},
+		{name: "ifdef", node: NewIfdef("value")},
+		{name: "ifndef", node: NewIfndef("value")},
+		{name: "else", node: NewElse()},
+		{name: "else if", node: NewElseIf(nil)},
+		{name: "endif", node: NewEndif()},
+		{name: "configuration", node: Configuration{node: &node{}, Item: ConfigMapper, Expression: expression.New()}},
+		{name: "repeat", node: NewRept(nil)},
+		{name: "repeat end", node: NewEndr()},
+		{name: "scope", node: NewScope("local")},
+		{name: "scope end", node: NewScopeEnd()},
 	}
 
 	for _, test := range tests {

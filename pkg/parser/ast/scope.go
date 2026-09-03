@@ -31,7 +31,7 @@ func NewScopeEnd() ScopeEnd {
 // Copy returns a copy of the scope node.
 func (s Scope) Copy() Node {
 	return Scope{
-		node: s.node,
+		node: s.node.copyNode(),
 		Name: s.Name,
 	}
 }
@@ -39,6 +39,6 @@ func (s Scope) Copy() Node {
 // Copy returns a copy of the scope end node.
 func (s ScopeEnd) Copy() Node {
 	return ScopeEnd{
-		node: s.node,
+		node: s.node.copyNode(),
 	}
 }

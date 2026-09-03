@@ -92,7 +92,7 @@ func NewEndif() Endif {
 // Copy returns a copy of the if node.
 func (i If) Copy() Node {
 	return If{
-		node:      i.node,
+		node:      i.node.copyNode(),
 		Condition: i.Condition.Copy(),
 	}
 }
@@ -100,7 +100,7 @@ func (i If) Copy() Node {
 // Copy returns a copy of the ifdef node.
 func (i Ifdef) Copy() Node {
 	return Ifdef{
-		node:       i.node,
+		node:       i.node.copyNode(),
 		Identifier: i.Identifier,
 	}
 }
@@ -108,7 +108,7 @@ func (i Ifdef) Copy() Node {
 // Copy returns a copy of the ifndef node.
 func (i Ifndef) Copy() Node {
 	return Ifndef{
-		node:       i.node,
+		node:       i.node.copyNode(),
 		Identifier: i.Identifier,
 	}
 }
@@ -116,14 +116,14 @@ func (i Ifndef) Copy() Node {
 // Copy returns a copy of the else node.
 func (e Else) Copy() Node {
 	return Else{
-		node: e.node,
+		node: e.node.copyNode(),
 	}
 }
 
 // Copy returns a copy of the elseif node.
 func (e ElseIf) Copy() Node {
 	return ElseIf{
-		node:      e.node,
+		node:      e.node.copyNode(),
 		Condition: e.Condition.Copy(),
 	}
 }
@@ -131,6 +131,6 @@ func (e ElseIf) Copy() Node {
 // Copy returns a copy of the endif node.
 func (e Endif) Copy() Node {
 	return Endif{
-		node: e.node,
+		node: e.node.copyNode(),
 	}
 }

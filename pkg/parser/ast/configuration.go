@@ -47,7 +47,7 @@ func NewConfiguration(item ConfigurationItem) Configuration {
 // Copy returns a copy of the configuration node.
 func (c Configuration) Copy() Node {
 	return Configuration{
-		node:       c.node,
+		node:       c.node.copyNode(),
 		Item:       c.Item,
 		Value:      c.Value,
 		Expression: c.Expression.Copy(),
