@@ -17,6 +17,7 @@ func ParseIdentifier(p arch.Parser, ins *cpu68000.Instruction, mnemonic string) 
 
 	// Parse size suffix from the original mnemonic (e.g., "move.l" passed from Instruction lookup)
 	_, sizeSuffix := ParseSizeSuffix(mnemonic)
+	explicitSize := sizeSuffix != 0
 	if sizeSuffix != 0 {
 		size = sizeSuffix
 	}
@@ -32,14 +33,16 @@ func ParseIdentifier(p arch.Parser, ins *cpu68000.Instruction, mnemonic string) 
 	if p.NextToken(1).Type == token.Dot {
 		if s := parseSizeToken(p.NextToken(2)); s != 0 {
 			size = s
+			explicitSize = true
 			p.AdvanceReadPosition(2) // skip . and size
 		}
 	}
 
 	resolved := &ResolvedInstruction{
-		Instruction: ins,
-		Size:        size,
-		Extra:       condCode,
+		Instruction:  ins,
+		Size:         size,
+		ExplicitSize: explicitSize,
+		Extra:        condCode,
 	}
 
 	// Check for no-operand instructions

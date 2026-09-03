@@ -191,6 +191,9 @@ func TestCPU68000Codec_EffectiveAddressFamiliesRoundTrip(t *testing.T) {
 			parsed, err := c.ParseInstruction(t.Context(), strings.NewReader(formatted))
 			assert.NoError(t, err)
 			assert.NoError(t, c.ValidateInstruction(parsed))
+			roundTripped, err := c.FormatInstruction(parsed)
+			assert.NoError(t, err)
+			assert.Equal(t, formatted, roundTripped)
 			if !strings.Contains(test.wantText, "table") {
 				builtAssembly, err := c.Assemble(t.Context(), []ast.Node{built})
 				assert.NoError(t, err)
@@ -247,6 +250,9 @@ func TestCPU68000Codec_ConditionCodesRoundTrip(t *testing.T) {
 		parsed, err := c.ParseInstruction(t.Context(), strings.NewReader(formatted))
 		assert.NoError(t, err)
 		assert.NoError(t, c.ValidateInstruction(parsed))
+		roundTripped, err := c.FormatInstruction(parsed)
+		assert.NoError(t, err)
+		assert.Equal(t, formatted, roundTripped)
 	}
 }
 

@@ -8,11 +8,12 @@ import (
 
 // ResolvedInstruction contains the fully parsed CPU68000 instruction.
 type ResolvedInstruction struct {
-	Instruction *cpu68000.Instruction
-	Size        cpu68000.OperandSize
-	SrcEA       *EffectiveAddress
-	DstEA       *EffectiveAddress
-	Extra       uint16 // condition code, quick value, trap vector, etc.
+	Instruction  *cpu68000.Instruction
+	Size         cpu68000.OperandSize
+	ExplicitSize bool
+	SrcEA        *EffectiveAddress
+	DstEA        *EffectiveAddress
+	Extra        uint16 // condition code, quick value, trap vector, etc.
 }
 
 // EffectiveAddress represents a parsed effective address operand.

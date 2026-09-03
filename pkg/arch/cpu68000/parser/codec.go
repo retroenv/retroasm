@@ -46,11 +46,12 @@ func BuildInstruction(
 	}
 
 	resolved := ResolvedInstruction{
-		Instruction: instruction,
-		Size:        size,
-		SrcEA:       copyEffectiveAddress(operands.Source),
-		DstEA:       copyEffectiveAddress(operands.Destination),
-		Extra:       operands.Extra,
+		Instruction:  instruction,
+		Size:         size,
+		ExplicitSize: suffixSize != 0,
+		SrcEA:        copyEffectiveAddress(operands.Source),
+		DstEA:        copyEffectiveAddress(operands.Destination),
+		Extra:        operands.Extra,
 	}
 	if hasCondition {
 		resolved.Extra = condition
@@ -357,7 +358,7 @@ func formatMnemonic(resolved ResolvedInstruction, options FormatOptions) (string
 
 		return name, nil
 	}
-	if instructionUsesSizeSuffix(resolved.Instruction.Name) {
+	if resolved.ExplicitSize || instructionUsesSizeSuffix(resolved.Instruction.Name) {
 		name += sizeSuffix(resolved.Size)
 	}
 	return name, nil
@@ -399,9 +400,10 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 	}
 	formatted := make([]string, len(addresses))
 	for index, address := range addresses {
-		if isDirectFlowInstruction(resolved.Instruction.Name) ||
-			resolved.Instruction.Name == cpu68000.DBccName && address == resolved.DstEA {
+		directFlowTarget := isDirectFlowInstruction(resolved.Instruction.Name) ||
+			resolved.Instruction.Name == cpu68000.DBccName && address == resolved.DstEA
 
+		if directFlowTarget && !isPCRelativeAddress(address) {
 			value, err := format68000Value(address.Value, math.MaxUint32, options.DecimalValues)
 			if err != nil {
 				return nil, fmt.Errorf("formatting flow target: %w", err)
@@ -420,6 +422,10 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 
 func isDirectFlowInstruction(name string) bool {
 	return isBranchInstruction(name) || name == cpu68000.JMPName || name == cpu68000.JSRName
+}
+
+func isPCRelativeAddress(address *EffectiveAddress) bool {
+	return address.Mode == cpu68000.PCDisplacementMode || address.Mode == cpu68000.PCIndexedMode
 }
 
 func formatMOVEMOperands(resolved ResolvedInstruction, options FormatOptions) ([]string, error) {
