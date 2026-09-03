@@ -101,6 +101,27 @@ func TestCodec_AssembleTypedStreamWithoutReparsing(t *testing.T) {
 	assert.ErrorIs(t, err, codec.ErrNilStream)
 }
 
+func TestCodec_ValidateStreamReportsInstructionPosition(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502Codec(t)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader("entry:\nlda #1"))
+	assert.NoError(t, err)
+	assert.NoError(t, c.ValidateStream(stream))
+
+	stream.Replace(1, 2, []ast.Entry{ast.NewEntry(
+		ast.NewInstruction("missing", 0, nil, nil),
+		ast.SourcePosition{Source: "input.asm", Line: 2, Column: 1},
+	)})
+	err = c.ValidateStream(stream)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "input.asm:2:1")
+	assert.ErrorContains(t, err, "unknown CPU6502 instruction")
+
+	err = c.ValidateStream(nil)
+	assert.ErrorIs(t, err, codec.ErrNilStream)
+}
+
 func TestCodec_ParseHonorsCancellation(t *testing.T) {
 	t.Parallel()
 

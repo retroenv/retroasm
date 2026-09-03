@@ -1,10 +1,14 @@
 package ast
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
 )
+
+// ErrInvalidStream indicates that stream nodes or metadata violate the typed stream contract.
+var ErrInvalidStream = errors.New("invalid typed stream")
 
 // Alignment is a byte alignment. Zero means that no alignment is specified.
 type Alignment uint64
@@ -300,6 +304,23 @@ func (stm *Stream) Symbols() []Symbol {
 	return slices.Clone(stm.symbols)
 }
 
+// Validate checks stream entries and assembly metadata for structural consistency.
+func (stm *Stream) Validate() error {
+	if stm == nil {
+		return fmt.Errorf("%w: stream is nil", ErrInvalidStream)
+	}
+	if err := validateEntries(stm.entries); err != nil {
+		return err
+	}
+	if err := validateSymbols(stm.symbols); err != nil {
+		return err
+	}
+	if err := validateRelocations(stm.relocations, len(stm.entries)); err != nil {
+		return err
+	}
+	return validateSegmentChanges(stm.segmentChanges, len(stm.entries))
+}
+
 // StateSnapshots returns typed copies of the initial and final stream state.
 func StateSnapshots[S any](stream *Stream) (S, S, bool) {
 	var zero S
@@ -312,6 +333,109 @@ func StateSnapshots[S any](stream *Stream) (S, S, bool) {
 		return zero, zero, false
 	}
 	return copyStreamState(initial).(S), copyStreamState(final).(S), true
+}
+
+func validateEntries(entries []Entry) error {
+	for index, entry := range entries {
+		if entry.Node == nil {
+			return fmt.Errorf("%w: entry %d has no node", ErrInvalidStream, index)
+		}
+		if !validSourcePosition(entry.Position) {
+			return fmt.Errorf("%w: entry %d has a negative source position", ErrInvalidStream, index)
+		}
+		if entry.Boundary&^(BoundaryBefore|BoundaryAfter) != 0 {
+			return fmt.Errorf("%w: entry %d has boundary %d", ErrInvalidStream, index, entry.Boundary)
+		}
+	}
+	return nil
+}
+
+func validateSymbols(symbols []Symbol) error {
+	names := make(map[string]struct{}, len(symbols))
+
+	for index, symbol := range symbols {
+		if symbol.Name == "" {
+			return fmt.Errorf("%w: symbol %d has no name", ErrInvalidStream, index)
+		}
+		if _, exists := names[symbol.Name]; exists {
+			return fmt.Errorf("%w: symbol %q is duplicated", ErrInvalidStream, symbol.Name)
+		}
+		if !validSourcePosition(symbol.Position) {
+			return fmt.Errorf("%w: symbol %q has a negative source position", ErrInvalidStream, symbol.Name)
+		}
+		if err := validateSymbolExpression(symbol.Expression); err != nil {
+			return fmt.Errorf("%w: symbol %q has %w", ErrInvalidStream, symbol.Name, err)
+		}
+		names[symbol.Name] = struct{}{}
+	}
+	return nil
+}
+
+func validateRelocations(relocations []Relocation, entryCount int) error {
+	for index, relocation := range relocations {
+		if relocation.EntryIndex < 0 || relocation.EntryIndex >= entryCount {
+			return fmt.Errorf("%w: relocation %d has entry index %d", ErrInvalidStream, index, relocation.EntryIndex)
+		}
+		if relocation.Kind != AbsoluteRelocation && relocation.Kind != RelativeRelocation {
+			return fmt.Errorf("%w: relocation %d has kind %d", ErrInvalidStream, index, relocation.Kind)
+		}
+		if err := validateSymbolExpression(relocation.Expression); err != nil {
+			return fmt.Errorf("%w: relocation %d has %w", ErrInvalidStream, index, err)
+		}
+		if !relocation.Width.Valid() {
+			return fmt.Errorf("%w: relocation %d has width %d", ErrInvalidStream, index, relocation.Width)
+		}
+		if !validByteOrder(relocation.ByteOrder) {
+			return fmt.Errorf("%w: relocation %d has byte order %d", ErrInvalidStream, index, relocation.ByteOrder)
+		}
+	}
+	return nil
+}
+
+func validateSegmentChanges(changes []SegmentChange, entryCount int) error {
+	for index, change := range changes {
+		if change.EntryIndex < 0 || change.EntryIndex >= entryCount {
+			return fmt.Errorf("%w: segment change %d has entry index %d", ErrInvalidStream, index, change.EntryIndex)
+		}
+		if change.Name == "" {
+			return fmt.Errorf("%w: segment change %d has no name", ErrInvalidStream, index)
+		}
+		if !change.Alignment.Valid() {
+			return fmt.Errorf("%w: segment change %d has alignment %d", ErrInvalidStream, index, change.Alignment)
+		}
+		if !validByteOrder(change.ByteOrder) {
+			return fmt.Errorf("%w: segment change %d has byte order %d", ErrInvalidStream, index, change.ByteOrder)
+		}
+	}
+	return nil
+}
+
+func validateSymbolExpression(expression SymbolExpression) error {
+	if expression.ReferenceType < FullAddress || expression.ReferenceType > BankAddressByte {
+		return fmt.Errorf("reference type %d", expression.ReferenceType)
+	}
+
+	switch expression.Kind {
+	case SymbolExpressionAbsolute:
+		if expression.Symbol != "" {
+			return errors.New("an absolute expression with a symbol")
+		}
+	case SymbolExpressionReference:
+		if expression.Symbol == "" {
+			return errors.New("a reference expression without a symbol")
+		}
+	default:
+		return fmt.Errorf("expression kind %d", expression.Kind)
+	}
+	return nil
+}
+
+func validByteOrder(order ByteOrder) bool {
+	return order >= ByteOrderLittle && order <= ByteOrderBig
+}
+
+func validSourcePosition(position SourcePosition) bool {
+	return position.Line >= 0 && position.Column >= 0 && position.Offset >= 0
 }
 
 func copyEntries(entries []Entry) []Entry {

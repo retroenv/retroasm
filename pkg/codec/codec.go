@@ -256,6 +256,34 @@ func (c *Codec[T]) ValidateInstruction(instruction ast.Instruction) error {
 	return nil
 }
 
+// ValidateStream checks stream metadata and every architecture-specific instruction.
+func (c *Codec[T]) ValidateStream(stream *ast.Stream) error {
+	if stream == nil {
+		return ErrNilStream
+	}
+	if err := stream.Validate(); err != nil {
+		return fmt.Errorf("validating typed stream: %w", err)
+	}
+
+	for index, entry := range stream.Entries() {
+		instruction, ok := ast.InstructionFromNode(entry.Node)
+		if !ok {
+			continue
+		}
+		if err := c.ValidateInstruction(instruction); err != nil {
+			return fmt.Errorf(
+				"validating typed stream entry %d at %s:%d:%d: %w",
+				index,
+				entry.Position.Source,
+				entry.Position.Line,
+				entry.Position.Column,
+				err,
+			)
+		}
+	}
+	return nil
+}
+
 // FormatInstruction returns one deterministic, parseable instruction line.
 func (c *Codec[T]) FormatInstruction(instruction ast.Instruction) (string, error) {
 	formatter, ok := c.configuration.Arch.(instructionFormatter)

@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/retroenv/retrogolib/assert"
@@ -8,6 +9,11 @@ import (
 
 type streamTestAnnotation struct {
 	Value string
+}
+
+type invalidStreamMetadataCase struct {
+	name   string
+	stream *Stream
 }
 
 func (ann *streamTestAnnotation) CopyStreamAnnotation() Annotation {
@@ -95,4 +101,119 @@ func TestStream_RejectsMutableStateWithoutCopyContract(t *testing.T) {
 	assert.Panics(t, func() {
 		stream.RecordState([]int{1}, []int{2})
 	})
+}
+
+func TestStream_ValidateAcceptsCompleteMetadata(t *testing.T) {
+	stream := NewStream(NewEntry(NewLabel("entry"), SourcePosition{Source: "input.asm", Line: 1, Column: 1}))
+	stream.RecordSymbol(Symbol{
+		Name:       "entry",
+		Segment:    "code",
+		Expression: NewAbsoluteSymbolExpression(0x8000),
+		Position:   SourcePosition{Source: "input.asm", Line: 1, Column: 1},
+	})
+	stream.RecordRelocation(Relocation{
+		EntryIndex: 0,
+		Kind:       AbsoluteRelocation,
+		Expression: NewSymbolExpression("entry", 0, FullAddress),
+		Width:      WidthWord,
+		ByteOrder:  ByteOrderLittle,
+	})
+	stream.RecordSegmentChange(SegmentChange{
+		EntryIndex: 0,
+		Name:       "code",
+		Alignment:  16,
+		ByteOrder:  ByteOrderLittle,
+	})
+
+	assert.NoError(t, stream.Validate())
+}
+
+func TestStream_ValidateRejectsInvalidMetadata(t *testing.T) {
+	for _, test := range invalidStreamMetadataCases() {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.stream.Validate()
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, ErrInvalidStream))
+		})
+	}
+}
+
+func invalidStreamMetadataCases() []invalidStreamMetadataCase {
+	return []invalidStreamMetadataCase{
+		{
+			name:   "nil stream",
+			stream: nil,
+		},
+		{
+			name:   "nil node",
+			stream: NewStream(NewEntry(nil, SourcePosition{})),
+		},
+		{
+			name: "negative source position",
+			stream: NewStream(NewEntry(
+				NewLabel("entry"),
+				SourcePosition{Line: -1},
+			)),
+		},
+		{
+			name: "unknown boundary",
+			stream: NewStream(Entry{
+				Node:     NewLabel("entry"),
+				Boundary: OptimizationBoundary(4),
+			}),
+		},
+		{
+			name: "invalid symbol expression",
+			stream: streamWithSymbols(Symbol{
+				Name:       "entry",
+				Expression: SymbolExpression{},
+			}),
+		},
+		{
+			name: "duplicate symbol",
+			stream: streamWithSymbols(
+				Symbol{Name: "entry", Expression: NewAbsoluteSymbolExpression(0)},
+				Symbol{Name: "entry", Expression: NewAbsoluteSymbolExpression(1)},
+			),
+		},
+		{
+			name: "relocation outside stream",
+			stream: streamWithRelocation(Relocation{
+				EntryIndex: 1,
+				Kind:       AbsoluteRelocation,
+				Expression: NewSymbolExpression("entry", 0, FullAddress),
+				Width:      WidthWord,
+				ByteOrder:  ByteOrderLittle,
+			}),
+		},
+		{
+			name: "invalid segment alignment",
+			stream: streamWithSegmentChange(SegmentChange{
+				EntryIndex: 0,
+				Name:       "code",
+				Alignment:  3,
+				ByteOrder:  ByteOrderLittle,
+			}),
+		},
+	}
+}
+
+func streamWithSymbols(symbols ...Symbol) *Stream {
+	stream := NewStreamFromNodes(NewLabel("entry"))
+	for _, symbol := range symbols {
+		stream.RecordSymbol(symbol)
+	}
+	return stream
+}
+
+func streamWithRelocation(relocation Relocation) *Stream {
+	stream := NewStreamFromNodes(NewLabel("entry"))
+	stream.RecordRelocation(relocation)
+	return stream
+}
+
+func streamWithSegmentChange(change SegmentChange) *Stream {
+	stream := NewStreamFromNodes(NewLabel("entry"))
+	stream.RecordSegmentChange(change)
+	return stream
 }
