@@ -18,7 +18,7 @@ func NewSegment(name string) Segment {
 // Copy returns a copy of the segment node.
 func (s Segment) Copy() Node {
 	return Segment{
-		node: s.node,
+		node: s.node.copyNode(),
 		Name: s.Name,
 	}
 }

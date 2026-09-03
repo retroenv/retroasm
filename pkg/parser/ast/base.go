@@ -23,7 +23,7 @@ func NewBase(addressTokens []token.Token) Base {
 // Copy returns a copy of the base node.
 func (b Base) Copy() Node {
 	return Base{
-		node:    b.node,
+		node:    b.node.copyNode(),
 		Address: b.Address.Copy(),
 	}
 }

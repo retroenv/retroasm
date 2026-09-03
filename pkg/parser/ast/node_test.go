@@ -49,6 +49,10 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "instruction arguments", node: NewInstructionArguments(NewNumber(1))},
 		{name: "data", node: NewData(DataType, 1)},
 		{name: "alias", node: NewAlias("value")},
+		{name: "bank", node: NewBank(1)},
+		{name: "base", node: NewBase(nil)},
+		{name: "offset counter", node: NewOffsetCounter(1)},
+		{name: "segment", node: NewSegment("code")},
 	}
 
 	for _, test := range tests {

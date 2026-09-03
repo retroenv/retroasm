@@ -18,7 +18,7 @@ func NewOffsetCounter(value uint64) OffsetCounter {
 // Copy returns a copy of the offset counter node.
 func (o OffsetCounter) Copy() Node {
 	return OffsetCounter{
-		node:   o.node,
+		node:   o.node.copyNode(),
 		Number: o.Number,
 	}
 }

@@ -18,7 +18,7 @@ func NewBank(number int) Bank {
 // Copy returns a copy of the bank node.
 func (b Bank) Copy() Node {
 	return Bank{
-		node:   b.node,
+		node:   b.node.copyNode(),
 		Number: b.Number,
 	}
 }
