@@ -13,6 +13,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	retroarch "github.com/retroenv/retrogolib/arch"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // New returns a new 65816 architecture configuration.
@@ -85,13 +86,27 @@ func (ar *arch65816[T]) OpcodeID(ins *cpu65816.Instruction) ast.OpcodeID {
 func (ar *arch65816[T]) InstructionRegistrations() []arch.InstructionRegistration {
 	registrations := make([]arch.InstructionRegistration, 0, len(cpu65816.Instructions))
 	for _, instruction := range cpu65816.Instructions {
-		addressings := make([]int, 0, len(instruction.Addressing))
+		addressings := set.New[int]()
 		for addressing := range instruction.Addressing {
-			addressings = append(addressings, int(addressing))
+			addressings.Add(int(addressing))
 		}
-		slices.Sort(addressings)
+		if instruction.HasAddressing(cpu65816.AbsoluteAddressing) &&
+			instruction.HasAddressing(cpu65816.DirectPageAddressing) {
+
+			addressings.Add(int(parser.AbsoluteDirectPageAddressing))
+		}
+		if instruction.HasAddressing(cpu65816.AbsoluteIndexedXAddressing) &&
+			instruction.HasAddressing(cpu65816.DirectPageIndexedXAddressing) {
+
+			addressings.Add(int(parser.XAddressing))
+		}
+		if instruction.HasAddressing(cpu65816.AbsoluteIndexedYAddressing) &&
+			instruction.HasAddressing(cpu65816.DirectPageIndexedYAddressing) {
+
+			addressings.Add(int(parser.YAddressing))
+		}
 		registrations = append(registrations, arch.InstructionRegistration{
-			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: addressings,
+			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: set.Sorted(addressings),
 		})
 	}
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
