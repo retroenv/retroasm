@@ -44,7 +44,7 @@ func (r RegisterValue) Copy() Node {
 	}
 
 	return RegisterValue{
-		node:     r.node,
+		node:     r.node.copyNode(),
 		Register: r.Register,
 		Value:    value,
 	}
@@ -58,7 +58,7 @@ func (r RegisterRegisterValue) Copy() Node {
 	}
 
 	return RegisterRegisterValue{
-		node:      r.node,
+		node:      r.node.copyNode(),
 		Register1: r.Register1,
 		Register2: r.Register2,
 		Value:     value,

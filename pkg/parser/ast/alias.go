@@ -25,7 +25,7 @@ func NewAlias(name string) Alias {
 // Copy returns a copy of the alias node.
 func (a Alias) Copy() Node {
 	return Alias{
-		node:           a.node,
+		node:           a.node.copyNode(),
 		Name:           a.Name,
 		Expression:     a.Expression.Copy(),
 		SymbolReusable: a.SymbolReusable,

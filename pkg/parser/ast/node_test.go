@@ -43,6 +43,12 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "identifier", node: NewIdentifier("value")},
 		{name: "expression", node: NewExpression(token.Token{Type: token.Number, Value: "1"})},
 		{name: "operator", node: NewOperator("+")},
+		{name: "register value", node: NewRegisterValue(1, NewNumber(2))},
+		{name: "register pair value", node: NewRegisterRegisterValue(1, 2, NewNumber(3))},
+		{name: "instruction argument", node: NewInstructionArgument(1)},
+		{name: "instruction arguments", node: NewInstructionArguments(NewNumber(1))},
+		{name: "data", node: NewData(DataType, 1)},
+		{name: "alias", node: NewAlias("value")},
 	}
 
 	for _, test := range tests {

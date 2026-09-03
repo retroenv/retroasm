@@ -47,7 +47,7 @@ func NewInstructionArguments(values ...Node) InstructionArguments {
 func (a InstructionArgument) Copy() Node {
 	value := copyInstructionArgumentValue(a.Value)
 	return InstructionArgument{
-		node:  a.node,
+		node:  a.node.copyNode(),
 		Value: value,
 	}
 }
@@ -138,7 +138,7 @@ func CopyNodes(nodes []Node) []Node {
 // Copy returns a copy of the instruction argument list node.
 func (a InstructionArguments) Copy() Node {
 	return InstructionArguments{
-		node:   a.node,
+		node:   a.node.copyNode(),
 		Values: CopyNodes(a.Values),
 	}
 }

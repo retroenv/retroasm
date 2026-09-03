@@ -64,7 +64,7 @@ func (d Data) Copy() Node {
 	}
 
 	return Data{
-		node:          d.node,
+		node:          d.node.copyNode(),
 		Type:          d.Type,
 		Width:         d.Width,
 		ReferenceType: d.ReferenceType,
