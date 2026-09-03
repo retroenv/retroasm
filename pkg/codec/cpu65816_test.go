@@ -230,17 +230,22 @@ func TestCPU65816Codec_StatefulImmediateWidths(t *testing.T) {
 		"sep #$10",
 	}, "\n"))
 
-	nodes, finalState, err := codec.ParseWithState(t.Context(), c, source, cpu65816parser.DefaultState())
+	stream, err := codec.ParseStreamWithState(
+		t.Context(), c, "stateful.asm", source, cpu65816parser.DefaultState(),
+	)
 	assert.NoError(t, err)
+	initialState, finalState, ok := ast.StateSnapshots[cpu65816parser.State](stream)
+	assert.True(t, ok)
+	assert.Equal(t, cpu65816parser.DefaultState(), initialState)
 	assert.Equal(t, cpu65816parser.WidthByte, finalState.AccumulatorWidth)
 	assert.Equal(t, cpu65816parser.WidthByte, finalState.IndexWidth)
-	for _, node := range nodes {
+	for _, node := range stream.Nodes() {
 		instruction, ok := ast.InstructionFromNode(node)
 		assert.True(t, ok)
 		assert.NoError(t, c.ValidateInstruction(instruction))
 	}
 
-	assembly, err := c.Assemble(t.Context(), nodes)
+	assembly, err := c.AssembleStream(t.Context(), stream)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{
 		0xc2, 0x30,
@@ -251,6 +256,52 @@ func TestCPU65816Codec_StatefulImmediateWidths(t *testing.T) {
 		0xa2, 0xbc, 0x9a,
 		0xe2, 0x10,
 	}, assembly.Binary)
+}
+
+func TestCPU65816Codec_ParallelStreamsKeepIndependentState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		source string
+		want   cpu65816parser.State
+	}{
+		{
+			name:   "wide accumulator",
+			source: "rep #$20",
+			want: cpu65816parser.State{
+				AccumulatorWidth: cpu65816parser.WidthWord,
+				IndexWidth:       cpu65816parser.WidthByte,
+				Emulation:        cpu65816parser.StatusClear,
+			},
+		},
+		{
+			name:   "enter emulation",
+			source: "sec\nxce",
+			want: cpu65816parser.State{
+				AccumulatorWidth: cpu65816parser.WidthByte,
+				IndexWidth:       cpu65816parser.WidthByte,
+				Carry:            cpu65816parser.StatusClear,
+				Emulation:        cpu65816parser.StatusSet,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := newCPU65816Codec(t)
+			stream, err := codec.ParseStreamWithState(
+				t.Context(), c, test.name+".asm", strings.NewReader(test.source), cpu65816parser.DefaultState(),
+			)
+			assert.NoError(t, err)
+			initial, final, ok := ast.StateSnapshots[cpu65816parser.State](stream)
+			assert.True(t, ok)
+			assert.Equal(t, cpu65816parser.DefaultState(), initial)
+			assert.Equal(t, test.want, final)
+		})
+	}
 }
 
 func TestCPU65816Codec_StatefulBuilderTransitions(t *testing.T) {

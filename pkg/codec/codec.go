@@ -22,6 +22,8 @@ var (
 	ErrNilArchitecture = errors.New("codec architecture cannot be nil")
 	// ErrNilSource indicates that a parse operation received no source reader.
 	ErrNilSource = errors.New("codec source cannot be nil")
+	// ErrNilStream indicates that an operation received no typed stream.
+	ErrNilStream = errors.New("codec stream cannot be nil")
 	// ErrUnknownInstruction indicates that the target does not register a mnemonic.
 	ErrUnknownInstruction = errors.New("unknown target instruction")
 	// ErrExpectedInstruction indicates that a single-instruction parse produced another node shape.
@@ -76,8 +78,16 @@ func New[T any](configuration *config.Config[T]) (*Codec[T], error) {
 
 // Parse reads an assembly stream into architecture-resolved AST nodes.
 func (c *Codec[T]) Parse(ctx context.Context, source io.Reader) ([]ast.Node, error) {
-	nodes, _, err := c.parse(ctx, source, nil)
-	return nodes, err
+	stream, err := c.ParseStream(ctx, "", source)
+	if err != nil {
+		return nil, err
+	}
+	return stream.Nodes(), nil
+}
+
+// ParseStream reads assembly into an owned typed stream.
+func (c *Codec[T]) ParseStream(ctx context.Context, sourceName string, source io.Reader) (*ast.Stream, error) {
+	return c.parseStream(ctx, sourceName, source, nil)
 }
 
 // ParseWithState reads an assembly stream from an explicit target state and
@@ -90,32 +100,57 @@ func ParseWithState[T, S any](
 ) ([]ast.Node, S, error) {
 
 	var zero S
-	nodes, finalState, err := c.parse(ctx, source, initialState)
+	stream, err := ParseStreamWithState(ctx, c, "", source, initialState)
 	if err != nil {
 		return nil, zero, err
 	}
-	typedState, ok := finalState.(S)
+	_, finalState, ok := ast.StateSnapshots[S](stream)
 	if !ok {
-		return nil, zero, fmt.Errorf("%w: got %T", ErrStateType, finalState)
+		return nil, zero, ErrStateType
 	}
-	return nodes, typedState, nil
+	return stream.Nodes(), finalState, nil
 }
 
-func (c *Codec[T]) parse(ctx context.Context, source io.Reader, initialState any) ([]ast.Node, any, error) {
+// ParseStreamWithState reads assembly into an owned typed stream from an explicit target state.
+func ParseStreamWithState[T, S any](
+	ctx context.Context,
+	c *Codec[T],
+	sourceName string,
+	source io.Reader,
+	initialState S,
+) (*ast.Stream, error) {
+
+	stream, err := c.parseStream(ctx, sourceName, source, initialState)
+	if err != nil {
+		return nil, err
+	}
+	if _, _, ok := ast.StateSnapshots[S](stream); !ok {
+		return nil, ErrStateType
+	}
+	return stream, nil
+}
+
+func (c *Codec[T]) parseStream(
+	ctx context.Context,
+	sourceName string,
+	source io.Reader,
+	initialState any,
+) (*ast.Stream, error) {
+
 	if source == nil {
-		return nil, nil, ErrNilSource
+		return nil, ErrNilSource
 	}
 
 	p := parser.New(c.configuration.Arch, source, c.configuration.CompatibilityMode)
 	p.SetArchitectureState(initialState)
 	if err := p.Read(ctx); err != nil {
-		return nil, nil, fmt.Errorf("reading assembly stream: %w", err)
+		return nil, fmt.Errorf("reading assembly stream: %w", err)
 	}
-	nodes, err := p.TokensToAstNodes()
+	stream, err := p.TokensToStream(sourceName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("resolving assembly stream: %w", err)
+		return nil, fmt.Errorf("resolving assembly stream: %w", err)
 	}
-	return nodes, p.ArchitectureState(), nil
+	return stream, nil
 }
 
 // ParseInstruction resolves a source stream containing exactly one instruction.
@@ -236,9 +271,18 @@ func (c *Codec[T]) FormatInstruction(instruction ast.Instruction) (string, error
 
 // Assemble assembles a copy of nodes directly, without formatting or reparsing text.
 func (c *Codec[T]) Assemble(ctx context.Context, nodes []ast.Node) (*Assembly, error) {
+	return c.AssembleStream(ctx, ast.NewStreamFromNodes(nodes...))
+}
+
+// AssembleStream assembles a typed stream directly, without formatting or reparsing text.
+func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Assembly, error) {
+	if stream == nil {
+		return nil, ErrNilStream
+	}
+
 	var output bytes.Buffer
 	asm := assembler.New(c.configuration, &output)
-	if err := asm.ProcessAST(ctx, ast.CopyNodes(nodes)); err != nil {
+	if err := asm.ProcessAST(ctx, stream.Nodes()); err != nil {
 		return nil, fmt.Errorf("assembling typed stream: %w", err)
 	}
 	return &Assembly{

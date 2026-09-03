@@ -30,8 +30,17 @@ func TestCodec_ParseTypedStream(t *testing.T) {
 	t.Parallel()
 
 	c := newCPU6502Codec(t)
-	nodes, err := c.Parse(t.Context(), strings.NewReader("start:\n; before load\nlda #1 ; inline"))
+	stream, err := c.ParseStream(
+		t.Context(),
+		"input.asm",
+		strings.NewReader("start:\n; before load\nlda #1 ; inline"),
+	)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, stream.Len())
+	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 1, Column: 1}, stream.At(0).Position)
+	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 2, Column: 1}, stream.At(1).Position)
+	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 3, Column: 1}, stream.At(2).Position)
+	nodes := stream.Nodes()
 	assert.Len(t, nodes, 3)
 
 	label, ok := nodes[0].(ast.Label)
@@ -80,13 +89,16 @@ func TestCodec_AssembleTypedStreamWithoutReparsing(t *testing.T) {
 
 	c, err := codec.New(asmchip8.New())
 	assert.NoError(t, err)
-	nodes, err := c.Parse(t.Context(), strings.NewReader("entry:\ncls"))
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader("entry:\ncls"))
 	assert.NoError(t, err)
 
-	result, err := c.Assemble(t.Context(), nodes)
+	result, err := c.AssembleStream(t.Context(), stream)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{0x00, 0xe0}, result.Binary)
 	assert.Equal(t, uint64(0x200), result.Symbols["entry"])
+
+	_, err = c.AssembleStream(t.Context(), nil)
+	assert.ErrorIs(t, err, codec.ErrNilStream)
 }
 
 func TestCodec_ParseHonorsCancellation(t *testing.T) {
