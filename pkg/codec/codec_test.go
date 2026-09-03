@@ -122,6 +122,54 @@ func TestCodec_ValidateStreamReportsInstructionPosition(t *testing.T) {
 	assert.ErrorIs(t, err, codec.ErrNilStream)
 }
 
+func TestCodec_FormatStreamRoundTripsLabelsCommentsAndInstructions(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502AssemblyCodec(t)
+	stream, err := c.ParseStream(
+		t.Context(),
+		"input.asm",
+		strings.NewReader("; prologue\nentry: ; target\nlda #1 ; load"),
+	)
+	assert.NoError(t, err)
+
+	formatted, err := c.FormatStream(stream)
+	assert.NoError(t, err)
+	assert.Equal(t, "; prologue\nentry: ; target\nlda #$01 ; load", formatted)
+
+	roundTripped, err := c.ParseStream(t.Context(), "formatted.asm", strings.NewReader(formatted))
+	assert.NoError(t, err)
+	assert.NoError(t, c.ValidateStream(roundTripped))
+	assert.Equal(t, stream.Len(), roundTripped.Len())
+	assert.Equal(t, "prologue", roundTripped.At(0).Node.(*ast.Comment).Message)
+	assert.Equal(t, "target", ast.InlineComment(roundTripped.At(1).Node))
+	assert.Equal(t, "load", ast.InlineComment(roundTripped.At(2).Node))
+
+	originalAssembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	roundTripAssembly, err := c.AssembleStream(t.Context(), roundTripped)
+	assert.NoError(t, err)
+	assert.Equal(t, originalAssembly.Binary, roundTripAssembly.Binary)
+	assert.Equal(t, originalAssembly.Symbols, roundTripAssembly.Symbols)
+}
+
+func TestCodec_FormatStreamRejectsUnsupportedNodes(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502Codec(t)
+	stream := ast.NewStream(ast.NewEntry(
+		ast.NewData(ast.DataType, 1),
+		ast.SourcePosition{Source: "input.asm", Line: 4, Column: 1},
+	))
+
+	_, err := c.FormatStream(stream)
+	assert.ErrorIs(t, err, codec.ErrFormattingUnsupported)
+	assert.ErrorContains(t, err, "input.asm:4:1")
+
+	_, err = c.FormatStream(nil)
+	assert.ErrorIs(t, err, codec.ErrNilStream)
+}
+
 func TestCodec_ParseHonorsCancellation(t *testing.T) {
 	t.Parallel()
 

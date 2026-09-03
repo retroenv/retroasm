@@ -297,6 +297,36 @@ func (c *Codec[T]) FormatInstruction(instruction ast.Instruction) (string, error
 	return formatted, nil
 }
 
+// FormatStream formats labels, comments, and typed instructions as deterministic assembly source.
+func (c *Codec[T]) FormatStream(stream *ast.Stream) (string, error) {
+	if stream == nil {
+		return "", ErrNilStream
+	}
+	if err := c.ValidateStream(stream); err != nil {
+		return "", err
+	}
+
+	lines := make([]string, 0, stream.Len())
+	for index, entry := range stream.Entries() {
+		line, err := c.formatStreamNode(entry.Node)
+		if err != nil {
+			return "", fmt.Errorf(
+				"formatting typed stream entry %d at %s:%d:%d: %w",
+				index,
+				entry.Position.Source,
+				entry.Position.Line,
+				entry.Position.Column,
+				err,
+			)
+		}
+		if comment := ast.InlineComment(entry.Node); comment != "" {
+			line += " ; " + comment
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
 // Assemble assembles a copy of nodes directly, without formatting or reparsing text.
 func (c *Codec[T]) Assemble(ctx context.Context, nodes []ast.Node) (*Assembly, error) {
 	return c.AssembleStream(ctx, ast.NewStreamFromNodes(nodes...))
@@ -317,4 +347,20 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 		Binary:  output.Bytes(),
 		Symbols: maps.Clone(asm.Symbols()),
 	}, nil
+}
+
+func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {
+	if instruction, ok := ast.InstructionFromNode(node); ok {
+		return c.FormatInstruction(instruction)
+	}
+	if label, ok := ast.LabelName(node); ok {
+		return label + ":", nil
+	}
+	if comment, ok := node.(*ast.Comment); ok {
+		if comment.Message == "" {
+			return ";", nil
+		}
+		return "; " + comment.Message, nil
+	}
+	return "", fmt.Errorf("%w: %T", ErrFormattingUnsupported, node)
 }
