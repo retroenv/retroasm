@@ -2,8 +2,8 @@
 // an abstract syntax tree (AST) as output.
 //
 // The parser supports two main workflows:
-//   - Stream parsing: New() + Read() + TokensToAstNodes()
-//   - Direct parsing: NewWithTokens() + TokensToAstNodes()
+//   - Stream parsing: New() + Read() + TokensToStream()
+//   - Direct parsing: NewWithTokens() + TokensToStream()
 //
 // The parser handles multiple assembly formats (asm6, ca65, nesasm) and supports:
 //   - Instructions with various addressing modes
@@ -155,10 +155,20 @@ func (p *Parser[T]) SetArchitectureState(state any) {
 // The method maintains parsing state and provides detailed error context including
 // line and column numbers for debugging.
 func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
+	stream, err := p.TokensToStream("")
+	if err != nil {
+		return nil, err
+	}
+	return stream.Nodes(), nil
+}
+
+// TokensToStream converts tokens to a stream with source positions and target state.
+func (p *Parser[T]) TokensToStream(sourceName string) (*ast.Stream, error) {
 	var (
-		nodes        = make([]ast.Node, 0, p.programLength/2) // Pre-allocate with estimated capacity
+		entries      = make([]ast.Entry, 0, p.programLength/2)
 		previousNode ast.Node
 	)
+	initialState := p.architectureState
 
 	for p.readPosition < p.programLength {
 		tok := p.program[p.readPosition]
@@ -169,13 +179,19 @@ func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 				tok.Value, tok.Type.String(), tok.Position.Line, tok.Position.Column, err)
 		}
 		if entry != nil {
-			nodes = append(nodes, entry)
+			entries = append(entries, ast.NewEntry(entry, ast.SourcePosition{
+				Source: sourceName,
+				Line:   tok.Position.Line,
+				Column: tok.Position.Column,
+			}))
 		}
 		previousNode = entry
 		p.readPosition++
 	}
 
-	return nodes, nil
+	stream := ast.NewStream(entries...)
+	stream.RecordState(initialState, p.architectureState)
+	return stream, nil
 }
 
 //nolint:cyclop // type switch with one case per token type

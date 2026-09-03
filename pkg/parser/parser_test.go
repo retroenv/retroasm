@@ -195,6 +195,27 @@ func TestParser_PreallocationBenefit(t *testing.T) {
 	assert.Len(t, nodes, 1000)
 }
 
+func TestParser_TokensToStreamPreservesPositionsAndState(t *testing.T) {
+	cfg := asmcpu6502.New()
+	parser := New(cfg.Arch, strings.NewReader("entry:\n  lda #1\n; note\n"), config.CompatDefault)
+	parser.SetArchitectureState("initial")
+	assert.NoError(t, parser.Read(t.Context()))
+
+	stream, err := parser.TokensToStream("input.asm")
+	assert.NoError(t, err)
+	assert.Equal(t, 3, stream.Len())
+	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 1, Column: 1}, stream.At(0).Position)
+	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 2, Column: 3}, stream.At(1).Position)
+	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 3, Column: 1}, stream.At(2).Position)
+
+	initial, final, ok := ast.StateSnapshots[string](stream)
+	assert.True(t, ok)
+	assert.Equal(t, "initial", initial)
+	assert.Equal(t, "initial", final)
+	_, ok = stream.At(2).Node.(*ast.Comment)
+	assert.True(t, ok)
+}
+
 // cpu6502Instruction creates an ast.Instruction with OpcodeID pre-populated from
 // the cpu6502 NameToOpcodeID table, matching what the cpu6502 parser produces.
 func cpu6502Instruction(name string, addressing int, arg ast.Node) ast.Instruction {
