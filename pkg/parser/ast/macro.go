@@ -26,7 +26,7 @@ func NewMacro(name string) Macro {
 // Copy returns a copy of the macro node.
 func (m Macro) Copy() Node {
 	return Macro{
-		node:      m.node,
+		node:      m.node.copyNode(),
 		Name:      m.Name,
 		Arguments: slices.Clone(m.Arguments),
 		Token:     slices.Clone(m.Token),

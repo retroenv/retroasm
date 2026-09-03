@@ -64,6 +64,12 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "repeat end", node: NewEndr()},
 		{name: "scope", node: NewScope("local")},
 		{name: "scope end", node: NewScopeEnd()},
+		{name: "enum", node: NewEnum(nil)},
+		{name: "enum end", node: NewEnumEnd()},
+		{name: "function", node: NewFunction("main")},
+		{name: "function end", node: NewFunctionEnd()},
+		{name: "include", node: NewInclude("data.bin", true, 0, 1)},
+		{name: "macro", node: NewMacro("load")},
 	}
 
 	for _, test := range tests {

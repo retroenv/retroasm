@@ -35,7 +35,7 @@ func NewEnumEnd() EnumEnd {
 // Copy returns a copy of the enum node.
 func (e Enum) Copy() Node {
 	return Enum{
-		node:    e.node,
+		node:    e.node.copyNode(),
 		Address: e.Address.Copy(),
 	}
 }
@@ -43,6 +43,6 @@ func (e Enum) Copy() Node {
 // Copy returns a copy of the enum end node.
 func (e EnumEnd) Copy() Node {
 	return EnumEnd{
-		node: e.node,
+		node: e.node.copyNode(),
 	}
 }

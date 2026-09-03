@@ -30,7 +30,7 @@ func NewFunctionEnd() FunctionEnd {
 // Copy returns a copy of the function node.
 func (f Function) Copy() Node {
 	return Function{
-		node: f.node,
+		node: f.node.copyNode(),
 		Name: f.Name,
 	}
 }
@@ -38,6 +38,6 @@ func (f Function) Copy() Node {
 // Copy returns a copy of the function end node.
 func (f FunctionEnd) Copy() Node {
 	return FunctionEnd{
-		node: f.node,
+		node: f.node.copyNode(),
 	}
 }
