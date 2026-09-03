@@ -284,7 +284,7 @@ func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, 
 	if err != nil {
 		return nil, err
 	}
-	return newInstruction(ins.instruction, int(addressing), argument, nil), nil
+	return newInstruction(ins.instruction, int(addressing), argument, ins.modifiers), nil
 }
 
 func argumentFromToken(argument token.Token) (ast.Node, error) {

@@ -12,6 +12,8 @@ import (
 // generateOpcodesStep generates the opcodes for instructions and data nodes and resolves any
 // references to their value or assigned addresses.
 func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
+	asm.instructionRelocations = nil
+
 	currentScope := asm.fileScope
 	arch := asm.cfg.Arch
 
@@ -30,9 +32,10 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 
 			case *instruction:
 				assigner := &addressAssign[T]{
-					arch:           arch,
-					currentScope:   currentScope,
-					programCounter: n.Address(),
+					arch:                   arch,
+					currentScope:           currentScope,
+					programCounter:         n.Address(),
+					instructionRelocations: &asm.instructionRelocations,
 				}
 				if err := arch.GenerateInstructionOpcode(assigner, n); err != nil {
 					return fmt.Errorf("generating instruction node opcode: %w", err)

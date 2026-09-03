@@ -59,10 +59,12 @@ type data struct {
 
 // instruction of the used architecture.
 type instruction struct {
-	address  uint64 // assigned start address of the instruction
-	size     int
-	opcodes  []byte
-	opcodeID ast.OpcodeID
+	address          uint64 // assigned start address of the instruction
+	size             int
+	opcodes          []byte
+	opcodeID         ast.OpcodeID
+	sourceEntryIndex int
+	hasSourceEntry   bool
 
 	name       string
 	addressing int

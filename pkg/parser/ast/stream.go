@@ -3,10 +3,12 @@ package ast
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 
 	"github.com/retroenv/retroasm/pkg/expression"
+	"github.com/retroenv/retroasm/pkg/number"
 )
 
 // ErrInvalidStream indicates that stream nodes or metadata violate the typed stream contract.
@@ -645,8 +647,8 @@ func locationExpression(expression SymbolExpression) bool {
 
 func validateRelocationNode(relocation Relocation, node Node) error {
 	if instruction, ok := InstructionFromNode(node); ok {
-		if instruction.ArgumentSymbolName() != relocation.Expression.Symbol {
-			return errors.New("an instruction operand that differs from its symbol")
+		if !instructionReferencesExpression(instruction, relocation.Expression) {
+			return errors.New("an instruction operand that differs from its expression")
 		}
 		return nil
 	}
@@ -673,6 +675,84 @@ func validateRelocationNode(relocation Relocation, node Node) error {
 		return errors.New("a data value that differs from its symbol")
 	}
 	return nil
+}
+
+func instructionReferencesExpression(instruction Instruction, expected SymbolExpression) bool {
+	if len(instruction.Modifier) == 0 {
+		return nodeReferencesExpression(instruction.Argument, expected)
+	}
+
+	symbol, addend, ok := nodeSymbolReference(instruction.Argument)
+	if !ok {
+		return false
+	}
+	modifierAddend, ok := instructionModifierAddend(instruction.Modifier)
+	if !ok {
+		return false
+	}
+	addend, ok = combineInstructionAddends(addend, modifierAddend)
+	return ok && symbol == expected.Symbol && addend == expected.Addend && expected.ReferenceType == FullAddress
+}
+
+func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
+	if symbol, addend, ok := nodeSymbolReference(node); ok {
+		return symbol == expected.Symbol && addend == expected.Addend && expected.ReferenceType == FullAddress
+	}
+
+	switch argument := node.(type) {
+	case InstructionArgument:
+		nested, ok := argument.Value.(Node)
+		return ok && nodeReferencesExpression(nested, expected)
+	case InstructionArguments:
+		for _, value := range argument.Values {
+			if nodeReferencesExpression(value, expected) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func nodeSymbolReference(node Node) (string, int64, bool) {
+	if symbol := SymbolName(node); symbol != "" {
+		return symbol, 0, true
+	}
+	if expression, ok := node.(Expression); ok {
+		return ParseSymbolReference(expression.Value)
+	}
+	return "", 0, false
+}
+
+func instructionModifierAddend(modifiers []Modifier) (int64, bool) {
+	var result int64
+
+	for _, modifier := range modifiers {
+		value, err := number.Parse(modifier.Value)
+		if err != nil || value > math.MaxInt64 {
+			return 0, false
+		}
+		delta := int64(value)
+		switch modifier.Operator.Operator {
+		case "+":
+		case "-":
+			delta = -delta
+		default:
+			return 0, false
+		}
+		var ok bool
+		result, ok = combineInstructionAddends(result, delta)
+		if !ok {
+			return 0, false
+		}
+	}
+	return result, true
+}
+
+func combineInstructionAddends(left, right int64) (int64, bool) {
+	if right > 0 && left > math.MaxInt64-right || right < 0 && left < math.MinInt64-right {
+		return 0, false
+	}
+	return left + right, true
 }
 
 func copySymbols(symbols []Symbol) []Symbol {

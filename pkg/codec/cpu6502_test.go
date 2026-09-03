@@ -157,6 +157,34 @@ func TestCPU6502Codec_RelativeBranchRoundTrip(t *testing.T) {
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
 }
 
+func TestCPU6502Codec_BranchingInstructionsPreserveModifiers(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502AssemblyCodec(t)
+	tests := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{name: "relative", source: "bne target + 1", want: "bne target+$1"},
+		{name: "absolute", source: "jmp target - 1", want: "jmp a:target-$1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			instruction, err := c.ParseInstruction(t.Context(), strings.NewReader(test.source))
+			assert.NoError(t, err)
+			assert.Len(t, instruction.Modifier, 1)
+
+			formatted, err := c.FormatInstruction(instruction)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, formatted)
+		})
+	}
+}
+
 //nolint:funlen // The three 65C02-only addressing families belong in one parity table.
 func TestCPU6502Codec_65C02AddressingFamiliesRoundTrip(t *testing.T) {
 	t.Parallel()

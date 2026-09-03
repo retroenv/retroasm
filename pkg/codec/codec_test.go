@@ -113,6 +113,34 @@ func TestCodec_ParseAndAssembleStreamRecordsMetadata(t *testing.T) {
 	assert.Equal(t, uint64(10), assembly.Stream.Symbols()[1].Expression.Value)
 }
 
+func TestCodec_AssembleStreamRecordsCPU6502InstructionRelocations(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502AssemblyCodec(t)
+	stream, err := c.ParseStream(
+		t.Context(),
+		"input.asm",
+		strings.NewReader("start:\nbne target\nlda target + 1\njmp target - 1\ntarget:\n.byte 0"),
+	)
+	assert.NoError(t, err)
+	assert.Empty(t, stream.Relocations())
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0xd0, 0x06, 0xad, 0x09, 0x00, 0x4c, 0x07, 0x00, 0x00}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 1, ByteOffset: 1, Kind: ast.RelativeRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 2, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 1, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 3, ByteOffset: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", -1, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+
+	reassembled, err := c.AssembleStream(t.Context(), assembly.Stream)
+	assert.NoError(t, err)
+	assert.Equal(t, assembly.Binary, reassembled.Binary)
+	assert.Equal(t, assembly.Stream.Relocations(), reassembled.Stream.Relocations())
+}
+
 func TestCodec_ParseInstruction(t *testing.T) {
 	t.Parallel()
 

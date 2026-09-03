@@ -28,6 +28,28 @@ type ByteOrderer interface {
 	ByteOrder() ast.ByteOrder
 }
 
+// RelocationEncoding describes the encoded bytes of one instruction operand.
+type RelocationEncoding struct {
+	ByteOffset    uint64
+	Kind          ast.RelocationKind
+	Width         ast.DataWidth
+	ByteOrder     ast.ByteOrder
+	ReferenceType ast.ReferenceType
+}
+
+// InstructionRelocationRecorder records a relocation selected by an encoder.
+type InstructionRelocationRecorder interface {
+	RecordInstructionRelocation(Instruction, any, RelocationEncoding)
+}
+
+// RecordInstructionRelocation sends an encoded relocation to a supported assigner.
+func RecordInstructionRelocation(assigner AddressAssigner, ins Instruction, argument any, encoding RelocationEncoding) {
+	recorder, ok := assigner.(InstructionRelocationRecorder)
+	if ok {
+		recorder.RecordInstructionRelocation(ins, argument, encoding)
+	}
+}
+
 // Parser processes an input stream and parses its token to produce an abstract syntax tree (AST) as output.
 type Parser interface {
 	// AddressWidth returns the address width of the architecture in bits.

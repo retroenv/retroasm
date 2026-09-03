@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -381,6 +382,7 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 	if err := asm.ProcessAST(ctx, assemblyStream.Nodes()); err != nil {
 		return nil, fmt.Errorf("assembling typed stream: %w", err)
 	}
+	recordInstructionRelocations(assemblyStream, asm.InstructionRelocations())
 	if err := assemblyStream.ResolveSymbolValues(asm.Symbols()); err != nil {
 		return nil, fmt.Errorf("resolving typed stream symbols: %w", err)
 	}
@@ -389,6 +391,17 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 		Symbols: maps.Clone(asm.Symbols()),
 		Stream:  assemblyStream,
 	}, nil
+}
+
+func recordInstructionRelocations(stream *ast.Stream, relocations []ast.Relocation) {
+	existing := stream.Relocations()
+	for _, relocation := range relocations {
+		if slices.Contains(existing, relocation) {
+			continue
+		}
+		stream.RecordRelocation(relocation)
+		existing = append(existing, relocation)
+	}
 }
 
 func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {

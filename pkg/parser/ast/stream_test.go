@@ -142,6 +142,34 @@ func TestStream_ValidateAcceptsCompleteMetadata(t *testing.T) {
 	assert.NoError(t, stream.Validate())
 }
 
+func TestStream_ValidateInstructionRelocationMatchesExpression(t *testing.T) {
+	t.Parallel()
+
+	instruction := NewInstruction("jmp", 0, NewLabel("target"), []Modifier{{
+		Operator: NewOperator("-"),
+		Value:    "1",
+	}})
+	relocation := Relocation{
+		Kind:       AbsoluteRelocation,
+		Expression: NewSymbolExpression("target", -1, FullAddress),
+		Width:      WidthWord,
+		ByteOrder:  ByteOrderLittle,
+	}
+	stream := NewStreamFromNodes(instruction)
+	stream.RecordRelocation(relocation)
+	assert.NoError(t, stream.Validate())
+
+	relocation.Expression = NewSymbolExpression("target", 0, FullAddress)
+	stream = NewStreamFromNodes(instruction)
+	stream.RecordRelocation(relocation)
+	assert.ErrorIs(t, stream.Validate(), ErrInvalidStream)
+
+	relocation.Expression = NewSymbolExpression("target", -1, LowAddressByte)
+	stream = NewStreamFromNodes(instruction)
+	stream.RecordRelocation(relocation)
+	assert.ErrorIs(t, stream.Validate(), ErrInvalidStream)
+}
+
 func TestStream_ValidateRejectsInvalidMetadata(t *testing.T) {
 	for _, test := range invalidStreamMetadataCases() {
 		t.Run(test.name, func(t *testing.T) {

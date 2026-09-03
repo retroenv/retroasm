@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
@@ -76,13 +77,18 @@ func generateByteAddressingOpcode(
 		addressing := cpu6502.AddressingMode(ins.Addressing())
 		upgraded := upgradeToAbsolute(addressing)
 		if upgraded != addressing {
-			return upgradeAndGenerateWord(ins, instructionInfo, upgraded, value)
+			if err := upgradeAndGenerateWord(ins, instructionInfo, upgraded, value); err != nil {
+				return err
+			}
+			recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.AbsoluteRelocation, ast.WidthWord)
+			return nil
 		}
 		return fmt.Errorf("value %d exceeds byte", value)
 	}
 
 	opcodes := append(ins.Opcodes(), byte(value))
 	ins.SetOpcodes(opcodes)
+	recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.AbsoluteRelocation, ast.WidthByte)
 	return nil
 }
 
@@ -138,6 +144,7 @@ func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
+	recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.AbsoluteRelocation, ast.WidthWord)
 	return nil
 }
 
@@ -156,6 +163,7 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 
 	opcodes := append(ins.Opcodes(), b)
 	ins.SetOpcodes(opcodes)
+	recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.RelativeRelocation, ast.WidthByte)
 	return nil
 }
 
@@ -187,5 +195,25 @@ func generateZeroPageRelativeAddressingOpcode(assigner arch.AddressAssigner, ins
 		)
 	}
 	ins.SetOpcodes(append(ins.Opcodes(), byte(zeroPage), offset))
+	recordCPU6502Relocation(assigner, ins, arguments[0], 1, ast.AbsoluteRelocation, ast.WidthByte)
+	recordCPU6502Relocation(assigner, ins, arguments[1], 2, ast.RelativeRelocation, ast.WidthByte)
 	return nil
+}
+
+func recordCPU6502Relocation(
+	assigner arch.AddressAssigner,
+	ins arch.Instruction,
+	argument any,
+	byteOffset uint64,
+	kind ast.RelocationKind,
+	width ast.DataWidth,
+) {
+
+	arch.RecordInstructionRelocation(assigner, ins, argument, arch.RelocationEncoding{
+		ByteOffset:    byteOffset,
+		Kind:          kind,
+		Width:         width,
+		ByteOrder:     ast.ByteOrderLittle,
+		ReferenceType: ast.FullAddress,
+	})
 }

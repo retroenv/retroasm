@@ -53,7 +53,8 @@ type Assembler[T any] struct {
 	segments      map[string]*segment // maps segment name to segment
 	segmentsOrder []*segment          // sorted list of all parsed segments
 
-	macros map[string]macro
+	macros                 map[string]macro
+	instructionRelocations []ast.Relocation
 }
 
 // New returns a new assembler.
@@ -91,6 +92,8 @@ func (asm *Assembler[T]) Process(ctx context.Context, inputReader io.Reader) err
 // This is the primary AST-based API for library integration where AST nodes are
 // already available. For text-based assembly from readers, use Process instead.
 func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error {
+	asm.instructionRelocations = nil
+
 	byteOrder, err := architectureByteOrder(asm.cfg.Arch)
 	if err != nil {
 		return err
@@ -117,6 +120,16 @@ func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error
 		}
 	}
 	return nil
+}
+
+// InstructionRelocations returns the relocations selected by instruction encoders.
+func (asm *Assembler[T]) InstructionRelocations() []ast.Relocation {
+	result := make([]ast.Relocation, len(asm.instructionRelocations))
+	for index, relocation := range asm.instructionRelocations {
+		result[index] = relocation
+		result[index].Expression = relocation.Expression.Copy()
+	}
+	return result
 }
 
 // Symbols returns the resolved addresses of all label-type symbols after assembly.
@@ -146,7 +159,7 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 		p.segmentsOrder = append(p.segmentsOrder, seg)
 	}
 
-	for _, node := range nodes {
+	for entryIndex, node := range nodes {
 		// Check for cancellation in the parsing loop
 		select {
 		case <-ctx.Done():
@@ -171,6 +184,12 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 				return err
 			}
 			for _, newNode := range newNodes {
+				if ast.IsInstruction(node) {
+					if instruction, ok := newNode.(*instruction); ok {
+						instruction.sourceEntryIndex = entryIndex
+						instruction.hasSourceEntry = true
+					}
+				}
 				p.currentSegment.addNode(newNode)
 			}
 		}

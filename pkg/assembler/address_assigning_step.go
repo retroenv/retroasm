@@ -16,8 +16,9 @@ import (
 type addressAssign[T any] struct {
 	arch arch.Architecture[T]
 
-	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
-	programCounter uint64
+	currentScope           *scope.Scope // current scope, can be a function scope with file scope as parent
+	programCounter         uint64
+	instructionRelocations *[]ast.Relocation
 
 	enumActive               bool
 	enumBackupProgramCounter uint64
@@ -96,6 +97,27 @@ func (aa *addressAssign[T]) ProgramCounter() uint64 {
 	return aa.programCounter
 }
 
+// RecordInstructionRelocation records a relocation for a source stream entry.
+func (aa *addressAssign[T]) RecordInstructionRelocation(ins arch.Instruction, argument any, encoding arch.RelocationEncoding) {
+	instruction, ok := ins.(*instruction)
+	if !ok || !instruction.hasSourceEntry || aa.instructionRelocations == nil {
+		return
+	}
+
+	symbol, addend, ok := instructionArgumentReference(argument)
+	if !ok {
+		return
+	}
+	*aa.instructionRelocations = append(*aa.instructionRelocations, ast.Relocation{
+		EntryIndex: instruction.sourceEntryIndex,
+		ByteOffset: encoding.ByteOffset,
+		Kind:       encoding.Kind,
+		Expression: ast.NewSymbolExpression(symbol, addend, encoding.ReferenceType),
+		Width:      encoding.Width,
+		ByteOrder:  encoding.ByteOrder,
+	})
+}
+
 func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (uint64, error) {
 	if exprNode.Value == nil {
 		return 0, errors.New("expression argument value is nil")
@@ -135,6 +157,23 @@ func (aa *addressAssign[T]) addressWidth() int {
 		return 16
 	}
 	return aa.arch.AddressWidth()
+}
+
+func instructionArgumentReference(argument any) (string, int64, bool) {
+	switch arg := argument.(type) {
+	case reference:
+		name, offset := parseReferenceOffset(arg.name)
+		combined, err := applyInt64Offset(offset, arg.offset)
+		return name, combined, err == nil
+	case ast.Label:
+		return arg.Name, 0, true
+	case ast.Identifier:
+		return arg.Name, 0, true
+	case ast.Expression:
+		return ast.ParseSymbolReference(arg.Value)
+	default:
+		return "", 0, false
+	}
 }
 
 // assignAddressesStep assigns an address for every node in each scope.
