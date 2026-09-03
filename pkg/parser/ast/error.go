@@ -18,7 +18,7 @@ func NewError(message string) Error {
 // Copy returns a copy of the error node.
 func (e Error) Copy() Node {
 	return Error{
-		node:    e.node,
+		node:    e.node.copyNode(),
 		Message: e.Message,
 	}
 }

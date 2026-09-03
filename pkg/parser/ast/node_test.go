@@ -70,6 +70,8 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "function end", node: NewFunctionEnd()},
 		{name: "include", node: NewInclude("data.bin", true, 0, 1)},
 		{name: "macro", node: NewMacro("load")},
+		{name: "error", node: NewError("failure")},
+		{name: "variable", node: NewVariable("value", 1)},
 	}
 
 	for _, test := range tests {
