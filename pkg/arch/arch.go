@@ -28,6 +28,21 @@ type ByteOrderer interface {
 	ByteOrder() ast.ByteOrder
 }
 
+// InstructionRegistration describes one mnemonic and its registered operand selectors.
+type InstructionRegistration struct {
+	Name              string
+	OpcodeID          ast.OpcodeID
+	Addressings       []int
+	RegisterForms     []string
+	RegisterPairForms []string
+	DynamicOperands   bool
+}
+
+// InstructionRegistrationProvider lists the instruction forms registered by one architecture.
+type InstructionRegistrationProvider interface {
+	InstructionRegistrations() []InstructionRegistration
+}
+
 // RelocationEncoding describes the encoded bytes of one instruction operand.
 type RelocationEncoding struct {
 	ByteOffset    uint64

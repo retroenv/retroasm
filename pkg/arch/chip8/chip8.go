@@ -3,6 +3,7 @@ package chip8
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -72,6 +73,25 @@ func (_ *archChip8[T]) Instruction(name string) (*chip8.Instruction, bool) {
 
 func (_ *archChip8[T]) OpcodeID(ins *chip8.Instruction) ast.OpcodeID {
 	return ast.NewOpcodeID(retroarch.CHIP8, uint16(chip8.NameToOpcodeID[ins.Name]))
+}
+
+// InstructionRegistrations returns the CHIP-8 mnemonic and addressing registrations.
+func (ar *archChip8[T]) InstructionRegistrations() []arch.InstructionRegistration {
+	registrations := make([]arch.InstructionRegistration, 0, len(chip8.Instructions))
+	for _, instruction := range chip8.Instructions {
+		addressings := make([]int, 0, len(instruction.Addressing))
+		for addressing := range instruction.Addressing {
+			addressings = append(addressings, int(addressing))
+		}
+		slices.Sort(addressings)
+		registrations = append(registrations, arch.InstructionRegistration{
+			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: addressings,
+		})
+	}
+	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	return registrations
 }
 
 func (ar *archChip8[T]) ValidateInstruction(instruction ast.Instruction) error {

@@ -3,6 +3,7 @@ package cpu65816
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -78,6 +79,25 @@ func (ar *arch65816[T]) Instruction(name string) (*cpu65816.Instruction, bool) {
 
 func (ar *arch65816[T]) OpcodeID(ins *cpu65816.Instruction) ast.OpcodeID {
 	return ast.NewOpcodeID(retroarch.CPU65816, uint16(cpu65816.NameToOpcodeID[ins.Name]))
+}
+
+// InstructionRegistrations returns the CPU65816 mnemonic and addressing registrations.
+func (ar *arch65816[T]) InstructionRegistrations() []arch.InstructionRegistration {
+	registrations := make([]arch.InstructionRegistration, 0, len(cpu65816.Instructions))
+	for _, instruction := range cpu65816.Instructions {
+		addressings := make([]int, 0, len(instruction.Addressing))
+		for addressing := range instruction.Addressing {
+			addressings = append(addressings, int(addressing))
+		}
+		slices.Sort(addressings)
+		registrations = append(registrations, arch.InstructionRegistration{
+			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: addressings,
+		})
+	}
+	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	return registrations
 }
 
 func (ar *arch65816[T]) ParseIdentifier(p arch.Parser, _ string, ins *cpu65816.Instruction) (ast.Node, error) {

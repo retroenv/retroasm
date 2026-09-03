@@ -3,6 +3,7 @@ package cpu6502
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -70,6 +71,25 @@ func (ar *arch6502[T]) Instruction(name string) (*cpu6502.Instruction, bool) {
 
 func (ar *arch6502[T]) OpcodeID(ins *cpu6502.Instruction) ast.OpcodeID {
 	return ast.NewOpcodeID(retroarch.CPU6502, uint16(cpu6502.NameToOpcodeID[ins.Name]))
+}
+
+// InstructionRegistrations returns the configured CPU6502 mnemonic and addressing registrations.
+func (ar *arch6502[T]) InstructionRegistrations() []arch.InstructionRegistration {
+	registrations := make([]arch.InstructionRegistration, 0, len(ar.instructions))
+	for _, instruction := range ar.instructions {
+		addressings := make([]int, 0, len(instruction.Addressing))
+		for addressing := range instruction.Addressing {
+			addressings = append(addressings, int(addressing))
+		}
+		slices.Sort(addressings)
+		registrations = append(registrations, arch.InstructionRegistration{
+			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: addressings,
+		})
+	}
+	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	return registrations
 }
 
 func (ar *arch6502[T]) ParseIdentifier(p arch.Parser, _ string, ins *cpu6502.Instruction) (ast.Node, error) {

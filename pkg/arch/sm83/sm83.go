@@ -13,6 +13,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	retroarch "github.com/retroenv/retrogolib/arch"
 	cpusm83 "github.com/retroenv/retrogolib/arch/cpu/sm83"
+	"github.com/retroenv/retrogolib/set"
 )
 
 // InstructionGroup contains all instruction variants for a mnemonic.
@@ -63,6 +64,38 @@ func (ar *architecture) Instruction(name string) (*InstructionGroup, bool) {
 
 func (ar *architecture) OpcodeID(ins *InstructionGroup) ast.OpcodeID {
 	return ast.NewOpcodeID(retroarch.SM83, uint16(cpusm83.NameToOpcodeID[ins.Name]))
+}
+
+// InstructionRegistrations returns the SM83 mnemonic, addressing, and register registrations.
+func (ar *architecture) InstructionRegistrations() []arch.InstructionRegistration {
+	registrations := make([]arch.InstructionRegistration, 0, len(ar.instructionGroups))
+	for _, group := range ar.instructionGroups {
+		addressings := set.New[int]()
+		registers := set.New[string]()
+		registerPairs := set.New[string]()
+		for _, instruction := range group.Variants {
+			for addressing := range instruction.Addressing {
+				addressings.Add(int(addressing))
+			}
+			for register := range instruction.RegisterOpcodes {
+				registers.Add(fmt.Sprintf("%d", register))
+			}
+			for pair := range instruction.RegisterPairOpcodes {
+				registerPairs.Add(fmt.Sprintf("%d/%d", pair[0], pair[1]))
+			}
+		}
+		registrations = append(registrations, arch.InstructionRegistration{
+			Name:              group.Name,
+			OpcodeID:          ar.OpcodeID(group),
+			Addressings:       set.Sorted(addressings),
+			RegisterForms:     set.Sorted(registers),
+			RegisterPairForms: set.Sorted(registerPairs),
+		})
+	}
+	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	return registrations
 }
 
 func (ar *architecture) ParseIdentifier(p arch.Parser, _ string, ins *InstructionGroup) (ast.Node, error) {

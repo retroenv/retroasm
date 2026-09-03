@@ -3,6 +3,7 @@ package cpu68000
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -83,6 +84,20 @@ func (ar *architecture) Instruction(name string) (*cpu68000.Instruction, bool) {
 
 func (ar *architecture) OpcodeID(ins *cpu68000.Instruction) ast.OpcodeID {
 	return ast.NewOpcodeID(retroarch.CPU68000, uint16(cpu68000.NameToOpcodeID[ins.Name]))
+}
+
+// InstructionRegistrations returns the CPU68000 mnemonic registrations.
+func (ar *architecture) InstructionRegistrations() []arch.InstructionRegistration {
+	registrations := make([]arch.InstructionRegistration, 0, len(cpu68000.Instructions))
+	for _, instruction := range cpu68000.Instructions {
+		registrations = append(registrations, arch.InstructionRegistration{
+			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), DynamicOperands: true,
+		})
+	}
+	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	return registrations
 }
 
 func (ar *architecture) ParseIdentifier(p arch.Parser, mnemonic string, ins *cpu68000.Instruction) (ast.Node, error) {
