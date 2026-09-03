@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/number"
@@ -18,7 +19,7 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
 			case *data:
-				if err := generateReferenceDataBytes(currentScope, n); err != nil {
+				if err := generateReferenceDataBytes(currentScope, n, asm.byteOrder); err != nil {
 					return fmt.Errorf("generating data node opcode: %w", err)
 				}
 				if n.fill {
@@ -79,39 +80,23 @@ func generateDataFillBytes(d *data) error {
 }
 
 // generateReferenceDataBytes generates bytes for the data node by resolving any data or address references.
-func generateReferenceDataBytes(currentScope *scope.Scope, d *data) error {
+func generateReferenceDataBytes(currentScope *scope.Scope, d *data, order binary.ByteOrder) error {
 	for i, item := range d.values {
 		ref, ok := item.(reference)
 		if !ok {
 			continue
 		}
 
-		sym, err := currentScope.GetSymbol(ref.name)
+		address, err := resolveReferenceAddress(currentScope, ref)
 		if err != nil {
-			return fmt.Errorf("getting instruction argument: %w", err)
-		}
-
-		value, err := sym.Value(currentScope)
-		if err != nil {
-			return fmt.Errorf("getting symbol '%s' value: %w", ref.name, err)
-		}
-
-		var address uint64
-
-		switch v := value.(type) {
-		case int64:
-			address = uint64(v)
-		case uint64:
-			address = v
-		default:
-			return fmt.Errorf("unexpected reference value type %T", value)
+			return err
 		}
 
 		var b []byte
 
 		switch ref.typ {
 		case fullAddress:
-			b, err = number.WriteToBytes(address, d.width)
+			b, err = number.WriteToBytesWithOrder(address, d.width, order)
 			if err != nil {
 				return fmt.Errorf("writing full address as bytes: %w", err)
 			}
@@ -128,4 +113,36 @@ func generateReferenceDataBytes(currentScope *scope.Scope, d *data) error {
 		d.values[i] = b
 	}
 	return nil
+}
+
+func resolveReferenceAddress(currentScope *scope.Scope, ref reference) (uint64, error) {
+	sym, err := currentScope.GetSymbol(ref.name)
+	if err != nil {
+		return 0, fmt.Errorf("getting data reference: %w", err)
+	}
+
+	value, err := sym.Value(currentScope)
+	if err != nil {
+		return 0, fmt.Errorf("getting symbol '%s' value: %w", ref.name, err)
+	}
+
+	switch v := value.(type) {
+	case int64:
+		adjusted, offsetErr := applyInt64Offset(v, ref.offset)
+		if offsetErr != nil {
+			return 0, fmt.Errorf("applying reference offset: %w", offsetErr)
+		}
+		if adjusted < 0 {
+			return 0, fmt.Errorf("reference '%s' resolved to negative value %d", ref.name, adjusted)
+		}
+		return uint64(adjusted), nil
+	case uint64:
+		adjusted, offsetErr := applyUint64Offset(v, ref.offset)
+		if offsetErr != nil {
+			return 0, fmt.Errorf("applying reference offset: %w", offsetErr)
+		}
+		return adjusted, nil
+	default:
+		return 0, fmt.Errorf("unexpected reference value type %T", value)
+	}
 }

@@ -28,6 +28,10 @@ func (_ *archX86[T]) AddressWidth() int {
 	return 16
 }
 
+func (*archX86[T]) ByteOrder() ast.ByteOrder {
+	return ast.ByteOrderLittle
+}
+
 func (_ *archX86[T]) Instruction(name string) (*Instruction, bool) {
 	ins, ok := Instructions[name]
 	return ins, ok

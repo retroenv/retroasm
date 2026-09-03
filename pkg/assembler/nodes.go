@@ -36,8 +36,9 @@ const (
 
 // reference for a label or constant.
 type reference struct {
-	name string
-	typ  referenceType
+	name   string
+	offset int64
+	typ    referenceType
 }
 
 // data of type []byte or string.

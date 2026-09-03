@@ -56,6 +56,63 @@ func TestCodec_ParseTypedStream(t *testing.T) {
 	assert.Equal(t, uint16(cpu6502.Lda), instruction.OpcodeID.Value)
 }
 
+func TestCodec_ParseAndAssembleStreamRecordsMetadata(t *testing.T) {
+	t.Parallel()
+
+	configuration := asmcpu6502.New()
+	configuration.CompatibilityMode = config.CompatCa65
+	segment := &config.Segment{
+		Memory:      config.Memory{Name: "code", Start: 0, Size: 0x10000},
+		SegmentName: "code",
+		Align:       16,
+	}
+	configuration.Segments = map[string]*config.Segment{"code": segment}
+	configuration.SegmentsOrdered = []*config.Segment{segment}
+	c, err := codec.New(configuration)
+	assert.NoError(t, err)
+
+	stream, err := c.ParseStream(
+		t.Context(),
+		"input.asm",
+		strings.NewReader("origin = 1\n.segment \"code\"\n.faraddr entry\n.addr entry + 1, entry - 1\n.lobytes entry\n.hibytes entry\n.bankbytes entry\nentry:\n.byte 0"),
+	)
+	assert.NoError(t, err)
+	assert.NoError(t, stream.Validate())
+
+	symbols := stream.Symbols()
+	assert.Len(t, symbols, 2)
+	assert.Equal(t, ast.AliasSymbol, symbols[0].Kind)
+	assert.Equal(t, ast.SymbolExpressionDefinition, symbols[0].Expression.Kind)
+	assert.Equal(t, ast.LabelSymbol, symbols[1].Kind)
+	assert.Equal(t, 7, symbols[1].EntryIndex)
+	assert.Equal(t, "\"code\"", symbols[1].Segment)
+	assert.Equal(t, ast.SymbolExpressionLocation, symbols[1].Expression.Kind)
+
+	assert.Equal(t, []ast.SegmentChange{{
+		EntryIndex: 1,
+		Name:       "\"code\"",
+		Alignment:  16,
+		ByteOrder:  ast.ByteOrderLittle,
+	}}, stream.SegmentChanges())
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("entry", 0, ast.FullAddress), Width: ast.WidthLong, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 3, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("entry", 1, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 3, ByteOffset: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("entry", -1, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 4, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("entry", 0, ast.LowAddressByte), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 5, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("entry", 0, ast.HighAddressByte), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+		{EntryIndex: 6, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("entry", 0, ast.BankAddressByte), Width: ast.WidthByte, ByteOrder: ast.ByteOrderLittle},
+	}, stream.Relocations())
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{10, 0, 0, 11, 0, 9, 0, 10, 0, 0, 0}, assembly.Binary)
+	assert.Equal(t, ast.SymbolExpressionLocation, stream.Symbols()[1].Expression.Kind)
+	assert.NotNil(t, assembly.Stream)
+	assert.NoError(t, assembly.Stream.Validate())
+	assert.Equal(t, ast.SymbolExpressionAbsolute, assembly.Stream.Symbols()[1].Expression.Kind)
+	assert.Equal(t, uint64(10), assembly.Stream.Symbols()[1].Expression.Value)
+}
+
 func TestCodec_ParseInstruction(t *testing.T) {
 	t.Parallel()
 
@@ -98,6 +155,13 @@ func TestCodec_AssembleTypedStreamWithoutReparsing(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{0x00, 0xe0}, result.Binary)
 	assert.Equal(t, uint64(0x200), result.Symbols["entry"])
+	assert.Equal(t, ast.SymbolExpressionAbsolute, result.Stream.Symbols()[0].Expression.Kind)
+
+	directResult, err := c.Assemble(t.Context(), stream.Nodes())
+	assert.NoError(t, err)
+	assert.Len(t, directResult.Stream.Symbols(), 1)
+	assert.Equal(t, ast.SymbolExpressionAbsolute, directResult.Stream.Symbols()[0].Expression.Kind)
+	assert.Equal(t, uint64(0x200), directResult.Stream.Symbols()[0].Expression.Value)
 
 	_, err = c.AssembleStream(t.Context(), nil)
 	assert.ErrorIs(t, err, codec.ErrNilStream)
@@ -111,10 +175,11 @@ func TestCodec_ValidateStreamReportsInstructionPosition(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, c.ValidateStream(stream))
 
-	stream.Replace(1, 2, []ast.Entry{ast.NewEntry(
+	err = stream.Replace(1, 2, []ast.Entry{ast.NewEntry(
 		ast.NewInstruction("missing", 0, nil, nil),
 		ast.SourcePosition{Source: "input.asm", Line: 2, Column: 1},
 	)})
+	assert.NoError(t, err)
 	err = c.ValidateStream(stream)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "input.asm:2:1")

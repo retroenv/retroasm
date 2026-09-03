@@ -216,6 +216,31 @@ func TestParser_TokensToStreamPreservesPositionsAndState(t *testing.T) {
 	assert.True(t, ok)
 }
 
+func TestParser_TokensToStreamRecordsSymbolDefinitions(t *testing.T) {
+	cfg := asmcpu6502.New()
+	parser := New(cfg.Arch, strings.NewReader("value = 1\ndynamic EQU value+1\nentry:\n.proc work\n.endproc\n"), config.CompatDefault)
+	assert.NoError(t, parser.Read(t.Context()))
+
+	stream, err := parser.TokensToStream("input.asm")
+	assert.NoError(t, err)
+	symbols := stream.Symbols()
+	assert.Len(t, symbols, 4)
+	assert.Equal(t, ast.AliasSymbol, symbols[0].Kind)
+	assert.Equal(t, ast.EquSymbol, symbols[1].Kind)
+	assert.Equal(t, ast.LabelSymbol, symbols[2].Kind)
+	assert.Equal(t, ast.FunctionSymbol, symbols[3].Kind)
+
+	for index, symbol := range symbols {
+		assert.Equal(t, index, symbol.EntryIndex)
+		assert.Equal(t, "input.asm", symbol.Position.Source)
+	}
+	assert.Equal(t, ast.SymbolExpressionDefinition, symbols[0].Expression.Kind)
+	assert.Equal(t, ast.SymbolExpressionDefinition, symbols[1].Expression.Kind)
+	assert.Equal(t, ast.SymbolExpressionLocation, symbols[2].Expression.Kind)
+	assert.Equal(t, ast.SymbolExpressionLocation, symbols[3].Expression.Kind)
+	assert.NoError(t, stream.Validate())
+}
+
 // cpu6502Instruction creates an ast.Instruction with OpcodeID pre-populated from
 // the cpu6502 NameToOpcodeID table, matching what the cpu6502 parser produces.
 func cpu6502Instruction(name string, addressing int, arg ast.Node) ast.Instruction {

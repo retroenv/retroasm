@@ -18,6 +18,7 @@ var (
 	ErrInvalidNumberChar            = errors.New("invalid number character")
 	ErrNumberExceedsWidth           = errors.New("number exceeds data width")
 	ErrUnsupportedDataWidth         = errors.New("unsupported data width")
+	ErrUnsupportedByteOrder         = errors.New("unsupported byte order")
 	ErrParseNumber                  = errors.New("failed to parse number")
 )
 
@@ -105,22 +106,34 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 
 // WriteToBytes writes a number to a byte buffer of specific data byte width.
 func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
+	return WriteToBytesWithOrder(i, dataWidth, binary.LittleEndian)
+}
+
+// WriteToBytesWithOrder writes a number with a specific byte order.
+func WriteToBytesWithOrder(i uint64, dataWidth int, order binary.ByteOrder) ([]byte, error) {
+	if order != binary.LittleEndian && order != binary.BigEndian {
+		return nil, ErrUnsupportedByteOrder
+	}
+
 	switch dataWidth {
 	case 1:
 		return []byte{uint8(i)}, nil
 	case 2:
 		data := make([]byte, 2)
-		binary.LittleEndian.PutUint16(data, uint16(i))
+		order.PutUint16(data, uint16(i))
 		return data, nil
 	case 3:
+		if order == binary.BigEndian {
+			return []byte{byte(i >> 16), byte(i >> 8), byte(i)}, nil
+		}
 		return []byte{byte(i), byte(i >> 8), byte(i >> 16)}, nil
 	case 4:
 		data := make([]byte, 4)
-		binary.LittleEndian.PutUint32(data, uint32(i))
+		order.PutUint32(data, uint32(i))
 		return data, nil
 	case 8:
 		data := make([]byte, 8)
-		binary.LittleEndian.PutUint64(data, i)
+		order.PutUint64(data, i)
 		return data, nil
 	default:
 		return nil, fmt.Errorf("%w: "+unsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)

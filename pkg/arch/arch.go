@@ -23,6 +23,11 @@ type Architecture[T any] interface {
 	ParseIdentifier(p Parser, mnemonic string, ins T) (ast.Node, error)
 }
 
+// ByteOrderer reports the native byte order of an architecture.
+type ByteOrderer interface {
+	ByteOrder() ast.ByteOrder
+}
+
 // Parser processes an input stream and parses its token to produce an abstract syntax tree (AST) as output.
 type Parser interface {
 	// AddressWidth returns the address width of the architecture in bits.

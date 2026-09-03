@@ -43,6 +43,10 @@ func (_ *archChip8[T]) AddressWidth() int {
 	return 12
 }
 
+func (*archChip8[T]) ByteOrder() ast.ByteOrder {
+	return ast.ByteOrderBig
+}
+
 func (ar *archChip8[T]) BuildInstruction(
 	mnemonic string,
 	operands parser.Operands,

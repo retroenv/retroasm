@@ -29,6 +29,10 @@ func (ar *architecture) AddressWidth() int {
 	return 24
 }
 
+func (*architecture) ByteOrder() ast.ByteOrder {
+	return ast.ByteOrderBig
+}
+
 func (ar *architecture) BuildInstruction(
 	mnemonic string,
 	operands parser.Operands,

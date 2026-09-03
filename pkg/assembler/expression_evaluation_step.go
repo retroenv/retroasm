@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -21,7 +22,8 @@ var (
 )
 
 type expressionEvaluation[T any] struct {
-	arch arch.Architecture[T]
+	arch      arch.Architecture[T]
+	byteOrder binary.ByteOrder
 
 	currentContext *conditionalContext
 	currentScope   *scope.Scope // current scope, can be a function scope with file scope as parent
@@ -33,6 +35,7 @@ type expressionEvaluation[T any] struct {
 func evaluateExpressionsStep[T any](_ context.Context, asm *Assembler[T]) error {
 	expEval := expressionEvaluation[T]{
 		arch:         asm.cfg.Arch,
+		byteOrder:    asm.byteOrder,
 		currentScope: asm.fileScope,
 		currentContext: &conditionalContext{
 			processNodes: true,
@@ -165,17 +168,17 @@ func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) err
 		if err != nil {
 			return fmt.Errorf("evaluating data expression item %d: %w", index, err)
 		}
-		if err := appendDataExpressionValue(dat, value); err != nil {
+		if err := appendDataExpressionValue(dat, value, expEval.byteOrder); err != nil {
 			return fmt.Errorf("appending data expression item %d: %w", index, err)
 		}
 	}
 	return nil
 }
 
-func appendDataExpressionValue(dat *data, value any) error {
+func appendDataExpressionValue(dat *data, value any, order binary.ByteOrder) error {
 	switch v := value.(type) {
 	case int64:
-		b, err := number.WriteToBytes(uint64(v), dat.width)
+		b, err := number.WriteToBytesWithOrder(uint64(v), dat.width, order)
 		if err != nil {
 			return fmt.Errorf("writing number as bytes: %w", err)
 		}

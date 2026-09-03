@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/retroenv/retroasm/pkg/expression"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -56,6 +58,8 @@ func TestStream_RecordsTypedAssemblyMetadata(t *testing.T) {
 	stream := NewStreamFromNodes(NewLabel("entry"), NewData(DataType, 1), NewSegment("code"))
 	stream.RecordState("native", "emulation")
 	stream.RecordSymbol(Symbol{
+		EntryIndex: 0,
+		Kind:       LabelSymbol,
 		Name:       "entry",
 		Segment:    "code",
 		Expression: NewAbsoluteSymbolExpression(0x8000),
@@ -89,11 +93,11 @@ func TestStream_RecordsTypedAssemblyMetadata(t *testing.T) {
 
 	copied := stream.Copy()
 	copied.RecordSymbol(Symbol{Name: "copy-only"})
-	copied.Replace(0, 1, []Entry{NewEntry(NewLabel("copy-entry"), SourcePosition{})})
+	copied.Append(NewEntry(NewLabel("copy-entry"), SourcePosition{}))
 	assert.Equal(t, 3, stream.Len())
 	assert.Len(t, stream.Symbols(), 1)
 	assert.Equal(t, "entry", SymbolName(stream.At(0).Node))
-	assert.Equal(t, "copy-entry", SymbolName(copied.At(0).Node))
+	assert.Equal(t, "copy-entry", SymbolName(copied.At(3).Node))
 }
 
 func TestStream_RejectsMutableStateWithoutCopyContract(t *testing.T) {
@@ -104,22 +108,32 @@ func TestStream_RejectsMutableStateWithoutCopyContract(t *testing.T) {
 }
 
 func TestStream_ValidateAcceptsCompleteMetadata(t *testing.T) {
-	stream := NewStream(NewEntry(NewLabel("entry"), SourcePosition{Source: "input.asm", Line: 1, Column: 1}))
+	position := SourcePosition{Source: "input.asm", Line: 1, Column: 1}
+	address := NewData(AddressType, 2)
+	address.ReferenceType = FullAddress
+	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: "entry"})}
+	stream := NewStream(
+		NewEntry(NewLabel("entry"), position),
+		NewEntry(address, SourcePosition{Source: "input.asm", Line: 2, Column: 1}),
+		NewEntry(NewSegment("code"), SourcePosition{Source: "input.asm", Line: 3, Column: 1}),
+	)
 	stream.RecordSymbol(Symbol{
+		EntryIndex: 0,
+		Kind:       LabelSymbol,
 		Name:       "entry",
 		Segment:    "code",
 		Expression: NewAbsoluteSymbolExpression(0x8000),
-		Position:   SourcePosition{Source: "input.asm", Line: 1, Column: 1},
+		Position:   position,
 	})
 	stream.RecordRelocation(Relocation{
-		EntryIndex: 0,
+		EntryIndex: 1,
 		Kind:       AbsoluteRelocation,
 		Expression: NewSymbolExpression("entry", 0, FullAddress),
 		Width:      WidthWord,
 		ByteOrder:  ByteOrderLittle,
 	})
 	stream.RecordSegmentChange(SegmentChange{
-		EntryIndex: 0,
+		EntryIndex: 2,
 		Name:       "code",
 		Alignment:  16,
 		ByteOrder:  ByteOrderLittle,
@@ -136,6 +150,93 @@ func TestStream_ValidateRejectsInvalidMetadata(t *testing.T) {
 			assert.True(t, errors.Is(err, ErrInvalidStream))
 		})
 	}
+}
+
+func TestStream_ReplaceReindexesCompatibleMetadataAtomically(t *testing.T) {
+	position := SourcePosition{Source: "input.asm", Line: 1, Column: 1}
+	address := NewData(AddressType, 2)
+	address.ReferenceType = FullAddress
+	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: "entry"})}
+	stream := NewStream(
+		NewEntry(NewLabel("entry"), position),
+		NewEntry(address, SourcePosition{Source: "input.asm", Line: 2, Column: 1}),
+		NewEntry(NewSegment("code"), SourcePosition{Source: "input.asm", Line: 3, Column: 1}),
+	)
+	stream.RecordSymbol(Symbol{
+		EntryIndex: 0,
+		Kind:       LabelSymbol,
+		Name:       "entry",
+		Expression: NewLocationSymbolExpression(),
+		Position:   position,
+	})
+	stream.RecordRelocation(Relocation{
+		EntryIndex: 1,
+		Kind:       AbsoluteRelocation,
+		Expression: NewSymbolExpression("entry", 0, FullAddress),
+		Width:      WidthWord,
+		ByteOrder:  ByteOrderLittle,
+	})
+	stream.RecordSegmentChange(SegmentChange{
+		EntryIndex: 2,
+		Name:       "code",
+		ByteOrder:  ByteOrderLittle,
+	})
+
+	err := stream.Replace(0, 0, []Entry{NewEntry(&Comment{Message: "header"}, SourcePosition{})})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, stream.Symbols()[0].EntryIndex)
+	assert.Equal(t, 2, stream.Relocations()[0].EntryIndex)
+	assert.Equal(t, 3, stream.SegmentChanges()[0].EntryIndex)
+	assert.NoError(t, stream.Validate())
+
+	before := stream.Copy()
+	err = stream.Replace(2, 3, nil)
+	assert.ErrorIs(t, err, ErrInvalidStream)
+	assert.Equal(t, before.Entries(), stream.Entries())
+	assert.Equal(t, before.Relocations(), stream.Relocations())
+
+	err = stream.Replace(2, 3, []Entry{NewEntry(NewInstruction("nop", 0, nil, nil), stream.At(2).Position)})
+	assert.ErrorIs(t, err, ErrInvalidStream)
+	assert.Equal(t, before.Entries(), stream.Entries())
+	assert.Equal(t, before.Relocations(), stream.Relocations())
+}
+
+func TestStream_ResolveSymbolValuesPreservesDefinitionsAndInput(t *testing.T) {
+	alias := NewAlias("constant")
+	alias.SymbolReusable = true
+	alias.Expression = expression.New(token.Token{Type: token.Number, Value: "1"})
+	alias.Expression.SetEvaluateOnce(true)
+	labelPosition := SourcePosition{Source: "input.asm", Line: 2, Column: 1}
+	stream := NewStream(
+		NewEntry(alias, SourcePosition{Source: "input.asm", Line: 1, Column: 1}),
+		NewEntry(NewLabel("entry"), labelPosition),
+	)
+	stream.RecordSymbol(Symbol{
+		EntryIndex: 0,
+		Kind:       AliasSymbol,
+		Name:       "constant",
+		Expression: NewDefinitionSymbolExpression(alias.Expression),
+		Position:   stream.At(0).Position,
+	})
+	stream.RecordSymbol(Symbol{
+		EntryIndex: 1,
+		Kind:       LabelSymbol,
+		Name:       "entry",
+		Expression: NewLocationSymbolExpression(),
+		Position:   labelPosition,
+	})
+	assert.NoError(t, stream.Validate())
+
+	external := stream.Symbols()
+	external[0].Expression.Definition.AddTokens(token.Token{Type: token.Number, Value: "2"})
+	assert.Len(t, stream.Symbols()[0].Expression.Definition.Tokens(), 1)
+
+	err := stream.ResolveSymbolValues(map[string]uint64{"entry": 0x8000})
+	assert.NoError(t, err)
+	assert.Equal(t, SymbolExpressionDefinition, stream.Symbols()[0].Expression.Kind)
+	assert.Equal(t, SymbolExpressionAbsolute, stream.Symbols()[1].Expression.Kind)
+	assert.Equal(t, uint64(0x8000), stream.Symbols()[1].Expression.Value)
+	assert.NoError(t, stream.Validate())
 }
 
 func invalidStreamMetadataCases() []invalidStreamMetadataCase {
@@ -165,16 +266,18 @@ func invalidStreamMetadataCases() []invalidStreamMetadataCase {
 		{
 			name: "invalid symbol expression",
 			stream: streamWithSymbols(Symbol{
+				Kind:       LabelSymbol,
 				Name:       "entry",
 				Expression: SymbolExpression{},
 			}),
 		},
 		{
-			name: "duplicate symbol",
-			stream: streamWithSymbols(
-				Symbol{Name: "entry", Expression: NewAbsoluteSymbolExpression(0)},
-				Symbol{Name: "entry", Expression: NewAbsoluteSymbolExpression(1)},
-			),
+			name: "absolute symbol expression with addend",
+			stream: streamWithSymbols(Symbol{
+				Kind:       LabelSymbol,
+				Name:       "entry",
+				Expression: SymbolExpression{Kind: SymbolExpressionAbsolute, Addend: 1, ReferenceType: FullAddress},
+			}),
 		},
 		{
 			name: "relocation outside stream",
@@ -199,7 +302,12 @@ func invalidStreamMetadataCases() []invalidStreamMetadataCase {
 }
 
 func streamWithSymbols(symbols ...Symbol) *Stream {
-	stream := NewStreamFromNodes(NewLabel("entry"))
+	entries := make([]Entry, len(symbols))
+	for index := range symbols {
+		symbols[index].EntryIndex = index
+		entries[index] = NewEntry(NewLabel(symbols[index].Name), symbols[index].Position)
+	}
+	stream := NewStream(entries...)
 	for _, symbol := range symbols {
 		stream.RecordSymbol(symbol)
 	}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+
+	"github.com/retroenv/retroasm/pkg/expression"
 )
 
 // ErrInvalidStream indicates that stream nodes or metadata violate the typed stream contract.
@@ -63,6 +65,17 @@ const (
 	RelativeRelocation
 )
 
+// SymbolKind identifies how a stream node defines a symbol.
+type SymbolKind uint8
+
+const (
+	SymbolInvalid SymbolKind = iota
+	AliasSymbol
+	EquSymbol
+	LabelSymbol
+	FunctionSymbol
+)
+
 // SymbolExpressionKind identifies the base value of a symbol expression.
 type SymbolExpressionKind uint8
 
@@ -70,6 +83,8 @@ const (
 	SymbolExpressionInvalid SymbolExpressionKind = iota
 	SymbolExpressionAbsolute
 	SymbolExpressionReference
+	SymbolExpressionDefinition
+	SymbolExpressionLocation
 )
 
 // SourcePosition identifies one location in an input source.
@@ -80,17 +95,20 @@ type SourcePosition struct {
 	Offset int
 }
 
-// SymbolExpression is an absolute value or a symbol reference with an addend.
+// SymbolExpression is a source definition, stream location, absolute value, or symbol reference.
 type SymbolExpression struct {
 	Kind          SymbolExpressionKind
 	Value         uint64
 	Symbol        string
 	Addend        int64
 	ReferenceType ReferenceType
+	Definition    *expression.Expression
 }
 
 // Symbol is a typed symbol definition in a stream.
 type Symbol struct {
+	EntryIndex int
+	Kind       SymbolKind
 	Name       string
 	Segment    string
 	Expression SymbolExpression
@@ -142,6 +160,19 @@ func NewAbsoluteSymbolExpression(value uint64) SymbolExpression {
 	}
 }
 
+// NewDefinitionSymbolExpression returns an owned source expression.
+func NewDefinitionSymbolExpression(definition *expression.Expression) SymbolExpression {
+	var copied *expression.Expression
+	if definition != nil {
+		copied = definition.Copy()
+	}
+	return SymbolExpression{
+		Kind:          SymbolExpressionDefinition,
+		ReferenceType: FullAddress,
+		Definition:    copied,
+	}
+}
+
 // NewEntry returns a stream entry for node and position.
 func NewEntry(node Node, position SourcePosition) Entry {
 	return Entry{Node: node, Position: position}
@@ -162,6 +193,14 @@ func NewStreamFromNodes(nodes ...Node) *Stream {
 	return NewStream(entries...)
 }
 
+// NewLocationSymbolExpression returns an unresolved stream location expression.
+func NewLocationSymbolExpression() SymbolExpression {
+	return SymbolExpression{
+		Kind:          SymbolExpressionLocation,
+		ReferenceType: FullAddress,
+	}
+}
+
 // NewSymbolExpression returns an expression for a symbol reference.
 func NewSymbolExpression(symbol string, addend int64, referenceType ReferenceType) SymbolExpression {
 	return SymbolExpression{
@@ -170,6 +209,14 @@ func NewSymbolExpression(symbol string, addend int64, referenceType ReferenceTyp
 		Addend:        addend,
 		ReferenceType: referenceType,
 	}
+}
+
+// Copy returns an independent symbol expression.
+func (exp SymbolExpression) Copy() SymbolExpression {
+	if exp.Definition != nil {
+		exp.Definition = exp.Definition.Copy()
+	}
+	return exp
 }
 
 // BlocksAfter reports whether optimization cannot cross the entry after it.
@@ -231,8 +278,8 @@ func (stm *Stream) Copy() *Stream {
 		entries:        copyEntries(stm.entries),
 		initialState:   copyStreamState(stm.initialState),
 		finalState:     copyStreamState(stm.finalState),
-		symbols:        slices.Clone(stm.symbols),
-		relocations:    slices.Clone(stm.relocations),
+		symbols:        copySymbols(stm.symbols),
+		relocations:    copyRelocations(stm.relocations),
 		segmentChanges: slices.Clone(stm.segmentChanges),
 	}
 }
@@ -261,6 +308,7 @@ func (stm *Stream) Nodes() []Node {
 
 // RecordRelocation appends a typed relocation to the stream.
 func (stm *Stream) RecordRelocation(relocation Relocation) {
+	relocation.Expression = relocation.Expression.Copy()
 	stm.relocations = append(stm.relocations, relocation)
 }
 
@@ -277,21 +325,65 @@ func (stm *Stream) RecordState(initial, final any) {
 
 // RecordSymbol appends a typed symbol definition to the stream.
 func (stm *Stream) RecordSymbol(symbol Symbol) {
+	symbol.Expression = symbol.Expression.Copy()
 	stm.symbols = append(stm.symbols, symbol)
 }
 
 // Relocations returns a copy of the typed relocations.
 func (stm *Stream) Relocations() []Relocation {
-	return slices.Clone(stm.relocations)
+	return copyRelocations(stm.relocations)
 }
 
-// Replace replaces a half-open range with copies of replacement entries.
-func (stm *Stream) Replace(start, end int, replacement []Entry) {
+// Replace atomically replaces a half-open range and reindexes compatible metadata.
+func (stm *Stream) Replace(start, end int, replacement []Entry) error {
+	if stm == nil {
+		return fmt.Errorf("%w: stream is nil", ErrInvalidStream)
+	}
+	if start < 0 || end < start || end > len(stm.entries) {
+		return fmt.Errorf("%w: replacement range %d:%d is outside %d entries", ErrInvalidStream, start, end, len(stm.entries))
+	}
+
+	candidate := stm.Copy()
 	entries := make([]Entry, 0, len(stm.entries)-(end-start)+len(replacement))
 	entries = append(entries, stm.entries[:start]...)
 	entries = append(entries, copyEntries(replacement)...)
 	entries = append(entries, stm.entries[end:]...)
-	stm.entries = entries
+	candidate.entries = entries
+
+	if err := candidate.reindexMetadata(start, end, len(replacement)); err != nil {
+		return err
+	}
+	if err := candidate.Validate(); err != nil {
+		return fmt.Errorf("%w: replacement metadata is incompatible: %w", ErrInvalidStream, err)
+	}
+
+	*stm = *candidate
+	return nil
+}
+
+// ResolveSymbolValues atomically records resolved label and function addresses.
+func (stm *Stream) ResolveSymbolValues(values map[string]uint64) error {
+	if stm == nil {
+		return fmt.Errorf("%w: stream is nil", ErrInvalidStream)
+	}
+
+	candidate := stm.Copy()
+	for index := range candidate.symbols {
+		symbol := &candidate.symbols[index]
+		if symbol.Kind != LabelSymbol && symbol.Kind != FunctionSymbol {
+			continue
+		}
+		value, ok := values[symbol.Name]
+		if ok {
+			symbol.Expression = NewAbsoluteSymbolExpression(value)
+		}
+	}
+	if err := candidate.Validate(); err != nil {
+		return fmt.Errorf("%w: resolved symbol metadata is incompatible: %w", ErrInvalidStream, err)
+	}
+
+	*stm = *candidate
+	return nil
 }
 
 // SegmentChanges returns a copy of the typed segment changes.
@@ -301,7 +393,7 @@ func (stm *Stream) SegmentChanges() []SegmentChange {
 
 // Symbols returns a copy of the typed symbol definitions.
 func (stm *Stream) Symbols() []Symbol {
-	return slices.Clone(stm.symbols)
+	return copySymbols(stm.symbols)
 }
 
 // Validate checks stream entries and assembly metadata for structural consistency.
@@ -312,13 +404,13 @@ func (stm *Stream) Validate() error {
 	if err := validateEntries(stm.entries); err != nil {
 		return err
 	}
-	if err := validateSymbols(stm.symbols); err != nil {
+	if err := validateSymbols(stm.symbols, stm.entries); err != nil {
 		return err
 	}
-	if err := validateRelocations(stm.relocations, len(stm.entries)); err != nil {
+	if err := validateRelocations(stm.relocations, stm.entries); err != nil {
 		return err
 	}
-	return validateSegmentChanges(stm.segmentChanges, len(stm.entries))
+	return validateSegmentChanges(stm.segmentChanges, stm.entries)
 }
 
 // StateSnapshots returns typed copies of the initial and final stream state.
@@ -350,15 +442,16 @@ func validateEntries(entries []Entry) error {
 	return nil
 }
 
-func validateSymbols(symbols []Symbol) error {
-	names := make(map[string]struct{}, len(symbols))
-
+func validateSymbols(symbols []Symbol, entries []Entry) error {
 	for index, symbol := range symbols {
+		if symbol.EntryIndex < 0 || symbol.EntryIndex >= len(entries) {
+			return fmt.Errorf("%w: symbol %d has entry index %d", ErrInvalidStream, index, symbol.EntryIndex)
+		}
+		if symbol.Kind < AliasSymbol || symbol.Kind > FunctionSymbol {
+			return fmt.Errorf("%w: symbol %d has kind %d", ErrInvalidStream, index, symbol.Kind)
+		}
 		if symbol.Name == "" {
 			return fmt.Errorf("%w: symbol %d has no name", ErrInvalidStream, index)
-		}
-		if _, exists := names[symbol.Name]; exists {
-			return fmt.Errorf("%w: symbol %q is duplicated", ErrInvalidStream, symbol.Name)
 		}
 		if !validSourcePosition(symbol.Position) {
 			return fmt.Errorf("%w: symbol %q has a negative source position", ErrInvalidStream, symbol.Name)
@@ -366,14 +459,16 @@ func validateSymbols(symbols []Symbol) error {
 		if err := validateSymbolExpression(symbol.Expression); err != nil {
 			return fmt.Errorf("%w: symbol %q has %w", ErrInvalidStream, symbol.Name, err)
 		}
-		names[symbol.Name] = struct{}{}
+		if err := validateSymbolNode(symbol, entries[symbol.EntryIndex]); err != nil {
+			return fmt.Errorf("%w: symbol %q has %w", ErrInvalidStream, symbol.Name, err)
+		}
 	}
 	return nil
 }
 
-func validateRelocations(relocations []Relocation, entryCount int) error {
+func validateRelocations(relocations []Relocation, entries []Entry) error {
 	for index, relocation := range relocations {
-		if relocation.EntryIndex < 0 || relocation.EntryIndex >= entryCount {
+		if relocation.EntryIndex < 0 || relocation.EntryIndex >= len(entries) {
 			return fmt.Errorf("%w: relocation %d has entry index %d", ErrInvalidStream, index, relocation.EntryIndex)
 		}
 		if relocation.Kind != AbsoluteRelocation && relocation.Kind != RelativeRelocation {
@@ -388,13 +483,19 @@ func validateRelocations(relocations []Relocation, entryCount int) error {
 		if !validByteOrder(relocation.ByteOrder) {
 			return fmt.Errorf("%w: relocation %d has byte order %d", ErrInvalidStream, index, relocation.ByteOrder)
 		}
+		if relocation.Expression.Kind != SymbolExpressionReference {
+			return fmt.Errorf("%w: relocation %d does not reference a symbol", ErrInvalidStream, index)
+		}
+		if err := validateRelocationNode(relocation, entries[relocation.EntryIndex].Node); err != nil {
+			return fmt.Errorf("%w: relocation %d has %w", ErrInvalidStream, index, err)
+		}
 	}
 	return nil
 }
 
-func validateSegmentChanges(changes []SegmentChange, entryCount int) error {
+func validateSegmentChanges(changes []SegmentChange, entries []Entry) error {
 	for index, change := range changes {
-		if change.EntryIndex < 0 || change.EntryIndex >= entryCount {
+		if change.EntryIndex < 0 || change.EntryIndex >= len(entries) {
 			return fmt.Errorf("%w: segment change %d has entry index %d", ErrInvalidStream, index, change.EntryIndex)
 		}
 		if change.Name == "" {
@@ -405,6 +506,10 @@ func validateSegmentChanges(changes []SegmentChange, entryCount int) error {
 		}
 		if !validByteOrder(change.ByteOrder) {
 			return fmt.Errorf("%w: segment change %d has byte order %d", ErrInvalidStream, index, change.ByteOrder)
+		}
+		segment, ok := entries[change.EntryIndex].Node.(Segment)
+		if !ok || segment.Name != change.Name {
+			return fmt.Errorf("%w: segment change %d does not match its entry", ErrInvalidStream, index)
 		}
 	}
 	return nil
@@ -417,17 +522,173 @@ func validateSymbolExpression(expression SymbolExpression) error {
 
 	switch expression.Kind {
 	case SymbolExpressionAbsolute:
-		if expression.Symbol != "" {
-			return errors.New("an absolute expression with a symbol")
-		}
+		return validateAbsoluteSymbolExpression(expression)
 	case SymbolExpressionReference:
-		if expression.Symbol == "" {
-			return errors.New("a reference expression without a symbol")
-		}
+		return validateReferenceSymbolExpression(expression)
+	case SymbolExpressionDefinition:
+		return validateDefinitionSymbolExpression(expression)
+	case SymbolExpressionLocation:
+		return validateLocationSymbolExpression(expression)
 	default:
 		return fmt.Errorf("expression kind %d", expression.Kind)
 	}
+}
+
+func validateAbsoluteSymbolExpression(expression SymbolExpression) error {
+	if expression.Symbol != "" || expression.Addend != 0 || expression.ReferenceType != FullAddress || expression.Definition != nil {
+		return errors.New("an absolute expression with reference data")
+	}
 	return nil
+}
+
+func validateReferenceSymbolExpression(expression SymbolExpression) error {
+	if expression.Symbol == "" || expression.Value != 0 || expression.Definition != nil {
+		return errors.New("a reference expression with invalid symbol data")
+	}
+	return nil
+}
+
+func validateDefinitionSymbolExpression(expression SymbolExpression) error {
+	if expression.Definition == nil || len(expression.Definition.Tokens()) == 0 {
+		return errors.New("a definition expression without tokens")
+	}
+	if expression.Symbol != "" || expression.Value != 0 || expression.Addend != 0 || expression.ReferenceType != FullAddress {
+		return errors.New("a definition expression with a resolved value")
+	}
+	return nil
+}
+
+func validateLocationSymbolExpression(expression SymbolExpression) error {
+	if expression.Symbol != "" || expression.Value != 0 || expression.Addend != 0 || expression.ReferenceType != FullAddress || expression.Definition != nil {
+		return errors.New("an unresolved location expression with a value")
+	}
+	return nil
+}
+
+func (stm *Stream) reindexMetadata(start, end, replacementCount int) error {
+	for index := range stm.symbols {
+		entryIndex, err := replacementEntryIndex(stm.symbols[index].EntryIndex, start, end, replacementCount)
+		if err != nil {
+			return fmt.Errorf("%w: symbol %q: %w", ErrInvalidStream, stm.symbols[index].Name, err)
+		}
+		stm.symbols[index].EntryIndex = entryIndex
+	}
+	for index := range stm.relocations {
+		entryIndex, err := replacementEntryIndex(stm.relocations[index].EntryIndex, start, end, replacementCount)
+		if err != nil {
+			return fmt.Errorf("%w: relocation %d: %w", ErrInvalidStream, index, err)
+		}
+		stm.relocations[index].EntryIndex = entryIndex
+	}
+	for index := range stm.segmentChanges {
+		entryIndex, err := replacementEntryIndex(stm.segmentChanges[index].EntryIndex, start, end, replacementCount)
+		if err != nil {
+			return fmt.Errorf("%w: segment change %q: %w", ErrInvalidStream, stm.segmentChanges[index].Name, err)
+		}
+		stm.segmentChanges[index].EntryIndex = entryIndex
+	}
+	return nil
+}
+
+func replacementEntryIndex(entryIndex, start, end, replacementCount int) (int, error) {
+	if entryIndex < start {
+		return entryIndex, nil
+	}
+	if entryIndex >= end {
+		return entryIndex + replacementCount - (end - start), nil
+	}
+	if replacementCount != end-start {
+		return 0, errors.New("replacement removes its metadata entry")
+	}
+	return entryIndex, nil
+}
+
+func validateSymbolNode(symbol Symbol, entry Entry) error {
+	if symbol.Position != entry.Position {
+		return errors.New("a source position that differs from its entry")
+	}
+
+	switch symbol.Kind {
+	case AliasSymbol, EquSymbol:
+		alias, ok := entry.Node.(Alias)
+		expectedReusable := symbol.Kind == AliasSymbol
+		if !ok || alias.Name != symbol.Name || alias.SymbolReusable != expectedReusable {
+			return errors.New("a definition that differs from its entry")
+		}
+		if symbol.Expression.Kind != SymbolExpressionDefinition || !sameDefinition(symbol.Expression.Definition, alias.Expression) {
+			return errors.New("an expression that differs from its entry")
+		}
+	case LabelSymbol:
+		label, ok := entry.Node.(Label)
+		if !ok || label.Name != symbol.Name || !locationExpression(symbol.Expression) {
+			return errors.New("a label that differs from its entry")
+		}
+	case FunctionSymbol:
+		function, ok := entry.Node.(Function)
+		if !ok || function.Name != symbol.Name || !locationExpression(symbol.Expression) {
+			return errors.New("a function that differs from its entry")
+		}
+	}
+	return nil
+}
+
+func sameDefinition(left, right *expression.Expression) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.IsEvaluatedOnce() == right.IsEvaluatedOnce() && slices.Equal(left.Tokens(), right.Tokens())
+}
+
+func locationExpression(expression SymbolExpression) bool {
+	return expression.Kind == SymbolExpressionLocation || expression.Kind == SymbolExpressionAbsolute
+}
+
+func validateRelocationNode(relocation Relocation, node Node) error {
+	if instruction, ok := InstructionFromNode(node); ok {
+		if instruction.ArgumentSymbolName() != relocation.Expression.Symbol {
+			return errors.New("an instruction operand that differs from its symbol")
+		}
+		return nil
+	}
+
+	data, ok := DataFromNode(node)
+	if !ok || data.Type != AddressType || relocation.Kind != AbsoluteRelocation {
+		return errors.New("an entry that cannot own a relocation")
+	}
+	width := data.Width
+	if data.ReferenceType != FullAddress {
+		width = 1
+	}
+	if DataWidth(width) != relocation.Width || relocation.ByteOffset%uint64(width) != 0 {
+		return errors.New("a width or byte offset that differs from its data entry")
+	}
+	valueIndex := int(relocation.ByteOffset / uint64(width))
+	if valueIndex >= len(data.Values) {
+		return errors.New("a byte offset outside its data entry")
+	}
+	symbol, addend, ok := ParseSymbolReference(data.Values[valueIndex])
+	if !ok || symbol != relocation.Expression.Symbol || addend != relocation.Expression.Addend ||
+		data.ReferenceType != relocation.Expression.ReferenceType {
+
+		return errors.New("a data value that differs from its symbol")
+	}
+	return nil
+}
+
+func copySymbols(symbols []Symbol) []Symbol {
+	result := slices.Clone(symbols)
+	for index := range result {
+		result[index].Expression = result[index].Expression.Copy()
+	}
+	return result
+}
+
+func copyRelocations(relocations []Relocation) []Relocation {
+	result := slices.Clone(relocations)
+	for index := range result {
+		result[index].Expression = result[index].Expression.Copy()
+	}
+	return result
 }
 
 func validByteOrder(order ByteOrder) bool {

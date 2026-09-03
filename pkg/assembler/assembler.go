@@ -18,11 +18,13 @@ package assembler
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
@@ -30,14 +32,18 @@ import (
 	"github.com/retroenv/retrogolib/set"
 )
 
-var errNoCurrentSegment = errors.New("no current segment found")
+var (
+	errNoCurrentSegment             = errors.New("no current segment found")
+	errUnsupportedArchitectureOrder = errors.New("architecture byte order is not supported")
+)
 
 // Assembler is the assembler implementation for retro computer systems.
 // It processes assembly language and converts it into machine code through
 // a multi-stage pipeline. The generic type T represents the target architecture.
 type Assembler[T any] struct {
-	cfg    *config.Config[T]
-	writer io.Writer
+	cfg       *config.Config[T]
+	writer    io.Writer
+	byteOrder binary.ByteOrder
 
 	// a function that reads in a file, for testing includes, defaults to os.ReadFile
 	fileReader func(name string) ([]byte, error)
@@ -85,6 +91,12 @@ func (asm *Assembler[T]) Process(ctx context.Context, inputReader io.Reader) err
 // This is the primary AST-based API for library integration where AST nodes are
 // already available. For text-based assembly from readers, use Process instead.
 func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error {
+	byteOrder, err := architectureByteOrder(asm.cfg.Arch)
+	if err != nil {
+		return err
+	}
+	asm.byteOrder = byteOrder
+
 	// First process the AST nodes
 	if err := asm.parseASTNodes(ctx, nodes); err != nil {
 		return fmt.Errorf("parsing AST nodes: %w", err)
@@ -118,6 +130,7 @@ func (asm *Assembler[T]) Symbols() map[string]uint64 {
 func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) error {
 	p := &parseAST[T]{
 		cfg:           asm.cfg,
+		byteOrder:     asm.byteOrder,
 		fileReader:    asm.fileReader,
 		includeActive: set.New[string](),
 		currentScope:  asm.fileScope,
@@ -167,4 +180,20 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 	asm.segmentsOrder = p.segmentsOrder
 
 	return nil
+}
+
+func architectureByteOrder[T any](architecture arch.Architecture[T]) (binary.ByteOrder, error) {
+	orderer, ok := any(architecture).(arch.ByteOrderer)
+	if !ok {
+		return nil, errUnsupportedArchitectureOrder
+	}
+
+	switch orderer.ByteOrder() {
+	case ast.ByteOrderLittle:
+		return binary.LittleEndian, nil
+	case ast.ByteOrderBig:
+		return binary.BigEndian, nil
+	default:
+		return nil, errUnsupportedArchitectureOrder
+	}
 }

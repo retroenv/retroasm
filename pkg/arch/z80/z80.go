@@ -49,6 +49,10 @@ func (ar *architecture) AddressWidth() int {
 	return 16
 }
 
+func (*architecture) ByteOrder() ast.ByteOrder {
+	return ast.ByteOrderLittle
+}
+
 func (ar *architecture) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
 	return z80assembler.AssignInstructionAddress(assigner, ins) //nolint:wrapcheck // thin delegation to sub-package
 }

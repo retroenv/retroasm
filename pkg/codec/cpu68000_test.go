@@ -47,6 +47,22 @@ func TestCPU68000Codec_BuildValidateFormatAndAssemble(t *testing.T) {
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
 }
 
+func TestCPU68000Codec_DataUsesNativeByteOrder(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU68000Codec(t)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader(".word $1234\n.addr target\ntarget:\n.byte 0"))
+	assert.NoError(t, err)
+	relocations := stream.Relocations()
+	assert.Len(t, relocations, 1)
+	assert.Equal(t, ast.WidthLong, relocations[0].Width)
+	assert.Equal(t, ast.ByteOrderBig, relocations[0].ByteOrder)
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0x12, 0x34, 0x00, 0x00, 0x05, 0x00}, assembly.Binary)
+}
+
 //nolint:funlen // Effective-address coverage is intentionally one auditable table.
 func TestCPU68000Codec_EffectiveAddressFamiliesRoundTrip(t *testing.T) {
 	t.Parallel()

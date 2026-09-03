@@ -3,6 +3,7 @@ package assembler
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,7 +19,8 @@ import (
 )
 
 type parseAST[T any] struct {
-	cfg *config.Config[T]
+	cfg       *config.Config[T]
+	byteOrder binary.ByteOrder
 	// a function that reads in a file, for testing includes, defaults to os.ReadFile
 	fileReader    func(name string) ([]byte, error)
 	includeActive set.Set[string]
@@ -42,7 +44,7 @@ func parseASTNode[T any](ctx context.Context, asm *parseAST[T], node ast.Node) (
 
 	switch n := node.(type) {
 	case ast.Data:
-		nodes, err = parseData(n)
+		nodes, err = parseData(n, asm.byteOrder)
 
 	case ast.Alias:
 		nodes, err = parseAlias(asm, n)
@@ -110,7 +112,7 @@ func parseSegment[T any](asm *parseAST[T], astSegment ast.Segment) error {
 	return nil
 }
 
-func parseData(astData ast.Data) ([]ast.Node, error) {
+func parseData(astData ast.Data, order binary.ByteOrder) ([]ast.Node, error) {
 	dat := &data{
 		fill:  astData.Fill,
 		width: astData.Width,
@@ -135,7 +137,7 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 			dat.width = 1
 		}
 
-		if err := parseDataAddress(dat, astData.Values, refType); err != nil {
+		if err := parseDataAddress(dat, astData.Values, refType, order); err != nil {
 			return nil, fmt.Errorf("parsing data address: %w", err)
 		}
 
@@ -149,7 +151,7 @@ func parseData(astData ast.Data) ([]ast.Node, error) {
 	return []ast.Node{dat}, nil
 }
 
-func parseDataAddress(dat *data, expressions []*expression.Expression, refType referenceType) error {
+func parseDataAddress(dat *data, expressions []*expression.Expression, refType referenceType, order binary.ByteOrder) error {
 	width := dat.width
 	if refType == lowAddressByte || refType == highAddressByte || refType == bankAddressByte {
 		width = 1
@@ -159,6 +161,15 @@ func parseDataAddress(dat *data, expressions []*expression.Expression, refType r
 		if item == nil {
 			return fmt.Errorf("data address item %d is nil", index)
 		}
+		if name, offset, ok := ast.ParseSymbolReference(item); ok {
+			dat.values = append(dat.values, reference{
+				name:   name,
+				offset: offset,
+				typ:    refType,
+			})
+			continue
+		}
+
 		tokens := item.Tokens()
 		if len(tokens) != 1 {
 			return fmt.Errorf("data address item %d has %d tokens", index, len(tokens))
@@ -166,13 +177,6 @@ func parseDataAddress(dat *data, expressions []*expression.Expression, refType r
 		tok := tokens[0]
 
 		switch tok.Type {
-		case token.Identifier:
-			ref := reference{
-				name: tok.Value,
-				typ:  refType,
-			}
-			dat.values = append(dat.values, ref)
-
 		case token.Number:
 			i, err := number.Parse(tok.Value)
 			if err != nil {
@@ -181,7 +185,7 @@ func parseDataAddress(dat *data, expressions []*expression.Expression, refType r
 			if err := number.CheckDataWidth(i, width); err != nil {
 				return fmt.Errorf("checking data byte width: %w", err)
 			}
-			b, err := number.WriteToBytes(i, width)
+			b, err := number.WriteToBytesWithOrder(i, width, order)
 			if err != nil {
 				return fmt.Errorf("writing number as bytes: %w", err)
 			}

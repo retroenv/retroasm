@@ -30,6 +30,10 @@ func (ar *arch65816[T]) AddressWidth() int {
 	return 24
 }
 
+func (*arch65816[T]) ByteOrder() ast.ByteOrder {
+	return ast.ByteOrderLittle
+}
+
 func (ar *arch65816[T]) BuildInstruction(
 	mnemonic string,
 	operands parser.Operands,

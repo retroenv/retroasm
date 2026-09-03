@@ -38,6 +38,8 @@ var (
 	ErrFormattingUnsupported = errors.New("typed stream formatting is not supported by configuration")
 	// ErrStateType indicates that an architecture returned a different stream-state type.
 	ErrStateType = errors.New("unexpected architecture stream state type")
+	// ErrByteOrderUnsupported indicates that an architecture does not report its native byte order.
+	ErrByteOrderUnsupported = errors.New("architecture byte order is not supported")
 
 	dataDirectiveNames = map[dataDirectiveKey]string{
 		{fill: false, width: 1}: ".byte",
@@ -72,6 +74,7 @@ var (
 type Assembly struct {
 	Binary  []byte
 	Symbols map[string]uint64
+	Stream  *ast.Stream
 }
 
 // Codec binds typed stream operations to one architecture configuration.
@@ -184,6 +187,9 @@ func (c *Codec[T]) parseStream(
 	stream, err := p.TokensToStream(sourceName)
 	if err != nil {
 		return nil, fmt.Errorf("resolving assembly stream: %w", err)
+	}
+	if err := c.recordAssemblyMetadata(stream); err != nil {
+		return nil, fmt.Errorf("recording assembly stream metadata: %w", err)
 	}
 	return stream, nil
 }
@@ -365,14 +371,23 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 		return nil, ErrNilStream
 	}
 
+	assemblyStream := stream.Copy()
+	if err := c.recordAssemblyMetadata(assemblyStream); err != nil {
+		return nil, fmt.Errorf("recording typed stream metadata: %w", err)
+	}
+
 	var output bytes.Buffer
 	asm := assembler.New(c.configuration, &output)
-	if err := asm.ProcessAST(ctx, stream.Nodes()); err != nil {
+	if err := asm.ProcessAST(ctx, assemblyStream.Nodes()); err != nil {
 		return nil, fmt.Errorf("assembling typed stream: %w", err)
+	}
+	if err := assemblyStream.ResolveSymbolValues(asm.Symbols()); err != nil {
+		return nil, fmt.Errorf("resolving typed stream symbols: %w", err)
 	}
 	return &Assembly{
 		Binary:  output.Bytes(),
 		Symbols: maps.Clone(asm.Symbols()),
+		Stream:  assemblyStream,
 	}, nil
 }
 

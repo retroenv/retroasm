@@ -191,6 +191,9 @@ func (p *Parser[T]) TokensToStream(sourceName string) (*ast.Stream, error) {
 
 	stream := ast.NewStream(entries...)
 	stream.RecordState(initialState, p.architectureState)
+	if err := stream.RebuildSymbols(); err != nil {
+		return nil, fmt.Errorf("recording stream symbols: %w", err)
+	}
 	return stream, nil
 }
 
