@@ -27,6 +27,13 @@ func (argument formedInstructionArgument) InstructionFormKey() string {
 	return string(argument)
 }
 
+func (argument formedInstructionArgument) InstructionStateTransitionForm() (string, bool) {
+	if argument == "stable" {
+		return "", false
+	}
+	return string(argument), true
+}
+
 func (argument mutableInstructionArgument) CopyInstructionArgument() any {
 	argument.values = slices.Clone(argument.values)
 	return argument
@@ -113,6 +120,19 @@ func TestInstructionArguments_CopyPreservesNilNodes(t *testing.T) {
 	assert.Len(t, copied.Values, 2)
 	assert.Nil(t, copied.Values[0])
 	assert.Equal(t, uint64(1), copied.Values[1].(Number).Value)
+}
+
+func TestInstructionStateTransitionForm(t *testing.T) {
+	t.Parallel()
+
+	transition, ok := InstructionStateTransitionForm(NewInstructionArgument(formedInstructionArgument("byte-to-word")))
+	assert.True(t, ok)
+	assert.Equal(t, "byte-to-word", transition)
+
+	_, ok = InstructionStateTransitionForm(NewInstructionArgument(formedInstructionArgument("stable")))
+	assert.False(t, ok)
+	_, ok = InstructionStateTransitionForm(NewNumber(1))
+	assert.False(t, ok)
 }
 
 func TestInstructionArgumentForm(t *testing.T) {

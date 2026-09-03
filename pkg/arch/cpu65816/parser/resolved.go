@@ -60,6 +60,34 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 	)
 }
 
+// InstructionStateTransitionForm returns the state change made by this instruction.
+func (resolved ResolvedInstruction) InstructionStateTransitionForm() (string, bool) {
+	if resolved.Instruction == nil {
+		return "", false
+	}
+
+	next := nextState(resolved.State, resolved.Instruction, resolved.Operands)
+	if next == resolved.State {
+		return "", false
+	}
+	return fmt.Sprintf(
+		"%s:%s->%s",
+		resolved.Instruction.Name,
+		instructionStateForm(resolved.State),
+		instructionStateForm(next),
+	), true
+}
+
+func instructionStateForm(state State) string {
+	return fmt.Sprintf(
+		"%d/%d/%d/%d",
+		state.AccumulatorWidth,
+		state.IndexWidth,
+		state.Carry,
+		state.Emulation,
+	)
+}
+
 // OpcodeInfo returns encoding metadata for one concrete addressing mode.
 func (resolved ResolvedInstruction) OpcodeInfo(addressing cpu65816.AddressingMode) (cpu65816.OpcodeInfo, error) {
 	if resolved.Instruction == nil {

@@ -29,6 +29,11 @@ type InstructionFormProvider interface {
 	InstructionFormKey() string
 }
 
+// InstructionStateTransitionProvider returns a stable target-state transition form.
+type InstructionStateTransitionProvider interface {
+	InstructionStateTransitionForm() (string, bool)
+}
+
 // InstructionArgument stores an architecture-specific typed instruction argument value.
 type InstructionArgument struct {
 	*node
@@ -89,6 +94,21 @@ func InstructionArgumentForm(argument Node) string {
 	}
 }
 
+// InstructionStateTransitionForm returns the target-state transition for one typed argument.
+func InstructionStateTransitionForm(argument Node) (string, bool) {
+	switch value := argument.(type) {
+	case InstructionArgument:
+		return instructionArgumentValueStateTransitionForm(value.Value)
+	case *InstructionArgument:
+		if value == nil {
+			return "", false
+		}
+		return instructionArgumentValueStateTransitionForm(value.Value)
+	default:
+		return "", false
+	}
+}
+
 func instructionArgumentValueForm(value any) string {
 	if instructionArgumentValueIsNil(value) {
 		return "none"
@@ -97,6 +117,17 @@ func instructionArgumentValueForm(value any) string {
 		return provider.InstructionFormKey()
 	}
 	return fmt.Sprintf("%T", value)
+}
+
+func instructionArgumentValueStateTransitionForm(value any) (string, bool) {
+	if instructionArgumentValueIsNil(value) {
+		return "", false
+	}
+	provider, ok := value.(InstructionStateTransitionProvider)
+	if !ok {
+		return "", false
+	}
+	return provider.InstructionStateTransitionForm()
 }
 
 // Copy returns a copy of the instruction argument node.

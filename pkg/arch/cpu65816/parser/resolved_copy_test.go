@@ -87,3 +87,52 @@ func TestResolvedInstruction_InstructionFormKey(t *testing.T) {
 	resolved.Operands[0].Value = ast.NewNumber(99)
 	assert.NotEqual(t, want, resolved.InstructionFormKey())
 }
+
+func TestResolvedInstruction_InstructionStateTransitionForm(t *testing.T) {
+	t.Parallel()
+
+	rep := ResolvedInstruction{
+		Instruction: cpu65816.RepInst,
+		Operands:    Operands{ImmediateOperand(ast.NewNumber(0x30))},
+		State:       DefaultState(),
+	}
+	assertInstructionStateTransition(t, rep, "rep:1/1/0/1->2/2/0/1", true)
+
+	sep := ResolvedInstruction{
+		Instruction: cpu65816.SepInst,
+		Operands:    Operands{ImmediateOperand(ast.NewNumber(0x30))},
+		State: State{
+			AccumulatorWidth: WidthWord,
+			IndexWidth:       WidthWord,
+			Emulation:        StatusClear,
+		},
+	}
+	assertInstructionStateTransition(t, sep, "sep:2/2/0/1->1/1/0/1", true)
+
+	xce := ResolvedInstruction{
+		Instruction: cpu65816.XceInst,
+		State: State{
+			AccumulatorWidth: WidthByte,
+			IndexWidth:       WidthByte,
+			Carry:            StatusSet,
+			Emulation:        StatusClear,
+		},
+	}
+	assertInstructionStateTransition(t, xce, "xce:1/1/2/1->1/1/1/2", true)
+
+	lda := ResolvedInstruction{
+		Instruction: cpu65816.LdaInst,
+		Operands:    Operands{ImmediateOperand(ast.NewNumber(1))},
+		State:       DefaultState(),
+	}
+	assertInstructionStateTransition(t, lda, "", false)
+}
+
+func assertInstructionStateTransition(t *testing.T, resolved ResolvedInstruction, want string, transition bool) {
+	t.Helper()
+
+	form, ok := resolved.InstructionStateTransitionForm()
+
+	assert.Equal(t, transition, ok)
+	assert.Equal(t, want, form)
+}
