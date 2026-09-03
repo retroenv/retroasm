@@ -25,7 +25,7 @@ func NewIdentifier(name string) Identifier {
 // Copy returns a copy of the identifier node.
 func (i Identifier) Copy() Node {
 	return Identifier{
-		node:      i.node,
+		node:      i.node.copyNode(),
 		Name:      i.Name,
 		Arguments: slices.Clone(i.Arguments),
 	}

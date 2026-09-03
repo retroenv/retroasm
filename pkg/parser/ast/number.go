@@ -18,7 +18,7 @@ func NewNumber(value uint64) Number {
 // Copy returns a copy of the number node.
 func (n Number) Copy() Node {
 	return Number{
-		node:  n.node,
+		node:  n.node.copyNode(),
 		Value: n.Value,
 	}
 }

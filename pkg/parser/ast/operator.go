@@ -18,7 +18,7 @@ func NewOperator(operator string) Operator {
 // Copy returns a copy of the operator node.
 func (o Operator) Copy() Node {
 	return Operator{
-		node:     o.node,
+		node:     o.node.copyNode(),
 		Operator: o.Operator,
 	}
 }

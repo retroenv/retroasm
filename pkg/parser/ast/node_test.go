@@ -32,13 +32,17 @@ func TestNode_SetComment(t *testing.T) {
 	})
 }
 
-func TestInstructionAndLabelCopiesOwnInlineComments(t *testing.T) {
+func TestNodeCopiesOwnInlineComments(t *testing.T) {
 	tests := []struct {
 		name string
 		node Node
 	}{
 		{name: "instruction", node: NewInstruction("nop", 0, nil, nil)},
 		{name: "label", node: NewLabel("entry")},
+		{name: "number", node: NewNumber(1)},
+		{name: "identifier", node: NewIdentifier("value")},
+		{name: "expression", node: NewExpression(token.Token{Type: token.Number, Value: "1"})},
+		{name: "operator", node: NewOperator("+")},
 	}
 
 	for _, test := range tests {

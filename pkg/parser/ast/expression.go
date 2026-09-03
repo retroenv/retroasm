@@ -28,7 +28,7 @@ func (e Expression) Copy() Node {
 	}
 
 	return Expression{
-		node:  e.node,
+		node:  e.node.copyNode(),
 		Value: valueCopy,
 	}
 }
