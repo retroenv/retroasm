@@ -188,6 +188,60 @@ func TestStream_ValidateInstructionRelocationMatchesExpression(t *testing.T) {
 	assert.NoError(t, stream.Validate())
 }
 
+func TestStream_ValidatePackedRelocationField(t *testing.T) {
+	t.Parallel()
+
+	base := Relocation{
+		Kind:       AbsoluteRelocation,
+		Expression: NewSymbolExpression("target", 0, FullAddress),
+		Width:      WidthWord,
+		ByteOrder:  ByteOrderBig,
+	}
+	instruction := NewInstruction("jp", 0, NewLabel("target"), nil)
+
+	valid := base
+	valid.Field = PackedField{BitWidth: 12, PreserveMask: 0xf000}
+	stream := NewStreamFromNodes(instruction)
+	stream.RecordRelocation(valid)
+	assert.NoError(t, stream.Validate())
+	offsetField := base
+	offsetField.Field = PackedField{BitOffset: 4, BitWidth: 4, PreserveMask: 0xff0f}
+	stream = NewStreamFromNodes(instruction)
+	stream.RecordRelocation(offsetField)
+	assert.NoError(t, stream.Validate())
+
+	address := NewData(AddressType, 2)
+	address.ReferenceType = FullAddress
+	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: "target"})}
+	stream = NewStreamFromNodes(address)
+	stream.RecordRelocation(valid)
+	assert.ErrorIs(t, stream.Validate(), ErrInvalidStream)
+
+	tests := []struct {
+		name  string
+		width DataWidth
+		field PackedField
+	}{
+		{name: "missing bit width", width: WidthWord, field: PackedField{BitOffset: 1}},
+		{name: "outside encoded width", width: WidthWord, field: PackedField{BitOffset: 8, BitWidth: 9}},
+		{name: "inconsistent preserve mask", width: WidthWord, field: PackedField{BitWidth: 12}},
+		{name: "encoded width exceeds mask", width: DataWidth(9), field: PackedField{BitWidth: 1}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			relocation := base
+			relocation.Width = test.width
+			relocation.Field = test.field
+			stream := NewStreamFromNodes(instruction)
+			stream.RecordRelocation(relocation)
+			assert.ErrorIs(t, stream.Validate(), ErrInvalidStream)
+		})
+	}
+}
+
 func TestStream_ValidateRejectsInvalidMetadata(t *testing.T) {
 	for _, test := range invalidStreamMetadataCases() {
 		t.Run(test.name, func(t *testing.T) {

@@ -41,6 +41,8 @@ var (
 	ErrStateType = errors.New("unexpected architecture stream state type")
 	// ErrByteOrderUnsupported indicates that an architecture does not report its native byte order.
 	ErrByteOrderUnsupported = errors.New("architecture byte order is not supported")
+	// ErrInstructionRelocationMismatch indicates that retained metadata differs from the selected encoding.
+	ErrInstructionRelocationMismatch = errors.New("instruction relocation does not match selected encoding")
 
 	dataDirectiveNames = map[dataDirectiveKey]string{
 		{fill: false, width: 1}: ".byte",
@@ -382,7 +384,9 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 	if err := asm.ProcessAST(ctx, assemblyStream.Nodes()); err != nil {
 		return nil, fmt.Errorf("assembling typed stream: %w", err)
 	}
-	recordInstructionRelocations(assemblyStream, asm.InstructionRelocations())
+	if err := reconcileInstructionRelocations(assemblyStream, asm.InstructionRelocations()); err != nil {
+		return nil, fmt.Errorf("recording instruction relocations: %w", err)
+	}
 	if err := assemblyStream.ResolveSymbolValues(asm.Symbols()); err != nil {
 		return nil, fmt.Errorf("resolving typed stream symbols: %w", err)
 	}
@@ -393,15 +397,43 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 	}, nil
 }
 
-func recordInstructionRelocations(stream *ast.Stream, relocations []ast.Relocation) {
-	existing := stream.Relocations()
-	for _, relocation := range relocations {
-		if slices.Contains(existing, relocation) {
+func reconcileInstructionRelocations(stream *ast.Stream, selected []ast.Relocation) error {
+	entries := stream.Entries()
+	existingByEntry := make([][]ast.Relocation, len(entries))
+	selectedByEntry := make([][]ast.Relocation, len(entries))
+
+	for _, relocation := range stream.Relocations() {
+		if _, ok := ast.InstructionFromNode(entries[relocation.EntryIndex].Node); ok {
+			existingByEntry[relocation.EntryIndex] = append(existingByEntry[relocation.EntryIndex], relocation)
+		}
+	}
+	for _, relocation := range selected {
+		if relocation.EntryIndex < 0 || relocation.EntryIndex >= len(entries) {
+			return fmt.Errorf("%w: entry index %d", ErrInstructionRelocationMismatch, relocation.EntryIndex)
+		}
+		if _, ok := ast.InstructionFromNode(entries[relocation.EntryIndex].Node); !ok {
+			return fmt.Errorf("%w: entry %d is not an instruction", ErrInstructionRelocationMismatch, relocation.EntryIndex)
+		}
+		selectedByEntry[relocation.EntryIndex] = append(selectedByEntry[relocation.EntryIndex], relocation)
+	}
+
+	for entryIndex, entry := range entries {
+		if _, ok := ast.InstructionFromNode(entry.Node); !ok {
 			continue
 		}
-		stream.RecordRelocation(relocation)
-		existing = append(existing, relocation)
+		existing := existingByEntry[entryIndex]
+		generated := selectedByEntry[entryIndex]
+		if len(existing) == 0 {
+			for _, relocation := range generated {
+				stream.RecordRelocation(relocation)
+			}
+			continue
+		}
+		if !slices.Equal(existing, generated) {
+			return fmt.Errorf("%w at entry %d", ErrInstructionRelocationMismatch, entryIndex)
+		}
 	}
+	return nil
 }
 
 func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/chip8/parser"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/chip8"
 )
 
@@ -30,6 +31,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	opcodeBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(opcodeBytes, opcode)
 	ins.SetOpcodes(opcodeBytes)
+	recordCHIP8Relocation(assigner, ins, resolved)
 	return nil
 }
 
@@ -139,4 +141,45 @@ func generateValueOpcode(
 	}
 	*opcode |= uint16(value)
 	return nil
+}
+
+func recordCHIP8Relocation(assigner arch.AddressAssigner, ins arch.Instruction, resolved parser.ResolvedInstruction) {
+	operandIndex, encoding, ok := chip8RelocationEncoding(resolved)
+	if !ok || operandIndex >= len(resolved.Operands) {
+		return
+	}
+	arch.RecordInstructionRelocation(assigner, ins, resolved.Operands[operandIndex].Value, encoding)
+}
+
+func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.RelocationEncoding, bool) {
+	encoding := arch.RelocationEncoding{
+		Kind:          ast.AbsoluteRelocation,
+		ByteOrder:     ast.ByteOrderBig,
+		ReferenceType: ast.FullAddress,
+	}
+
+	switch resolved.Addressing {
+	case chip8.AbsoluteAddressing:
+		encoding.Width = ast.WidthWord
+		encoding.Field = ast.PackedField{BitWidth: 12, PreserveMask: 0xf000}
+		return 0, encoding, true
+	case chip8.V0AbsoluteAddressing, chip8.IAbsoluteAddressing:
+		encoding.Width = ast.WidthWord
+		encoding.Field = ast.PackedField{BitWidth: 12, PreserveMask: 0xf000}
+		return 1, encoding, true
+	case chip8.RegisterValueAddressing:
+		if len(resolved.Operands) < 2 {
+			return 0, arch.RelocationEncoding{}, false
+		}
+		encoding.ByteOffset = 1
+		encoding.Width = ast.WidthByte
+		return 1, encoding, true
+	case chip8.RegisterRegisterNibbleAddressing:
+		encoding.ByteOffset = 1
+		encoding.Width = ast.WidthByte
+		encoding.Field = ast.PackedField{BitWidth: 4, PreserveMask: 0xf0}
+		return 2, encoding, true
+	default:
+		return 0, arch.RelocationEncoding{}, false
+	}
 }

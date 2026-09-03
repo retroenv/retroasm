@@ -354,6 +354,32 @@ func TestCPU65816Codec_RecordsStateSelectedImmediateRelocations(t *testing.T) {
 	assert.NoError(t, assembly.Stream.Validate())
 }
 
+func TestCPU65816Codec_RejectsStaleStateSelectedWidthRelocation(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU65816Codec(t)
+	byteState := cpu65816parser.DefaultState()
+	byteLoad, _, err := codec.BuildInstructionWithState(c, cpu65816.LdaName, cpu65816parser.Operands{
+		cpu65816parser.ImmediateOperand(ast.NewLabel("target")),
+	}, byteState)
+	assert.NoError(t, err)
+	wordState := byteState
+	wordState.AccumulatorWidth = cpu65816parser.WidthWord
+	wordLoad, _, err := codec.BuildInstructionWithState(c, cpu65816.LdaName, cpu65816parser.Operands{
+		cpu65816parser.ImmediateOperand(ast.NewLabel("target")),
+	}, wordState)
+	assert.NoError(t, err)
+
+	assembly, err := c.Assemble(t.Context(), []ast.Node{byteLoad, ast.NewLabel("target")})
+	assert.NoError(t, err)
+	assert.Equal(t, ast.WidthByte, assembly.Stream.Relocations()[0].Width)
+	err = assembly.Stream.Replace(0, 1, []ast.Entry{ast.NewEntry(wordLoad, ast.SourcePosition{})})
+	assert.NoError(t, err)
+
+	_, err = c.AssembleStream(t.Context(), assembly.Stream)
+	assert.ErrorIs(t, err, codec.ErrInstructionRelocationMismatch)
+}
+
 func TestCPU65816Codec_ParallelStreamsKeepIndependentState(t *testing.T) {
 	t.Parallel()
 

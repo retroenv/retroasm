@@ -115,6 +115,7 @@ func (aa *addressAssign[T]) RecordInstructionRelocation(ins arch.Instruction, ar
 		Expression: ast.NewSymbolExpression(symbol, addend, encoding.ReferenceType),
 		Width:      encoding.Width,
 		ByteOrder:  encoding.ByteOrder,
+		Field:      encoding.Field,
 	})
 }
 

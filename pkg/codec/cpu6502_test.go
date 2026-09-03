@@ -273,6 +273,29 @@ func TestCPU6502Codec_65C02ZeroPageRelativeSymbolRoundTrip(t *testing.T) {
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
 }
 
+func TestCPU6502Codec_RejectsStaleSelectedWidthRelocation(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502AssemblyCodec(t)
+	zeroPage, err := codec.BuildInstruction(c, cpu6502.LdaName, cpu6502parser.Operands{
+		cpu6502parser.MemoryOperand(cpu6502parser.OperandAddress, cpu6502parser.AddressZeroPage, ast.NewLabel("target")),
+	})
+	assert.NoError(t, err)
+	absolute, err := codec.BuildInstruction(c, cpu6502.LdaName, cpu6502parser.Operands{
+		cpu6502parser.MemoryOperand(cpu6502parser.OperandAddress, cpu6502parser.AddressAbsolute, ast.NewLabel("target")),
+	})
+	assert.NoError(t, err)
+
+	assembly, err := c.Assemble(t.Context(), []ast.Node{zeroPage, ast.NewLabel("target")})
+	assert.NoError(t, err)
+	assert.Equal(t, ast.WidthByte, assembly.Stream.Relocations()[0].Width)
+	err = assembly.Stream.Replace(0, 1, []ast.Entry{ast.NewEntry(absolute, ast.SourcePosition{})})
+	assert.NoError(t, err)
+
+	_, err = c.AssembleStream(t.Context(), assembly.Stream)
+	assert.ErrorIs(t, err, codec.ErrInstructionRelocationMismatch)
+}
+
 func TestCPU6502Codec_65C02ConventionalSyntax(t *testing.T) {
 	t.Parallel()
 

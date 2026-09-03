@@ -167,6 +167,122 @@ func TestCHIP8Codec_AddressingFamiliesRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCHIP8Codec_RecordsInstructionRelocations(t *testing.T) {
+	t.Parallel()
+
+	c := newCHIP8Codec(t)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader(strings.Join([]string{
+		"target:",
+		"call target",
+		"jp v0,target",
+		"ld i,target",
+		"cls",
+	}, "\n")))
+	assert.NoError(t, err)
+	assert.Empty(t, stream.Relocations())
+
+	assembly, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0x22, 0x00, 0xb2, 0x00, 0xa2, 0x00, 0x00, 0xe0}, assembly.Binary)
+	addressField := ast.PackedField{BitWidth: 12, PreserveMask: 0xf000}
+	assert.Equal(t, []ast.Relocation{
+		{EntryIndex: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig, Field: addressField},
+		{EntryIndex: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig, Field: addressField},
+		{EntryIndex: 3, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig, Field: addressField},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+
+	reassembled, err := c.AssembleStream(t.Context(), assembly.Stream)
+	assert.NoError(t, err)
+	assert.Equal(t, assembly.Binary, reassembled.Binary)
+	assert.Equal(t, assembly.Stream.Relocations(), reassembled.Stream.Relocations())
+}
+
+func TestCHIP8Codec_RecordsTypedInstructionRelocationAddends(t *testing.T) {
+	t.Parallel()
+
+	c := newCHIP8Codec(t)
+	address := ast.NewExpression(
+		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{Type: token.Plus},
+		token.Token{Type: token.Number, Value: "2"},
+	)
+	byteValue := ast.NewExpression(
+		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{Type: token.Minus},
+		token.Token{Type: token.Number, Value: "257"},
+	)
+	nibble := ast.NewExpression(
+		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{Type: token.Minus},
+		token.Token{Type: token.Number, Value: "507"},
+	)
+	call, err := codec.BuildInstruction(c, chip8.CallName, chip8parser.Operands{
+		chip8parser.AddressOperand(address),
+	})
+	assert.NoError(t, err)
+	load, err := codec.BuildInstruction(c, chip8.LdName, chip8parser.Operands{
+		chip8parser.RegisterOperand(1), chip8parser.ByteOperand(byteValue),
+	})
+	assert.NoError(t, err)
+	draw, err := codec.BuildInstruction(c, chip8.DrwName, chip8parser.Operands{
+		chip8parser.RegisterOperand(1), chip8parser.RegisterOperand(2), chip8parser.NibbleOperand(nibble),
+	})
+	assert.NoError(t, err)
+
+	assembly, err := c.Assemble(t.Context(), []ast.Node{ast.NewLabel("target"), call, load, draw})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte{0x22, 0x02, 0x61, 0xff, 0xd1, 0x25}, assembly.Binary)
+	assert.Equal(t, []ast.Relocation{
+		{
+			EntryIndex: 1, Kind: ast.AbsoluteRelocation,
+			Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress),
+			Width:      ast.WidthWord, ByteOrder: ast.ByteOrderBig,
+			Field: ast.PackedField{BitWidth: 12, PreserveMask: 0xf000},
+		},
+		{
+			EntryIndex: 2, ByteOffset: 1, Kind: ast.AbsoluteRelocation,
+			Expression: ast.NewSymbolExpression("target", -257, ast.FullAddress),
+			Width:      ast.WidthByte, ByteOrder: ast.ByteOrderBig,
+		},
+		{
+			EntryIndex: 3, ByteOffset: 1, Kind: ast.AbsoluteRelocation,
+			Expression: ast.NewSymbolExpression("target", -507, ast.FullAddress),
+			Width:      ast.WidthByte, ByteOrder: ast.ByteOrderBig,
+			Field: ast.PackedField{BitWidth: 4, PreserveMask: 0xf0},
+		},
+	}, assembly.Stream.Relocations())
+	assert.NoError(t, assembly.Stream.Validate())
+}
+
+func TestCHIP8Codec_RejectsStalePackedRelocation(t *testing.T) {
+	t.Parallel()
+
+	c := newCHIP8Codec(t)
+	value := ast.NewExpression(
+		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{Type: token.Minus},
+		token.Token{Type: token.Number, Value: "512"},
+	)
+	call, err := codec.BuildInstruction(c, chip8.CallName, chip8parser.Operands{
+		chip8parser.AddressOperand(value),
+	})
+	assert.NoError(t, err)
+	load, err := codec.BuildInstruction(c, chip8.LdName, chip8parser.Operands{
+		chip8parser.RegisterOperand(0), chip8parser.ByteOperand(value),
+	})
+	assert.NoError(t, err)
+
+	assembly, err := c.Assemble(t.Context(), []ast.Node{call, ast.NewLabel("target")})
+	assert.NoError(t, err)
+	assert.Equal(t, uint8(12), assembly.Stream.Relocations()[0].Field.BitWidth)
+	err = assembly.Stream.Replace(0, 1, []ast.Entry{ast.NewEntry(load, ast.SourcePosition{})})
+	assert.NoError(t, err)
+
+	_, err = c.AssembleStream(t.Context(), assembly.Stream)
+	assert.ErrorIs(t, err, codec.ErrInstructionRelocationMismatch)
+}
+
 func TestCHIP8Codec_SymbolicExpressionRoundTrip(t *testing.T) {
 	t.Parallel()
 

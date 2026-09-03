@@ -48,6 +48,14 @@ const (
 	WidthQuadWord   DataWidth = 8
 )
 
+// PackedField describes a relocation that occupies part of its encoded byte span.
+// Bit offsets and masks use the unsigned value after byte-order decoding.
+type PackedField struct {
+	BitOffset    uint8
+	BitWidth     uint8
+	PreserveMask uint64
+}
+
 // OptimizationBoundary identifies which sides of an entry block optimization.
 type OptimizationBoundary uint8
 
@@ -125,6 +133,7 @@ type Relocation struct {
 	Expression SymbolExpression
 	Width      DataWidth
 	ByteOrder  ByteOrder
+	Field      PackedField
 }
 
 // SegmentChange records segment state at one stream entry.
@@ -485,6 +494,9 @@ func validateRelocations(relocations []Relocation, entries []Entry) error {
 		if !validByteOrder(relocation.ByteOrder) {
 			return fmt.Errorf("%w: relocation %d has byte order %d", ErrInvalidStream, index, relocation.ByteOrder)
 		}
+		if err := validatePackedField(relocation.Field, relocation.Width); err != nil {
+			return fmt.Errorf("%w: relocation %d has %w", ErrInvalidStream, index, err)
+		}
 		if relocation.Expression.Kind != SymbolExpressionReference {
 			return fmt.Errorf("%w: relocation %d does not reference a symbol", ErrInvalidStream, index)
 		}
@@ -657,6 +669,9 @@ func validateRelocationNode(relocation Relocation, node Node) error {
 	if !ok || data.Type != AddressType || relocation.Kind != AbsoluteRelocation {
 		return errors.New("an entry that cannot own a relocation")
 	}
+	if relocation.Field != (PackedField{}) {
+		return errors.New("a packed field on a data entry")
+	}
 	width := data.Width
 	if data.ReferenceType != FullAddress {
 		width = 1
@@ -675,6 +690,39 @@ func validateRelocationNode(relocation Relocation, node Node) error {
 		return errors.New("a data value that differs from its symbol")
 	}
 	return nil
+}
+
+func validatePackedField(field PackedField, width DataWidth) error {
+	if field == (PackedField{}) {
+		return nil
+	}
+	if field.BitWidth == 0 {
+		return errors.New("a packed field without a bit width")
+	}
+
+	encodedBits := uint16(width) * 8
+	if encodedBits > 64 {
+		return errors.New("a packed field in more than 64 encoded bits")
+	}
+	fieldEnd := uint16(field.BitOffset) + uint16(field.BitWidth)
+	if fieldEnd > encodedBits {
+		return errors.New("a packed field outside its encoded width")
+	}
+
+	fieldMask := lowBitMask(field.BitWidth) << field.BitOffset
+	encodedMask := lowBitMask(uint8(encodedBits))
+	expectedPreserveMask := encodedMask &^ fieldMask
+	if field.PreserveMask != expectedPreserveMask {
+		return errors.New("a packed field with an inconsistent preserve mask")
+	}
+	return nil
+}
+
+func lowBitMask(bits uint8) uint64 {
+	if bits == 64 {
+		return ^uint64(0)
+	}
+	return (uint64(1) << bits) - 1
 }
 
 func instructionReferencesExpression(instruction Instruction, expected SymbolExpression) bool {

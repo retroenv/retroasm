@@ -29,6 +29,22 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	return resolved
 }
 
+// InstructionReferences returns copied symbol-bearing operand values for stream validation.
+func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionReference {
+	references := make([]ast.InstructionReference, 0, len(resolved.Operands))
+
+	for _, operand := range resolved.Operands {
+		if !operandReferencesSymbol(operand.Value) {
+			continue
+		}
+		references = append(references, ast.InstructionReference{
+			Value:         operand.Value.Copy(),
+			ReferenceType: ast.FullAddress,
+		})
+	}
+	return references
+}
+
 // OpcodeInfo returns encoding metadata for the retained addressing mode.
 func (resolved ResolvedInstruction) OpcodeInfo() (chip8.OpcodeInfo, error) {
 	if resolved.Instruction == nil {
@@ -164,6 +180,21 @@ func operandMaximum(kind OperandKind) (uint64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func operandReferencesSymbol(value ast.Node) bool {
+	if value == nil {
+		return false
+	}
+	if ast.SymbolName(value) != "" {
+		return true
+	}
+	expression, ok := value.(ast.Expression)
+	if !ok {
+		return false
+	}
+	_, _, ok = ast.ParseSymbolReference(expression.Value)
+	return ok
 }
 
 func resolvedFromParsed(instruction ast.Instruction, details *chip8.Instruction) (ast.Instruction, error) {

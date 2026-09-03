@@ -35,6 +35,7 @@ type RelocationEncoding struct {
 	Width         ast.DataWidth
 	ByteOrder     ast.ByteOrder
 	ReferenceType ast.ReferenceType
+	Field         ast.PackedField
 }
 
 // InstructionRelocationRecorder records a relocation selected by an encoder.
