@@ -134,19 +134,17 @@ func assertRegisteredOpcodeIDs[T any, ID ~uint8](
 	t.Helper()
 	for name, expectedValue := range registered {
 		instruction, ok := architecture.Instruction(name)
+		assert.True(t, ok, "registered mnemonic %q is not exposed by the architecture", name)
 		if !ok {
-			t.Errorf("registered mnemonic %q is not exposed by the architecture", name)
 			continue
 		}
 
 		identity := architecture.OpcodeID(instruction)
+		assert.True(t, identity.ValidFor(expectedArchitecture), "registered mnemonic %q has invalid identity %+v", name, identity)
 		if !identity.ValidFor(expectedArchitecture) {
-			t.Errorf("registered mnemonic %q has invalid identity %+v", name, identity)
 			continue
 		}
-		if identity.Value != uint16(expectedValue) {
-			t.Errorf("registered mnemonic %q has identity value %d, want %d", name, identity.Value, expectedValue)
-		}
+		assert.Equal(t, uint16(expectedValue), identity.Value, "registered mnemonic %q has an unexpected identity value", name)
 	}
 }
 

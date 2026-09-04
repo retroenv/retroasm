@@ -58,14 +58,6 @@ type InstructionRelocationRecorder interface {
 	RecordInstructionRelocation(Instruction, any, RelocationEncoding)
 }
 
-// RecordInstructionRelocation sends an encoded relocation to a supported assigner.
-func RecordInstructionRelocation(assigner AddressAssigner, ins Instruction, argument any, encoding RelocationEncoding) {
-	recorder, ok := assigner.(InstructionRelocationRecorder)
-	if ok {
-		recorder.RecordInstructionRelocation(ins, argument, encoding)
-	}
-}
-
 // Parser processes an input stream and parses its token to produce an abstract syntax tree (AST) as output.
 type Parser interface {
 	// AddressWidth returns the address width of the architecture in bits.
@@ -128,4 +120,12 @@ type Instruction interface {
 	SetOpcodes([]byte)
 	// SetSize sets the size of the instruction in bytes.
 	SetSize(int)
+}
+
+// RecordInstructionRelocation sends an encoded relocation to a supported assigner.
+func RecordInstructionRelocation(assigner AddressAssigner, ins Instruction, argument any, encoding RelocationEncoding) {
+	recorder, ok := assigner.(InstructionRelocationRecorder)
+	if ok {
+		recorder.RecordInstructionRelocation(ins, argument, encoding)
+	}
 }

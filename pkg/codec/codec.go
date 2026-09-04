@@ -85,27 +85,6 @@ type Codec[T any] struct {
 	configuration *config.Config[T]
 }
 
-type dataDirectiveKey struct {
-	fill  bool
-	width int
-}
-
-type instructionBuilder[O any] interface {
-	BuildInstruction(string, O) (ast.Instruction, error)
-}
-
-type statefulInstructionBuilder[O, S any] interface {
-	BuildInstructionWithState(string, O, S) (ast.Instruction, S, error)
-}
-
-type instructionValidator interface {
-	ValidateInstruction(ast.Instruction) error
-}
-
-type instructionFormatter interface {
-	FormatInstruction(ast.Instruction) (string, error)
-}
-
 // New creates a typed stream codec for configuration.
 func New[T any](configuration *config.Config[T]) (*Codec[T], error) {
 	if configuration == nil {
@@ -131,72 +110,6 @@ func (c *Codec[T]) ParseStream(ctx context.Context, sourceName string, source io
 	return c.parseStream(ctx, sourceName, source, nil)
 }
 
-// ParseWithState reads an assembly stream from an explicit target state and
-// returns the state after the last parsed instruction.
-func ParseWithState[T, S any](
-	ctx context.Context,
-	c *Codec[T],
-	source io.Reader,
-	initialState S,
-) ([]ast.Node, S, error) {
-
-	var zero S
-	stream, err := ParseStreamWithState(ctx, c, "", source, initialState)
-	if err != nil {
-		return nil, zero, err
-	}
-	_, finalState, ok := ast.StateSnapshots[S](stream)
-	if !ok {
-		return nil, zero, ErrStateType
-	}
-	return stream.Nodes(), finalState, nil
-}
-
-// ParseStreamWithState reads assembly into an owned typed stream from an explicit target state.
-func ParseStreamWithState[T, S any](
-	ctx context.Context,
-	c *Codec[T],
-	sourceName string,
-	source io.Reader,
-	initialState S,
-) (*ast.Stream, error) {
-
-	stream, err := c.parseStream(ctx, sourceName, source, initialState)
-	if err != nil {
-		return nil, err
-	}
-	if _, _, ok := ast.StateSnapshots[S](stream); !ok {
-		return nil, ErrStateType
-	}
-	return stream, nil
-}
-
-func (c *Codec[T]) parseStream(
-	ctx context.Context,
-	sourceName string,
-	source io.Reader,
-	initialState any,
-) (*ast.Stream, error) {
-
-	if source == nil {
-		return nil, ErrNilSource
-	}
-
-	p := parser.New(c.configuration.Arch, source, c.configuration.CompatibilityMode)
-	p.SetArchitectureState(initialState)
-	if err := p.Read(ctx); err != nil {
-		return nil, fmt.Errorf("reading assembly stream: %w", err)
-	}
-	stream, err := p.TokensToStream(sourceName)
-	if err != nil {
-		return nil, fmt.Errorf("resolving assembly stream: %w", err)
-	}
-	if err := c.recordAssemblyMetadata(stream); err != nil {
-		return nil, fmt.Errorf("recording assembly stream metadata: %w", err)
-	}
-	return stream, nil
-}
-
 // ParseInstruction resolves a source stream containing exactly one instruction.
 func (c *Codec[T]) ParseInstruction(ctx context.Context, source io.Reader) (ast.Instruction, error) {
 	nodes, err := c.Parse(ctx, source)
@@ -204,38 +117,6 @@ func (c *Codec[T]) ParseInstruction(ctx context.Context, source io.Reader) (ast.
 		return ast.Instruction{}, err
 	}
 	return singleInstruction(nodes)
-}
-
-// ParseInstructionWithState resolves exactly one instruction from an explicit
-// target state and returns the state after that instruction.
-func ParseInstructionWithState[T, S any](
-	ctx context.Context,
-	c *Codec[T],
-	source io.Reader,
-	initialState S,
-) (ast.Instruction, S, error) {
-
-	var zero S
-	nodes, finalState, err := ParseWithState(ctx, c, source, initialState)
-	if err != nil {
-		return ast.Instruction{}, zero, err
-	}
-	instruction, err := singleInstruction(nodes)
-	if err != nil {
-		return ast.Instruction{}, zero, err
-	}
-	return instruction, finalState, nil
-}
-
-func singleInstruction(nodes []ast.Node) (ast.Instruction, error) {
-	if len(nodes) != 1 {
-		return ast.Instruction{}, fmt.Errorf("%w: got %d nodes", ErrExpectedInstruction, len(nodes))
-	}
-	instruction, ok := ast.InstructionFromNode(nodes[0])
-	if !ok {
-		return ast.Instruction{}, fmt.Errorf("%w: got %T", ErrExpectedInstruction, nodes[0])
-	}
-	return instruction, nil
 }
 
 // OpcodeID resolves mnemonic to its architecture-scoped identity.
@@ -250,41 +131,6 @@ func (c *Codec[T]) OpcodeID(mnemonic string) (ast.OpcodeID, error) {
 		return ast.OpcodeID{}, fmt.Errorf("%w: %q has no opcode identity", ErrUnknownInstruction, mnemonic)
 	}
 	return identity, nil
-}
-
-// BuildInstruction constructs a typed instruction through the architecture's
-// operand-specific builder. Architectures opt in with their concrete operand-set type.
-func BuildInstruction[T, O any](c *Codec[T], mnemonic string, operands O) (ast.Instruction, error) {
-	builder, ok := c.configuration.Arch.(instructionBuilder[O])
-	if !ok {
-		return ast.Instruction{}, ErrBuildUnsupported
-	}
-	instruction, err := builder.BuildInstruction(mnemonic, operands)
-	if err != nil {
-		return ast.Instruction{}, fmt.Errorf("building typed instruction: %w", err)
-	}
-	return instruction, nil
-}
-
-// BuildInstructionWithState constructs a typed instruction using explicit
-// target stream state and returns the state after the instruction.
-func BuildInstructionWithState[T, O, S any](
-	c *Codec[T],
-	mnemonic string,
-	operands O,
-	state S,
-) (ast.Instruction, S, error) {
-
-	var zero S
-	builder, ok := c.configuration.Arch.(statefulInstructionBuilder[O, S])
-	if !ok {
-		return ast.Instruction{}, zero, ErrBuildUnsupported
-	}
-	instruction, nextState, err := builder.BuildInstructionWithState(mnemonic, operands, state)
-	if err != nil {
-		return ast.Instruction{}, zero, fmt.Errorf("building stateful typed instruction: %w", err)
-	}
-	return instruction, nextState, nil
 }
 
 // ValidateInstruction verifies architecture identity, profile, variant, addressing,
@@ -397,43 +243,30 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 	}, nil
 }
 
-func reconcileInstructionRelocations(stream *ast.Stream, selected []ast.Relocation) error {
-	entries := stream.Entries()
-	existingByEntry := make([][]ast.Relocation, len(entries))
-	selectedByEntry := make([][]ast.Relocation, len(entries))
+func (c *Codec[T]) parseStream(
+	ctx context.Context,
+	sourceName string,
+	source io.Reader,
+	initialState any,
+) (*ast.Stream, error) {
 
-	for _, relocation := range stream.Relocations() {
-		if _, ok := ast.InstructionFromNode(entries[relocation.EntryIndex].Node); ok {
-			existingByEntry[relocation.EntryIndex] = append(existingByEntry[relocation.EntryIndex], relocation)
-		}
-	}
-	for _, relocation := range selected {
-		if relocation.EntryIndex < 0 || relocation.EntryIndex >= len(entries) {
-			return fmt.Errorf("%w: entry index %d", ErrInstructionRelocationMismatch, relocation.EntryIndex)
-		}
-		if _, ok := ast.InstructionFromNode(entries[relocation.EntryIndex].Node); !ok {
-			return fmt.Errorf("%w: entry %d is not an instruction", ErrInstructionRelocationMismatch, relocation.EntryIndex)
-		}
-		selectedByEntry[relocation.EntryIndex] = append(selectedByEntry[relocation.EntryIndex], relocation)
+	if source == nil {
+		return nil, ErrNilSource
 	}
 
-	for entryIndex, entry := range entries {
-		if _, ok := ast.InstructionFromNode(entry.Node); !ok {
-			continue
-		}
-		existing := existingByEntry[entryIndex]
-		generated := selectedByEntry[entryIndex]
-		if len(existing) == 0 {
-			for _, relocation := range generated {
-				stream.RecordRelocation(relocation)
-			}
-			continue
-		}
-		if !slices.Equal(existing, generated) {
-			return fmt.Errorf("%w at entry %d", ErrInstructionRelocationMismatch, entryIndex)
-		}
+	p := parser.New(c.configuration.Arch, source, c.configuration.CompatibilityMode)
+	p.SetArchitectureState(initialState)
+	if err := p.Read(ctx); err != nil {
+		return nil, fmt.Errorf("reading assembly stream: %w", err)
 	}
-	return nil
+	stream, err := p.TokensToStream(sourceName)
+	if err != nil {
+		return nil, fmt.Errorf("resolving assembly stream: %w", err)
+	}
+	if err := c.recordAssemblyMetadata(stream); err != nil {
+		return nil, fmt.Errorf("recording assembly stream metadata: %w", err)
+	}
+	return stream, nil
 }
 
 func (c *Codec[T]) formatStreamNode(node ast.Node) (string, error) {
@@ -597,6 +430,173 @@ func (c *Codec[T]) addressDirective(data ast.Data) (string, error) {
 		data.Width,
 		c.configuration.CompatibilityMode,
 	)
+}
+
+// ParseWithState reads an assembly stream from an explicit target state and
+// returns the state after the last parsed instruction.
+func ParseWithState[T, S any](
+	ctx context.Context,
+	c *Codec[T],
+	source io.Reader,
+	initialState S,
+) ([]ast.Node, S, error) {
+
+	var zero S
+	stream, err := ParseStreamWithState(ctx, c, "", source, initialState)
+	if err != nil {
+		return nil, zero, err
+	}
+	_, finalState, ok := ast.StateSnapshots[S](stream)
+	if !ok {
+		return nil, zero, ErrStateType
+	}
+	return stream.Nodes(), finalState, nil
+}
+
+// ParseStreamWithState reads assembly into an owned typed stream from an explicit target state.
+func ParseStreamWithState[T, S any](
+	ctx context.Context,
+	c *Codec[T],
+	sourceName string,
+	source io.Reader,
+	initialState S,
+) (*ast.Stream, error) {
+
+	stream, err := c.parseStream(ctx, sourceName, source, initialState)
+	if err != nil {
+		return nil, err
+	}
+	if _, _, ok := ast.StateSnapshots[S](stream); !ok {
+		return nil, ErrStateType
+	}
+	return stream, nil
+}
+
+// ParseInstructionWithState resolves exactly one instruction from an explicit
+// target state and returns the state after that instruction.
+func ParseInstructionWithState[T, S any](
+	ctx context.Context,
+	c *Codec[T],
+	source io.Reader,
+	initialState S,
+) (ast.Instruction, S, error) {
+
+	var zero S
+	nodes, finalState, err := ParseWithState(ctx, c, source, initialState)
+	if err != nil {
+		return ast.Instruction{}, zero, err
+	}
+	instruction, err := singleInstruction(nodes)
+	if err != nil {
+		return ast.Instruction{}, zero, err
+	}
+	return instruction, finalState, nil
+}
+
+// BuildInstruction constructs a typed instruction through the architecture's
+// operand-specific builder. Architectures opt in with their concrete operand-set type.
+func BuildInstruction[T, O any](c *Codec[T], mnemonic string, operands O) (ast.Instruction, error) {
+	builder, ok := c.configuration.Arch.(instructionBuilder[O])
+	if !ok {
+		return ast.Instruction{}, ErrBuildUnsupported
+	}
+	instruction, err := builder.BuildInstruction(mnemonic, operands)
+	if err != nil {
+		return ast.Instruction{}, fmt.Errorf("building typed instruction: %w", err)
+	}
+	return instruction, nil
+}
+
+// BuildInstructionWithState constructs a typed instruction using explicit
+// target stream state and returns the state after the instruction.
+func BuildInstructionWithState[T, O, S any](
+	c *Codec[T],
+	mnemonic string,
+	operands O,
+	state S,
+) (ast.Instruction, S, error) {
+
+	var zero S
+	builder, ok := c.configuration.Arch.(statefulInstructionBuilder[O, S])
+	if !ok {
+		return ast.Instruction{}, zero, ErrBuildUnsupported
+	}
+	instruction, nextState, err := builder.BuildInstructionWithState(mnemonic, operands, state)
+	if err != nil {
+		return ast.Instruction{}, zero, fmt.Errorf("building stateful typed instruction: %w", err)
+	}
+	return instruction, nextState, nil
+}
+
+type dataDirectiveKey struct {
+	fill  bool
+	width int
+}
+
+type instructionBuilder[O any] interface {
+	BuildInstruction(string, O) (ast.Instruction, error)
+}
+
+type statefulInstructionBuilder[O, S any] interface {
+	BuildInstructionWithState(string, O, S) (ast.Instruction, S, error)
+}
+
+type instructionValidator interface {
+	ValidateInstruction(ast.Instruction) error
+}
+
+type instructionFormatter interface {
+	FormatInstruction(ast.Instruction) (string, error)
+}
+
+func singleInstruction(nodes []ast.Node) (ast.Instruction, error) {
+	if len(nodes) != 1 {
+		return ast.Instruction{}, fmt.Errorf("%w: got %d nodes", ErrExpectedInstruction, len(nodes))
+	}
+	instruction, ok := ast.InstructionFromNode(nodes[0])
+	if !ok {
+		return ast.Instruction{}, fmt.Errorf("%w: got %T", ErrExpectedInstruction, nodes[0])
+	}
+	return instruction, nil
+}
+
+func reconcileInstructionRelocations(stream *ast.Stream, selected []ast.Relocation) error {
+	entries := stream.Entries()
+	existingByEntry := make([][]ast.Relocation, len(entries))
+	selectedByEntry := make([][]ast.Relocation, len(entries))
+
+	for _, relocation := range stream.Relocations() {
+		if _, ok := ast.InstructionFromNode(entries[relocation.EntryIndex].Node); ok {
+			existingByEntry[relocation.EntryIndex] = append(existingByEntry[relocation.EntryIndex], relocation)
+		}
+	}
+	for _, relocation := range selected {
+		if relocation.EntryIndex < 0 || relocation.EntryIndex >= len(entries) {
+			return fmt.Errorf("%w: entry index %d", ErrInstructionRelocationMismatch, relocation.EntryIndex)
+		}
+		if _, ok := ast.InstructionFromNode(entries[relocation.EntryIndex].Node); !ok {
+			return fmt.Errorf("%w: entry %d is not an instruction", ErrInstructionRelocationMismatch, relocation.EntryIndex)
+		}
+		selectedByEntry[relocation.EntryIndex] = append(selectedByEntry[relocation.EntryIndex], relocation)
+	}
+
+	for entryIndex, entry := range entries {
+		if _, ok := ast.InstructionFromNode(entry.Node); !ok {
+			continue
+		}
+		existing := existingByEntry[entryIndex]
+		generated := selectedByEntry[entryIndex]
+		if len(existing) == 0 {
+			for _, relocation := range generated {
+				stream.RecordRelocation(relocation)
+			}
+			continue
+		}
+		if !slices.Equal(existing, generated) {
+			return fmt.Errorf("%w at entry %d", ErrInstructionRelocationMismatch, entryIndex)
+		}
+	}
+	return nil
 }
 
 func formatAlias(alias ast.Alias) (string, error) {

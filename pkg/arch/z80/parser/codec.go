@@ -18,6 +18,17 @@ var (
 	ErrUnsupportedValue = errors.New("unsupported Z80 operand value")
 )
 
+// FormatOptions controls deterministic Z80 instruction spelling without
+// changing the typed instruction or its encoding.
+type FormatOptions struct {
+	Indent                      string
+	Uppercase                   bool
+	MinimumHexDigits            int
+	PairImmediateHexDigits      int
+	DecimalBitIndexes           bool
+	DecimalIndexedDisplacements bool
+}
+
 // BuildInstruction constructs and validates a typed Z80 instruction using the default profile.
 func BuildInstruction(
 	mnemonic string,
@@ -98,6 +109,61 @@ func ValidateInstruction(
 		return fmt.Errorf("%w: resolved values do not match operands", ErrInvalidInstruction)
 	}
 	return nil
+}
+
+// FormatInstruction returns one deterministic, parseable Z80 instruction line.
+func FormatInstruction(instruction ast.Instruction) (string, error) {
+	return FormatInstructionWithOptions(instruction, FormatOptions{})
+}
+
+// FormatInstructionWithOptions returns one deterministic, parseable Z80
+// instruction line using the requested presentation policy.
+func FormatInstructionWithOptions(
+	instruction ast.Instruction,
+	options FormatOptions,
+) (string, error) {
+
+	resolved, err := resolvedArgument(instruction.Argument)
+	if err != nil {
+		return "", err
+	}
+
+	mnemonic := strings.ToLower(strings.TrimSpace(instruction.Name))
+	if mnemonic == "" {
+		return "", fmt.Errorf("%w: missing mnemonic", ErrInvalidInstruction)
+	}
+	if options.Uppercase {
+		mnemonic = strings.ToUpper(mnemonic)
+	}
+	if len(resolved.Operands) == 0 {
+		return options.Indent + mnemonic, nil
+	}
+
+	formatted := make([]string, len(resolved.Operands))
+	for index, operand := range resolved.Operands {
+		operandOptions := options
+		decimalValue := options.DecimalBitIndexes && index == 0 &&
+			(strings.EqualFold(mnemonic, cpuz80.BitName) ||
+				strings.EqualFold(mnemonic, cpuz80.SetName) ||
+				strings.EqualFold(mnemonic, cpuz80.ResName))
+		if index == 1 && strings.EqualFold(mnemonic, cpuz80.LdName) &&
+			len(resolved.Operands) == 2 && z80PairRegisterOperand(resolved.Operands[0]) {
+
+			operandOptions.MinimumHexDigits = options.PairImmediateHexDigits
+		}
+		formatted[index], err = formatOperandWithOptions(operand, operandOptions, decimalValue)
+		if err != nil {
+			return "", fmt.Errorf("formatting operand %d: %w", index, err)
+		}
+	}
+	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
+}
+
+// FormatOperand returns the canonical Z80 spelling for one typed operand.
+// It lets downstream typed consumers retain symbolic operand shapes without
+// formatting and splitting a complete instruction.
+func FormatOperand(operand Operand) (string, error) {
+	return formatOperandWithOptions(operand, FormatOptions{}, false)
 }
 
 func validateResolvedMetadata(
@@ -198,65 +264,6 @@ func validateNumberWidths(values []ast.Node, maximum uint64) error {
 	return nil
 }
 
-// FormatOptions controls deterministic Z80 instruction spelling without
-// changing the typed instruction or its encoding.
-type FormatOptions struct {
-	Indent                      string
-	Uppercase                   bool
-	MinimumHexDigits            int
-	PairImmediateHexDigits      int
-	DecimalBitIndexes           bool
-	DecimalIndexedDisplacements bool
-}
-
-// FormatInstruction returns one deterministic, parseable Z80 instruction line.
-func FormatInstruction(instruction ast.Instruction) (string, error) {
-	return FormatInstructionWithOptions(instruction, FormatOptions{})
-}
-
-// FormatInstructionWithOptions returns one deterministic, parseable Z80
-// instruction line using the requested presentation policy.
-func FormatInstructionWithOptions(
-	instruction ast.Instruction,
-	options FormatOptions,
-) (string, error) {
-
-	resolved, err := resolvedArgument(instruction.Argument)
-	if err != nil {
-		return "", err
-	}
-
-	mnemonic := strings.ToLower(strings.TrimSpace(instruction.Name))
-	if mnemonic == "" {
-		return "", fmt.Errorf("%w: missing mnemonic", ErrInvalidInstruction)
-	}
-	if options.Uppercase {
-		mnemonic = strings.ToUpper(mnemonic)
-	}
-	if len(resolved.Operands) == 0 {
-		return options.Indent + mnemonic, nil
-	}
-
-	formatted := make([]string, len(resolved.Operands))
-	for index, operand := range resolved.Operands {
-		operandOptions := options
-		decimalValue := options.DecimalBitIndexes && index == 0 &&
-			(strings.EqualFold(mnemonic, cpuz80.BitName) ||
-				strings.EqualFold(mnemonic, cpuz80.SetName) ||
-				strings.EqualFold(mnemonic, cpuz80.ResName))
-		if index == 1 && strings.EqualFold(mnemonic, cpuz80.LdName) &&
-			len(resolved.Operands) == 2 && z80PairRegisterOperand(resolved.Operands[0]) {
-
-			operandOptions.MinimumHexDigits = options.PairImmediateHexDigits
-		}
-		formatted[index], err = formatOperandWithOptions(operand, operandOptions, decimalValue)
-		if err != nil {
-			return "", fmt.Errorf("formatting operand %d: %w", index, err)
-		}
-	}
-	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
-}
-
 func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	var value any
 	switch typed := argument.(type) {
@@ -294,13 +301,6 @@ func sameValues(left, right []ast.Node) bool {
 		}
 	}
 	return true
-}
-
-// FormatOperand returns the canonical Z80 spelling for one typed operand.
-// It lets downstream typed consumers retain symbolic operand shapes without
-// formatting and splitting a complete instruction.
-func FormatOperand(operand Operand) (string, error) {
-	return formatOperandWithOptions(operand, FormatOptions{}, false)
 }
 
 func formatOperandWithOptions(

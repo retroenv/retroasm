@@ -19,6 +19,25 @@ var (
 	ErrUnsupportedAddressing = errors.New("unsupported CPU6502 addressing")
 )
 
+var addressingOperandShapes = map[cpu6502.AddressingMode]operandShapeInfo{
+	cpu6502.ImmediateAddressing:         {OperandImmediate, AddressDefault},
+	cpu6502.RelativeAddressing:          {OperandAddress, AddressDefault},
+	cpu6502.ZeroPageAddressing:          {OperandAddress, AddressZeroPage},
+	cpu6502.AbsoluteAddressing:          {OperandAddress, AddressAbsolute},
+	AbsoluteZeroPageAddressing:          {OperandAddress, AddressDefault},
+	cpu6502.ZeroPageXAddressing:         {OperandIndexedX, AddressZeroPage},
+	cpu6502.AbsoluteXAddressing:         {OperandIndexedX, AddressAbsolute},
+	XAddressing:                         {OperandIndexedX, AddressDefault},
+	cpu6502.ZeroPageYAddressing:         {OperandIndexedY, AddressZeroPage},
+	cpu6502.AbsoluteYAddressing:         {OperandIndexedY, AddressAbsolute},
+	YAddressing:                         {OperandIndexedY, AddressDefault},
+	cpu6502.IndirectAddressing:          {OperandIndirect, AddressAbsolute},
+	cpu6502.ZeroPageIndirectAddressing:  {OperandIndirect, AddressZeroPage},
+	cpu6502.IndirectXAddressing:         {OperandIndexedXIndirect, AddressZeroPage},
+	cpu6502.AbsoluteXIndirectAddressing: {OperandIndexedXIndirect, AddressAbsolute},
+	cpu6502.IndirectYAddressing:         {OperandIndirectIndexedY, AddressZeroPage},
+}
+
 // ResolvedInstruction is the typed projection of a compatibility CPU6502 AST instruction.
 // The AST keeps its existing argument/modifier layout until legacy optimizer consumers migrate.
 type ResolvedInstruction struct {
@@ -45,6 +64,11 @@ func ResolveInstruction(instruction ast.Instruction, expected *cpu6502.Instructi
 		return ResolvedInstruction{}, err
 	}
 	return resolved, nil
+}
+
+type operandShapeInfo struct {
+	kind OperandKind
+	size AddressSize
 }
 
 func operandsFromInstruction(instruction ast.Instruction) (Operands, error) {
@@ -84,30 +108,6 @@ func operandShape(addressing cpu6502.AddressingMode) (OperandKind, AddressSize, 
 		return OperandInvalid, AddressDefault, fmt.Errorf("%w: mode %d", ErrUnsupportedAddressing, addressing)
 	}
 	return shape.kind, shape.size, nil
-}
-
-type operandShapeInfo struct {
-	kind OperandKind
-	size AddressSize
-}
-
-var addressingOperandShapes = map[cpu6502.AddressingMode]operandShapeInfo{
-	cpu6502.ImmediateAddressing:         {OperandImmediate, AddressDefault},
-	cpu6502.RelativeAddressing:          {OperandAddress, AddressDefault},
-	cpu6502.ZeroPageAddressing:          {OperandAddress, AddressZeroPage},
-	cpu6502.AbsoluteAddressing:          {OperandAddress, AddressAbsolute},
-	AbsoluteZeroPageAddressing:          {OperandAddress, AddressDefault},
-	cpu6502.ZeroPageXAddressing:         {OperandIndexedX, AddressZeroPage},
-	cpu6502.AbsoluteXAddressing:         {OperandIndexedX, AddressAbsolute},
-	XAddressing:                         {OperandIndexedX, AddressDefault},
-	cpu6502.ZeroPageYAddressing:         {OperandIndexedY, AddressZeroPage},
-	cpu6502.AbsoluteYAddressing:         {OperandIndexedY, AddressAbsolute},
-	YAddressing:                         {OperandIndexedY, AddressDefault},
-	cpu6502.IndirectAddressing:          {OperandIndirect, AddressAbsolute},
-	cpu6502.ZeroPageIndirectAddressing:  {OperandIndirect, AddressZeroPage},
-	cpu6502.IndirectXAddressing:         {OperandIndexedXIndirect, AddressZeroPage},
-	cpu6502.AbsoluteXIndirectAddressing: {OperandIndexedXIndirect, AddressAbsolute},
-	cpu6502.IndirectYAddressing:         {OperandIndirectIndexedY, AddressZeroPage},
 }
 
 func resolveOperands(instruction *cpu6502.Instruction, operands Operands) (cpu6502.AddressingMode, error) {

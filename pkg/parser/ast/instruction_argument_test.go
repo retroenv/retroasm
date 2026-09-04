@@ -73,9 +73,7 @@ func TestInstructionArgument_CopyRejectsUnsupportedMutableValues(t *testing.T) {
 	for _, value := range values {
 		t.Run(reflect.TypeOf(value).String(), func(t *testing.T) {
 			defer func() {
-				if recovered := recover(); recovered == nil {
-					t.Fatal("expected copy to reject a mutable value without InstructionArgumentCopier")
-				}
+				assert.NotNil(t, recover(), "expected copy to reject a mutable value without InstructionArgumentCopier")
 			}()
 			NewInstructionArgument(value).Copy()
 		})

@@ -17,6 +17,17 @@ var (
 	ErrUnsupportedValue = errors.New("unsupported SM83 operand value")
 )
 
+// FormatOptions controls deterministic SM83 instruction spelling without
+// changing the typed instruction or its encoding.
+type FormatOptions struct {
+	Indent                 string
+	Uppercase              bool
+	MinimumHexDigits       int
+	PairImmediateHexDigits int
+	DecimalBitIndexes      bool
+	DecimalSignedOffsets   bool
+}
+
 // BuildInstruction constructs and validates a typed SM83 instruction without parsing text.
 func BuildInstruction(
 	mnemonic string,
@@ -76,6 +87,61 @@ func ValidateInstruction(instruction ast.Instruction, variants []*sm83.Instructi
 		return fmt.Errorf("%w: resolved values do not match operands", ErrInvalidInstruction)
 	}
 	return nil
+}
+
+// FormatInstruction returns one deterministic, parseable SM83 instruction line.
+func FormatInstruction(instruction ast.Instruction) (string, error) {
+	return FormatInstructionWithOptions(instruction, FormatOptions{})
+}
+
+// FormatInstructionWithOptions returns one deterministic, parseable SM83
+// instruction line using the requested presentation policy.
+func FormatInstructionWithOptions(
+	instruction ast.Instruction,
+	options FormatOptions,
+) (string, error) {
+
+	resolved, err := resolvedArgument(instruction.Argument)
+	if err != nil {
+		return "", err
+	}
+
+	mnemonic := strings.ToLower(strings.TrimSpace(instruction.Name))
+	if mnemonic == "" {
+		return "", fmt.Errorf("%w: missing mnemonic", ErrInvalidInstruction)
+	}
+	if options.Uppercase {
+		mnemonic = strings.ToUpper(mnemonic)
+	}
+	if len(resolved.Operands) == 0 {
+		return options.Indent + mnemonic, nil
+	}
+
+	formatted := make([]string, len(resolved.Operands))
+	for index, operand := range resolved.Operands {
+		operandOptions := options
+		decimalValue := options.DecimalBitIndexes && index == 0 &&
+			(strings.EqualFold(mnemonic, sm83.BitName) ||
+				strings.EqualFold(mnemonic, sm83.SetName) ||
+				strings.EqualFold(mnemonic, sm83.ResName))
+		if index == 1 && strings.EqualFold(mnemonic, sm83.LdName) &&
+			len(resolved.Operands) == 2 && sm83PairRegisterOperand(resolved.Operands[0]) {
+
+			operandOptions.MinimumHexDigits = options.PairImmediateHexDigits
+		}
+		signedValue := index == 1 && len(resolved.Operands) == 2 &&
+			resolved.Instruction == sm83.AddSPE
+		formatted[index], err = formatOperandWithOptions(operand, operandOptions, decimalValue, signedValue)
+		if err != nil {
+			return "", fmt.Errorf("formatting operand %d: %w", index, err)
+		}
+	}
+	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
+}
+
+// FormatOperand returns the canonical SM83 spelling for one typed operand.
+func FormatOperand(operand Operand) (string, error) {
+	return formatOperandWithOptions(operand, FormatOptions{}, false, false)
 }
 
 func validateResolvedMetadata(
@@ -168,67 +234,6 @@ func validateNumberWidths(values []ast.Node, maximum uint64) error {
 	return nil
 }
 
-// FormatOptions controls deterministic SM83 instruction spelling without
-// changing the typed instruction or its encoding.
-type FormatOptions struct {
-	Indent                 string
-	Uppercase              bool
-	MinimumHexDigits       int
-	PairImmediateHexDigits int
-	DecimalBitIndexes      bool
-	DecimalSignedOffsets   bool
-}
-
-// FormatInstruction returns one deterministic, parseable SM83 instruction line.
-func FormatInstruction(instruction ast.Instruction) (string, error) {
-	return FormatInstructionWithOptions(instruction, FormatOptions{})
-}
-
-// FormatInstructionWithOptions returns one deterministic, parseable SM83
-// instruction line using the requested presentation policy.
-func FormatInstructionWithOptions(
-	instruction ast.Instruction,
-	options FormatOptions,
-) (string, error) {
-
-	resolved, err := resolvedArgument(instruction.Argument)
-	if err != nil {
-		return "", err
-	}
-
-	mnemonic := strings.ToLower(strings.TrimSpace(instruction.Name))
-	if mnemonic == "" {
-		return "", fmt.Errorf("%w: missing mnemonic", ErrInvalidInstruction)
-	}
-	if options.Uppercase {
-		mnemonic = strings.ToUpper(mnemonic)
-	}
-	if len(resolved.Operands) == 0 {
-		return options.Indent + mnemonic, nil
-	}
-
-	formatted := make([]string, len(resolved.Operands))
-	for index, operand := range resolved.Operands {
-		operandOptions := options
-		decimalValue := options.DecimalBitIndexes && index == 0 &&
-			(strings.EqualFold(mnemonic, sm83.BitName) ||
-				strings.EqualFold(mnemonic, sm83.SetName) ||
-				strings.EqualFold(mnemonic, sm83.ResName))
-		if index == 1 && strings.EqualFold(mnemonic, sm83.LdName) &&
-			len(resolved.Operands) == 2 && sm83PairRegisterOperand(resolved.Operands[0]) {
-
-			operandOptions.MinimumHexDigits = options.PairImmediateHexDigits
-		}
-		signedValue := index == 1 && len(resolved.Operands) == 2 &&
-			resolved.Instruction == sm83.AddSPE
-		formatted[index], err = formatOperandWithOptions(operand, operandOptions, decimalValue, signedValue)
-		if err != nil {
-			return "", fmt.Errorf("formatting operand %d: %w", index, err)
-		}
-	}
-	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
-}
-
 func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	var value any
 	switch typed := argument.(type) {
@@ -280,11 +285,6 @@ func sameOperands(left, right []Operand) bool {
 		}
 	}
 	return true
-}
-
-// FormatOperand returns the canonical SM83 spelling for one typed operand.
-func FormatOperand(operand Operand) (string, error) {
-	return formatOperandWithOptions(operand, FormatOptions{}, false, false)
 }
 
 func formatOperandWithOptions(

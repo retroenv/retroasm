@@ -50,21 +50,6 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 	)
 }
 
-func cpu68000EffectiveAddressForm(address *EffectiveAddress) string {
-	if address == nil {
-		return "none"
-	}
-	parts := []string{
-		fmt.Sprintf("mode=%d", address.Mode),
-		fmt.Sprintf("register=%d", address.Register),
-		fmt.Sprintf("index=%d/%d/%t", address.IndexReg, address.IndexSize, address.IsAddrReg),
-		fmt.Sprintf("register-list=%t", address.RegList != 0),
-		fmt.Sprintf("negative=%t", address.Negative),
-		"value=" + ast.InstructionArgumentForm(address.Value),
-	}
-	return strings.Join(parts, "/")
-}
-
 // InstructionReferences returns copied symbol-bearing effective-address values for stream validation.
 func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionReference {
 	references := make([]ast.InstructionReference, 0, 2)
@@ -79,6 +64,21 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 		})
 	}
 	return references
+}
+
+func cpu68000EffectiveAddressForm(address *EffectiveAddress) string {
+	if address == nil {
+		return "none"
+	}
+	parts := []string{
+		fmt.Sprintf("mode=%d", address.Mode),
+		fmt.Sprintf("register=%d", address.Register),
+		fmt.Sprintf("index=%d/%d/%t", address.IndexReg, address.IndexSize, address.IsAddrReg),
+		fmt.Sprintf("register-list=%t", address.RegList != 0),
+		fmt.Sprintf("negative=%t", address.Negative),
+		"value=" + ast.InstructionArgumentForm(address.Value),
+	}
+	return strings.Join(parts, "/")
 }
 
 func copyEffectiveAddress(address *EffectiveAddress) *EffectiveAddress {

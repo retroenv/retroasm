@@ -129,21 +129,6 @@ func (resolved ResolvedInstruction) effectiveAddressing() cpusm83.AddressingMode
 	return cpusm83.NoAddressing
 }
 
-func operandReferencesSymbol(value ast.Node) bool {
-	if value == nil {
-		return false
-	}
-	if ast.SymbolName(value) != "" {
-		return true
-	}
-	expression, ok := value.(ast.Expression)
-	if !ok {
-		return false
-	}
-	_, _, ok = ast.ParseSymbolReference(expression.Value)
-	return ok
-}
-
 // ParseIdentifier parses an SM83 instruction and resolves the matching instruction variant.
 func ParseIdentifier(p arch.Parser, mnemonic string, variants []*cpusm83.Instruction) (ast.Node, error) {
 	operands, err := parseOperands(p)
@@ -174,6 +159,21 @@ type rawOperand struct {
 	isHLPlus    bool
 	isHLMinus   bool
 	isCondition bool
+}
+
+func operandReferencesSymbol(value ast.Node) bool {
+	if value == nil {
+		return false
+	}
+	if ast.SymbolName(value) != "" {
+		return true
+	}
+	expression, ok := value.(ast.Expression)
+	if !ok {
+		return false
+	}
+	_, _, ok = ast.ParseSymbolReference(expression.Value)
+	return ok
 }
 
 func parseOperands(p arch.Parser) ([]rawOperand, error) {

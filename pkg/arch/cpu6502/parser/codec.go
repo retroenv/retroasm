@@ -10,6 +10,15 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
+// FormatOptions controls deterministic CPU6502 instruction spelling.
+type FormatOptions struct {
+	Indent           string
+	Uppercase        bool
+	ByteHexDigits    int
+	MinimumHexDigits int
+	WordHexDigits    int
+}
+
 // BuildInstruction constructs a typed CPU6502 instruction without parsing text.
 // It preserves the compatibility AST argument layout used by existing CPU6502 passes.
 func BuildInstruction(
@@ -47,15 +56,6 @@ func BuildInstruction(
 func ValidateInstruction(instruction ast.Instruction, expected *cpu6502.Instruction) error {
 	_, err := ResolveInstruction(instruction, expected)
 	return err
-}
-
-// FormatOptions controls deterministic CPU6502 instruction spelling.
-type FormatOptions struct {
-	Indent           string
-	Uppercase        bool
-	ByteHexDigits    int
-	MinimumHexDigits int
-	WordHexDigits    int
 }
 
 // FormatInstruction returns one deterministic, parseable CPU6502 instruction line.

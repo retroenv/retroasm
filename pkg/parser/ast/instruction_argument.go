@@ -66,6 +66,23 @@ func NewInstructionArguments(values ...Node) InstructionArguments {
 	}
 }
 
+// Copy returns a copy of the instruction argument node.
+func (a InstructionArgument) Copy() Node {
+	value := copyInstructionArgumentValue(a.Value)
+	return InstructionArgument{
+		node:  a.node.copyNode(),
+		Value: value,
+	}
+}
+
+// Copy returns a copy of the instruction argument list node.
+func (a InstructionArguments) Copy() Node {
+	return InstructionArguments{
+		node:   a.node.copyNode(),
+		Values: CopyNodes(a.Values),
+	}
+}
+
 // InstructionArgumentForm returns a stable form key without literal values or symbol names.
 func InstructionArgumentForm(argument Node) string {
 	switch value := argument.(type) {
@@ -109,6 +126,20 @@ func InstructionStateTransitionForm(argument Node) (string, bool) {
 	}
 }
 
+// CopyNodes deeply copies an AST node slice.
+func CopyNodes(nodes []Node) []Node {
+	if nodes == nil {
+		return nil
+	}
+	copied := make([]Node, len(nodes))
+	for index, node := range nodes {
+		if node != nil {
+			copied[index] = node.Copy()
+		}
+	}
+	return copied
+}
+
 func instructionArgumentValueForm(value any) string {
 	if instructionArgumentValueIsNil(value) {
 		return "none"
@@ -128,15 +159,6 @@ func instructionArgumentValueStateTransitionForm(value any) (string, bool) {
 		return "", false
 	}
 	return provider.InstructionStateTransitionForm()
-}
-
-// Copy returns a copy of the instruction argument node.
-func (a InstructionArgument) Copy() Node {
-	value := copyInstructionArgumentValue(a.Value)
-	return InstructionArgument{
-		node:  a.node.copyNode(),
-		Value: value,
-	}
 }
 
 func copyInstructionArgumentValue(value any) any {
@@ -205,27 +227,5 @@ func instructionArgumentValueIsImmutable(value reflect.Value) bool {
 		return value.IsNil() || instructionArgumentValueIsImmutable(value.Elem())
 	default:
 		return false
-	}
-}
-
-// CopyNodes deeply copies an AST node slice.
-func CopyNodes(nodes []Node) []Node {
-	if nodes == nil {
-		return nil
-	}
-	copied := make([]Node, len(nodes))
-	for index, node := range nodes {
-		if node != nil {
-			copied[index] = node.Copy()
-		}
-	}
-	return copied
-}
-
-// Copy returns a copy of the instruction argument list node.
-func (a InstructionArguments) Copy() Node {
-	return InstructionArguments{
-		node:   a.node.copyNode(),
-		Values: CopyNodes(a.Values),
 	}
 }

@@ -39,6 +39,56 @@ type Operand struct {
 // Operands is the typed operand list accepted by the Z80 codec builder.
 type Operands []Operand
 
+func (operand Operand) raw() (rawOperand, error) {
+	switch operand.Kind {
+	case OperandRegister:
+		if !validRegisterParam(operand.Register) {
+			return rawOperand{}, errInvalidOperandRegister
+		}
+		return rawOperand{token: identifierToken(operand.Register)}, nil
+
+	case OperandValue:
+		if operand.Value == nil {
+			return rawOperand{}, errInvalidOperandValue
+		}
+		return rawOperand{value: operand.Value.Copy()}, nil
+
+	case OperandIndirectRegister:
+		register := sourceRegisterParam(operand.Register)
+		if !validRegisterParam(register) {
+			return rawOperand{}, errInvalidOperandRegister
+		}
+		candidates := registerCandidatesForIndirectIdentifier(register.String())
+		if len(candidates) == 0 {
+			return rawOperand{}, errInvalidOperandRegister
+		}
+		return rawOperand{parenthesized: true, registerParams: candidates}, nil
+
+	case OperandIndirectValue:
+		if operand.Value == nil {
+			return rawOperand{}, errInvalidOperandValue
+		}
+		return rawOperand{parenthesized: true, value: operand.Value.Copy()}, nil
+
+	case OperandIndexed:
+		if operand.Value == nil {
+			return rawOperand{}, errInvalidOperandValue
+		}
+		register := indexedRegisterParam(operand.Register)
+		if register == cpuz80.RegNone {
+			return rawOperand{}, errInvalidOperandRegister
+		}
+		return rawOperand{
+			displacement:   operand.Value.Copy(),
+			parenthesized:  true,
+			registerParams: []cpuz80.RegisterParam{register},
+		}, nil
+
+	default:
+		return rawOperand{}, errInvalidOperandKind
+	}
+}
+
 // RegisterOperand constructs a direct register or condition operand.
 func RegisterOperand(register cpuz80.RegisterParam) Operand {
 	return Operand{Kind: OperandRegister, Register: register}
@@ -185,56 +235,6 @@ func rawOperands(operands []Operand) ([]rawOperand, error) {
 		result[index] = converted
 	}
 	return result, nil
-}
-
-func (operand Operand) raw() (rawOperand, error) {
-	switch operand.Kind {
-	case OperandRegister:
-		if !validRegisterParam(operand.Register) {
-			return rawOperand{}, errInvalidOperandRegister
-		}
-		return rawOperand{token: identifierToken(operand.Register)}, nil
-
-	case OperandValue:
-		if operand.Value == nil {
-			return rawOperand{}, errInvalidOperandValue
-		}
-		return rawOperand{value: operand.Value.Copy()}, nil
-
-	case OperandIndirectRegister:
-		register := sourceRegisterParam(operand.Register)
-		if !validRegisterParam(register) {
-			return rawOperand{}, errInvalidOperandRegister
-		}
-		candidates := registerCandidatesForIndirectIdentifier(register.String())
-		if len(candidates) == 0 {
-			return rawOperand{}, errInvalidOperandRegister
-		}
-		return rawOperand{parenthesized: true, registerParams: candidates}, nil
-
-	case OperandIndirectValue:
-		if operand.Value == nil {
-			return rawOperand{}, errInvalidOperandValue
-		}
-		return rawOperand{parenthesized: true, value: operand.Value.Copy()}, nil
-
-	case OperandIndexed:
-		if operand.Value == nil {
-			return rawOperand{}, errInvalidOperandValue
-		}
-		register := indexedRegisterParam(operand.Register)
-		if register == cpuz80.RegNone {
-			return rawOperand{}, errInvalidOperandRegister
-		}
-		return rawOperand{
-			displacement:   operand.Value.Copy(),
-			parenthesized:  true,
-			registerParams: []cpuz80.RegisterParam{register},
-		}, nil
-
-	default:
-		return rawOperand{}, errInvalidOperandKind
-	}
 }
 
 func identifierToken(register cpuz80.RegisterParam) token.Token {

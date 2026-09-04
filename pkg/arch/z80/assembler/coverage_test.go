@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"testing"
 
@@ -164,22 +165,14 @@ func registerParamCombinations(instruction *cpuz80.Instruction) [][]cpuz80.Regis
 	combinations := make([][]cpuz80.RegisterParam, 0, len(instruction.RegisterOpcodes)+len(instruction.RegisterPairOpcodes)+1)
 
 	if len(instruction.RegisterPairOpcodes) > 0 {
-		pairs := make([][2]cpuz80.RegisterParam, 0, len(instruction.RegisterPairOpcodes))
-		for pair := range instruction.RegisterPairOpcodes {
-			pairs = append(pairs, pair)
-		}
-		slices.SortFunc(pairs, compareRegisterPair)
+		pairs := slices.SortedFunc(maps.Keys(instruction.RegisterPairOpcodes), compareRegisterPair)
 		for _, pair := range pairs {
 			combinations = append(combinations, []cpuz80.RegisterParam{pair[0], pair[1]})
 		}
 	}
 
 	if len(instruction.RegisterOpcodes) > 0 {
-		registers := make([]cpuz80.RegisterParam, 0, len(instruction.RegisterOpcodes))
-		for register := range instruction.RegisterOpcodes {
-			registers = append(registers, register)
-		}
-		slices.Sort(registers)
+		registers := slices.Sorted(maps.Keys(instruction.RegisterOpcodes))
 		for _, register := range registers {
 			combinations = append(combinations, []cpuz80.RegisterParam{register})
 		}
@@ -209,11 +202,7 @@ func addressingCandidates(instruction *cpuz80.Instruction) []cpuz80.AddressingMo
 		return []cpuz80.AddressingMode{cpuz80.NoAddressing}
 	}
 
-	addressings := make([]cpuz80.AddressingMode, 0, len(instruction.Addressing)+1)
-	for mode := range instruction.Addressing {
-		addressings = append(addressings, mode)
-	}
-	slices.Sort(addressings)
+	addressings := slices.Sorted(maps.Keys(instruction.Addressing))
 
 	if !slices.Contains(addressings, cpuz80.NoAddressing) {
 		addressings = append(addressings, cpuz80.NoAddressing)

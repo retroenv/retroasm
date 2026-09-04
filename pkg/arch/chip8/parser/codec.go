@@ -8,6 +8,15 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/chip8"
 )
 
+// FormatOptions controls deterministic CHIP-8 instruction spelling.
+type FormatOptions struct {
+	Indent            string
+	Uppercase         bool
+	UppercaseMnemonic bool
+	UppercaseOperands bool
+	SpaceAfterComma   bool
+}
+
 // BuildInstruction constructs a typed CHIP-8 instruction without parsing text.
 func BuildInstruction(
 	mnemonic string,
@@ -60,15 +69,6 @@ func ValidateInstruction(instruction ast.Instruction, expected *chip8.Instructio
 		return fmt.Errorf("%w: instruction modifiers are not supported", ErrInvalidInstruction)
 	}
 	return validateResolved(resolved)
-}
-
-// FormatOptions controls deterministic CHIP-8 instruction spelling.
-type FormatOptions struct {
-	Indent            string
-	Uppercase         bool
-	UppercaseMnemonic bool
-	UppercaseOperands bool
-	SpaceAfterComma   bool
 }
 
 // FormatInstruction returns one deterministic, parseable CHIP-8 instruction line.

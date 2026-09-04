@@ -17,6 +17,15 @@ var canonicalConditions = [...]string{
 	"vc", "vs", "pl", "mi", "ge", "lt", "gt", "le",
 }
 
+// FormatOptions controls deterministic CPU68000 instruction spelling.
+type FormatOptions struct {
+	Indent               string
+	Uppercase            bool
+	DecimalValues        bool
+	StackPointerAlias    bool
+	OmitWordBranchSuffix bool
+}
+
 // BuildInstruction constructs a typed CPU68000 instruction without parsing text.
 func BuildInstruction(
 	mnemonic string,
@@ -81,15 +90,6 @@ func ValidateInstruction(instruction ast.Instruction, expected *cpu68000.Instruc
 		return fmt.Errorf("%w: instruction modifiers are not supported", ErrInvalidInstruction)
 	}
 	return validateResolved(resolved)
-}
-
-// FormatOptions controls deterministic CPU68000 instruction spelling.
-type FormatOptions struct {
-	Indent               string
-	Uppercase            bool
-	DecimalValues        bool
-	StackPointerAlias    bool
-	OmitWordBranchSuffix bool
 }
 
 // FormatInstruction returns one deterministic, parseable CPU68000 instruction line.

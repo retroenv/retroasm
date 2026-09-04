@@ -40,6 +40,49 @@ type Operand struct {
 // Operands is the typed operand list accepted by the SM83 codec builder.
 type Operands []Operand
 
+func (operand Operand) raw() (rawOperand, error) {
+	switch operand.Kind {
+	case OperandRegister:
+		return rawRegisterOperand(operand.Register)
+
+	case OperandValue:
+		if operand.Value == nil {
+			return rawOperand{}, errInvalidOperandValue
+		}
+		return rawOperand{value: operand.Value.Copy()}, nil
+
+	case OperandIndirectRegister:
+		if !validIndirectRegister(operand.Register) {
+			return rawOperand{}, errInvalidOperandRegister
+		}
+		if indirect := indirectRegister(operand.Register); indirect != sm83.RegNone {
+			return rawOperand{indirect: true, indirectReg: indirect}, nil
+		}
+		return rawOperand{indirect: true, register: operand.Register}, nil
+
+	case OperandIndirectValue:
+		if operand.Value == nil {
+			return rawOperand{}, errInvalidOperandValue
+		}
+		return rawOperand{indirect: true, value: operand.Value.Copy()}, nil
+
+	case OperandHLIncrement:
+		return rawOperand{indirect: true, isHLPlus: true}, nil
+
+	case OperandHLDecrement:
+		return rawOperand{indirect: true, isHLMinus: true}, nil
+
+	case OperandSPOffset:
+		if operand.Value == nil {
+			return rawOperand{}, errInvalidOperandValue
+		}
+		return rawOperand{register: sm83.RegSP, value: operand.Value.Copy()}, nil
+
+	default:
+		return rawOperand{}, errInvalidOperandKind
+	}
+}
+
 // RegisterOperand constructs a direct register or condition operand.
 func RegisterOperand(register sm83.RegisterParam) Operand {
 	return Operand{Kind: OperandRegister, Register: register}
@@ -164,49 +207,6 @@ func rawOperands(operands []Operand) ([]rawOperand, error) {
 		result[index] = converted
 	}
 	return result, nil
-}
-
-func (operand Operand) raw() (rawOperand, error) {
-	switch operand.Kind {
-	case OperandRegister:
-		return rawRegisterOperand(operand.Register)
-
-	case OperandValue:
-		if operand.Value == nil {
-			return rawOperand{}, errInvalidOperandValue
-		}
-		return rawOperand{value: operand.Value.Copy()}, nil
-
-	case OperandIndirectRegister:
-		if !validIndirectRegister(operand.Register) {
-			return rawOperand{}, errInvalidOperandRegister
-		}
-		if indirect := indirectRegister(operand.Register); indirect != sm83.RegNone {
-			return rawOperand{indirect: true, indirectReg: indirect}, nil
-		}
-		return rawOperand{indirect: true, register: operand.Register}, nil
-
-	case OperandIndirectValue:
-		if operand.Value == nil {
-			return rawOperand{}, errInvalidOperandValue
-		}
-		return rawOperand{indirect: true, value: operand.Value.Copy()}, nil
-
-	case OperandHLIncrement:
-		return rawOperand{indirect: true, isHLPlus: true}, nil
-
-	case OperandHLDecrement:
-		return rawOperand{indirect: true, isHLMinus: true}, nil
-
-	case OperandSPOffset:
-		if operand.Value == nil {
-			return rawOperand{}, errInvalidOperandValue
-		}
-		return rawOperand{register: sm83.RegSP, value: operand.Value.Copy()}, nil
-
-	default:
-		return rawOperand{}, errInvalidOperandKind
-	}
 }
 
 func rawRegisterOperand(register sm83.RegisterParam) (rawOperand, error) {

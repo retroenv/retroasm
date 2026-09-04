@@ -2,6 +2,10 @@ package z80
 
 import z80profile "github.com/retroenv/retroasm/pkg/arch/z80/profile"
 
+type options struct {
+	profile z80profile.Kind
+}
+
 // Option configures Z80 architecture behavior.
 type Option func(*options)
 
@@ -10,10 +14,6 @@ func WithProfile(profileKind z80profile.Kind) Option {
 	return func(opts *options) {
 		opts.profile = profileKind
 	}
-}
-
-type options struct {
-	profile z80profile.Kind
 }
 
 func defaultOptions() options {

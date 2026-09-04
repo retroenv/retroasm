@@ -123,6 +123,16 @@ func (resolved ResolvedInstruction) effectiveAddressing() cpuz80.AddressingMode 
 	return cpuz80.NoAddressing
 }
 
+type rawOperand struct {
+	token token.Token
+
+	value        ast.Node
+	displacement ast.Node
+
+	parenthesized  bool
+	registerParams []cpuz80.RegisterParam
+}
+
 func operandReferencesSymbol(value ast.Node) bool {
 	if value == nil {
 		return false
@@ -136,16 +146,6 @@ func operandReferencesSymbol(value ast.Node) bool {
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
 	return ok
-}
-
-type rawOperand struct {
-	token token.Token
-
-	value        ast.Node
-	displacement ast.Node
-
-	parenthesized  bool
-	registerParams []cpuz80.RegisterParam
 }
 
 func resolveInstruction(variants []*cpuz80.Instruction, operands []rawOperand) (*ResolvedInstruction, error) {

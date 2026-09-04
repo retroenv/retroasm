@@ -38,15 +38,6 @@ var compatFromString = map[string]CompatibilityMode{
 	"x816":    CompatX816,
 }
 
-// ParseCompatibilityMode parses a string into a CompatibilityMode.
-func ParseCompatibilityMode(s string) (CompatibilityMode, error) {
-	mode, ok := compatFromString[strings.ToLower(strings.TrimSpace(s))]
-	if !ok {
-		return CompatDefault, fmt.Errorf("%w: '%s' (supported: default, x816, asm6, ca65, nesasm)", ErrInvalidCompatibilityMode, s)
-	}
-	return mode, nil
-}
-
 // String returns the string representation of the compatibility mode.
 func (m CompatibilityMode) String() string {
 	if s, ok := compatNames[m]; ok {
@@ -93,4 +84,13 @@ func (m CompatibilityMode) NesasmMacroSyntax() bool {
 // BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
 func (m CompatibilityMode) BankByteOperator() bool {
 	return m == CompatX816 || m == CompatCa65
+}
+
+// ParseCompatibilityMode parses a string into a CompatibilityMode.
+func ParseCompatibilityMode(s string) (CompatibilityMode, error) {
+	mode, ok := compatFromString[strings.ToLower(strings.TrimSpace(s))]
+	if !ok {
+		return CompatDefault, fmt.Errorf("%w: '%s' (supported: default, x816, asm6, ca65, nesasm)", ErrInvalidCompatibilityMode, s)
+	}
+	return mode, nil
 }

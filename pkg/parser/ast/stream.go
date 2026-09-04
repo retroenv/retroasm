@@ -14,6 +14,68 @@ import (
 // ErrInvalidStream indicates that stream nodes or metadata violate the typed stream contract.
 var ErrInvalidStream = errors.New("invalid typed stream")
 
+// ByteOrder identifies the byte order for data and relocations.
+type ByteOrder uint8
+
+// DataWidth is the encoded width of one data item in bytes.
+type DataWidth uint8
+
+// OptimizationBoundary identifies which sides of an entry block optimization.
+type OptimizationBoundary uint8
+
+// RelocationKind identifies how an assembler resolves a symbol reference.
+type RelocationKind uint8
+
+// SymbolKind identifies how a stream node defines a symbol.
+type SymbolKind uint8
+
+// SymbolExpressionKind identifies the base value of a symbol expression.
+type SymbolExpressionKind uint8
+
+const (
+	ByteOrderUnknown ByteOrder = iota
+	ByteOrderLittle
+	ByteOrderBig
+)
+
+const (
+	WidthUnknown    DataWidth = 0
+	WidthByte       DataWidth = 1
+	WidthWord       DataWidth = 2
+	WidthLong       DataWidth = 3
+	WidthDoubleWord DataWidth = 4
+	WidthQuadWord   DataWidth = 8
+)
+
+const BoundaryNone OptimizationBoundary = 0
+
+const (
+	BoundaryBefore OptimizationBoundary = 1 << iota
+	BoundaryAfter
+)
+
+const (
+	RelocationInvalid RelocationKind = iota
+	AbsoluteRelocation
+	RelativeRelocation
+)
+
+const (
+	SymbolInvalid SymbolKind = iota
+	AliasSymbol
+	EquSymbol
+	LabelSymbol
+	FunctionSymbol
+)
+
+const (
+	SymbolExpressionInvalid SymbolExpressionKind = iota
+	SymbolExpressionAbsolute
+	SymbolExpressionReference
+	SymbolExpressionDefinition
+	SymbolExpressionLocation
+)
+
 // Alignment is a byte alignment. Zero means that no alignment is specified.
 type Alignment uint64
 
@@ -27,27 +89,6 @@ type StateCopier interface {
 	CopyStreamState() any
 }
 
-// ByteOrder identifies the byte order for data and relocations.
-type ByteOrder uint8
-
-const (
-	ByteOrderUnknown ByteOrder = iota
-	ByteOrderLittle
-	ByteOrderBig
-)
-
-// DataWidth is the encoded width of one data item in bytes.
-type DataWidth uint8
-
-const (
-	WidthUnknown    DataWidth = 0
-	WidthByte       DataWidth = 1
-	WidthWord       DataWidth = 2
-	WidthLong       DataWidth = 3
-	WidthDoubleWord DataWidth = 4
-	WidthQuadWord   DataWidth = 8
-)
-
 // PackedField describes a relocation that occupies part of its encoded byte span.
 // Bit offsets and masks use the unsigned value after byte-order decoding.
 type PackedField struct {
@@ -55,47 +96,6 @@ type PackedField struct {
 	BitWidth     uint8
 	PreserveMask uint64
 }
-
-// OptimizationBoundary identifies which sides of an entry block optimization.
-type OptimizationBoundary uint8
-
-const BoundaryNone OptimizationBoundary = 0
-
-const (
-	BoundaryBefore OptimizationBoundary = 1 << iota
-	BoundaryAfter
-)
-
-// RelocationKind identifies how an assembler resolves a symbol reference.
-type RelocationKind uint8
-
-const (
-	RelocationInvalid RelocationKind = iota
-	AbsoluteRelocation
-	RelativeRelocation
-)
-
-// SymbolKind identifies how a stream node defines a symbol.
-type SymbolKind uint8
-
-const (
-	SymbolInvalid SymbolKind = iota
-	AliasSymbol
-	EquSymbol
-	LabelSymbol
-	FunctionSymbol
-)
-
-// SymbolExpressionKind identifies the base value of a symbol expression.
-type SymbolExpressionKind uint8
-
-const (
-	SymbolExpressionInvalid SymbolExpressionKind = iota
-	SymbolExpressionAbsolute
-	SymbolExpressionReference
-	SymbolExpressionDefinition
-	SymbolExpressionLocation
-)
 
 // SourcePosition identifies one location in an input source.
 type SourcePosition struct {
@@ -424,6 +424,31 @@ func (stm *Stream) Validate() error {
 	return validateSegmentChanges(stm.segmentChanges, stm.entries)
 }
 
+func (stm *Stream) reindexMetadata(start, end, replacementCount int) error {
+	for index := range stm.symbols {
+		entryIndex, err := replacementEntryIndex(stm.symbols[index].EntryIndex, start, end, replacementCount)
+		if err != nil {
+			return fmt.Errorf("%w: symbol %q: %w", ErrInvalidStream, stm.symbols[index].Name, err)
+		}
+		stm.symbols[index].EntryIndex = entryIndex
+	}
+	for index := range stm.relocations {
+		entryIndex, err := replacementEntryIndex(stm.relocations[index].EntryIndex, start, end, replacementCount)
+		if err != nil {
+			return fmt.Errorf("%w: relocation %d: %w", ErrInvalidStream, index, err)
+		}
+		stm.relocations[index].EntryIndex = entryIndex
+	}
+	for index := range stm.segmentChanges {
+		entryIndex, err := replacementEntryIndex(stm.segmentChanges[index].EntryIndex, start, end, replacementCount)
+		if err != nil {
+			return fmt.Errorf("%w: segment change %q: %w", ErrInvalidStream, stm.segmentChanges[index].Name, err)
+		}
+		stm.segmentChanges[index].EntryIndex = entryIndex
+	}
+	return nil
+}
+
 // StateSnapshots returns typed copies of the initial and final stream state.
 func StateSnapshots[S any](stream *Stream) (S, S, bool) {
 	var zero S
@@ -575,31 +600,6 @@ func validateDefinitionSymbolExpression(expression SymbolExpression) error {
 func validateLocationSymbolExpression(expression SymbolExpression) error {
 	if expression.Symbol != "" || expression.Value != 0 || expression.Addend != 0 || expression.ReferenceType != FullAddress || expression.Definition != nil {
 		return errors.New("an unresolved location expression with a value")
-	}
-	return nil
-}
-
-func (stm *Stream) reindexMetadata(start, end, replacementCount int) error {
-	for index := range stm.symbols {
-		entryIndex, err := replacementEntryIndex(stm.symbols[index].EntryIndex, start, end, replacementCount)
-		if err != nil {
-			return fmt.Errorf("%w: symbol %q: %w", ErrInvalidStream, stm.symbols[index].Name, err)
-		}
-		stm.symbols[index].EntryIndex = entryIndex
-	}
-	for index := range stm.relocations {
-		entryIndex, err := replacementEntryIndex(stm.relocations[index].EntryIndex, start, end, replacementCount)
-		if err != nil {
-			return fmt.Errorf("%w: relocation %d: %w", ErrInvalidStream, index, err)
-		}
-		stm.relocations[index].EntryIndex = entryIndex
-	}
-	for index := range stm.segmentChanges {
-		entryIndex, err := replacementEntryIndex(stm.segmentChanges[index].EntryIndex, start, end, replacementCount)
-		if err != nil {
-			return fmt.Errorf("%w: segment change %q: %w", ErrInvalidStream, stm.segmentChanges[index].Name, err)
-		}
-		stm.segmentChanges[index].EntryIndex = entryIndex
 	}
 	return nil
 }

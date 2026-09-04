@@ -19,6 +19,33 @@ var (
 	ErrUnsupportedAddressing = errors.New("unsupported CPU65816 addressing")
 )
 
+var addressingOperandShapes = map[cpu65816.AddressingMode]operandShapeInfo{
+	cpu65816.ImmediateAddressing:                      {OperandImmediate, AddressDefault},
+	cpu65816.DirectPageAddressing:                     {OperandAddress, AddressDirectPage},
+	cpu65816.AbsoluteAddressing:                       {OperandAddress, AddressAbsolute},
+	cpu65816.AbsoluteLongAddressing:                   {OperandAddress, AddressLong},
+	cpu65816.RelativeAddressing:                       {OperandAddress, AddressDefault},
+	cpu65816.RelativeLongAddressing:                   {OperandAddress, AddressDefault},
+	AbsoluteDirectPageAddressing:                      {OperandAddress, AddressDefault},
+	cpu65816.DirectPageIndexedXAddressing:             {OperandIndexedX, AddressDirectPage},
+	cpu65816.AbsoluteIndexedXAddressing:               {OperandIndexedX, AddressAbsolute},
+	cpu65816.AbsoluteLongIndexedXAddressing:           {OperandIndexedX, AddressLong},
+	XAddressing:                                       {OperandIndexedX, AddressDefault},
+	cpu65816.DirectPageIndexedYAddressing:             {OperandIndexedY, AddressDirectPage},
+	cpu65816.AbsoluteIndexedYAddressing:               {OperandIndexedY, AddressAbsolute},
+	YAddressing:                                       {OperandIndexedY, AddressDefault},
+	cpu65816.DirectPageIndirectAddressing:             {OperandIndirect, AddressDirectPage},
+	cpu65816.AbsoluteIndirectAddressing:               {OperandIndirect, AddressAbsolute},
+	cpu65816.DirectPageIndexedXIndirectAddressing:     {OperandIndexedXIndirect, AddressDirectPage},
+	cpu65816.AbsoluteIndexedXIndirectAddressing:       {OperandIndexedXIndirect, AddressAbsolute},
+	cpu65816.DirectPageIndirectIndexedYAddressing:     {OperandIndirectIndexedY, AddressDirectPage},
+	cpu65816.DirectPageIndirectLongAddressing:         {OperandIndirectLong, AddressDirectPage},
+	cpu65816.AbsoluteIndirectLongAddressing:           {OperandIndirectLong, AddressAbsolute},
+	cpu65816.DirectPageIndirectLongIndexedYAddressing: {OperandIndirectLongIndexedY, AddressDirectPage},
+	cpu65816.StackRelativeAddressing:                  {OperandStackRelative, AddressDirectPage},
+	cpu65816.StackRelativeIndirectIndexedYAddressing:  {OperandStackRelativeIndirectIndexedY, AddressDirectPage},
+}
+
 // ResolvedInstruction retains the selected instruction, operands, and M/X state.
 type ResolvedInstruction struct {
 	Instruction *cpu65816.Instruction
@@ -78,16 +105,6 @@ func (resolved ResolvedInstruction) InstructionStateTransitionForm() (string, bo
 	), true
 }
 
-func instructionStateForm(state State) string {
-	return fmt.Sprintf(
-		"%d/%d/%d/%d",
-		state.AccumulatorWidth,
-		state.IndexWidth,
-		state.Carry,
-		state.Emulation,
-	)
-}
-
 // OpcodeInfo returns encoding metadata for one concrete addressing mode.
 func (resolved ResolvedInstruction) OpcodeInfo(addressing cpu65816.AddressingMode) (cpu65816.OpcodeInfo, error) {
 	if resolved.Instruction == nil {
@@ -140,6 +157,21 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 		})
 	}
 	return references
+}
+
+type operandShapeInfo struct {
+	kind OperandKind
+	size AddressSize
+}
+
+func instructionStateForm(state State) string {
+	return fmt.Sprintf(
+		"%d/%d/%d/%d",
+		state.AccumulatorWidth,
+		state.IndexWidth,
+		state.Carry,
+		state.Emulation,
+	)
 }
 
 func operandReferencesSymbol(value ast.Node) bool {
@@ -219,38 +251,6 @@ func operandShape(addressing cpu65816.AddressingMode) (OperandKind, AddressSize,
 		return OperandInvalid, AddressDefault, fmt.Errorf("%w: mode %d", ErrUnsupportedAddressing, addressing)
 	}
 	return shape.kind, shape.size, nil
-}
-
-type operandShapeInfo struct {
-	kind OperandKind
-	size AddressSize
-}
-
-var addressingOperandShapes = map[cpu65816.AddressingMode]operandShapeInfo{
-	cpu65816.ImmediateAddressing:                      {OperandImmediate, AddressDefault},
-	cpu65816.DirectPageAddressing:                     {OperandAddress, AddressDirectPage},
-	cpu65816.AbsoluteAddressing:                       {OperandAddress, AddressAbsolute},
-	cpu65816.AbsoluteLongAddressing:                   {OperandAddress, AddressLong},
-	cpu65816.RelativeAddressing:                       {OperandAddress, AddressDefault},
-	cpu65816.RelativeLongAddressing:                   {OperandAddress, AddressDefault},
-	AbsoluteDirectPageAddressing:                      {OperandAddress, AddressDefault},
-	cpu65816.DirectPageIndexedXAddressing:             {OperandIndexedX, AddressDirectPage},
-	cpu65816.AbsoluteIndexedXAddressing:               {OperandIndexedX, AddressAbsolute},
-	cpu65816.AbsoluteLongIndexedXAddressing:           {OperandIndexedX, AddressLong},
-	XAddressing:                                       {OperandIndexedX, AddressDefault},
-	cpu65816.DirectPageIndexedYAddressing:             {OperandIndexedY, AddressDirectPage},
-	cpu65816.AbsoluteIndexedYAddressing:               {OperandIndexedY, AddressAbsolute},
-	YAddressing:                                       {OperandIndexedY, AddressDefault},
-	cpu65816.DirectPageIndirectAddressing:             {OperandIndirect, AddressDirectPage},
-	cpu65816.AbsoluteIndirectAddressing:               {OperandIndirect, AddressAbsolute},
-	cpu65816.DirectPageIndexedXIndirectAddressing:     {OperandIndexedXIndirect, AddressDirectPage},
-	cpu65816.AbsoluteIndexedXIndirectAddressing:       {OperandIndexedXIndirect, AddressAbsolute},
-	cpu65816.DirectPageIndirectIndexedYAddressing:     {OperandIndirectIndexedY, AddressDirectPage},
-	cpu65816.DirectPageIndirectLongAddressing:         {OperandIndirectLong, AddressDirectPage},
-	cpu65816.AbsoluteIndirectLongAddressing:           {OperandIndirectLong, AddressAbsolute},
-	cpu65816.DirectPageIndirectLongIndexedYAddressing: {OperandIndirectLongIndexedY, AddressDirectPage},
-	cpu65816.StackRelativeAddressing:                  {OperandStackRelative, AddressDirectPage},
-	cpu65816.StackRelativeIndirectIndexedYAddressing:  {OperandStackRelativeIndirectIndexedY, AddressDirectPage},
 }
 
 func resolveOperands(instruction *cpu65816.Instruction, operands Operands) (cpu65816.AddressingMode, error) {

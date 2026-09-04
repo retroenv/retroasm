@@ -10,12 +10,6 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
-type instructionRelocationAssigner struct {
-	arch.AddressAssigner
-
-	instruction arch.Instruction
-}
-
 // GenerateInstructionOpcode generates CPU68000 opcode bytes for an already resolved instruction.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
 	resolved, err := resolvedInstruction(ins.Argument())
@@ -32,6 +26,12 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	ins.SetOpcodes(opcodes)
 	ins.SetSize(len(opcodes))
 	return nil
+}
+
+type instructionRelocationAssigner struct {
+	arch.AddressAssigner
+
+	instruction arch.Instruction
 }
 
 func (ass *instructionRelocationAssigner) recordRelocation(argument any, encoding arch.RelocationEncoding) {

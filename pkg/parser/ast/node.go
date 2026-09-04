@@ -22,15 +22,6 @@ type Node interface {
 	SetComment(message string)
 }
 
-type node struct {
-	comment Comment
-}
-
-// SetComment sets the comment for the node.
-func (n *node) SetComment(message string) {
-	n.comment.Message = message
-}
-
 // InlineComment returns the comment attached to a non-comment node.
 func InlineComment(n Node) string {
 	commented, ok := n.(interface{ inlineComment() string })
@@ -38,20 +29,6 @@ func InlineComment(n Node) string {
 		return ""
 	}
 	return commented.inlineComment()
-}
-
-func (n *node) copyNode() *node {
-	if n == nil {
-		return &node{}
-	}
-	return &node{comment: n.comment}
-}
-
-func (n *node) inlineComment() string {
-	if n == nil {
-		return ""
-	}
-	return n.comment.Message
 }
 
 // FillLabelIndices clears and fills dest with label names and node indices.
@@ -168,6 +145,29 @@ func SameOperand(a, b Node) bool {
 func SymbolName(n Node) string {
 	name, _ := symbolName(n)
 	return name
+}
+
+type node struct {
+	comment Comment
+}
+
+// SetComment sets the comment for the node.
+func (n *node) SetComment(message string) {
+	n.comment.Message = message
+}
+
+func (n *node) copyNode() *node {
+	if n == nil {
+		return &node{}
+	}
+	return &node{comment: n.comment}
+}
+
+func (n *node) inlineComment() string {
+	if n == nil {
+		return ""
+	}
+	return n.comment.Message
 }
 
 func symbolName(n Node) (string, bool) {

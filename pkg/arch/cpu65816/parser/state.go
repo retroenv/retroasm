@@ -20,14 +20,14 @@ var errInvalidState = errors.New("invalid CPU65816 stream state")
 // Width is a known CPU65816 register width in bytes. Zero means runtime-dependent.
 type Width uint8
 
+// StatusBit is a known CPU65816 processor-status bit. Zero means runtime-dependent.
+type StatusBit uint8
+
 const (
 	WidthUnknown Width = iota
 	WidthByte
 	WidthWord
 )
-
-// StatusBit is a known CPU65816 processor-status bit. Zero means runtime-dependent.
-type StatusBit uint8
 
 const (
 	StatusUnknown StatusBit = iota
@@ -41,6 +41,27 @@ type State struct {
 	IndexWidth       Width
 	Carry            StatusBit
 	Emulation        StatusBit
+}
+
+func (state State) validate() error {
+	if !validWidth(state.AccumulatorWidth) {
+		return fmt.Errorf("%w: accumulator width %d", errInvalidState, state.AccumulatorWidth)
+	}
+	if !validWidth(state.IndexWidth) {
+		return fmt.Errorf("%w: index width %d", errInvalidState, state.IndexWidth)
+	}
+	if !validStatusBit(state.Carry) {
+		return fmt.Errorf("%w: carry state %d", errInvalidState, state.Carry)
+	}
+	if !validStatusBit(state.Emulation) {
+		return fmt.Errorf("%w: emulation state %d", errInvalidState, state.Emulation)
+	}
+	if state.Emulation == StatusSet &&
+		(state.AccumulatorWidth != WidthByte || state.IndexWidth != WidthByte) {
+
+		return fmt.Errorf("%w: emulation mode requires 8-bit M/X widths", errInvalidState)
+	}
+	return nil
 }
 
 // DefaultState returns the compiler and assembler entry state in native mode with 8-bit M/X widths.
@@ -71,27 +92,6 @@ func stateFromParser(p arch.Parser) (State, arch.StatefulParser, error) {
 		return State{}, stateful, err
 	}
 	return state, stateful, nil
-}
-
-func (state State) validate() error {
-	if !validWidth(state.AccumulatorWidth) {
-		return fmt.Errorf("%w: accumulator width %d", errInvalidState, state.AccumulatorWidth)
-	}
-	if !validWidth(state.IndexWidth) {
-		return fmt.Errorf("%w: index width %d", errInvalidState, state.IndexWidth)
-	}
-	if !validStatusBit(state.Carry) {
-		return fmt.Errorf("%w: carry state %d", errInvalidState, state.Carry)
-	}
-	if !validStatusBit(state.Emulation) {
-		return fmt.Errorf("%w: emulation state %d", errInvalidState, state.Emulation)
-	}
-	if state.Emulation == StatusSet &&
-		(state.AccumulatorWidth != WidthByte || state.IndexWidth != WidthByte) {
-
-		return fmt.Errorf("%w: emulation mode requires 8-bit M/X widths", errInvalidState)
-	}
-	return nil
 }
 
 func validWidth(width Width) bool {

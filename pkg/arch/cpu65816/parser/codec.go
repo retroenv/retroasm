@@ -10,6 +10,16 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
+// FormatOptions controls deterministic CPU65816 instruction spelling.
+type FormatOptions struct {
+	Indent           string
+	Uppercase        bool
+	ByteHexDigits    int
+	LongHexDigits    int
+	MinimumHexDigits int
+	WordHexDigits    int
+}
+
 // BuildInstruction constructs a typed CPU65816 instruction in the default 8-bit state.
 func BuildInstruction(
 	mnemonic string,
@@ -86,16 +96,6 @@ func ValidateInstruction(instruction ast.Instruction, expected *cpu65816.Instruc
 		return fmt.Errorf("%w: modifiers must be retained on typed operands", ErrInvalidInstruction)
 	}
 	return validateResolved(resolved)
-}
-
-// FormatOptions controls deterministic CPU65816 instruction spelling.
-type FormatOptions struct {
-	Indent           string
-	Uppercase        bool
-	ByteHexDigits    int
-	LongHexDigits    int
-	MinimumHexDigits int
-	WordHexDigits    int
 }
 
 // FormatInstruction returns one deterministic, parseable CPU65816 instruction line.
