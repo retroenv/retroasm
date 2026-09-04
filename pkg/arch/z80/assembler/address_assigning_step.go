@@ -7,7 +7,6 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	z80parser "github.com/retroenv/retroasm/pkg/arch/z80/parser"
-	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
 var (
@@ -26,7 +25,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 		return 0, fmt.Errorf("resolving instruction argument: %w", err)
 	}
 
-	opcodeInfo, addressing, err := opcodeInfoForResolvedInstruction(resolved)
+	opcodeInfo, addressing, err := resolved.OpcodeInfo()
 	if err != nil {
 		return 0, fmt.Errorf("resolving opcode info for '%s': %w", ins.Name(), err)
 	}
@@ -43,8 +42,4 @@ func resolvedInstruction(argument any) (z80parser.ResolvedInstruction, error) {
 		return z80parser.ResolvedInstruction{}, fmt.Errorf("%w: %T", errUnsupportedArgumentType, argument)
 	}
 	return resolved, nil
-}
-
-func opcodeInfoForResolvedInstruction(resolved z80parser.ResolvedInstruction) (cpuz80.OpcodeInfo, cpuz80.AddressingMode, error) {
-	return resolved.OpcodeInfo() //nolint:wrapcheck // compatibility wrapper for assembler tests
 }

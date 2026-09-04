@@ -141,7 +141,7 @@ func coverageResolvedInstruction(instruction *cpuz80.Instruction) (z80parser.Res
 		for _, addressing := range addressings {
 			resolved.Addressing = addressing
 
-			opcodeInfo, resolvedAddressing, err := opcodeInfoForResolvedInstruction(resolved)
+			opcodeInfo, resolvedAddressing, err := resolved.OpcodeInfo()
 			if err != nil {
 				continue
 			}

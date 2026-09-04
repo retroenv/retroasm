@@ -26,7 +26,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 		return fmt.Errorf("resolving instruction argument: %w", err)
 	}
 
-	opcodeInfo, addressing, err := opcodeInfoForResolvedInstruction(resolved)
+	opcodeInfo, addressing, err := resolved.OpcodeInfo()
 	if err != nil {
 		return fmt.Errorf("resolving opcode info for '%s': %w", ins.Name(), err)
 	}
