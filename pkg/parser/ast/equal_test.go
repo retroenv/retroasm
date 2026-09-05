@@ -1,0 +1,141 @@
+package ast
+
+import (
+	"math"
+	"reflect"
+	"testing"
+
+	"github.com/retroenv/retroasm/pkg/lexer/token"
+	"github.com/retroenv/retrogolib/arch"
+	"github.com/retroenv/retrogolib/assert"
+)
+
+type equalityExtension struct {
+	*node
+
+	Payload any
+	Next    *equalityExtension
+}
+
+func (ext equalityExtension) Copy() Node { return ext }
+
+func TestEqualMatchesReflection(t *testing.T) {
+	t.Parallel()
+
+	cases := equalityCases()
+	for left, before := range cases {
+		for right, after := range cases {
+			assert.Equal(t, reflect.DeepEqual(before, after), Equal(before, after),
+				"cases %d (%T) and %d (%T)", left, before, right, after)
+		}
+	}
+}
+
+func TestEqualCycles(t *testing.T) {
+	t.Parallel()
+
+	left := &Instruction{Name: "cycle"}
+	left.Argument = left
+	right := &Instruction{Name: "cycle"}
+	right.Argument = right
+	unequal := &Instruction{Name: "other"}
+	unequal.Argument = unequal
+	extension := &equalityExtension{Payload: math.NaN()}
+	extension.Next = extension
+	other := &equalityExtension{Payload: math.NaN()}
+	other.Next = other
+	cases := []Node{left, right, unequal, extension, other,
+		Instruction{Argument: RegisterValue{Value: left}},
+		Instruction{Argument: RegisterValue{Value: right}},
+	}
+	for _, before := range cases {
+		for _, after := range cases {
+			assert.Equal(t, reflect.DeepEqual(before, after), Equal(before, after))
+		}
+	}
+}
+
+func TestEqualFieldInventory(t *testing.T) {
+	t.Parallel()
+
+	// A new field needs an equality rule and a parity case.
+	for typ, count := range map[reflect.Type]int{
+		reflect.TypeFor[node](): 1, reflect.TypeFor[Comment](): 1,
+		reflect.TypeFor[Instruction](): 6, reflect.TypeFor[OpcodeID](): 2,
+		reflect.TypeFor[Number](): 2, reflect.TypeFor[Label](): 2,
+		reflect.TypeFor[Identifier](): 3, reflect.TypeFor[Modifier](): 3,
+		reflect.TypeFor[Operator](): 2, reflect.TypeFor[token.Token](): 3,
+		reflect.TypeFor[token.Position](): 2,
+	} {
+		assert.Equal(t, count, typ.NumField(), "%s", typ)
+	}
+}
+
+func TestEqualLeafAllocations(t *testing.T) {
+	for _, before := range []Node{
+		NewNumber(1), NewLabel("entry"), NewIdentifier("value"),
+		NewInstruction("lda", 1, NewNumber(1), nil),
+	} {
+		after := before.Copy()
+		assert.True(t, Equal(before, after))
+		assert.Equal(t, float64(0), testing.AllocsPerRun(20, func() { Equal(before, after) }))
+	}
+}
+
+func equalityCases() []Node {
+	seeds := []Node{
+		Instruction{}, Number{}, Label{}, Identifier{}, Operator{}, &Comment{},
+		Alias{}, Bank{}, Base{}, Configuration{}, Data{}, If{}, Ifdef{}, Ifndef{},
+		Else{}, ElseIf{}, Endif{}, Enum{}, EnumEnd{}, Error{}, Expression{}, Function{},
+		FunctionEnd{}, Include{}, InstructionArgument{}, InstructionArguments{}, Macro{},
+		OffsetCounter{}, RegisterValue{}, RegisterRegisterValue{}, Rept{}, Endr{}, Scope{},
+		ScopeEnd{}, Segment{}, Variable{}, equalityExtension{Payload: []int{1, 2}},
+	}
+	cases := []Node{nil}
+	for _, seed := range append(seeds, equalityFieldCases()...) {
+		cases = append(cases, seed)
+		typ := reflect.TypeOf(seed)
+		if typ.Kind() == reflect.Pointer {
+			continue
+		}
+		ptr := reflect.New(typ)
+		ptr.Elem().Set(reflect.ValueOf(seed))
+		cases = append(cases, ptr.Interface().(Node), reflect.Zero(ptr.Type()).Interface().(Node))
+	}
+	var nilComment *Comment
+	return append(cases, nilComment, &Comment{Message: "comment"})
+}
+
+func equalityFieldCases() []Node {
+	base := &node{}
+	comment := &node{comment: Comment{Message: "comment"}}
+	return []Node{
+		Number{node: base}, Number{node: &node{}}, Number{node: comment}, Number{Value: 1},
+		Label{node: base}, Label{node: &node{}}, Label{node: comment}, Label{Name: "name"},
+		Identifier{node: base}, Identifier{node: &node{}}, Identifier{node: comment},
+		Identifier{Name: "name"}, Identifier{Arguments: []token.Token{}},
+		Identifier{Arguments: []token.Token{{}}},
+		Identifier{Arguments: []token.Token{{Type: token.Number}}},
+		Identifier{Arguments: []token.Token{{Value: "1"}}},
+		Identifier{Arguments: []token.Token{{Position: token.Position{Line: 1}}}},
+		Identifier{Arguments: []token.Token{{Position: token.Position{Column: 1}}}},
+		Operator{node: base}, Operator{node: comment}, Operator{Operator: "+"},
+		Instruction{node: base}, Instruction{node: &node{}}, Instruction{node: comment},
+		Instruction{Name: "lda"}, Instruction{Addressing: 1},
+		Instruction{OpcodeID: OpcodeID{Architecture: arch.CPU6502}}, Instruction{OpcodeID: OpcodeID{Value: 1}},
+		Instruction{Argument: Number{}}, Instruction{Argument: Number{Value: 1}},
+		Instruction{Argument: NewNumber(1)}, Instruction{Argument: NewNumber(1)},
+		Instruction{Argument: Label{Name: "name"}}, Instruction{Argument: Identifier{Name: "name"}},
+		Instruction{Argument: RegisterValue{Register: 1, Value: Number{Value: 1}}},
+		Instruction{Argument: RegisterValue{Register: 2, Value: Number{Value: 1}}},
+		Instruction{Modifier: []Modifier{}}, Instruction{Modifier: []Modifier{{}}},
+		Instruction{Modifier: []Modifier{{node: *comment}}},
+		Instruction{Modifier: []Modifier{{Value: "1"}}},
+		Instruction{Modifier: []Modifier{{Operator: Operator{node: base}}}},
+		Instruction{Modifier: []Modifier{{Operator: Operator{node: &node{}}}}},
+		Instruction{Modifier: []Modifier{{Operator: Operator{node: comment}}}},
+		Instruction{Modifier: []Modifier{{Operator: Operator{Operator: "+"}}}},
+		Instruction{Modifier: []Modifier{{Value: "1"}, {}}},
+		Instruction{Modifier: []Modifier{{}, {Value: "1"}}},
+	}
+}
