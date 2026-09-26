@@ -1,6 +1,6 @@
 module github.com/retroenv/retroasm
 
-go 1.24
+go 1.25.0
 
 require github.com/retroenv/retrogolib v0.0.0-20260904013222-1cac5af40047
 
