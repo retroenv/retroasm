@@ -197,7 +197,7 @@ func assignAddressesStep[T any](_ context.Context, asm *Assembler[T]) error {
 	}
 
 	for _, seg := range asm.segmentsOrder {
-		aa.programCounter = seg.config.Start
+		aa.programCounter = seg.config.SegmentStart
 
 		for _, node := range seg.nodes {
 			switch n := node.(type) {

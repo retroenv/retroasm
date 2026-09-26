@@ -1,6 +1,10 @@
 package assembler
 
-import "github.com/retroenv/retroasm/pkg/assembler/config"
+import (
+	"fmt"
+
+	"github.com/retroenv/retroasm/pkg/assembler/config"
+)
 
 // memory is a memory segment of the output file.
 type memory struct {
@@ -26,11 +30,13 @@ func newMemory(cfg config.Memory) *memory {
 	return o
 }
 
-// write data using the offset address into the memory, the index will be calculated based on
-// the start address of the memory. If the memory config does not specify the fill flag,
-// the memory can not be preallocated but has to be written incrementally.
-func (o *memory) write(data []byte, offsetAddress, segmentStart uint64) {
-	index := int(offsetAddress - o.start + segmentStart)
+// write stores bytes at their address relative to the memory area.
+func (o *memory) write(data []byte, address uint64) error {
+	if address < o.start || address-o.start > o.size || uint64(len(data)) > o.size-(address-o.start) {
+		return fmt.Errorf("write of %d bytes at $%x exceeds memory range $%x with size %d",
+			len(data), address, o.start, o.size)
+	}
+	index := int(address - o.start)
 
 	extendBuf := index - len(o.data) + len(data)
 	if extendBuf > 0 {
@@ -39,4 +45,5 @@ func (o *memory) write(data []byte, offsetAddress, segmentStart uint64) {
 	}
 
 	copy(o.data[index:index+len(data)], data)
+	return nil
 }

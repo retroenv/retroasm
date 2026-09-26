@@ -293,9 +293,10 @@ func copyInputSymbols(symbols map[string]uint64, sourceName string) map[string]S
 	return result
 }
 
+// The default emits only used bytes. Cartridge layouts can request bank fill.
 const defaultConfig = `
 MEMORY {
-    CODE: start = $8000, size = $8000, fill = yes;
+    CODE: start = $8000, size = $8000;
 }
 SEGMENTS {
     CODE: load = CODE, type = rw;

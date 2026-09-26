@@ -27,14 +27,7 @@ func writeOutputStep[T any](_ context.Context, asm *Assembler[T]) error {
 			continue
 		}
 
-		dataLen := uint64(len(mem.data))
-		if dataLen-mem.start > mem.size {
-			return fmt.Errorf("memory '%s' exceeds size limit %d, %d bytes written",
-				memName, mem.size, len(mem.data))
-		}
-
-		buf := mem.data[mem.start:]
-		_, err = asm.writer.Write(buf)
+		_, err = asm.writer.Write(mem.data)
 		if err != nil {
 			return fmt.Errorf("writing fill data to output: %w", err)
 		}
@@ -72,12 +65,16 @@ func writeSegmentsToMemory(configSegmentsOrdered []*config.Segment,
 					if !ok {
 						return nil, fmt.Errorf("unsupported node value type %T", val)
 					}
-					mem.write(b, offset, seg.config.SegmentStart)
+					if err := mem.write(b, offset); err != nil {
+						return nil, fmt.Errorf("memory %q: %w", memName, err)
+					}
 					offset += uint64(len(b))
 				}
 
 			case *instruction:
-				mem.write(n.opcodes, n.address, seg.config.SegmentStart)
+				if err := mem.write(n.opcodes, n.address); err != nil {
+					return nil, fmt.Errorf("memory %q: %w", memName, err)
+				}
 			}
 		}
 	}

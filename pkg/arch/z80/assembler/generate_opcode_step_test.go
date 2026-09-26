@@ -33,7 +33,7 @@ var coreEncodingTests = []struct {
 			Addressing:  cpuz80.ImpliedAddressing,
 			Instruction: cpuz80.INF,
 		},
-		want: []byte{0xED, 0xAA},
+		want: []byte{0xED, 0x70},
 	},
 	{
 		name:    "outf",
@@ -42,7 +42,7 @@ var coreEncodingTests = []struct {
 			Addressing:  cpuz80.ImpliedAddressing,
 			Instruction: cpuz80.OUTF,
 		},
-		want: []byte{0xED, 0xAB},
+		want: []byte{0xED, 0x71},
 	},
 	{
 		name:    "ld bc,nn",
