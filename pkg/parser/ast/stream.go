@@ -155,6 +155,7 @@ type Entry struct {
 // Stream owns ordered AST entries and their assembly metadata.
 type Stream struct {
 	entries        []Entry
+	removedEntries []Entry // Source records for removed code; these entries do not emit bytes.
 	initialState   any
 	finalState     any
 	symbols        []Symbol
@@ -287,6 +288,7 @@ func (stm *Stream) Copy() *Stream {
 	}
 	return &Stream{
 		entries:        copyEntries(stm.entries),
+		removedEntries: copyEntries(stm.removedEntries),
 		initialState:   copyStreamState(stm.initialState),
 		finalState:     copyStreamState(stm.finalState),
 		symbols:        copySymbols(stm.symbols),
@@ -414,6 +416,9 @@ func (stm *Stream) Validate() error {
 	}
 	if err := validateEntries(stm.entries); err != nil {
 		return err
+	}
+	if err := validateEntries(stm.removedEntries); err != nil {
+		return fmt.Errorf("validating removed entries: %w", err)
 	}
 	if err := validateSymbols(stm.symbols, stm.entries); err != nil {
 		return err

@@ -31,6 +31,7 @@ func (stm *Stream) AppendStream(source *Stream) error {
 	suffix := source.Copy()
 	offset := len(candidate.entries)
 	candidate.entries = append(candidate.entries, suffix.entries...)
+	candidate.removedEntries = append(candidate.removedEntries, suffix.removedEntries...)
 	for _, symbol := range suffix.symbols {
 		symbol.EntryIndex += offset
 		candidate.symbols = append(candidate.symbols, symbol)
@@ -53,5 +54,5 @@ func (stm *Stream) AppendStream(source *Stream) error {
 }
 
 func (stm *Stream) emptyWithoutState() bool {
-	return len(stm.entries) == 0 && stm.initialState == nil && stm.finalState == nil
+	return len(stm.entries) == 0 && len(stm.removedEntries) == 0 && stm.initialState == nil && stm.finalState == nil
 }
