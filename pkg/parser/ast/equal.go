@@ -1,12 +1,10 @@
 package ast
 
-import (
-	"reflect"
-	"slices"
-)
+import "slices"
 
 // Equal compares all node fields with the same rules as reflect.DeepEqual.
-// It preserves dynamic types, private metadata, and nil/empty distinctions.
+// It preserves dynamic types, source comments, and nil/empty distinctions.
+// Operational entry handles have no assembly meaning and are ignored.
 // Complex operands and extension nodes use reflection to support cycles.
 func Equal(left, right Node) bool {
 	switch before := left.(type) {
@@ -65,9 +63,9 @@ func equalLeafPointer(left, right Node) bool {
 		return ok && equalPointer(before, after, equalOperator)
 	case *Comment:
 		after, ok := right.(*Comment)
-		return ok && (before == after || before != nil && after != nil && *before == *after)
+		return ok && (before == after || before != nil && after != nil && before.Message == after.Message)
 	default:
-		return reflect.DeepEqual(left, right)
+		return equalComposite(left, right)
 	}
 }
 
@@ -76,7 +74,7 @@ func equalPointer[T any](left, right *T, equal func(T, T) bool) bool {
 }
 
 func equalBase(left, right *node) bool {
-	return left == right || left != nil && right != nil && *left == *right
+	return left == right || left != nil && right != nil && left.comment.Message == right.comment.Message
 }
 
 func equalNumber(left, right Number) bool {
@@ -103,7 +101,7 @@ func equalModifiers(left, right []Modifier) bool {
 
 	for index, before := range left {
 		after := right[index]
-		if before.node != after.node || before.Value != after.Value || !equalOperator(before.Operator, after.Operator) {
+		if !equalBase(&before.node, &after.node) || before.Value != after.Value || !equalOperator(before.Operator, after.Operator) {
 			return false
 		}
 	}

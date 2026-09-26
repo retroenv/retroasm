@@ -149,6 +149,7 @@ func SymbolName(n Node) string {
 
 type node struct {
 	comment Comment
+	handle  *entryHandle
 }
 
 // SetComment sets the comment for the node.
@@ -160,7 +161,7 @@ func (n *node) copyNode() *node {
 	if n == nil {
 		return &node{}
 	}
-	return &node{comment: n.comment}
+	return &node{comment: n.comment, handle: n.handle}
 }
 
 func (n *node) inlineComment() string {
@@ -176,3 +177,12 @@ func symbolName(n Node) (string, bool) {
 	}
 	return IdentifierName(n)
 }
+
+func (n *node) entryHandle() *entryHandle {
+	if n == nil {
+		return nil
+	}
+	return n.handle
+}
+
+func (n *node) setEntryHandle(handle *entryHandle) { n.handle = handle }

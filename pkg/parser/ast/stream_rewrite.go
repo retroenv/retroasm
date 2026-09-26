@@ -56,6 +56,7 @@ func (stm *Stream) Rewrite(edits []EntryEdit) error {
 	if err := candidate.Validate(); err != nil {
 		return fmt.Errorf("validating rewritten stream: %w", err)
 	}
+	candidate.revision = &streamRevision{}
 	*stm = *candidate
 	return nil
 }

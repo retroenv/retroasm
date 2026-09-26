@@ -161,6 +161,9 @@ type Stream struct {
 	symbols        []Symbol
 	relocations    []Relocation
 	segmentChanges []SegmentChange
+
+	// revision invalidates native edit views after a successful mutation.
+	revision *streamRevision
 }
 
 // NewAbsoluteSymbolExpression returns an expression with a fixed value.
@@ -192,7 +195,7 @@ func NewEntry(node Node, position SourcePosition) Entry {
 
 // NewStream returns a stream that owns copies of entries.
 func NewStream(entries ...Entry) *Stream {
-	return &Stream{entries: copyEntries(entries)}
+	return &Stream{entries: copyEntries(entries), revision: &streamRevision{}}
 }
 
 // NewStreamFromNodes returns a stream for nodes without source metadata.
@@ -274,6 +277,7 @@ func (ent Entry) Copy() Entry {
 // Append appends copies of entries to the stream.
 func (stm *Stream) Append(entries ...Entry) {
 	stm.entries = append(stm.entries, copyEntries(entries)...)
+	stm.revision = &streamRevision{}
 }
 
 // At returns an independent copy of one entry.
@@ -294,6 +298,7 @@ func (stm *Stream) Copy() *Stream {
 		symbols:        copySymbols(stm.symbols),
 		relocations:    copyRelocations(stm.relocations),
 		segmentChanges: slices.Clone(stm.segmentChanges),
+		revision:       stm.revision,
 	}
 }
 
@@ -323,23 +328,27 @@ func (stm *Stream) Nodes() []Node {
 func (stm *Stream) RecordRelocation(relocation Relocation) {
 	relocation.Expression = relocation.Expression.Copy()
 	stm.relocations = append(stm.relocations, relocation)
+	stm.revision = &streamRevision{}
 }
 
 // RecordSegmentChange appends a typed segment change to the stream.
 func (stm *Stream) RecordSegmentChange(change SegmentChange) {
 	stm.segmentChanges = append(stm.segmentChanges, change)
+	stm.revision = &streamRevision{}
 }
 
 // RecordState stores independent initial and final target-state snapshots.
 func (stm *Stream) RecordState(initial, final any) {
 	stm.initialState = copyStreamState(initial)
 	stm.finalState = copyStreamState(final)
+	stm.revision = &streamRevision{}
 }
 
 // RecordSymbol appends a typed symbol definition to the stream.
 func (stm *Stream) RecordSymbol(symbol Symbol) {
 	symbol.Expression = symbol.Expression.Copy()
 	stm.symbols = append(stm.symbols, symbol)
+	stm.revision = &streamRevision{}
 }
 
 // Relocations returns a copy of the typed relocations.
@@ -370,6 +379,7 @@ func (stm *Stream) Replace(start, end int, replacement []Entry) error {
 		return fmt.Errorf("%w: replacement metadata is incompatible: %w", ErrInvalidStream, err)
 	}
 
+	candidate.revision = &streamRevision{}
 	*stm = *candidate
 	return nil
 }
@@ -395,6 +405,7 @@ func (stm *Stream) ResolveSymbolValues(values map[string]uint64) error {
 		return fmt.Errorf("%w: resolved symbol metadata is incompatible: %w", ErrInvalidStream, err)
 	}
 
+	candidate.revision = &streamRevision{}
 	*stm = *candidate
 	return nil
 }
@@ -470,7 +481,7 @@ func StateSnapshots[S any](stream *Stream) (S, S, bool) {
 
 func validateEntries(entries []Entry) error {
 	for index, entry := range entries {
-		if entry.Node == nil {
+		if entry.Node == nil || reflect.ValueOf(entry.Node).Kind() == reflect.Pointer && reflect.ValueOf(entry.Node).IsNil() {
 			return fmt.Errorf("%w: entry %d has no node", ErrInvalidStream, index)
 		}
 		if !validSourcePosition(entry.Position) {

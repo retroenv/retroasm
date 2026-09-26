@@ -21,6 +21,7 @@ func (stm *Stream) AppendStream(source *Stream) error {
 	}
 	if stm.emptyWithoutState() {
 		*stm = *source.Copy()
+		stm.revision = &streamRevision{}
 		return nil
 	}
 	if !reflect.DeepEqual(stm.finalState, source.initialState) {
@@ -49,6 +50,7 @@ func (stm *Stream) AppendStream(source *Stream) error {
 		return fmt.Errorf("validating combined stream: %w", err)
 	}
 
+	candidate.revision = &streamRevision{}
 	*stm = *candidate
 	return nil
 }

@@ -24,6 +24,7 @@ func (stm *Stream) RebuildSymbols() error {
 	}
 
 	stm.symbols = symbols
+	stm.revision = &streamRevision{}
 	return nil
 }
 

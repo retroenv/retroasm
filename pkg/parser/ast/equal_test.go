@@ -60,7 +60,7 @@ func TestEqualFieldInventory(t *testing.T) {
 
 	// A new field needs an equality rule and a parity case.
 	for typ, count := range map[reflect.Type]int{
-		reflect.TypeFor[node](): 1, reflect.TypeFor[Comment](): 1,
+		reflect.TypeFor[node](): 2, reflect.TypeFor[Comment](): 2,
 		reflect.TypeFor[Instruction](): 6, reflect.TypeFor[OpcodeID](): 2,
 		reflect.TypeFor[Number](): 2, reflect.TypeFor[Label](): 2,
 		reflect.TypeFor[Identifier](): 3, reflect.TypeFor[Modifier](): 3,
@@ -137,5 +137,52 @@ func equalityFieldCases() []Node {
 		Instruction{Modifier: []Modifier{{Operator: Operator{Operator: "+"}}}},
 		Instruction{Modifier: []Modifier{{Value: "1"}, {}}},
 		Instruction{Modifier: []Modifier{{}, {Value: "1"}}},
+	}
+}
+
+func TestEqualIgnoresEntryHandles(t *testing.T) {
+	for _, source := range []Node{
+		NewInstruction("lda", 0, NewNumber(1), nil), NewNumber(1), NewLabel("entry"),
+		NewIdentifier("symbol"), NewData(DataType, 1), &Comment{Message: "source"},
+		RegisterValue{node: &node{}, Register: 1, Value: NewNumber(2)},
+		NewAlias("alias"),
+	} {
+		left, right := source.Copy(), source.Copy()
+		carrier := left.(interface{ setEntryHandle(*entryHandle) })
+		carrier.setEntryHandle(&entryHandle{})
+		assert.True(t, Equal(left, right), "%T", source)
+		assert.True(t, Equal(right, left), "%T", source)
+		assert.True(t, Equal(left, left.Copy()), "%T", source)
+		right.SetComment("changed")
+		assert.False(t, Equal(left, right), "%T", source)
+	}
+	left := &equalityExtension{node: &node{handle: &entryHandle{}}, Payload: []int{1}}
+	left.Next = left
+	right := &equalityExtension{node: &node{}, Payload: []int{1}}
+	right.Next = right
+	assert.True(t, Equal(left, right))
+	right.Payload = []int{2}
+	assert.False(t, Equal(left, right))
+}
+
+func TestEqualCompositeReflectionParity(t *testing.T) {
+	cycle := make(map[string]any)
+	cycle["self"] = cycle
+	otherCycle := make(map[string]any)
+	otherCycle["self"] = otherCycle
+	channel := make(chan int)
+	values := []any{
+		nil, true, false, int64(1), uint64(1), "value", complex(1, 2), math.NaN(),
+		[]int(nil), []int{}, []int{1}, []int{1}, [1]int{1}, [1]int{2},
+		map[string]int(nil), map[string]int{}, map[string]int{"key": 1}, map[string]int{"other": 1},
+		cycle, otherCycle, channel, make(chan int), (chan int)(nil), (func())(nil),
+		func() {}, struct{ private any }{private: []int{1}},
+	}
+	for _, left := range values {
+		for _, right := range values {
+			before := &equalityExtension{Payload: left}
+			after := &equalityExtension{Payload: right}
+			assert.Equal(t, reflect.DeepEqual(before, after), Equal(before, after), "%T and %T", left, right)
+		}
 	}
 }

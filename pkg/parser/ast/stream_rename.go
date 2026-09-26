@@ -53,6 +53,7 @@ func (stm *Stream) RenameSymbols(names map[string]string) error {
 	if err := candidate.Validate(); err != nil {
 		return fmt.Errorf("validating renamed stream: %w", err)
 	}
+	candidate.revision = &streamRevision{}
 	*stm = *candidate
 	return nil
 }
