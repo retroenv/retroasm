@@ -1,6 +1,10 @@
 package ast
 
-import "reflect"
+import (
+	"reflect"
+
+	"github.com/retroenv/retrogolib/set"
+)
 
 // equalVisit records a pair of references before their contents are compared.
 // This permits cyclic operands and extension values.
@@ -10,10 +14,10 @@ type equalVisit struct {
 }
 
 func equalComposite(left, right Node) bool {
-	return equalValue(reflect.ValueOf(left), reflect.ValueOf(right), make(map[equalVisit]bool))
+	return equalValue(reflect.ValueOf(left), reflect.ValueOf(right), set.New[equalVisit]())
 }
 
-func equalValue(left, right reflect.Value, seen map[equalVisit]bool) bool {
+func equalValue(left, right reflect.Value, seen set.Set[equalVisit]) bool {
 	if !left.IsValid() || !right.IsValid() {
 		return left.IsValid() == right.IsValid()
 	}
@@ -32,15 +36,15 @@ func equalValue(left, right reflect.Value, seen map[equalVisit]bool) bool {
 			return false
 		}
 		visit := equalVisit{left: uintptr(left.UnsafePointer()), right: uintptr(right.UnsafePointer()), typ: left.Type()}
-		if visit.left == visit.right || seen[visit] {
+		if visit.left == visit.right || seen.Contains(visit) {
 			return true
 		}
-		seen[visit] = true
+		seen.Add(visit)
 	}
 	return equalValueContents(left, right, seen)
 }
 
-func equalValueContents(left, right reflect.Value, seen map[equalVisit]bool) bool {
+func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) bool {
 	switch left.Kind() {
 	case reflect.Pointer:
 		return equalValue(left.Elem(), right.Elem(), seen)

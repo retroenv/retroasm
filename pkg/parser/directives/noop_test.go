@@ -9,16 +9,30 @@ import (
 )
 
 func TestNoOp(t *testing.T) {
-	parser := newMockParser([]token.Token{
-		{Type: token.Dot, Value: "."},
-		{Type: token.Identifier, Value: "list"},
-		{Type: token.Identifier, Value: "on"},
-		{Type: token.EOL},
-	})
+	for _, arguments := range []bool{false, true} {
+		tokens := []token.Token{
+			{Type: token.Dot, Value: "."},
+			{Type: token.Identifier, Value: "list"},
+		}
+		if arguments {
+			tokens = append(tokens, token.Token{Type: token.Identifier, Value: "on"})
+		}
+		tokens = append(tokens, token.Token{Type: token.EOL})
+		parser := newMockParser(tokens)
 
-	node, err := NoOp(parser)
-	assert.NoError(t, err)
-	assert.Nil(t, node)
+		node, err := NoOp(parser)
+		assert.NoError(t, err)
+		assert.Nil(t, node)
+		assert.True(t, parser.NextToken(0).Type.IsTerminator())
+	}
+}
+
+func TestBuildHandlersReturnsIndependentMaps(t *testing.T) {
+	first := BuildHandlers(config.CompatDefault)
+	second := BuildHandlers(config.CompatDefault)
+	delete(first, "byte")
+	_, found := second["byte"]
+	assert.True(t, found)
 }
 
 func TestBuildHandlers_Default(t *testing.T) {

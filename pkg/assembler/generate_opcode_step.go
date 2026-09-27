@@ -21,6 +21,9 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 		for _, node := range seg.nodes {
 			switch n := node.(type) {
 			case *data:
+				if err := generateDeferredDataBytes(currentScope, n, asm.byteOrder); err != nil {
+					return fmt.Errorf("generating deferred data at $%x: %w", n.address, err)
+				}
 				if err := generateReferenceDataBytes(currentScope, n, asm.byteOrder); err != nil {
 					return fmt.Errorf("generating data node opcode: %w", err)
 				}
@@ -38,13 +41,45 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 					instructionRelocations: &asm.instructionRelocations,
 				}
 				if err := arch.GenerateInstructionOpcode(assigner, n); err != nil {
-					return fmt.Errorf("generating instruction node opcode: %w", err)
+					return fmt.Errorf("generating instruction '%s' at $%x opcode: %w", n.Name(), n.Address(), err)
 				}
 
 			case scopeChange:
 				currentScope = n.scope
 			}
 		}
+	}
+	return nil
+}
+
+func generateDeferredDataBytes(currentScope *scope.Scope, dat *data, order binary.ByteOrder) error {
+	if !dat.deferred {
+		return nil
+	}
+
+	// Address assignment has completed, so forward symbols now have values.
+	dat.values = nil
+	for index, item := range dat.expressions {
+		value, err := item.Evaluate(currentScope, dat.width)
+		if err != nil {
+			return fmt.Errorf("evaluating deferred data item %d: %w", index, err)
+		}
+		if err := appendDataExpressionValue(dat, value, order); err != nil {
+			return fmt.Errorf("appending deferred data item %d: %w", index, err)
+		}
+	}
+
+	actualSize := 0
+	for _, value := range dat.values {
+		bytes, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unsupported deferred data value type %T", value)
+		}
+		actualSize += len(bytes)
+	}
+	// A changed byte count would invalidate every address assigned after this node.
+	if actualSize != dat.deferredSize {
+		return fmt.Errorf("deferred data size changed from %d to %d bytes", dat.deferredSize, actualSize)
 	}
 	return nil
 }

@@ -68,6 +68,9 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instructio
 		}
 		return parseInstructionSecondIdentifier(ins, false)
 	}
+	if ins.arg1.Value == "#" {
+		return parseInstructionImmediate(parser, ins, next1)
+	}
 
 	switch {
 	case ins.arg1.Type == token.LeftParentheses:
@@ -78,14 +81,6 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instructio
 		// Handle immediate numbers that are tokenized as a single token: LDA #32
 		return parseInstructionImmediateAddressing(ins)
 
-	case ins.arg1.Value == "#" && next1.Type == token.LeftParentheses:
-		// Handle immediate addressing with parenthesized expression: LDA #(LABEL-1)
-		return parseInstructionImmediateAddressingWithExpression(parser, ins)
-
-	case ins.arg1.Value == "#" && (next1.Type == token.Identifier || next1.Type == token.Number):
-		// Handle immediate addressing with separate tokens: LDA #MAX_ENTITIES or LDA #$FF
-		return parseInstructionImmediateAddressingWithToken(parser, ins, next1)
-
 	case ins.arg1.Type == token.Number:
 		return parseInstructionNumber(parser, ins)
 
@@ -94,6 +89,22 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu6502.Instructio
 
 	default:
 		return nil, fmt.Errorf("unsupported instruction argument type %s", ins.arg1.Type)
+	}
+}
+
+func parseInstructionImmediate(parser arch.Parser, ins *instruction, next token.Token) (ast.Node, error) {
+	switch {
+	case next.Type == token.LeftParentheses:
+		return parseInstructionImmediateAddressingWithExpression(parser, ins)
+	case next.Type == token.Lt || next.Type == token.Gt || next.Type == token.Caret:
+		return parseInstructionImmediateAddressByte(parser, ins, next.Type)
+	case next.Type == token.Identifier || next.Type == token.Number:
+		if parser.NextToken(2).Type.IsOperator() {
+			return parseInstructionImmediateAddressingExpression(parser, ins)
+		}
+		return parseInstructionImmediateAddressingWithToken(parser, ins, next)
+	default:
+		return nil, fmt.Errorf("unsupported immediate argument type %s", next.Type)
 	}
 }
 
@@ -385,6 +396,47 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 	return newInstruction(ins.instruction, int(cpu6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
+func parseInstructionImmediateAddressByte(parser arch.Parser, ins *instruction, prefix token.Type) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(cpu6502.ImmediateAddressing) {
+		return nil, errors.New("invalid immediate addressing mode usage")
+	}
+
+	operand := parser.NextToken(2)
+	if operand.Type != token.Identifier && operand.Type != token.Number {
+		return nil, fmt.Errorf("invalid immediate address byte operand type %s", operand.Type)
+	}
+	if operand.Type == token.Identifier {
+		operand.Value = parser.ScopeLocalLabel(operand.Value)
+	}
+
+	parser.AdvanceReadPosition(3)
+	argument := ast.NewExpression(token.Token{Type: prefix}, operand)
+	return newInstruction(ins.instruction, int(cpu6502.ImmediateAddressing), argument, ins.modifiers), nil
+}
+
+func parseInstructionImmediateAddressingExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
+	if !ins.instruction.HasAddressing(cpu6502.ImmediateAddressing) {
+		return nil, errors.New("invalid immediate addressing mode usage")
+	}
+
+	var tokens []token.Token
+	for offset := 1; ; offset++ {
+		tok := parser.NextToken(offset)
+		if tok.Type.IsTerminator() {
+			parser.AdvanceReadPosition(offset)
+			argument := ast.NewExpression(tokens...)
+			return newInstruction(ins.instruction, int(cpu6502.ImmediateAddressing), argument, ins.modifiers), nil
+		}
+		if tok.Type == token.Identifier {
+			tok.Value = parser.ScopeLocalLabel(tok.Value)
+		}
+		if tok.Type != token.Identifier && tok.Type != token.Number && !tok.Type.IsOperator() {
+			return nil, fmt.Errorf("unexpected token '%s' in immediate expression", tok.Type)
+		}
+		tokens = append(tokens, tok)
+	}
+}
+
 func parseInstructionImmediateAddressingWithExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
 	if !ins.instruction.HasAddressing(cpu6502.ImmediateAddressing) {
 		return nil, errors.New("invalid immediate addressing mode usage")
@@ -532,8 +584,11 @@ func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
 		}
 	}
 
-	p.AdvanceReadPosition(level) // advance past the +/- tokens (: stays as position base)
 	name := p.ResolveUnnamedLabel(forward, level)
+	if name == "" {
+		return "", false
+	}
+	p.AdvanceReadPosition(level) // advance past the +/- tokens (: stays as position base)
 	return name, true
 }
 

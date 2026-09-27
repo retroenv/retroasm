@@ -130,6 +130,9 @@ func (p *Parser[T]) ResolveDotLocalLabel(name string) string {
 
 // ResolveUnnamedLabel returns the synthetic label name for a ca65-style unnamed label reference.
 func (p *Parser[T]) ResolveUnnamedLabel(forward bool, level int) string {
+	if !p.compatMode.UnnamedLabels() {
+		return ""
+	}
 	if forward {
 		return fmt.Sprintf("__unnamed_%d", p.unnamedLabelCount+level)
 	}

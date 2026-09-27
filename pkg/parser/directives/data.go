@@ -10,6 +10,8 @@ import (
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 )
 
+// Widths include compatibility-specific spellings. The active handler map
+// decides their meaning; for example, x816 overrides asm6's low-byte .dl.
 var dataByteWidth = map[string]int{
 	"align": 1,
 	"byt":   1,
@@ -50,6 +52,17 @@ func Data(p arch.Parser) (ast.Node, error) {
 	values, err := readDataValueExpressions(p)
 	if err != nil {
 		return nil, fmt.Errorf("reading data values: %w", err)
+	}
+	if addresses, referenceType, matched := addressByteDataExpressions(values); matched {
+		data.Type = ast.AddressType
+		data.Width = 1
+		data.ReferenceType = referenceType
+		data.Values = addresses
+		return data, nil
+	}
+	if width == p.AddressWidth()/8 && addressDataExpressions(values) {
+		data.Type = ast.AddressType
+		data.ReferenceType = ast.FullAddress
 	}
 	data.Values = values
 
@@ -102,6 +115,68 @@ func Align(p arch.Parser) (ast.Node, error) {
 	data.Size.AddTokens(rightParen, percent)
 	data.Size.AddTokens(tokens...)
 	return data, nil
+}
+
+func addressByteDataExpressions(values []*expression.Expression) ([]*expression.Expression, ast.ReferenceType, bool) {
+	if len(values) == 0 {
+		return nil, ast.InvalidReferenceType, false
+	}
+
+	var referenceType ast.ReferenceType
+	addresses := make([]*expression.Expression, 0, len(values))
+	for _, item := range values {
+		tokens := item.Tokens()
+		if len(tokens) != 2 {
+			return nil, ast.InvalidReferenceType, false
+		}
+		var currentType ast.ReferenceType
+		switch tokens[0].Type {
+		case token.Lt:
+			currentType = ast.LowAddressByte
+		case token.Gt:
+			currentType = ast.HighAddressByte
+		case token.Caret:
+			currentType = ast.BankAddressByte
+		default:
+			return nil, ast.InvalidReferenceType, false
+		}
+
+		value := tokens[1]
+		if !isAddressValueToken(value) {
+			return nil, ast.InvalidReferenceType, false
+		}
+		if referenceType != ast.InvalidReferenceType && referenceType != currentType {
+			return nil, ast.InvalidReferenceType, false
+		}
+
+		referenceType = currentType
+		addresses = append(addresses, expression.New(value))
+	}
+
+	return addresses, referenceType, true
+}
+
+func addressDataExpressions(values []*expression.Expression) bool {
+	if len(values) == 0 {
+		return false
+	}
+	for _, item := range values {
+		tokens := item.Tokens()
+		if len(tokens) != 1 || !isAddressValueToken(tokens[0]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isAddressValueToken(tok token.Token) bool {
+	if tok.Type == token.Number {
+		return true
+	}
+	if tok.Type != token.Identifier || tok.Value == "" {
+		return false
+	}
+	return tok.Value[0] != '"' && tok.Value[0] != '\''
 }
 
 func addSizeProgramCounterReference(data ast.Data) (ast.Node, error) {
@@ -196,6 +271,9 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 			if returnOnComma {
 				return tokens, nil
 			}
+			// Preserve list boundaries for expression evaluation; reference
+			// discovery ignores these separators later.
+			tokens = append(tokens, tok)
 
 		case tok.Type == token.Assign:
 			if len(tokens) == 0 {

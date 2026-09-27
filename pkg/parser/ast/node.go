@@ -171,13 +171,6 @@ func (n *node) inlineComment() string {
 	return n.comment.Message
 }
 
-func symbolName(n Node) (string, bool) {
-	if name, ok := LabelName(n); ok {
-		return name, true
-	}
-	return IdentifierName(n)
-}
-
 func (n *node) entryHandle() *entryHandle {
 	if n == nil {
 		return nil
@@ -186,3 +179,10 @@ func (n *node) entryHandle() *entryHandle {
 }
 
 func (n *node) setEntryHandle(handle *entryHandle) { n.handle = handle }
+
+func symbolName(n Node) (string, bool) {
+	if name, ok := LabelName(n); ok {
+		return name, true
+	}
+	return IdentifierName(n)
+}

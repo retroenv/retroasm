@@ -83,6 +83,23 @@ func TestDirectiveIntegration(t *testing.T) {
 	})
 }
 
+func TestDataScopesIdentifier(t *testing.T) {
+	parser := newMockParser([]token.Token{
+		{Type: token.Dot, Value: "."},
+		{Type: token.Identifier, Value: "byte"},
+		{Type: token.Identifier, Value: "@value"},
+		{Type: token.EOL},
+	})
+	parser.scopePrefix = "main."
+
+	node, err := Data(parser)
+	assert.NoError(t, err)
+
+	data, ok := node.(ast.Data)
+	assert.True(t, ok)
+	assert.Equal(t, "main.@value", data.Values[0].Tokens()[0].Value)
+}
+
 // Benchmark critical directive parsing.
 func BenchmarkDirectiveParsing(b *testing.B) {
 	parser := newMockParser([]token.Token{
@@ -116,8 +133,9 @@ func BenchmarkDirectiveParsing(b *testing.B) {
 
 // mockParser provides a simple parser implementation for testing directives.
 type mockParser struct {
-	tokens   []token.Token
-	position int
+	tokens      []token.Token
+	position    int
+	scopePrefix string
 }
 
 func newMockParser(tokens []token.Token) *mockParser {
@@ -143,14 +161,14 @@ func (p *mockParser) AddressWidth() int {
 	return 16
 }
 
-func (p *mockParser) ScopeLocalLabel(name string) string {
-	return name
+func (p *mockParser) ResolveDotLocalLabel(_ string) string {
+	return ""
 }
 
 func (p *mockParser) ResolveUnnamedLabel(_ bool, _ int) string {
 	return ""
 }
 
-func (p *mockParser) ResolveDotLocalLabel(_ string) string {
-	return ""
+func (p *mockParser) ScopeLocalLabel(name string) string {
+	return p.scopePrefix + name
 }

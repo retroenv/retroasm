@@ -8,6 +8,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/expression"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/number"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
@@ -160,14 +161,27 @@ func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) err
 		}
 	}
 
+	values := make([]any, 0, len(dat.expressions))
 	for index, item := range dat.expressions {
 		if item == nil {
 			return fmt.Errorf("data expression item %d is nil", index)
 		}
 		value, err := item.Evaluate(expEval.currentScope, dat.width)
+		if errors.Is(err, scope.ErrForwardReference) {
+			dat.deferred = true
+			dat.deferredSize = 0
+			for _, deferred := range dat.expressions {
+				dat.deferredSize += dataExpressionSize(deferred.Tokens(), dat.width)
+			}
+			dat.values = nil
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("evaluating data expression item %d: %w", index, err)
 		}
+		values = append(values, value)
+	}
+	for index, value := range values {
 		if err := appendDataExpressionValue(dat, value, expEval.byteOrder); err != nil {
 			return fmt.Errorf("appending data expression item %d: %w", index, err)
 		}
@@ -195,6 +209,33 @@ func appendDataExpressionValue(dat *data, value any, order binary.ByteOrder) err
 	}
 }
 
+func dataExpressionSize(tokens []token.Token, width int) int {
+	// Operators combine operands without emitting additional data, while commas
+	// separate results. Unary address-byte operators leave the result count intact.
+	values := 0
+	operandExpected := true
+	for _, tok := range tokens {
+		switch {
+		case tok.Type == token.Identifier || tok.Type == token.Number:
+			values++
+			operandExpected = false
+		case tok.Type.IsOperator():
+			unary := operandExpected && (tok.Type == token.Lt || tok.Type == token.Gt || tok.Type == token.Caret)
+			if !unary {
+				values--
+			}
+			operandExpected = true
+		case tok.Type == token.LeftParentheses:
+			operandExpected = true
+		case tok.Type == token.RightParentheses:
+			operandExpected = false
+		case tok.Type == token.Comma:
+			operandExpected = true
+		}
+	}
+	return values * width
+}
+
 func parseSymbolExpression[T any](expEval *expressionEvaluation[T], sym *symbol) error {
 	exp := sym.Expression()
 	if exp == nil || exp.IsEvaluatedAtAddressAssign() {
@@ -204,6 +245,11 @@ func parseSymbolExpression[T any](expEval *expressionEvaluation[T], sym *symbol)
 	// only process constant expressions that result in a value
 	if exp.IsEvaluatedOnce() {
 		_, err := exp.Evaluate(expEval.currentScope, 1)
+		if errors.Is(err, scope.ErrForwardReference) {
+			// Aliases may depend on labels assigned in a later pass; retaining the
+			// unevaluated expression lets scope lookup resolve them afterward.
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("evaluating symbol expression: %w", err)
 		}

@@ -6,93 +6,81 @@ import (
 
 	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
+	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
-func TestParserX816NoOpDirectives(t *testing.T) {
-	noOpDirectives := []string{
-		".mem 8",
-		".index 8",
-		".opt",
-		".optimize",
-		".list",
-		".nolist",
-		".sym",
-		".symbol",
-		".detect",
-		".dasm",
-		".echo text",
-		".hrom",
-		".lrom",
-		".hirom",
-		".smc",
-		".par",
-		".parenthesis",
-		".localsymbolchar _",
-		".locchar _",
-		".cerror",
-		".cwarn",
-		".message text",
-	}
+var x816NoOpDirectives = []string{
+	".mem 8",
+	".index 8",
+	".opt",
+	".optimize",
+	".list",
+	".nolist",
+	".sym",
+	".symbol",
+	".detect",
+	".dasm",
+	".echo text",
+	".hrom",
+	".lrom",
+	".hirom",
+	".smc",
+	".par",
+	".parenthesis",
+	".localsymbolchar _",
+	".locchar _",
+	".cerror",
+	".cwarn",
+	".message text",
+	".end",
+}
 
-	cfg := asmcpu6502.New()
-	for _, directive := range noOpDirectives {
-		p := New(cfg.Arch, strings.NewReader(directive+"\n"), config.CompatX816)
-		assert.NoError(t, p.Read(t.Context()), "directive: "+directive)
-		nodes, err := p.TokensToAstNodes()
-		assert.NoError(t, err, "directive: "+directive)
-		assert.Len(t, nodes, 0, "directive: "+directive)
+var x816DataWidths = []struct {
+	directive string
+	want      int
+}{
+	{directive: "dcl", want: 3},
+	{directive: "dl", want: 3},
+	{directive: "dcd", want: 4},
+	{directive: "dd", want: 4},
+	{directive: "dsl", want: 3},
+	{directive: "dsd", want: 4},
+}
+
+func TestParserX816NoOpDirectives(t *testing.T) {
+	for _, directive := range x816NoOpDirectives {
+		t.Run(directive, func(t *testing.T) {
+			nodes := parseX816(t, directive+"\n")
+			assert.Empty(t, nodes)
+		})
 	}
 }
 
 func TestParserX816CommentBlock(t *testing.T) {
-	input := ".comment\nthis is a comment\nspanning multiple lines\n.end\n"
-
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
-	assert.Len(t, nodes, 0)
-}
-
-func TestParserX816CommentBlockWithCode(t *testing.T) {
-	input := "nop\n.comment\nskipped\n.end\nnop\n"
-
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
+	nodes := parseX816(t, "nop\n.comment\nskipped\n.end\nnop\n")
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[0])
 	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
-func TestParserX816SourceInclude(t *testing.T) {
-	input := ".src test.asm\n"
+func TestParserX816CommentBlock_Unterminated(t *testing.T) {
+	nodes := parseX816(t, ".comment\nskipped\n")
+	assert.Empty(t, nodes)
+}
 
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
+func TestParserX816SourceInclude(t *testing.T) {
+	nodes := parseX816(t, ".src test.asm\n")
 
 	assert.Len(t, nodes, 1)
 	assert.Equal(t, ast.NewInclude("test.asm", false, 0, 0), nodes[0])
 }
 
 func TestParserX816DotEqu(t *testing.T) {
-	input := "MAX .equ 255\n"
-
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
+	nodes := parseX816(t, "MAX .equ 255\n")
 
 	assert.Len(t, nodes, 1)
 	alias, ok := nodes[0].(ast.Alias)
@@ -101,57 +89,119 @@ func TestParserX816DotEqu(t *testing.T) {
 }
 
 func TestParserX816ColonOptionalLabel(t *testing.T) {
-	input := "start\nnop\n"
-
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
+	nodes := parseX816(t, "start\n  nop\n")
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, ast.NewLabel("start"), nodes[0])
 	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
-func TestParserX816ColonOptionalLabelBeforeInstruction(t *testing.T) {
-	// In x816 mode, label at column 0 followed by instruction on next token
-	input := "start\n  nop\n"
+func TestParserX816AnonymousLabels(t *testing.T) {
+	nodes := parseX816(t, "+\n++\n-\n--\n")
 
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
-
-	assert.Len(t, nodes, 2)
-	assert.Equal(t, ast.NewLabel("start"), nodes[0])
-	assert.Equal(t, cpu6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
+	assert.Len(t, nodes, 4)
+	assert.Equal(t, ast.NewLabel("__anon_fwd_1_1"), nodes[0])
+	assert.Equal(t, ast.NewLabel("__anon_fwd_2_2"), nodes[1])
+	assert.Equal(t, ast.NewLabel("__anon_bwd_1_1"), nodes[2])
+	assert.Equal(t, ast.NewLabel("__anon_bwd_2_2"), nodes[3])
 }
 
-func TestParserX816AnonymousLabel(t *testing.T) {
-	input := "+\nnop\n"
+func TestParserX816AsteriskProgramCounter(t *testing.T) {
+	nodes := parseX816(t, "* = $8000\n")
 
-	cfg := asmcpu6502.New()
-	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
-	assert.NoError(t, p.Read(t.Context()))
-	nodes, err := p.TokensToAstNodes()
-	assert.NoError(t, err)
-
-	assert.Len(t, nodes, 2)
-	// First node is the anonymous label
-	label, ok := nodes[0].(ast.Label)
+	assert.Len(t, nodes, 1)
+	base, ok := nodes[0].(ast.Base)
 	assert.True(t, ok)
-	assert.True(t, strings.HasPrefix(label.Name, "__anon_fwd_"))
+	assert.Equal(t, "$8000", base.Address.Tokens()[0].Value)
 }
 
-func TestParserX816EndDirective(t *testing.T) {
-	input := ".end\n"
+func TestParserX816ImmediateSymbolStartingWithH(t *testing.T) {
+	nodes := parseX816(t, "HammerBro = $05\n  cmp #HammerBro\n")
+
+	assert.Len(t, nodes, 2)
+	assert.Equal(t,
+		cpu6502Instruction("cmp", int(cpu6502.ImmediateAddressing), ast.NewIdentifier("HammerBro")),
+		nodes[1],
+	)
+}
+
+func TestParserX816ImmediateAddressBytes(t *testing.T) {
+	nodes := parseX816(t, "TitleScreenDataOffset = $1ec0\n  lda #>TitleScreenDataOffset\n  lda #<TitleScreenDataOffset\n  lda #^TitleScreenDataOffset\n")
+
+	assert.Len(t, nodes, 4)
+	assertX816ImmediateAddressByte(t, nodes[1], token.Gt)
+	assertX816ImmediateAddressByte(t, nodes[2], token.Lt)
+	assertX816ImmediateAddressByte(t, nodes[3], token.Caret)
+}
+
+func TestParserX816ImmediateSymbolExpression(t *testing.T) {
+	nodes := parseX816(t, "A_Button = %10000000\nStart_Button = %00010000\n  cmp #A_Button+Start_Button\n")
+
+	assert.Len(t, nodes, 3)
+	assertX816ImmediateExpression(t, nodes[2], "A_Button", token.Plus, token.Identifier, "Start_Button")
+}
+
+func TestParserX816DataWidths(t *testing.T) {
+	for _, test := range x816DataWidths {
+		t.Run(test.directive, func(t *testing.T) {
+			nodes := parseX816(t, "."+test.directive+" 1\n")
+			assert.Len(t, nodes, 1)
+
+			data, ok := nodes[0].(ast.Data)
+			assert.True(t, ok)
+			assert.Equal(t, test.want, data.Width)
+		})
+	}
+}
+
+func assertX816ImmediateExpression(
+	t *testing.T,
+	node ast.Node,
+	left string,
+	operator, rightType token.Type,
+	right string,
+) {
+
+	t.Helper()
+
+	instruction, ok := node.(ast.Instruction)
+	assert.True(t, ok)
+	assert.Equal(t, int(cpu6502.ImmediateAddressing), instruction.Addressing)
+
+	expression, ok := instruction.Argument.(ast.Expression)
+	assert.True(t, ok)
+	tokens := expression.Value.Tokens()
+	assert.Len(t, tokens, 3)
+	assert.Equal(t, token.Identifier, tokens[0].Type)
+	assert.Equal(t, left, tokens[0].Value)
+	assert.Equal(t, operator, tokens[1].Type)
+	assert.Equal(t, rightType, tokens[2].Type)
+	assert.Equal(t, right, tokens[2].Value)
+}
+
+func assertX816ImmediateAddressByte(t *testing.T, node ast.Node, prefix token.Type) {
+	t.Helper()
+
+	instruction, ok := node.(ast.Instruction)
+	assert.True(t, ok)
+	assert.Equal(t, int(cpu6502.ImmediateAddressing), instruction.Addressing)
+
+	expression, ok := instruction.Argument.(ast.Expression)
+	assert.True(t, ok)
+	tokens := expression.Value.Tokens()
+	assert.Len(t, tokens, 2)
+	assert.Equal(t, prefix, tokens[0].Type)
+	assert.Equal(t, token.Identifier, tokens[1].Type)
+	assert.Equal(t, "TitleScreenDataOffset", tokens[1].Value)
+}
+
+func parseX816(t *testing.T, input string) []ast.Node {
+	t.Helper()
 
 	cfg := asmcpu6502.New()
 	p := New(cfg.Arch, strings.NewReader(input), config.CompatX816)
 	assert.NoError(t, p.Read(t.Context()))
 	nodes, err := p.TokensToAstNodes()
 	assert.NoError(t, err)
-	assert.Len(t, nodes, 0)
+	return nodes
 }

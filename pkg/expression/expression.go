@@ -177,6 +177,10 @@ func (e *Expression) EvaluateAtProgramCounter(scope *scope.Scope, dataWidth int,
 
 func (e *Expression) evaluate(scope *scope.Scope, dataWidth int, programCounter uint64) (any, error) {
 	e.evaluating = true
+	// Forward references may fail on an early pass and must remain retryable once symbols have addresses.
+	defer func() {
+		e.evaluating = false
+	}()
 
 	rpn, err := parseToRPN(scope, e.nodes, programCounter)
 	if err != nil {
@@ -189,12 +193,14 @@ func (e *Expression) evaluate(scope *scope.Scope, dataWidth int, programCounter 
 	}
 
 	e.evaluated = true
-	e.evaluating = false
 	return e.value, nil
 }
 
 //nolint:funlen,cyclop // Shunting Yard algorithm with one case per token type
 func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) ([]token.Token, error) {
+	// x816 uses the comparison tokens as unary byte selectors when an operand is expected.
+	nodes = normalizeUnaryAddressOperators(nodes)
+
 	values := &stack[token.Token]{}
 	operators := &stack[token.Token]{}
 
@@ -224,19 +230,13 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 			operators.push(tok)
 
 		case token.RightParentheses:
-			foundLeftParenthesis := false
+			if err := closeRPNParenthesis(values, operators); err != nil {
+				return nil, err
+			}
 
-			for operators.len() > 0 {
-				op := operators.pop()
-				if op.Type == token.LeftParentheses {
-					foundLeftParenthesis = true
-					break
-				}
-				values.push(op)
-			}
-			if !foundLeftParenthesis {
-				return nil, fmt.Errorf("%w: missing left parenthesis", errMismatchedParenthesis)
-			}
+		case token.Comma:
+			// Each comma terminates an independently evaluated data-list element.
+			flushRPNOperators(values, operators)
 
 		default:
 			if err := parseToRPNHandleOperator(tok, values, operators); err != nil {
@@ -255,6 +255,85 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 	}
 
 	return values.data, nil
+}
+
+func closeRPNParenthesis(values, operators *stack[token.Token]) error {
+	for operators.len() > 0 {
+		op := operators.pop()
+		if op.Type == token.LeftParentheses {
+			return nil
+		}
+		values.push(op)
+	}
+	return fmt.Errorf("%w: missing left parenthesis", errMismatchedParenthesis)
+}
+
+func flushRPNOperators(values, operators *stack[token.Token]) {
+	for operators.len() > 0 && operators.last().Type != token.LeftParentheses {
+		values.push(operators.pop())
+	}
+}
+
+// normalizeUnaryAddressOperators rewrites x816 low, high, and bank selectors
+// without changing binary comparison operators that use the same tokens.
+func normalizeUnaryAddressOperators(nodes []token.Token) []token.Token {
+	normalized := make([]token.Token, 0, len(nodes))
+	operandExpected := true
+
+	for i := 0; i < len(nodes); i++ {
+		tok := nodes[i]
+		if operandExpected && i+1 < len(nodes) && isUnaryAddressOperator(tok.Type) {
+			operand := nodes[i+1]
+			if operand.Type == token.Identifier || operand.Type == token.Number {
+				normalized = append(normalized, unaryAddressExpression(tok, operand)...)
+				i++
+				operandExpected = false
+				continue
+			}
+		}
+
+		normalized = append(normalized, tok)
+		switch {
+		case tok.Type == token.Identifier || tok.Type == token.Number || tok.Type == token.RightParentheses:
+			operandExpected = false
+		case tok.Type.IsOperator() || tok.Type == token.LeftParentheses || tok.Type == token.Comma:
+			operandExpected = true
+		}
+	}
+
+	return normalized
+}
+
+func isUnaryAddressOperator(typ token.Type) bool {
+	return typ == token.Lt || typ == token.Gt || typ == token.Caret
+}
+
+func unaryAddressExpression(prefix, operand token.Token) []token.Token {
+	left := token.Token{Position: prefix.Position, Type: token.LeftParentheses}
+	right := token.Token{Position: operand.Position, Type: token.RightParentheses}
+	mask := token.Token{Position: prefix.Position, Type: token.Number, Value: "$ff"}
+	and := token.Token{Position: prefix.Position, Type: token.Ampersand}
+
+	if prefix.Type == token.Lt {
+		return []token.Token{left, operand, and, mask, right}
+	}
+
+	// High and bank selectors return bits 8..15 and 16..23 respectively.
+	shift := "8"
+	if prefix.Type == token.Caret {
+		shift = "16"
+	}
+	return []token.Token{
+		left,
+		left,
+		operand,
+		{Position: prefix.Position, Type: token.ShiftRight},
+		{Position: prefix.Position, Type: token.Number, Value: shift},
+		right,
+		and,
+		mask,
+		right,
+	}
 }
 
 func parseToRPNHandleIdentifier(scope *scope.Scope, tok token.Token, values *stack[token.Token]) ([]token.Token, error) {
@@ -279,6 +358,10 @@ func parseToRPNHandleIdentifier(scope *scope.Scope, tok token.Token, values *sta
 		// if symbol can't be evaluated, replace the current token with the
 		// tokens of the symbol
 		exp := sym.Expression()
+		// Address-only symbols have no expression to inline while their value is unresolved.
+		if exp == nil {
+			return nil, fmt.Errorf("getting symbol value: %w", err)
+		}
 		symbolTokens = exp.Tokens()
 		if len(symbolTokens) == 0 {
 			return nil, fmt.Errorf("getting symbol value: %w", err)
@@ -336,7 +419,6 @@ func evaluateRPN(tokens []token.Token, dataWidth int) (any, error) {
 		return int64(0), nil
 	}
 
-	hasOperators := false
 	values := &stack[any]{
 		data: make([]any, 0, len(tokens)),
 	}
@@ -358,8 +440,6 @@ func evaluateRPN(tokens []token.Token, dataWidth int) (any, error) {
 			continue
 		}
 
-		hasOperators = true
-
 		// execute current operator
 		if values.len() < 2 {
 			return 0, fmt.Errorf("missing operand, expected 2 but found %d", values.len())
@@ -378,48 +458,35 @@ func evaluateRPN(tokens []token.Token, dataWidth int) (any, error) {
 	}
 
 	if values.len() != 1 {
-		if hasOperators {
-			return 0, fmt.Errorf("stack corrupted, expected 1 item but found %d", values.len())
-		}
-		data, err := processData(tokens, dataWidth)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
+		// Serialize typed results so resolved identifiers remain numbers instead of decimal text.
+		return processEvaluatedData(values.data, dataWidth)
 	}
 
 	result := values.last()
 	return result, nil
 }
 
-func processData(tokens []token.Token, dataWidth int) ([]byte, error) {
-	data := make([]byte, 0, len(tokens)*dataWidth)
-
-	for _, tok := range tokens {
-		switch tok.Type {
-		case token.Identifier:
-			//  unescape string
-			s := strings.Trim(tok.Value, "\"'")
-			data = append(data, []byte(s)...)
-
-		case token.Number:
-			i, err := number.Parse(tok.Value)
-			if err != nil {
-				return nil, fmt.Errorf("parsing number '%s': %w", tok.Value, err)
+func processEvaluatedData(values []any, dataWidth int) ([]byte, error) {
+	data := make([]byte, 0, len(values)*dataWidth)
+	for _, value := range values {
+		switch v := value.(type) {
+		case int64:
+			if v < 0 {
+				return nil, fmt.Errorf("data expression result %d is negative", v)
 			}
-			if err := number.CheckDataWidth(i, dataWidth); err != nil {
+			if err := number.CheckDataWidth(uint64(v), dataWidth); err != nil {
 				return nil, fmt.Errorf("checking data byte width: %w", err)
 			}
-			b, err := number.WriteToBytes(i, dataWidth)
+			b, err := number.WriteToBytes(uint64(v), dataWidth)
 			if err != nil {
-				return nil, fmt.Errorf("writing number as bytes: %w", err)
+				return nil, fmt.Errorf("writing data bytes: %w", err)
 			}
 			data = append(data, b...)
-
+		case []byte:
+			data = append(data, v...)
 		default:
-			return nil, fmt.Errorf("unsupported value type %T", tok.Type)
+			return nil, fmt.Errorf("unsupported data expression result type %T", value)
 		}
 	}
-
 	return data, nil
 }

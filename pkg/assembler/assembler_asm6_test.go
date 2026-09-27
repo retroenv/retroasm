@@ -79,19 +79,65 @@ func TestAssemblerAsm6ImmediateConstantUnderscore(t *testing.T) {
 	assert.Equal(t, []byte{0xA9, 0x20, 0x09, 0xFF}, b)
 }
 
-var asm6ImmediateConstantExpressionTestCode = `
-.segment "HEADER"
-
-BOARD_WIDTH = 10
-
-LDY #(BOARD_WIDTH - 1)
-`
+var asm6ImmediateConstantExpressionTests = []struct {
+	name string
+	code string
+	want []byte
+}{
+	{
+		name: "identifier subtraction",
+		code: "BOARD_WIDTH = 10\nLDY #(BOARD_WIDTH - 1)\n",
+		want: []byte{0xA0, 0x09},
+	},
+	{
+		name: "nested arithmetic",
+		code: "LDY #((2 + 3) * 2)\n",
+		want: []byte{0xA0, 0x0A},
+	},
+	{
+		name: "parenthesized literal",
+		code: "LDY #($0A)\n",
+		want: []byte{0xA0, 0x0A},
+	},
+}
 
 func TestAssemblerAsm6ImmediateConstantExpression(t *testing.T) {
-	b, err := runAsm6Test(t, unitTestConfig, asm6ImmediateConstantExpressionTestCode)
-	assert.NoError(t, err)
-	// LDY immediate = 0xA0, value = 9 (BOARD_WIDTH - 1 = 10 - 1)
-	assert.Equal(t, []byte{0xA0, 0x09}, b)
+	for _, test := range asm6ImmediateConstantExpressionTests {
+		t.Run(test.name, func(t *testing.T) {
+			code := ".segment \"HEADER\"\n" + test.code
+			got, err := runAsm6Test(t, unitTestConfig, code)
+
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestAssemblerAsm6ImmediateConstantExpressionErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		code    string
+		message string
+	}{
+		{
+			name:    "missing closing parenthesis",
+			code:    "LDY #(10 - 1\n",
+			message: "unexpected end of immediate expression",
+		},
+		{
+			name:    "invalid token",
+			code:    "LDY #(10, 1)\n",
+			message: "unexpected token ',' in immediate expression",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := runAsm6Test(t, unitTestConfig, test.code)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), test.message)
+		})
+	}
 }
 
 var asm6IncbinTestCode = `
@@ -268,8 +314,6 @@ func TestAssemblerAsm6Align(t *testing.T) {
 	assert.Equal(t, expected, b)
 }
 
-// TestAssemblerAsm6AlignAlreadyAligned verifies that .align emits zero fill
-// bytes when the program counter is already aligned to the requested boundary.
 var asm6AlignAlreadyAlignedCode = `
 .segment "HEADER"
 DB 1,2,3,4
@@ -280,15 +324,9 @@ DB $FF
 func TestAssemblerAsm6AlignAlreadyAligned(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6AlignAlreadyAlignedCode)
 	assert.NoError(t, err)
-	// After 4 bytes the PC is already aligned to 4, so ALIGN 4 adds 0 bytes.
-	expected := []byte{1, 2, 3, 4, 0xff}
-	assert.Equal(t, expected, b)
+	assert.Equal(t, []byte{1, 2, 3, 4, 0xff}, b)
 }
 
-// TestAssemblerAsm6ForwardRefAbsoluteAddressing verifies that a forward
-// reference to a label defined after the instruction is resolved using
-// absolute (3-byte) addressing, not zero-page (2-byte) addressing, so that
-// all subsequent addresses remain correct.
 var asm6ForwardRefAbsoluteCode = `
 .segment "HEADER"
 LDA forward,X
@@ -300,13 +338,12 @@ DB $42
 func TestAssemblerAsm6ForwardRefAbsoluteAddressing(t *testing.T) {
 	b, err := runAsm6Test(t, unitTestConfig, asm6ForwardRefAbsoluteCode)
 	assert.NoError(t, err)
-	// LDA abs,X = $BD; forward is at offset $0004 (3 bytes LDA + 1 byte NOP).
-	// Without the fix the assembler assumed zero-page (2 bytes) causing forward
-	// to land at $0003 and producing wrong code.
+
+	// Forward references must reserve absolute-width encoding during address assignment.
 	expected := []byte{
-		0xBD, 0x04, 0x00, // LDA $0004, X
-		0xEA, // NOP
-		0x42, // DB $42 at $0004
+		0xbd, 0x04, 0x00,
+		0xea,
+		0x42,
 	}
 	assert.Equal(t, expected, b)
 }

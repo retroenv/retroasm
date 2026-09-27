@@ -52,6 +52,9 @@ type data struct {
 
 	size        *expression.Expression // item count
 	expressions []*expression.Expression
+	// Forward expressions reserve their total byte size until symbol addresses exist.
+	deferred     bool
+	deferredSize int
 	// Values contain encoded byte slices or unresolved references.
 	// Reference entries are resolved after address assignment.
 	values []any
@@ -105,12 +108,14 @@ func (d *data) Copy() ast.Node {
 	}
 
 	return &data{
-		address:     d.address,
-		width:       d.width,
-		fill:        d.fill,
-		size:        d.size.Copy(),
-		expressions: expressions,
-		values:      slices.Clone(d.values),
+		address:      d.address,
+		width:        d.width,
+		fill:         d.fill,
+		size:         d.size.Copy(),
+		expressions:  expressions,
+		deferred:     d.deferred,
+		deferredSize: d.deferredSize,
+		values:       slices.Clone(d.values),
 	}
 }
 

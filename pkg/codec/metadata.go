@@ -6,12 +6,8 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
+	"github.com/retroenv/retrogolib/set"
 )
-
-type relocationLocation struct {
-	byteOffset uint64
-	entryIndex int
-}
 
 func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 	orderer, ok := any(c.configuration.Arch).(arch.ByteOrderer)
@@ -26,18 +22,18 @@ func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 		return err //nolint:wrapcheck // the codec adds operation context
 	}
 
-	segments := make(map[int]struct{})
+	segments := set.New[int]()
 	for _, change := range stream.SegmentChanges() {
-		segments[change.EntryIndex] = struct{}{}
+		segments.Add(change.EntryIndex)
 	}
-	relocations := make(map[relocationLocation]struct{})
+	relocations := set.New[relocationLocation]()
 	for _, relocation := range stream.Relocations() {
-		relocations[relocationLocation{entryIndex: relocation.EntryIndex, byteOffset: relocation.ByteOffset}] = struct{}{}
+		relocations.Add(relocationLocation{entryIndex: relocation.EntryIndex, byteOffset: relocation.ByteOffset})
 	}
 	for index, entry := range stream.Entries() {
 		switch node := entry.Node.(type) {
 		case ast.Segment:
-			if _, exists := segments[index]; !exists {
+			if !segments.Contains(index) {
 				stream.RecordSegmentChange(c.segmentChange(index, node, order))
 			}
 		case ast.Data:
@@ -63,8 +59,13 @@ func (c *Codec[T]) segmentChange(entryIndex int, segment ast.Segment, order ast.
 	return change
 }
 
+type relocationLocation struct {
+	byteOffset uint64
+	entryIndex int
+}
+
 func recordDataRelocations(stream *ast.Stream, entryIndex int, data ast.Data, order ast.ByteOrder,
-	recorded map[relocationLocation]struct{}) {
+	recorded set.Set[relocationLocation]) {
 
 	if data.Type != ast.AddressType {
 		return
@@ -76,7 +77,7 @@ func recordDataRelocations(stream *ast.Stream, entryIndex int, data ast.Data, or
 	}
 	for valueIndex, value := range data.Values {
 		byteOffset := uint64(valueIndex * width)
-		if _, exists := recorded[relocationLocation{entryIndex: entryIndex, byteOffset: byteOffset}]; exists {
+		if recorded.Contains(relocationLocation{entryIndex: entryIndex, byteOffset: byteOffset}) {
 			continue
 		}
 		symbol, addend, ok := ast.ParseSymbolReference(value)

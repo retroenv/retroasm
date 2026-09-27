@@ -51,7 +51,7 @@ func TestStreamRewriteRetainsRemovedEntries(t *testing.T) {
 	assert.NoError(t, joined.AppendStream(stream))
 	assert.Equal(t, stream, joined)
 	assert.NoError(t, joined.AppendStream(stream))
-	assert.Equal(t, 6, len(joined.RemovedEntries()))
+	assert.Len(t, joined.RemovedEntries(), 6)
 }
 
 func TestStreamRewriteRejectsInvalidCorrespondenceAtomically(t *testing.T) {
@@ -89,7 +89,7 @@ func TestStreamRewriteKeepsOnlyRemovedSourceRecords(t *testing.T) {
 	assert.NoError(t, stream.Rewrite(nil))
 	assert.Equal(t, []Entry{before.At(1), before.At(2)}, stream.RemovedEntries())
 	assert.NoError(t, stream.Rewrite(nil))
-	assert.Equal(t, 2, len(stream.RemovedEntries()))
+	assert.Len(t, stream.RemovedEntries(), 2)
 	var absent *Stream
 	assert.Error(t, absent.Rewrite(nil))
 }

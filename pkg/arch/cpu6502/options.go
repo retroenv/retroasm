@@ -2,11 +2,6 @@ package cpu6502
 
 import "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 
-type options struct {
-	variant       cpu6502.CPUVariant
-	strictVariant bool
-}
-
 // Option configures the CPU6502 assembler architecture.
 type Option func(*options)
 
@@ -18,4 +13,9 @@ func WithVariant(variant cpu6502.CPUVariant) Option {
 		options.variant = variant
 		options.strictVariant = true
 	}
+}
+
+type options struct {
+	variant       cpu6502.CPUVariant
+	strictVariant bool
 }

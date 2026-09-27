@@ -24,7 +24,7 @@ func GenerateInstructionOpcode(
 	addressing := cpu6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
-	ins.SetSize(int(addressingInfo.Size))
+	ins.SetSize(instructionSize(addressing, addressingInfo.Size))
 
 	switch addressing {
 	case cpu6502.ImpliedAddressing, cpu6502.AccumulatorAddressing:

@@ -46,11 +46,6 @@ func (m CompatibilityMode) String() string {
 	return fmt.Sprintf("CompatibilityMode(%d)", int(m))
 }
 
-// ColonOptionalLabels returns whether this mode treats trailing colons on labels as optional.
-func (m CompatibilityMode) ColonOptionalLabels() bool {
-	return m == CompatX816 || m == CompatAsm6
-}
-
 // AnonymousLabels returns whether this mode supports +/- anonymous labels.
 func (m CompatibilityMode) AnonymousLabels() bool {
 	return m == CompatX816 || m == CompatAsm6
@@ -61,14 +56,14 @@ func (m CompatibilityMode) AsteriskProgramCounter() bool {
 	return m == CompatX816 || m == CompatCa65 || m == CompatNesasm
 }
 
-// LocalLabelScoping returns whether this mode supports @local label scoping between non-local labels.
-func (m CompatibilityMode) LocalLabelScoping() bool {
-	return m == CompatAsm6 || m == CompatCa65
+// BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
+func (m CompatibilityMode) BankByteOperator() bool {
+	return m == CompatX816 || m == CompatCa65
 }
 
-// UnnamedLabels returns whether this mode supports ca65-style unnamed labels (: / :- / :+).
-func (m CompatibilityMode) UnnamedLabels() bool {
-	return m == CompatCa65
+// ColonOptionalLabels returns whether this mode treats trailing colons on labels as optional.
+func (m CompatibilityMode) ColonOptionalLabels() bool {
+	return m == CompatX816 || m == CompatAsm6
 }
 
 // DotLocalLabels returns whether this mode supports dot-prefixed local labels (.label).
@@ -76,14 +71,19 @@ func (m CompatibilityMode) DotLocalLabels() bool {
 	return m == CompatNesasm
 }
 
+// LocalLabelScoping returns whether this mode supports @local label scoping between non-local labels.
+func (m CompatibilityMode) LocalLabelScoping() bool {
+	return m == CompatAsm6 || m == CompatCa65
+}
+
 // NesasmMacroSyntax returns whether this mode uses NESASM-style macro syntax (name .macro).
 func (m CompatibilityMode) NesasmMacroSyntax() bool {
 	return m == CompatNesasm
 }
 
-// BankByteOperator returns whether this mode supports ^ as bank byte (bits 16-23) operator.
-func (m CompatibilityMode) BankByteOperator() bool {
-	return m == CompatX816 || m == CompatCa65
+// UnnamedLabels returns whether this mode supports ca65-style unnamed labels (: / :- / :+).
+func (m CompatibilityMode) UnnamedLabels() bool {
+	return m == CompatCa65
 }
 
 // ParseCompatibilityMode parses a string into a CompatibilityMode.

@@ -38,7 +38,7 @@ func AssignInstructionAddress(
 		return 0, fmt.Errorf("unsupported instruction '%s' addressing %d", ins.Name(), addressing)
 	}
 
-	programCounter := pc + uint64(addressingInfo.Size)
+	programCounter := pc + uint64(instructionSize(addressing, addressingInfo.Size))
 	return programCounter, nil
 }
 
