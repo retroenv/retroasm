@@ -7,7 +7,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retrogolib/arch"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
+	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 // ExampleNew demonstrates basic usage of the AST-first assembler library.
@@ -17,8 +17,8 @@ func ExampleNew() {
 
 	// Register 6502 architecture using adapter
 	m6502Arch := m6502.New()
-	adapter := NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	err := assembler.RegisterArchitecture(string(arch.M6502), adapter)
+	adapter := NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter)
 	if err != nil {
 		fmt.Printf("registering architecture: %v\n", err)
 		return

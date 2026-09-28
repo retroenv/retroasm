@@ -9,7 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -21,21 +21,21 @@ func TestParser_Instruction(t *testing.T) {
 	}{
 		{"asl a:var1", func() []ast.Node {
 			l := ast.NewLabel("var1")
-			return []ast.Node{m6502Instruction("asl", int(m6502.AbsoluteAddressing), l)}
+			return []ast.Node{m6502Instruction("asl", int(cpu6502.AbsoluteAddressing), l)}
 		}},
 		{"asl a:1", func() []ast.Node {
-			return []ast.Node{m6502Instruction("asl", int(m6502.AbsoluteAddressing), ast.NewNumber(1))}
+			return []ast.Node{m6502Instruction("asl", int(cpu6502.AbsoluteAddressing), ast.NewNumber(1))}
 		}},
 		{"asl", func() []ast.Node {
-			return []ast.Node{m6502Instruction("asl", int(m6502.AccumulatorAddressing), nil)}
+			return []ast.Node{m6502Instruction("asl", int(cpu6502.AccumulatorAddressing), nil)}
 		}},
 		{"asl a", func() []ast.Node {
-			return []ast.Node{m6502Instruction("asl", int(m6502.AccumulatorAddressing), nil)}
+			return []ast.Node{m6502Instruction("asl", int(cpu6502.AccumulatorAddressing), nil)}
 		}},
 		{"asl\na:", func() []ast.Node {
 			l := ast.NewLabel("a")
 			return []ast.Node{
-				m6502Instruction("asl", int(m6502.AccumulatorAddressing), nil),
+				m6502Instruction("asl", int(cpu6502.AccumulatorAddressing), nil),
 				l,
 			}
 		}},
@@ -245,6 +245,6 @@ func TestParser_PreallocationBenefit(t *testing.T) {
 
 func m6502Instruction(name string, addressing int, arg ast.Node) ast.Instruction {
 	node := ast.NewInstruction(name, addressing, arg, nil)
-	node.OpcodeID = uint8(m6502.NameToOpcodeID[name])
+	node.OpcodeID = uint8(cpu6502.NameToOpcodeID[name])
 	return node
 }

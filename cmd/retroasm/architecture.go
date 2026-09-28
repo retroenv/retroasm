@@ -21,7 +21,7 @@ var (
 // CPU and system constants — defined for all architectures so lookup tables are complete.
 // Registration (registerArchitectureForCPU) is implemented per architecture wave.
 const (
-	cpu6502  = string(arch.M6502)
+	cpu6502  = string(arch.CPU6502)
 	cpuChip8 = string(arch.CHIP8)
 	cpuZ80   = string(arch.Z80)
 

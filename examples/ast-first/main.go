@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/m6502"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/retroasm"
-	cpu "github.com/retroenv/retrogolib/arch/cpu/m6502"
+	cpu "github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 func main() {

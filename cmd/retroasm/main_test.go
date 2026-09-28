@@ -233,8 +233,8 @@ SEGMENTS { CODE: load = CODE, type = rw; }`
 func runAssembleWithConfig(ctx context.Context, configPath string) error {
 	asm := retroasm.New()
 	m6502Arch := m6502.New()
-	adapter := retroasm.NewArchitectureAdapter(string(arch.M6502), m6502Arch, m6502Arch)
-	if err := asm.RegisterArchitecture(string(arch.M6502), adapter); err != nil {
+	adapter := retroasm.NewArchitectureAdapter(string(arch.CPU6502), m6502Arch, m6502Arch)
+	if err := asm.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		return fmt.Errorf("registering architecture: %w", err)
 	}
 	input := &retroasm.TextInput{

@@ -6,7 +6,7 @@ import (
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 type addressingSize int
@@ -18,20 +18,20 @@ const (
 )
 
 const (
-	AbsoluteZeroPageAddressing = m6502.AbsoluteAddressing | m6502.ZeroPageAddressing
-	XAddressing                = m6502.AbsoluteXAddressing | m6502.ZeroPageXAddressing
-	YAddressing                = m6502.AbsoluteYAddressing | m6502.ZeroPageYAddressing
+	AbsoluteZeroPageAddressing = cpu6502.AbsoluteAddressing | cpu6502.ZeroPageAddressing
+	XAddressing                = cpu6502.AbsoluteXAddressing | cpu6502.ZeroPageXAddressing
+	YAddressing                = cpu6502.AbsoluteYAddressing | cpu6502.ZeroPageYAddressing
 )
 
 // parseAddressSize returns the addressing mode used for an instruction based on the following
 // tokens.
-func parseAddressSize(parser arch.Parser, ins *m6502.Instruction) (addressingSize, error) {
+func parseAddressSize(parser arch.Parser, ins *cpu6502.Instruction) (addressingSize, error) {
 	tok := parser.NextToken(0)
 	if tok.Type != token.Identifier && tok.Type != token.EOL {
 		return addressingDefault, nil
 	}
 
-	accumulatorAddressing := ins.HasAddressing(m6502.AccumulatorAddressing)
+	accumulatorAddressing := ins.HasAddressing(cpu6502.AccumulatorAddressing)
 	next1 := parser.NextToken(1)
 
 	if accumulatorAddressing && (tok.Type == token.EOL || next1.Type != token.Colon) {
@@ -61,7 +61,7 @@ func parseAddressSize(parser arch.Parser, ins *m6502.Instruction) (addressingSiz
 	}
 }
 
-func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]m6502.AddressingMode, error) {
+func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu6502.AddressingMode, error) {
 	var absolute, zeropage bool
 	switch ins.addressingSize {
 	case addressingDefault:
@@ -73,31 +73,31 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]m6502.Add
 		zeropage = true
 	}
 
-	var addressings []m6502.AddressingMode
+	var addressings []cpu6502.AddressingMode
 
 	switch ins.arg2.Value {
 	case "x", "X":
 		if indirectAccess {
-			return []m6502.AddressingMode{m6502.IndirectXAddressing}, nil
+			return []cpu6502.AddressingMode{cpu6502.IndirectXAddressing}, nil
 		}
 
 		if absolute {
-			addressings = append(addressings, m6502.AbsoluteXAddressing)
+			addressings = append(addressings, cpu6502.AbsoluteXAddressing)
 		}
 		if zeropage {
-			addressings = append(addressings, m6502.ZeroPageXAddressing)
+			addressings = append(addressings, cpu6502.ZeroPageXAddressing)
 		}
 
 	case "y", "Y":
 		if indirectAccess {
-			return []m6502.AddressingMode{m6502.IndirectYAddressing}, nil
+			return []cpu6502.AddressingMode{cpu6502.IndirectYAddressing}, nil
 		}
 
 		if absolute {
-			addressings = append(addressings, m6502.AbsoluteYAddressing)
+			addressings = append(addressings, cpu6502.AbsoluteYAddressing)
 		}
 		if zeropage {
-			addressings = append(addressings, m6502.ZeroPageYAddressing)
+			addressings = append(addressings, cpu6502.ZeroPageYAddressing)
 		}
 
 	default:

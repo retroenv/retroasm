@@ -7,13 +7,13 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch/m6502/parser"
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 // New returns a new 6502 architecture configuration.
-func New() *config.Config[*m6502.Instruction] {
-	p := &arch6502[*m6502.Instruction]{}
-	cfg := &config.Config[*m6502.Instruction]{
+func New() *config.Config[*cpu6502.Instruction] {
+	p := &arch6502[*cpu6502.Instruction]{}
+	cfg := &config.Config[*cpu6502.Instruction]{
 		Arch: p,
 	}
 	return cfg
@@ -26,12 +26,12 @@ func (ar *arch6502[T]) AddressWidth() int {
 	return 16
 }
 
-func (ar *arch6502[T]) Instruction(name string) (*m6502.Instruction, bool) {
-	ins, ok := m6502.Instructions[name]
+func (ar *arch6502[T]) Instruction(name string) (*cpu6502.Instruction, bool) {
+	ins, ok := cpu6502.Instructions[name]
 	return ins, ok
 }
 
-func (ar *arch6502[T]) ParseIdentifier(p arch.Parser, ins *m6502.Instruction) (ast.Node, error) {
+func (ar *arch6502[T]) ParseIdentifier(p arch.Parser, ins *cpu6502.Instruction) (ast.Node, error) {
 	return parser.ParseIdentifier(p, ins) //nolint:wrapcheck // thin delegation to sub-package
 }
 

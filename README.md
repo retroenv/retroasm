@@ -29,7 +29,7 @@ syntax tree (AST) to machine code and ROM files.
 ### Installation
 
 Download a binary from [Releases](https://github.com/retroenv/retroasm/releases),
-or install from source with Go 1.24 or newer:
+or install from source with Go 1.25 or newer:
 
 ```bash
 go install github.com/retroenv/retroasm/cmd/retroasm@latest

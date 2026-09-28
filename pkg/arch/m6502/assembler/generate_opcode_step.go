@@ -7,43 +7,43 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
 func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	var instructionInfo *m6502.Instruction
-	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
-		instructionInfo = m6502.InstructionsByID[id]
+	var instructionInfo *cpu6502.Instruction
+	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
+		instructionInfo = cpu6502.InstructionsByID[id]
 	}
 	if instructionInfo == nil {
-		instructionInfo = m6502.Instructions[strings.ToLower(ins.Name())]
+		instructionInfo = cpu6502.Instructions[strings.ToLower(ins.Name())]
 	}
-	addressing := m6502.AddressingMode(ins.Addressing())
+	addressing := cpu6502.AddressingMode(ins.Addressing())
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
 	ins.SetSize(instructionSize(addressing, addressingInfo.Size))
 
 	switch addressing {
-	case m6502.ImpliedAddressing, m6502.AccumulatorAddressing:
+	case cpu6502.ImpliedAddressing, cpu6502.AccumulatorAddressing:
 
-	case m6502.ImmediateAddressing,
-		m6502.ZeroPageAddressing, m6502.ZeroPageXAddressing, m6502.ZeroPageYAddressing,
-		m6502.IndirectXAddressing, m6502.IndirectYAddressing:
+	case cpu6502.ImmediateAddressing,
+		cpu6502.ZeroPageAddressing, cpu6502.ZeroPageXAddressing, cpu6502.ZeroPageYAddressing,
+		cpu6502.IndirectXAddressing, cpu6502.IndirectYAddressing:
 
 		if err := generateByteAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case m6502.AbsoluteAddressing, m6502.AbsoluteXAddressing, m6502.AbsoluteYAddressing,
-		m6502.IndirectAddressing:
+	case cpu6502.AbsoluteAddressing, cpu6502.AbsoluteXAddressing, cpu6502.AbsoluteYAddressing,
+		cpu6502.IndirectAddressing:
 
 		if err := generateWordAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
 
-	case m6502.RelativeAddressing:
+	case cpu6502.RelativeAddressing:
 		if err := generateRelativeAddressingOpcode(assigner, ins); err != nil {
 			return fmt.Errorf("generating opcode: %w", err)
 		}
@@ -61,7 +61,7 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 		return fmt.Errorf("getting instruction argument: %w", err)
 	}
 	if value > math.MaxUint8 {
-		addressing := m6502.AddressingMode(ins.Addressing())
+		addressing := cpu6502.AddressingMode(ins.Addressing())
 		upgraded := upgradeToAbsolute(addressing)
 		if upgraded != addressing {
 			return upgradeAndGenerateWord(ins, upgraded, value)
@@ -74,26 +74,26 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	return nil
 }
 
-func upgradeToAbsolute(mode m6502.AddressingMode) m6502.AddressingMode {
+func upgradeToAbsolute(mode cpu6502.AddressingMode) cpu6502.AddressingMode {
 	switch mode {
-	case m6502.ZeroPageXAddressing:
-		return m6502.AbsoluteXAddressing
-	case m6502.ZeroPageYAddressing:
-		return m6502.AbsoluteYAddressing
-	case m6502.ZeroPageAddressing:
-		return m6502.AbsoluteAddressing
+	case cpu6502.ZeroPageXAddressing:
+		return cpu6502.AbsoluteXAddressing
+	case cpu6502.ZeroPageYAddressing:
+		return cpu6502.AbsoluteYAddressing
+	case cpu6502.ZeroPageAddressing:
+		return cpu6502.AbsoluteAddressing
 	default:
 		return mode
 	}
 }
 
-func upgradeAndGenerateWord(ins arch.Instruction, newMode m6502.AddressingMode, value uint64) error {
-	var instructionInfo *m6502.Instruction
-	if id := m6502.OpcodeID(ins.OpcodeID()); id != m6502.InvalidOpcodeID {
-		instructionInfo = m6502.InstructionsByID[id]
+func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode, value uint64) error {
+	var instructionInfo *cpu6502.Instruction
+	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
+		instructionInfo = cpu6502.InstructionsByID[id]
 	}
 	if instructionInfo == nil {
-		instructionInfo = m6502.Instructions[strings.ToLower(ins.Name())]
+		instructionInfo = cpu6502.Instructions[strings.ToLower(ins.Name())]
 	}
 	if instructionInfo == nil {
 		return fmt.Errorf("value %d exceeds byte (no instruction info for upgrade)", value)

@@ -3,21 +3,21 @@ package assembler
 import (
 	"testing"
 
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
 func TestGenerateInstructionOpcode_IndirectXY(t *testing.T) {
 	tests := []struct {
 		name       string
-		addressing m6502.AddressingMode
+		addressing cpu6502.AddressingMode
 		value      uint64
 		wantErr    bool
 	}{
-		{"IndirectX valid", m6502.IndirectXAddressing, 0x10, false},
-		{"IndirectY valid", m6502.IndirectYAddressing, 0x80, false},
-		{"IndirectX exceeds byte", m6502.IndirectXAddressing, 256, true},
-		{"IndirectY exceeds byte", m6502.IndirectYAddressing, 300, true},
+		{"IndirectX valid", cpu6502.IndirectXAddressing, 0x10, false},
+		{"IndirectY valid", cpu6502.IndirectYAddressing, 0x80, false},
+		{"IndirectX exceeds byte", cpu6502.IndirectXAddressing, 256, true},
+		{"IndirectY exceeds byte", cpu6502.IndirectYAddressing, 300, true},
 	}
 
 	for _, tt := range tests {

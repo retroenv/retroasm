@@ -8,7 +8,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
-	"github.com/retroenv/retrogolib/arch/cpu/m6502"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -63,8 +63,8 @@ func TestParserX816CommentBlock(t *testing.T) {
 	nodes := parseX816(t, "nop\n.comment\nskipped\n.end\nnop\n")
 
 	assert.Len(t, nodes, 2)
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[0])
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
+	assert.Equal(t, m6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[0])
+	assert.Equal(t, m6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816CommentBlock_Unterminated(t *testing.T) {
@@ -93,7 +93,7 @@ func TestParserX816ColonOptionalLabel(t *testing.T) {
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t, ast.NewLabel("start"), nodes[0])
-	assert.Equal(t, m6502Instruction("nop", int(m6502.ImpliedAddressing), nil), nodes[1])
+	assert.Equal(t, m6502Instruction("nop", int(cpu6502.ImpliedAddressing), nil), nodes[1])
 }
 
 func TestParserX816AnonymousLabels(t *testing.T) {
@@ -120,7 +120,7 @@ func TestParserX816ImmediateSymbolStartingWithH(t *testing.T) {
 
 	assert.Len(t, nodes, 2)
 	assert.Equal(t,
-		m6502Instruction("cmp", int(m6502.ImmediateAddressing), ast.NewIdentifier("HammerBro")),
+		m6502Instruction("cmp", int(cpu6502.ImmediateAddressing), ast.NewIdentifier("HammerBro")),
 		nodes[1],
 	)
 }
@@ -161,7 +161,7 @@ func assertX816ImmediateExpression(t *testing.T, node ast.Node, left string, ope
 
 	instruction, ok := node.(ast.Instruction)
 	assert.True(t, ok)
-	assert.Equal(t, int(m6502.ImmediateAddressing), instruction.Addressing)
+	assert.Equal(t, int(cpu6502.ImmediateAddressing), instruction.Addressing)
 
 	expression, ok := instruction.Argument.(ast.Expression)
 	assert.True(t, ok)
@@ -179,7 +179,7 @@ func assertX816ImmediateAddressByte(t *testing.T, node ast.Node, prefix token.Ty
 
 	instruction, ok := node.(ast.Instruction)
 	assert.True(t, ok)
-	assert.Equal(t, int(m6502.ImmediateAddressing), instruction.Addressing)
+	assert.Equal(t, int(cpu6502.ImmediateAddressing), instruction.Addressing)
 
 	expression, ok := instruction.Argument.(ast.Expression)
 	assert.True(t, ok)
