@@ -104,7 +104,10 @@ func TestExpression_StructuredErrors(t *testing.T) {
 
 func TestExpression_InputValidation(t *testing.T) {
 	sc := scope.New(nil)
-	expr := New(token.Token{Type: token.Number, Value: "42"})
+	expr := New(token.Token{
+		Type:  token.Number,
+		Value: "42",
+	})
 
 	// Test invalid data width (negative values)
 	_, err := expr.Evaluate(sc, -1)

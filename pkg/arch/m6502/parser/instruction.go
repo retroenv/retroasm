@@ -318,7 +318,9 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 	return newInstruction(ins.instruction, int(m6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
-func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instruction, tok token.Token) (ast.Node, error) {
+func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instruction,
+	tok token.Token) (ast.Node, error) {
+
 	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}
@@ -385,7 +387,9 @@ func parseInstructionImmediateAddressingExpression(parser arch.Parser, ins *inst
 	}
 }
 
-func parseInstructionImmediateAddressingParenthesizedExpression(parser arch.Parser, ins *instruction) (ast.Node, error) {
+func parseInstructionImmediateAddressingParenthesizedExpression(parser arch.Parser,
+	ins *instruction) (ast.Node, error) {
+
 	if !ins.instruction.HasAddressing(m6502.ImmediateAddressing) {
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}

@@ -53,9 +53,15 @@ func TestAddressAssign_ArgumentValueExpression(t *testing.T) {
 
 	t.Run("evaluates arithmetic expression", func(t *testing.T) {
 		value, err := aa.ArgumentValue(ast.NewExpression(
-			token.Token{Type: token.Number, Value: "1"},
+			token.Token{
+				Type:  token.Number,
+				Value: "1",
+			},
 			token.Token{Type: token.Plus},
-			token.Token{Type: token.Number, Value: "2"},
+			token.Token{
+				Type:  token.Number,
+				Value: "2",
+			},
 		))
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(3), value)
@@ -63,9 +69,15 @@ func TestAddressAssign_ArgumentValueExpression(t *testing.T) {
 
 	t.Run("evaluates program counter expression", func(t *testing.T) {
 		value, err := aa.ArgumentValue(ast.NewExpression(
-			token.Token{Type: token.Number, Value: "$"},
+			token.Token{
+				Type:  token.Number,
+				Value: "$",
+			},
 			token.Token{Type: token.Plus},
-			token.Token{Type: token.Number, Value: "1"},
+			token.Token{
+				Type:  token.Number,
+				Value: "1",
+			},
 		))
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(0x201), value)

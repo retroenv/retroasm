@@ -60,9 +60,15 @@ func TestNumber_Copy(t *testing.T) {
 
 func TestExpression_Copy(t *testing.T) {
 	original := NewExpression(
-		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		},
 		token.Token{Type: token.Plus},
-		token.Token{Type: token.Number, Value: "1"},
+		token.Token{
+			Type:  token.Number,
+			Value: "1",
+		},
 	)
 
 	copied, ok := original.Copy().(Expression)

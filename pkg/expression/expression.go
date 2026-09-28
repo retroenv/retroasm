@@ -309,10 +309,23 @@ func isUnaryAddressOperator(typ token.Type) bool {
 }
 
 func unaryAddressExpression(prefix, operand token.Token) []token.Token {
-	left := token.Token{Position: prefix.Position, Type: token.LeftParentheses}
-	right := token.Token{Position: operand.Position, Type: token.RightParentheses}
-	mask := token.Token{Position: prefix.Position, Type: token.Number, Value: "$ff"}
-	and := token.Token{Position: prefix.Position, Type: token.Ampersand}
+	left := token.Token{
+		Position: prefix.Position,
+		Type:     token.LeftParentheses,
+	}
+	right := token.Token{
+		Position: operand.Position,
+		Type:     token.RightParentheses,
+	}
+	mask := token.Token{
+		Position: prefix.Position,
+		Type:     token.Number,
+		Value:    "$ff",
+	}
+	and := token.Token{
+		Position: prefix.Position,
+		Type:     token.Ampersand,
+	}
 
 	if prefix.Type == token.Lt {
 		return []token.Token{left, operand, and, mask, right}
@@ -336,7 +349,9 @@ func unaryAddressExpression(prefix, operand token.Token) []token.Token {
 	}
 }
 
-func parseToRPNHandleIdentifier(scope *scope.Scope, tok token.Token, values *stack[token.Token]) ([]token.Token, error) {
+func parseToRPNHandleIdentifier(scope *scope.Scope, tok token.Token,
+	values *stack[token.Token]) ([]token.Token, error) {
+
 	if tok.Value[0] == '"' || tok.Value[0] == '\'' {
 		values.push(tok)
 		return nil, nil

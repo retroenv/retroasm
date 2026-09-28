@@ -15,6 +15,13 @@ import (
 	"github.com/retroenv/retrogolib/log"
 )
 
+type validateCase struct {
+	name        string
+	options     *optionFlags
+	expectedErr error
+	expectCPU   string
+}
+
 func TestBuildLogFields(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -41,9 +48,12 @@ func TestBuildLogFields(t *testing.T) {
 			expected: 2,
 		},
 		{
-			name:     "input with cpu and system",
-			input:    "test.asm",
-			options:  &optionFlags{cpu: "6502", system: "nes"},
+			name:  "input with cpu and system",
+			input: "test.asm",
+			options: &optionFlags{
+				cpu:    "6502",
+				system: "nes",
+			},
 			expected: 3,
 		},
 	}
@@ -82,8 +92,11 @@ func TestCreateLogger(t *testing.T) {
 			expected: log.ErrorLevel,
 		},
 		{
-			name:     "quiet overrides debug",
-			options:  &optionFlags{debug: true, quiet: true},
+			name: "quiet overrides debug",
+			options: &optionFlags{
+				debug: true,
+				quiet: true,
+			},
 			expected: log.ErrorLevel,
 		},
 	}
@@ -100,44 +113,7 @@ func TestCreateLogger(t *testing.T) {
 func TestValidateSystem(t *testing.T) {
 	logger := log.NewTestLogger(t)
 
-	tests := []struct {
-		name        string
-		options     *optionFlags
-		expectedErr error
-		expectCPU   string
-	}{
-		{
-			name:        "empty system",
-			options:     &optionFlags{logger: logger},
-			expectedErr: nil,
-		},
-		{
-			name:        "valid nes system",
-			options:     &optionFlags{system: "nes", logger: logger},
-			expectedErr: nil,
-		},
-		{
-			name:        "valid gameboy system",
-			options:     &optionFlags{system: "gameboy", logger: logger},
-			expectedErr: nil,
-		},
-		{
-			name:        "nes system with existing cpu",
-			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "unsupported system",
-			options:     &optionFlags{system: "dos", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
-		},
-		{
-			name:        "invalid system",
-			options:     &optionFlags{system: "invalid", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
-		},
-	}
+	tests := validateSystemCases(logger)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -200,46 +176,7 @@ func TestValidateCPU(t *testing.T) {
 func TestValidateAndProcessArchitecture(t *testing.T) {
 	logger := log.NewTestLogger(t)
 
-	tests := []struct {
-		name        string
-		options     *optionFlags
-		expectedErr error
-		expectCPU   string
-	}{
-		{
-			name:        "no architecture specified",
-			options:     &optionFlags{logger: logger},
-			expectedErr: nil,
-		},
-		{
-			name:        "valid nes system defaults to 6502",
-			options:     &optionFlags{system: "nes", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "valid 6502 cpu only",
-			options:     &optionFlags{cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "valid nes and 6502 combination",
-			options:     &optionFlags{system: "nes", cpu: "6502", logger: logger},
-			expectedErr: nil,
-			expectCPU:   "6502",
-		},
-		{
-			name:        "incompatible nes and z80",
-			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
-			expectedErr: ErrIncompatibleArch,
-		},
-		{
-			name:        "unsupported system",
-			options:     &optionFlags{system: "dos", logger: logger},
-			expectedErr: ErrUnsupportedSystem,
-		},
-	}
+	tests := validateArchitectureCases(logger)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -310,4 +247,86 @@ func runAssembleWithConfig(ctx context.Context, configPath string) error {
 		return fmt.Errorf("assembling text: %w", err)
 	}
 	return nil
+}
+
+func validateSystemCases(logger *log.Logger) []validateCase {
+	return []validateCase{
+		{
+			name:        "empty system",
+			options:     newOptionFlags(logger, "", ""),
+			expectedErr: nil,
+		},
+		{
+			name:        "valid nes system",
+			options:     newOptionFlags(logger, "", "nes"),
+			expectedErr: nil,
+		},
+		{
+			name:        "valid gameboy system",
+			options:     newOptionFlags(logger, "", "gameboy"),
+			expectedErr: nil,
+		},
+		{
+			name:        "nes system with existing cpu",
+			options:     newOptionFlags(logger, "6502", "nes"),
+			expectedErr: nil,
+			expectCPU:   "6502",
+		},
+		{
+			name:        "unsupported system",
+			options:     newOptionFlags(logger, "", "dos"),
+			expectedErr: ErrUnsupportedSystem,
+		},
+		{
+			name:        "invalid system",
+			options:     newOptionFlags(logger, "", "invalid"),
+			expectedErr: ErrUnsupportedSystem,
+		},
+	}
+}
+
+func validateArchitectureCases(logger *log.Logger) []validateCase {
+	return []validateCase{
+		{
+			name:        "no architecture specified",
+			options:     newOptionFlags(logger, "", ""),
+			expectedErr: nil,
+		},
+		{
+			name:        "valid nes system defaults to 6502",
+			options:     newOptionFlags(logger, "", "nes"),
+			expectedErr: nil,
+			expectCPU:   "6502",
+		},
+		{
+			name:        "valid 6502 cpu only",
+			options:     newOptionFlags(logger, "6502", ""),
+			expectedErr: nil,
+			expectCPU:   "6502",
+		},
+		{
+			name:        "valid nes and 6502 combination",
+			options:     newOptionFlags(logger, "6502", "nes"),
+			expectedErr: nil,
+			expectCPU:   "6502",
+		},
+		{
+			name:        "incompatible nes and z80",
+			options:     newOptionFlags(logger, "z80", "nes"),
+			expectedErr: ErrIncompatibleArch,
+		},
+		{
+			name:        "unsupported system",
+			options:     newOptionFlags(logger, "", "dos"),
+			expectedErr: ErrUnsupportedSystem,
+		},
+	}
+}
+
+func newOptionFlags(logger *log.Logger, cpu, system string) *optionFlags {
+	return &optionFlags{
+		cpu:    cpu,
+		system: system,
+		logger: logger,
+	}
 }

@@ -234,17 +234,26 @@ func TestParseInstruction(t *testing.T) { //nolint:funlen
 			ins: ast.NewInstruction(
 				"ld",
 				0,
-				ast.NewInstructionArgument(testTypedInstructionArgument{register: "a", width: 8}),
+				ast.NewInstructionArgument(testTypedInstructionArgument{
+					register: "a",
+					width:    8,
+				}),
 				nil,
 			),
-			wantArg: testTypedInstructionArgument{register: "a", width: 8},
+			wantArg: testTypedInstructionArgument{
+				register: "a",
+				width:    8,
+			},
 		},
 		{
 			name: "typed argument with modifiers returns error",
 			ins: ast.NewInstruction(
 				"ld",
 				0,
-				ast.NewInstructionArgument(testTypedInstructionArgument{register: "a", width: 8}),
+				ast.NewInstructionArgument(testTypedInstructionArgument{
+					register: "a",
+					width:    8,
+				}),
 				[]ast.Modifier{{Operator: ast.NewOperator("+"), Value: "1"}},
 			),
 			wantErr: true,
@@ -255,14 +264,20 @@ func TestParseInstruction(t *testing.T) { //nolint:funlen
 				"ld",
 				0,
 				ast.NewInstructionArguments(
-					ast.NewInstructionArgument(testTypedInstructionArgument{register: "a", width: 8}),
+					ast.NewInstructionArgument(testTypedInstructionArgument{
+						register: "a",
+						width:    8,
+					}),
 					ast.NewNumber(0x2A),
 					ast.NewLabel("target"),
 				),
 				nil,
 			),
 			wantArg: []any{
-				testTypedInstructionArgument{register: "a", width: 8},
+				testTypedInstructionArgument{
+					register: "a",
+					width:    8,
+				},
 				uint64(0x2A),
 				reference{name: "target"},
 			},
