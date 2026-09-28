@@ -243,12 +243,8 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 	}, nil
 }
 
-func (c *Codec[T]) parseStream(
-	ctx context.Context,
-	sourceName string,
-	source io.Reader,
-	initialState any,
-) (*ast.Stream, error) {
+func (c *Codec[T]) parseStream(ctx context.Context, sourceName string, source io.Reader,
+	initialState any) (*ast.Stream, error) {
 
 	if source == nil {
 		return nil, ErrNilSource
@@ -386,7 +382,10 @@ func (c *Codec[T]) dataDirective(data ast.Data) (string, error) {
 		return "", fmt.Errorf("%w: data type %d", ErrFormattingUnsupported, data.Type)
 	}
 
-	key := dataDirectiveKey{fill: data.Fill, width: data.Width}
+	key := dataDirectiveKey{
+		fill:  data.Fill,
+		width: data.Width,
+	}
 	if directive, ok := dataDirectiveNames[key]; ok {
 		return directive, nil
 	}
@@ -434,12 +433,8 @@ func (c *Codec[T]) addressDirective(data ast.Data) (string, error) {
 
 // ParseWithState reads an assembly stream from an explicit target state and
 // returns the state after the last parsed instruction.
-func ParseWithState[T, S any](
-	ctx context.Context,
-	c *Codec[T],
-	source io.Reader,
-	initialState S,
-) ([]ast.Node, S, error) {
+func ParseWithState[T, S any](ctx context.Context, c *Codec[T], source io.Reader,
+	initialState S) ([]ast.Node, S, error) {
 
 	var zero S
 	stream, err := ParseStreamWithState(ctx, c, "", source, initialState)
@@ -454,13 +449,8 @@ func ParseWithState[T, S any](
 }
 
 // ParseStreamWithState reads assembly into an owned typed stream from an explicit target state.
-func ParseStreamWithState[T, S any](
-	ctx context.Context,
-	c *Codec[T],
-	sourceName string,
-	source io.Reader,
-	initialState S,
-) (*ast.Stream, error) {
+func ParseStreamWithState[T, S any](ctx context.Context, c *Codec[T], sourceName string, source io.Reader,
+	initialState S) (*ast.Stream, error) {
 
 	stream, err := c.parseStream(ctx, sourceName, source, initialState)
 	if err != nil {
@@ -474,12 +464,8 @@ func ParseStreamWithState[T, S any](
 
 // ParseInstructionWithState resolves exactly one instruction from an explicit
 // target state and returns the state after that instruction.
-func ParseInstructionWithState[T, S any](
-	ctx context.Context,
-	c *Codec[T],
-	source io.Reader,
-	initialState S,
-) (ast.Instruction, S, error) {
+func ParseInstructionWithState[T, S any](ctx context.Context, c *Codec[T], source io.Reader,
+	initialState S) (ast.Instruction, S, error) {
 
 	var zero S
 	nodes, finalState, err := ParseWithState(ctx, c, source, initialState)
@@ -509,12 +495,8 @@ func BuildInstruction[T, O any](c *Codec[T], mnemonic string, operands O) (ast.I
 
 // BuildInstructionWithState constructs a typed instruction using explicit
 // target stream state and returns the state after the instruction.
-func BuildInstructionWithState[T, O, S any](
-	c *Codec[T],
-	mnemonic string,
-	operands O,
-	state S,
-) (ast.Instruction, S, error) {
+func BuildInstructionWithState[T, O, S any](c *Codec[T], mnemonic string, operands O,
+	state S) (ast.Instruction, S, error) {
 
 	var zero S
 	builder, ok := c.configuration.Arch.(statefulInstructionBuilder[O, S])

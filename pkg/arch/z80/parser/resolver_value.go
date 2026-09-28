@@ -6,7 +6,9 @@ import (
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
-func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+
 	candidates := operandRegisterCandidates(operand1)
 	if len(candidates) == 0 {
 		return nil, false, nil
@@ -65,7 +67,9 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1, oper
 	return nil, false, nil
 }
 
-func resolveValueRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+func resolveValueRegisterOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if operand1.token.Type == token.Identifier && len(operandRegisterCandidates(operand1)) > 0 {
 		return nil, false, nil
 	}
@@ -122,7 +126,9 @@ func selectValueFirstAddressing(variant *cpuz80.Instruction) (cpuz80.AddressingM
 	}
 }
 
-func resolveValueFirstRegister(variant *cpuz80.Instruction, register cpuz80.RegisterParam) (cpuz80.RegisterParam, bool) {
+func resolveValueFirstRegister(variant *cpuz80.Instruction,
+	register cpuz80.RegisterParam) (cpuz80.RegisterParam, bool) {
+
 	if _, ok := variant.RegisterOpcodes[register]; ok {
 		return register, true
 	}

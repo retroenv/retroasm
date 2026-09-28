@@ -16,7 +16,11 @@ func TestCodecCompletesMetadataAfterEntryInsertion(t *testing.T) {
 	configuration := asmcpu6502.New()
 	configuration.CompatibilityMode = config.CompatCa65
 	segment := &config.Segment{
-		Memory:      config.Memory{Name: "code", Start: 0, Size: 0x10000},
+		Memory: config.Memory{
+			Name:  "code",
+			Start: 0,
+			Size:  0x10000,
+		},
 		SegmentName: "code",
 		Align:       16,
 	}

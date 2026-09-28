@@ -170,11 +170,8 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 	return addressing, nil
 }
 
-func resolveIndirect(
-	instruction *cpu6502.Instruction,
-	operand Operand,
-	zeroPage, absolute cpu6502.AddressingMode,
-) cpu6502.AddressingMode {
+func resolveIndirect(instruction *cpu6502.Instruction, operand Operand, zeroPage,
+	absolute cpu6502.AddressingMode) cpu6502.AddressingMode {
 
 	if operand.Size == AddressZeroPage {
 		return zeroPage
@@ -215,11 +212,8 @@ func resolveAddress(instruction *cpu6502.Instruction, operand Operand) cpu6502.A
 	)
 }
 
-func resolveIndexed(
-	instruction *cpu6502.Instruction,
-	operand Operand,
-	zeroPage, absolute, ambiguous cpu6502.AddressingMode,
-) cpu6502.AddressingMode {
+func resolveIndexed(instruction *cpu6502.Instruction, operand Operand, zeroPage, absolute,
+	ambiguous cpu6502.AddressingMode) cpu6502.AddressingMode {
 
 	if operand.Size == AddressZeroPage {
 		return zeroPage
@@ -230,11 +224,8 @@ func resolveIndexed(
 	return resolveMemorySize(instruction, operand.Value, zeroPage, absolute, ambiguous)
 }
 
-func resolveMemorySize(
-	instruction *cpu6502.Instruction,
-	value ast.Node,
-	zeroPage, absolute, ambiguous cpu6502.AddressingMode,
-) cpu6502.AddressingMode {
+func resolveMemorySize(instruction *cpu6502.Instruction, value ast.Node, zeroPage, absolute,
+	ambiguous cpu6502.AddressingMode) cpu6502.AddressingMode {
 
 	hasZeroPage := instruction.HasAddressing(zeroPage)
 	hasAbsolute := instruction.HasAddressing(absolute)

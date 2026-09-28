@@ -62,13 +62,19 @@ func (operand Operand) raw() (rawOperand, error) {
 		if len(candidates) == 0 {
 			return rawOperand{}, errInvalidOperandRegister
 		}
-		return rawOperand{parenthesized: true, registerParams: candidates}, nil
+		return rawOperand{
+			parenthesized:  true,
+			registerParams: candidates,
+		}, nil
 
 	case OperandIndirectValue:
 		if operand.Value == nil {
 			return rawOperand{}, errInvalidOperandValue
 		}
-		return rawOperand{parenthesized: true, value: operand.Value.Copy()}, nil
+		return rawOperand{
+			parenthesized: true,
+			value:         operand.Value.Copy(),
+		}, nil
 
 	case OperandIndexed:
 		if operand.Value == nil {
@@ -91,27 +97,43 @@ func (operand Operand) raw() (rawOperand, error) {
 
 // RegisterOperand constructs a direct register or condition operand.
 func RegisterOperand(register cpuz80.RegisterParam) Operand {
-	return Operand{Kind: OperandRegister, Register: register}
+	return Operand{
+		Kind:     OperandRegister,
+		Register: register,
+	}
 }
 
 // ValueOperand constructs an immediate, address, label, or expression operand.
 func ValueOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandValue, Value: value}
+	return Operand{
+		Kind:  OperandValue,
+		Value: value,
+	}
 }
 
 // IndirectRegisterOperand constructs a parenthesized register operand.
 func IndirectRegisterOperand(register cpuz80.RegisterParam) Operand {
-	return Operand{Kind: OperandIndirectRegister, Register: register}
+	return Operand{
+		Kind:     OperandIndirectRegister,
+		Register: register,
+	}
 }
 
 // IndirectValueOperand constructs a parenthesized address or expression operand.
 func IndirectValueOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandIndirectValue, Value: value}
+	return Operand{
+		Kind:  OperandIndirectValue,
+		Value: value,
+	}
 }
 
 // IndexedOperand constructs an IX/IY indirect operand with a displacement.
 func IndexedOperand(register cpuz80.RegisterParam, displacement ast.Node) Operand {
-	return Operand{Kind: OperandIndexed, Register: register, Value: displacement}
+	return Operand{
+		Kind:     OperandIndexed,
+		Register: register,
+		Value:    displacement,
+	}
 }
 
 func copyOperands(operands []Operand) []Operand {
@@ -238,7 +260,10 @@ func rawOperands(operands []Operand) ([]rawOperand, error) {
 }
 
 func identifierToken(register cpuz80.RegisterParam) token.Token {
-	return token.Token{Type: token.Identifier, Value: register.String()}
+	return token.Token{
+		Type:  token.Identifier,
+		Value: register.String(),
+	}
 }
 
 func validRegisterParam(register cpuz80.RegisterParam) bool {

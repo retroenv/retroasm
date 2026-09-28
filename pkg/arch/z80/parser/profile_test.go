@@ -12,8 +12,14 @@ import (
 func TestParseIdentifierWithProfile(t *testing.T) {
 	t.Run("default profile allows sll", func(t *testing.T) {
 		parser := newMockParser(
-			token.Token{Type: token.Identifier, Value: "sll"},
-			token.Token{Type: token.Identifier, Value: "a"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "sll",
+			},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "a",
+			},
 			token.Token{Type: token.EOL},
 		)
 
@@ -28,8 +34,14 @@ func TestParseIdentifierWithProfile(t *testing.T) {
 
 	t.Run("strict profile rejects sll", func(t *testing.T) {
 		parser := newMockParser(
-			token.Token{Type: token.Identifier, Value: "sll"},
-			token.Token{Type: token.Identifier, Value: "a"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "sll",
+			},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "a",
+			},
 			token.Token{Type: token.EOL},
 		)
 
@@ -43,14 +55,25 @@ func TestParseIdentifierWithProfile(t *testing.T) {
 		assert.ErrorContains(t, err, "strict-documented")
 		assert.ErrorContains(t, err, "undocumented")
 	})
+}
 
+func TestParseIdentifierWithProfile_GameBoyPort(t *testing.T) {
 	t.Run("gameboy profile rejects in a,(n)", func(t *testing.T) {
 		parser := newMockParser(
-			token.Token{Type: token.Identifier, Value: "in"},
-			token.Token{Type: token.Identifier, Value: "a"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "in",
+			},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "a",
+			},
 			token.Token{Type: token.Comma},
 			token.Token{Type: token.LeftParentheses},
-			token.Token{Type: token.Number, Value: "$12"},
+			token.Token{
+				Type:  token.Number,
+				Value: "$12",
+			},
 			token.Token{Type: token.RightParentheses},
 			token.Token{Type: token.EOL},
 		)
@@ -69,7 +92,10 @@ func TestParseIdentifierWithProfile(t *testing.T) {
 func TestParseIdentifierWithProfile_UndocumentedPortInstruction(t *testing.T) {
 	t.Run("default profile allows inf", func(t *testing.T) {
 		parser := newMockParser(
-			token.Token{Type: token.Identifier, Value: "inf"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "inf",
+			},
 			token.Token{Type: token.EOL},
 		)
 
@@ -84,7 +110,10 @@ func TestParseIdentifierWithProfile_UndocumentedPortInstruction(t *testing.T) {
 
 	t.Run("strict profile rejects inf", func(t *testing.T) {
 		parser := newMockParser(
-			token.Token{Type: token.Identifier, Value: "inf"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "inf",
+			},
 			token.Token{Type: token.EOL},
 		)
 

@@ -29,7 +29,10 @@ type Instruction struct {
 
 // NewOpcodeID returns an architecture-scoped opcode identity.
 func NewOpcodeID(architecture arch.Architecture, value uint16) OpcodeID {
-	return OpcodeID{Architecture: architecture, Value: value}
+	return OpcodeID{
+		Architecture: architecture,
+		Value:        value,
+	}
 }
 
 // NewInstruction returns a new instruction node with an unset opcode identity.

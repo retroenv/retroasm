@@ -110,9 +110,15 @@ func fuzzToken(raw byte) token.Token {
 
 	switch raw % 7 {
 	case 0:
-		return token.Token{Type: token.Identifier, Value: identifiers[int(raw)%len(identifiers)]}
+		return token.Token{
+			Type:  token.Identifier,
+			Value: identifiers[int(raw)%len(identifiers)],
+		}
 	case 1:
-		return token.Token{Type: token.Number, Value: numbers[int(raw)%len(numbers)]}
+		return token.Token{
+			Type:  token.Number,
+			Value: numbers[int(raw)%len(numbers)],
+		}
 	case 2:
 		return token.Token{Type: token.LeftParentheses}
 	case 3:

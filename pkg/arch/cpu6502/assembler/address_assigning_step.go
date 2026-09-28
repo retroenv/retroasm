@@ -12,11 +12,8 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 )
 
-func AssignInstructionAddress(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	insDetails *cpu6502.Instruction,
-) (uint64, error) {
+func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction,
+	insDetails *cpu6502.Instruction) (uint64, error) {
 
 	pc := assigner.ProgramCounter()
 	ins.SetAddress(pc)
@@ -51,7 +48,9 @@ var disambiguousAddressing = map[cpu6502.AddressingMode][2]cpu6502.AddressingMod
 	parser.YAddressing:                {cpu6502.AbsoluteYAddressing, cpu6502.ZeroPageYAddressing},
 }
 
-func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction, addressing cpu6502.AddressingMode) error {
+func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction,
+	addressing cpu6502.AddressingMode) error {
+
 	modes, ok := disambiguousAddressing[addressing]
 	if !ok {
 		return nil

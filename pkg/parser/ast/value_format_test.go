@@ -8,10 +8,14 @@ import (
 	"github.com/retroenv/retrogolib/assert"
 )
 
-func TestFormatValue(t *testing.T) {
-	t.Parallel()
+func valueFormatCases() []struct {
+	name    string
+	value   Node
+	options ValueFormatOptions
+	want    string
+} {
 
-	tests := []struct {
+	return []struct {
 		name    string
 		value   Node
 		options ValueFormatOptions
@@ -31,22 +35,46 @@ func TestFormatValue(t *testing.T) {
 		{
 			name: "expression",
 			value: NewExpression(
-				token.Token{Type: token.Identifier, Value: "base"},
-				token.Token{Type: token.Plus, Value: "+"},
-				token.Token{Type: token.Number, Value: "$10"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "base",
+				},
+				token.Token{
+					Type:  token.Plus,
+					Value: "+",
+				},
+				token.Token{
+					Type:  token.Number,
+					Value: "$10",
+				},
 			),
 			want: "base+0x10",
 		},
 		{
 			name: "modulo expression",
 			value: NewExpression(
-				token.Token{Type: token.Identifier, Value: "base"},
-				token.Token{Type: token.Percent, Value: "%"},
-				token.Token{Type: token.Number, Value: "16"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "base",
+				},
+				token.Token{
+					Type:  token.Percent,
+					Value: "%",
+				},
+				token.Token{
+					Type:  token.Number,
+					Value: "16",
+				},
 			),
 			want: "base % 0x10",
 		},
 	}
+}
+
+func TestFormatValue(t *testing.T) {
+	t.Parallel()
+
+	tests := valueFormatCases()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -73,9 +101,18 @@ func TestFormatExpression(t *testing.T) {
 
 	value := expression.New(
 		token.Token{Type: token.LeftParentheses},
-		token.Token{Type: token.Number, Value: "1"},
-		token.Token{Type: token.Plus, Value: "+"},
-		token.Token{Type: token.Number, Value: "$20"},
+		token.Token{
+			Type:  token.Number,
+			Value: "1",
+		},
+		token.Token{
+			Type:  token.Plus,
+			Value: "+",
+		},
+		token.Token{
+			Type:  token.Number,
+			Value: "$20",
+		},
 		token.Token{Type: token.RightParentheses},
 	)
 

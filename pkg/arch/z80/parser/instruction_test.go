@@ -99,7 +99,13 @@ var parseIdentifierTests = []struct {
 		variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
 		wantVariant:    cpuz80.JpAbs,
 		wantAddressing: cpuz80.ExtendedAddressing,
-		wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "target"}, token.Token{Type: token.Plus}, token.Token{Type: token.Number, Value: "2"})},
+		wantValues: []ast.Node{expressionNode(token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		}, token.Token{Type: token.Plus}, token.Token{
+			Type:  token.Number,
+			Value: "2",
+		})},
 	},
 	{
 		name:           "jp absolute with chained offsets",
@@ -110,11 +116,20 @@ var parseIdentifierTests = []struct {
 		wantAddressing: cpuz80.ExtendedAddressing,
 		wantValues: []ast.Node{
 			expressionNode(
-				token.Token{Type: token.Identifier, Value: "target"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "target",
+				},
 				token.Token{Type: token.Plus},
-				token.Token{Type: token.Number, Value: "3"},
+				token.Token{
+					Type:  token.Number,
+					Value: "3",
+				},
 				token.Token{Type: token.Minus},
-				token.Token{Type: token.Number, Value: "1"},
+				token.Token{
+					Type:  token.Number,
+					Value: "1",
+				},
 			),
 		},
 	},
@@ -125,7 +140,13 @@ var parseIdentifierTests = []struct {
 		variants:       []*cpuz80.Instruction{cpuz80.JpCond, cpuz80.JpAbs},
 		wantVariant:    cpuz80.JpAbs,
 		wantAddressing: cpuz80.ExtendedAddressing,
-		wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "target"}, token.Token{Type: token.Plus}, token.Token{Type: token.Identifier, Value: "delta"})},
+		wantValues: []ast.Node{expressionNode(token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		}, token.Token{Type: token.Plus}, token.Token{
+			Type:  token.Identifier,
+			Value: "delta",
+		})},
 	},
 	{
 		name:           "jp conditional with c uses condition code",
@@ -182,7 +203,13 @@ var parseIdentifierTests = []struct {
 		wantVariant:    cpuz80.LdExtended,
 		wantAddressing: cpuz80.ExtendedAddressing,
 		wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
-		wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "table"}, token.Token{Type: token.Plus}, token.Token{Type: token.Number, Value: "1"})},
+		wantValues: []ast.Node{expressionNode(token.Token{
+			Type:  token.Identifier,
+			Value: "table",
+		}, token.Token{Type: token.Plus}, token.Token{
+			Type:  token.Number,
+			Value: "1",
+		})},
 	},
 	{
 		name:     "ld a,(label+n-m) extended load",
@@ -206,11 +233,20 @@ var parseIdentifierTests = []struct {
 		wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
 		wantValues: []ast.Node{
 			expressionNode(
-				token.Token{Type: token.Identifier, Value: "table"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "table",
+				},
 				token.Token{Type: token.Plus},
-				token.Token{Type: token.Number, Value: "3"},
+				token.Token{
+					Type:  token.Number,
+					Value: "3",
+				},
 				token.Token{Type: token.Minus},
-				token.Token{Type: token.Number, Value: "1"},
+				token.Token{
+					Type:  token.Number,
+					Value: "1",
+				},
 			),
 		},
 	},
@@ -232,7 +268,13 @@ var parseIdentifierTests = []struct {
 		wantVariant:    cpuz80.LdExtended,
 		wantAddressing: cpuz80.ExtendedAddressing,
 		wantRegister:   []cpuz80.RegisterParam{cpuz80.RegLoadExtA},
-		wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "table"}, token.Token{Type: token.Plus}, token.Token{Type: token.Identifier, Value: "index"})},
+		wantValues: []ast.Node{expressionNode(token.Token{
+			Type:  token.Identifier,
+			Value: "table",
+		}, token.Token{Type: token.Plus}, token.Token{
+			Type:  token.Identifier,
+			Value: "index",
+		})},
 	},
 	{
 		name:     "ld (nn),a extended store",
@@ -322,7 +364,13 @@ var parseIdentifierTests = []struct {
 		variants:       []*cpuz80.Instruction{cpuz80.InPort, cpuz80.EdInAC},
 		wantVariant:    cpuz80.InPort,
 		wantAddressing: cpuz80.PortAddressing,
-		wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Number, Value: "$10"}, token.Token{Type: token.Plus}, token.Token{Type: token.Number, Value: "1"})},
+		wantValues: []ast.Node{expressionNode(token.Token{
+			Type:  token.Number,
+			Value: "$10",
+		}, token.Token{Type: token.Plus}, token.Token{
+			Type:  token.Number,
+			Value: "1",
+		})},
 	},
 	{
 		name:     "in a,(n+m-k) immediate port",
@@ -345,11 +393,20 @@ var parseIdentifierTests = []struct {
 		wantAddressing: cpuz80.PortAddressing,
 		wantValues: []ast.Node{
 			expressionNode(
-				token.Token{Type: token.Number, Value: "$10"},
+				token.Token{
+					Type:  token.Number,
+					Value: "$10",
+				},
 				token.Token{Type: token.Plus},
-				token.Token{Type: token.Number, Value: "3"},
+				token.Token{
+					Type:  token.Number,
+					Value: "3",
+				},
 				token.Token{Type: token.Minus},
-				token.Token{Type: token.Number, Value: "1"},
+				token.Token{
+					Type:  token.Number,
+					Value: "1",
+				},
 			),
 		},
 	},
@@ -452,7 +509,10 @@ var parseIdentifierTests = []struct {
 		wantVariant:    cpuz80.DdLdAIXd,
 		wantAddressing: cpuz80.RegisterIndirectAddressing,
 		wantRegister:   []cpuz80.RegisterParam{cpuz80.RegA},
-		wantValues:     []ast.Node{expressionNode(token.Token{Type: token.Identifier, Value: "disp"})},
+		wantValues: []ast.Node{expressionNode(token.Token{
+			Type:  token.Identifier,
+			Value: "disp",
+		})},
 	},
 	{
 		name:     "ld indexed iy displacement a",

@@ -90,14 +90,20 @@ func TestAddressAssign_RecordInstructionRelocation(t *testing.T) {
 
 	relocations := make([]ast.Relocation, 0)
 	aa := addressAssign[any]{instructionRelocations: &relocations}
-	ins := &instruction{sourceEntryIndex: 3, hasSourceEntry: true}
+	ins := &instruction{
+		sourceEntryIndex: 3,
+		hasSourceEntry:   true,
+	}
 	encoding := arch.RelocationEncoding{
 		ByteOffset:    1,
 		Kind:          ast.RelativeRelocation,
 		Width:         ast.WidthByte,
 		ByteOrder:     ast.ByteOrderLittle,
 		ReferenceType: ast.FullAddress,
-		Field:         ast.PackedField{BitWidth: 4, PreserveMask: 0xf0},
+		Field: ast.PackedField{
+			BitWidth:     4,
+			PreserveMask: 0xf0,
+		},
 	}
 	aa.RecordInstructionRelocation(ins, reference{name: "target+2"}, encoding)
 	aa.RecordInstructionRelocation(ins, ast.InstructionReference{
@@ -116,7 +122,10 @@ func TestAddressAssign_RecordInstructionRelocation(t *testing.T) {
 			Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress),
 			Width:      ast.WidthByte,
 			ByteOrder:  ast.ByteOrderLittle,
-			Field:      ast.PackedField{BitWidth: 4, PreserveMask: 0xf0},
+			Field: ast.PackedField{
+				BitWidth:     4,
+				PreserveMask: 0xf0,
+			},
 		},
 		{
 			EntryIndex: 3,
@@ -125,7 +134,10 @@ func TestAddressAssign_RecordInstructionRelocation(t *testing.T) {
 			Expression: ast.NewSymbolExpression("other", -3, ast.FullAddress),
 			Width:      ast.WidthByte,
 			ByteOrder:  ast.ByteOrderLittle,
-			Field:      ast.PackedField{BitWidth: 4, PreserveMask: 0xf0},
+			Field: ast.PackedField{
+				BitWidth:     4,
+				PreserveMask: 0xf0,
+			},
 		},
 	}, relocations)
 }

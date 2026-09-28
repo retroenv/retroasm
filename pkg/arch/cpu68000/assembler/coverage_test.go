@@ -63,21 +63,64 @@ func sortedInstructionNames() []string {
 func coverageResolvedInstruction(ins *cpu68000.Instruction) (parser.ResolvedInstruction, error) { //nolint:cyclop,gocyclo,funlen,maintidx // instruction coverage table requires many cases
 	name := ins.Name
 
-	dataD0 := &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0}
-	dataD1 := &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 1}
-	addrA0 := &parser.EffectiveAddress{Mode: cpu68000.AddrRegDirectMode, Register: 0}
-	indA0 := &parser.EffectiveAddress{Mode: cpu68000.AddrRegIndirectMode, Register: 0}
-	indA1 := &parser.EffectiveAddress{Mode: cpu68000.AddrRegIndirectMode, Register: 1}
-	postA0 := &parser.EffectiveAddress{Mode: cpu68000.PostIncrementMode, Register: 0}
-	postA1 := &parser.EffectiveAddress{Mode: cpu68000.PostIncrementMode, Register: 1}
-	immOne := &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(1)}
-	immZero := &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0)}
-	absLong := &parser.EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewNumber(0x1000)}
-	pcDisp := &parser.EffectiveAddress{Mode: cpu68000.PCDisplacementMode, Value: ast.NewLabel("loop")}
-	dispA0 := &parser.EffectiveAddress{Mode: cpu68000.DisplacementMode, Register: 0, Value: ast.NewNumber(0)}
+	dataD0 := &parser.EffectiveAddress{
+		Mode:     cpu68000.DataRegDirectMode,
+		Register: 0,
+	}
+	dataD1 := &parser.EffectiveAddress{
+		Mode:     cpu68000.DataRegDirectMode,
+		Register: 1,
+	}
+	addrA0 := &parser.EffectiveAddress{
+		Mode:     cpu68000.AddrRegDirectMode,
+		Register: 0,
+	}
+	indA0 := &parser.EffectiveAddress{
+		Mode:     cpu68000.AddrRegIndirectMode,
+		Register: 0,
+	}
+	indA1 := &parser.EffectiveAddress{
+		Mode:     cpu68000.AddrRegIndirectMode,
+		Register: 1,
+	}
+	postA0 := &parser.EffectiveAddress{
+		Mode:     cpu68000.PostIncrementMode,
+		Register: 0,
+	}
+	postA1 := &parser.EffectiveAddress{
+		Mode:     cpu68000.PostIncrementMode,
+		Register: 1,
+	}
+	immOne := &parser.EffectiveAddress{
+		Mode:  cpu68000.ImmediateMode,
+		Value: ast.NewNumber(1),
+	}
+	immZero := &parser.EffectiveAddress{
+		Mode:  cpu68000.ImmediateMode,
+		Value: ast.NewNumber(0),
+	}
+	absLong := &parser.EffectiveAddress{
+		Mode:  cpu68000.AbsLongMode,
+		Value: ast.NewNumber(0x1000),
+	}
+	pcDisp := &parser.EffectiveAddress{
+		Mode:  cpu68000.PCDisplacementMode,
+		Value: ast.NewLabel("loop"),
+	}
+	dispA0 := &parser.EffectiveAddress{
+		Mode:     cpu68000.DisplacementMode,
+		Register: 0,
+		Value:    ast.NewNumber(0),
+	}
 
 	r := func(src, dst *parser.EffectiveAddress, sz cpu68000.OperandSize, extra uint16) parser.ResolvedInstruction {
-		return parser.ResolvedInstruction{Instruction: ins, SrcEA: src, DstEA: dst, Size: sz, Extra: extra}
+		return parser.ResolvedInstruction{
+			Instruction: ins,
+			SrcEA:       src,
+			DstEA:       dst,
+			Size:        sz,
+			Extra:       extra,
+		}
 	}
 	w := cpu68000.SizeWord
 	l := cpu68000.SizeLong
@@ -200,7 +243,10 @@ func coverageResolvedInstruction(ins *cpu68000.Instruction) (parser.ResolvedInst
 
 	// LINK / UNLK
 	case cpu68000.LINKName:
-		return r(addrA0, &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0xFFFC)}, 0, 0), nil
+		return r(addrA0, &parser.EffectiveAddress{
+			Mode:  cpu68000.ImmediateMode,
+			Value: ast.NewNumber(0xFFFC),
+		}, 0, 0), nil
 	case cpu68000.UNLKName:
 		return r(nil, addrA0, 0, 0), nil
 
@@ -208,7 +254,10 @@ func coverageResolvedInstruction(ins *cpu68000.Instruction) (parser.ResolvedInst
 	case cpu68000.TRAPName:
 		return r(immZero, nil, 0, 0), nil
 	case cpu68000.STOPName:
-		return r(&parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0x2700)}, nil, 0, 0), nil
+		return r(&parser.EffectiveAddress{
+			Mode:  cpu68000.ImmediateMode,
+			Value: ast.NewNumber(0x2700),
+		}, nil, 0, 0), nil
 
 	// MOVEM reglist → (A0) — Extra=0 means register-to-memory
 	case cpu68000.MOVEMName:

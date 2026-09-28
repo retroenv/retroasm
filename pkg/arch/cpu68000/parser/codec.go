@@ -27,12 +27,7 @@ type FormatOptions struct {
 }
 
 // BuildInstruction constructs a typed CPU68000 instruction without parsing text.
-func BuildInstruction(
-	mnemonic string,
-	instruction *cpu68000.Instruction,
-	operands Operands,
-) (ast.Instruction, error) {
-
+func BuildInstruction(mnemonic string, instruction *cpu68000.Instruction, operands Operands) (ast.Instruction, error) {
 	mnemonic = strings.TrimSpace(mnemonic)
 	if mnemonic == "" || instruction == nil {
 		return ast.Instruction{}, fmt.Errorf("%w: mnemonic %q", ErrInvalidInstruction, mnemonic)
@@ -452,11 +447,8 @@ func formatMOVEMOperands(resolved ResolvedInstruction, options FormatOptions) ([
 }
 
 //nolint:cyclop,funlen // formatting mirrors the complete effective-address mode set
-func formatEffectiveAddress(
-	address *EffectiveAddress,
-	operandSize cpu68000.OperandSize,
-	options FormatOptions,
-) (string, error) {
+func formatEffectiveAddress(address *EffectiveAddress, operandSize cpu68000.OperandSize,
+	options FormatOptions) (string, error) {
 
 	if address == nil {
 		return "", errors.New("effective address is missing")

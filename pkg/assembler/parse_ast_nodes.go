@@ -151,7 +151,9 @@ func parseData(astData ast.Data, order binary.ByteOrder) ([]ast.Node, error) {
 	return []ast.Node{dat}, nil
 }
 
-func parseDataAddress(dat *data, expressions []*expression.Expression, refType referenceType, order binary.ByteOrder) error {
+func parseDataAddress(dat *data, expressions []*expression.Expression, refType referenceType,
+	order binary.ByteOrder) error {
+
 	width := dat.width
 	if refType == lowAddressByte || refType == highAddressByte || refType == bankAddressByte {
 		width = 1

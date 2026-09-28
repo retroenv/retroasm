@@ -56,7 +56,16 @@ func TestStreamRenameSymbolsRejectsAtomically(t *testing.T) {
 
 func TestStreamRenameSymbolsAliasExpressions(t *testing.T) {
 	alias := NewAlias("alias")
-	alias.Expression = expression.New(token.Token{Type: token.Identifier, Value: "entry"}, token.Token{Type: token.Plus, Value: "+"}, token.Token{Type: token.Number, Value: "1"})
+	alias.Expression = expression.New(token.Token{
+		Type:  token.Identifier,
+		Value: "entry",
+	}, token.Token{
+		Type:  token.Plus,
+		Value: "+",
+	}, token.Token{
+		Type:  token.Number,
+		Value: "1",
+	})
 	alias.Expression.SetEvaluateOnce(true)
 	stream := NewStreamFromNodes(NewLabel("entry"), alias)
 	assert.NoError(t, stream.RebuildSymbols())

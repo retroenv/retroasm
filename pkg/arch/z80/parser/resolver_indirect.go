@@ -8,7 +8,9 @@ import (
 // resolveIndirectLoadStoreOperands handles patterns where one operand is a
 // parenthesized indirect register and the other is a direct register
 // (e.g., LD A,(HL); LD (HL),A; LD A,(BC); LD (BC),A; EX (SP),IX).
-func resolveIndirectLoadStoreOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+func resolveIndirectLoadStoreOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) *ResolvedInstruction {
+
 	if operand1.displacement != nil || operand2.displacement != nil {
 		return nil
 	}
@@ -79,7 +81,9 @@ func matchIndirectLoadStoreKeys(variants []*cpuz80.Instruction, keys []cpuz80.Re
 	return nil
 }
 
-func indirectRegisterPairKeys(regCandidates, indCandidates []cpuz80.RegisterParam, isLoad bool) [][2]cpuz80.RegisterParam {
+func indirectRegisterPairKeys(regCandidates, indCandidates []cpuz80.RegisterParam,
+	isLoad bool) [][2]cpuz80.RegisterParam {
+
 	var keys [][2]cpuz80.RegisterParam
 	for _, ind := range indCandidates {
 		for _, reg := range regCandidates {
@@ -93,7 +97,9 @@ func indirectRegisterPairKeys(regCandidates, indCandidates []cpuz80.RegisterPara
 	return keys
 }
 
-func matchIndirectLoadStorePairKeys(variants []*cpuz80.Instruction, keys [][2]cpuz80.RegisterParam) *ResolvedInstruction {
+func matchIndirectLoadStorePairKeys(variants []*cpuz80.Instruction,
+	keys [][2]cpuz80.RegisterParam) *ResolvedInstruction {
+
 	for _, variant := range variants {
 		if len(variant.RegisterPairOpcodes) == 0 {
 			continue
@@ -144,7 +150,9 @@ func indirectLoadStoreAddressing(variant *cpuz80.Instruction) cpuz80.AddressingM
 // resolveIndirectImmediateOperands handles instructions where operand1 is a
 // parenthesized register (or indexed) and operand2 is an immediate value
 // (e.g., LD (HL),n; LD (IX+d),n; LD (IY+d),n).
-func resolveIndirectImmediateOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+func resolveIndirectImmediateOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if !operand1.parenthesized {
 		return nil, false, nil
 	}

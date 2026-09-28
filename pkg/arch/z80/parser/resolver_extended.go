@@ -5,7 +5,9 @@ import (
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
-func resolveExtendedRegisterMemoryOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+func resolveExtendedRegisterMemoryOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if operand1.displacement != nil || operand2.displacement != nil {
 		return nil, false, nil
 	}
@@ -18,7 +20,9 @@ func resolveExtendedRegisterMemoryOperands(variants []*cpuz80.Instruction, opera
 	return resolveExtendedMemoryFromRegister(variants, operand1, operand2)
 }
 
-func resolveRegisterFromExtendedMemory(variants []*cpuz80.Instruction, registerOperand, valueOperand rawOperand) (*ResolvedInstruction, bool, error) {
+func resolveRegisterFromExtendedMemory(variants []*cpuz80.Instruction, registerOperand,
+	valueOperand rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if !valueOperand.parenthesized {
 		return nil, false, nil
 	}
@@ -64,7 +68,9 @@ func resolveRegisterFromExtendedMemory(variants []*cpuz80.Instruction, registerO
 	return nil, false, nil
 }
 
-func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOperand, registerOperand rawOperand) (*ResolvedInstruction, bool, error) {
+func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOperand,
+	registerOperand rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if !valueOperand.parenthesized {
 		return nil, false, nil
 	}
@@ -90,6 +96,16 @@ func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOper
 		}
 	}
 
+	if result := findExtendedMemoryRegisterVariant(variants, candidates, value); result != nil {
+		return result, true, nil
+	}
+
+	return nil, false, nil
+}
+
+func findExtendedMemoryRegisterVariant(variants []*cpuz80.Instruction, candidates []cpuz80.RegisterParam,
+	value ast.Node) *ResolvedInstruction {
+
 	for _, variant := range variants {
 		if !variant.HasAddressing(cpuz80.ExtendedAddressing) {
 			continue
@@ -110,7 +126,7 @@ func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOper
 					Instruction:    variant,
 					RegisterParams: []cpuz80.RegisterParam{resolvedParam},
 					OperandValues:  []ast.Node{value},
-				}, true, nil
+				}
 			}
 
 			if candidate != cpuz80.RegHL || len(variant.RegisterOpcodes) != 0 {
@@ -121,11 +137,11 @@ func resolveExtendedMemoryFromRegister(variants []*cpuz80.Instruction, valueOper
 				Addressing:    cpuz80.ExtendedAddressing,
 				Instruction:   variant,
 				OperandValues: []ast.Node{value},
-			}, true, nil
+			}
 		}
 	}
 
-	return nil, false, nil
+	return nil
 }
 
 func resolveExtendedHLStore(variants []*cpuz80.Instruction, value ast.Node) *ResolvedInstruction {

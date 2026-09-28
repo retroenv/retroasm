@@ -27,7 +27,9 @@ func resolveTwoOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOp
 	return resolveTwoOperandsFallback(variants, operand1, operand2)
 }
 
-func resolveTwoOperandsFallback(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, error) {
+func resolveTwoOperandsFallback(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, error) {
+
 	if result, matched, err := resolveExtendedRegisterMemoryOperands(variants, operand1, operand2); err != nil || matched {
 		return result, err
 	}
@@ -97,7 +99,9 @@ func resolveRegisterPairOperands(variants []*cpuz80.Instruction, operand1, opera
 
 // resolveAluRegisterPairOperands handles two-register ALU operations where the
 // second operand is the RegisterOpcodes key (e.g., ADD A,B; ADD HL,BC; ADD IX,BC).
-func resolveAluRegisterPairOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+func resolveAluRegisterPairOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) *ResolvedInstruction {
+
 	if operand1.parenthesized || operand2.parenthesized || operand1.displacement != nil || operand2.displacement != nil {
 		return nil
 	}
@@ -174,7 +178,9 @@ func z80PairOperand(register cpuz80.RegisterParam) bool {
 // resolveSpecialRegisterPairOperands handles explicit register-pair patterns
 // that cannot be resolved generically (e.g., LD SP,HL; LD I,A; LD A,I;
 // LD R,A; LD A,R; EX DE,HL).
-func resolveSpecialRegisterPairOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) *ResolvedInstruction {
+func resolveSpecialRegisterPairOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) *ResolvedInstruction {
+
 	if operand1.parenthesized || operand2.parenthesized || operand1.displacement != nil || operand2.displacement != nil {
 		return nil
 	}

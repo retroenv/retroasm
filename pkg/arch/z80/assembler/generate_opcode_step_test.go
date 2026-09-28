@@ -280,7 +280,10 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assigner := &relocationAssigner{mockAssigner: mockAssigner{values: test.values}}
-			ins := &mockInstruction{name: test.resolved.Instruction.Name, argument: test.resolved}
+			ins := &mockInstruction{
+				name:     test.resolved.Instruction.Name,
+				argument: test.resolved,
+			}
 
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)
@@ -433,6 +436,8 @@ type relocationAssigner struct {
 	relocations []arch.RelocationEncoding
 }
 
-func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, _ any, encoding arch.RelocationEncoding) {
+func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, _ any,
+	encoding arch.RelocationEncoding) {
+
 	ass.relocations = append(ass.relocations, encoding)
 }

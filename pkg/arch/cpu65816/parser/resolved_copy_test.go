@@ -19,7 +19,10 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 		Operands: Operands{MemoryOperand(
 			OperandAddress,
 			AddressAbsolute,
-			ast.NewExpression(token.Token{Type: token.Identifier, Value: "source"}),
+			ast.NewExpression(token.Token{
+				Type:  token.Identifier,
+				Value: "source",
+			}),
 		)},
 		State: DefaultState(),
 	}

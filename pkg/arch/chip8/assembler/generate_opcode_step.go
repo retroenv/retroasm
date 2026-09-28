@@ -44,11 +44,8 @@ func resolvedInstruction(argument any) (parser.ResolvedInstruction, error) {
 }
 
 //nolint:cyclop // one explicit dispatch case is retained for every CHIP-8 addressing family
-func generateInstructionArgumentOpcode(
-	assigner arch.AddressAssigner,
-	resolved parser.ResolvedInstruction,
-	opcode *uint16,
-) error {
+func generateInstructionArgumentOpcode(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	opcode *uint16) error {
 
 	switch resolved.Addressing {
 	case chip8.ImpliedAddressing:
@@ -121,13 +118,8 @@ func generateSpecialRegisterOpcode(operands parser.Operands, opcode *uint16) err
 	return errors.New("instruction has no register operand")
 }
 
-func generateValueOpcode(
-	assigner arch.AddressAssigner,
-	operands parser.Operands,
-	index int,
-	maximum uint64,
-	opcode *uint16,
-) error {
+func generateValueOpcode(assigner arch.AddressAssigner, operands parser.Operands, index int, maximum uint64,
+	opcode *uint16) error {
 
 	if index < 0 || index >= len(operands) || operands[index].Value == nil {
 		return fmt.Errorf("operand %d has no value", index)
@@ -161,11 +153,17 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 	switch resolved.Addressing {
 	case chip8.AbsoluteAddressing:
 		encoding.Width = ast.WidthWord
-		encoding.Field = ast.PackedField{BitWidth: 12, PreserveMask: 0xf000}
+		encoding.Field = ast.PackedField{
+			BitWidth:     12,
+			PreserveMask: 0xf000,
+		}
 		return 0, encoding, true
 	case chip8.V0AbsoluteAddressing, chip8.IAbsoluteAddressing:
 		encoding.Width = ast.WidthWord
-		encoding.Field = ast.PackedField{BitWidth: 12, PreserveMask: 0xf000}
+		encoding.Field = ast.PackedField{
+			BitWidth:     12,
+			PreserveMask: 0xf000,
+		}
 		return 1, encoding, true
 	case chip8.RegisterValueAddressing:
 		if len(resolved.Operands) < 2 {
@@ -177,7 +175,10 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 	case chip8.RegisterRegisterNibbleAddressing:
 		encoding.ByteOffset = 1
 		encoding.Width = ast.WidthByte
-		encoding.Field = ast.PackedField{BitWidth: 4, PreserveMask: 0xf0}
+		encoding.Field = ast.PackedField{
+			BitWidth:     4,
+			PreserveMask: 0xf0,
+		}
 		return 2, encoding, true
 	default:
 		return 0, arch.RelocationEncoding{}, false

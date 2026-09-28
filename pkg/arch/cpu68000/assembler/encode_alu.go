@@ -41,7 +41,9 @@ func encodeMOVE(assigner arch.AddressAssigner, resolved parser.ResolvedInstructi
 	return buf, nil
 }
 
-func encodeAddSub(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeAddSub(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	name := resolved.Instruction.Name
 
 	// ADDA/SUBA
@@ -91,7 +93,9 @@ func encodeAddSub(assigner arch.AddressAssigner, resolved parser.ResolvedInstruc
 	return buf, nil
 }
 
-func encodeAddrRegOp(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeAddrRegOp(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	srcMode, srcReg := encodeEAField(resolved.SrcEA)
 	an := uint16(resolved.DstEA.Register)
 
@@ -125,7 +129,9 @@ func encodeExtendedOp(resolved parser.ResolvedInstruction, baseOpcode uint16) ([
 	return encodeWord(opcode), nil
 }
 
-func encodeLogical(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeLogical(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	srcMode, srcReg := encodeEAField(resolved.SrcEA)
 	dstMode, dstReg := encodeEAField(resolved.DstEA)
 
@@ -205,7 +211,9 @@ func encodeCMPM(resolved parser.ResolvedInstruction) ([]byte, error) {
 	return encodeWord(opcode), nil
 }
 
-func encodeImmediate(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeImmediate(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	sizeBits := encodeSizeBits(resolved.Size)
 	dstMode, dstReg := encodeEAField(resolved.DstEA)
 
@@ -225,7 +233,9 @@ func encodeImmediate(assigner arch.AddressAssigner, resolved parser.ResolvedInst
 	return buf, nil
 }
 
-func encodeQuick(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeQuick(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	v, err := eaValue(assigner, resolved.SrcEA)
 	if err != nil {
 		return nil, err
@@ -247,7 +257,9 @@ func encodeQuick(assigner arch.AddressAssigner, resolved parser.ResolvedInstruct
 	return buf, nil
 }
 
-func encodeUnary(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeUnary(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	sizeBits := encodeSizeBits(resolved.Size)
 	dstMode, dstReg := encodeEAField(resolved.DstEA)
 
@@ -260,7 +272,9 @@ func encodeUnary(assigner arch.AddressAssigner, resolved parser.ResolvedInstruct
 	return buf, nil
 }
 
-func encodeUnaryByte(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeUnaryByte(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	dstMode, dstReg := encodeEAField(resolved.DstEA)
 
 	opcode := baseOpcode | uint16(dstMode)<<3 | uint16(dstReg)

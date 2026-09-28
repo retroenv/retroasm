@@ -240,13 +240,22 @@ func parseIdentifierOperand(p arch.Parser, tok token.Token) (rawOperand, error) 
 			return parseSPOffsetOperand(p, tok, p.NextToken(1).Type)
 		}
 		if cond, condOK := lookupCondition(tok.Value); condOK {
-			return rawOperand{token: tok, register: reg, isCondition: true,
-				indirectReg: cond}, nil
+			return rawOperand{
+				token: tok, register: reg, isCondition: true,
+				indirectReg: cond,
+			}, nil
 		}
-		return rawOperand{token: tok, register: reg}, nil
+		return rawOperand{
+			token:    tok,
+			register: reg,
+		}, nil
 	}
 	if cond, ok := lookupCondition(tok.Value); ok {
-		return rawOperand{token: tok, register: cond, isCondition: true}, nil
+		return rawOperand{
+			token:       tok,
+			register:    cond,
+			isCondition: true,
+		}, nil
 	}
 
 	expressionOperand, matched := parseExpressionOperand(p, tok)
@@ -312,7 +321,11 @@ func parseSPOffsetOperand(p arch.Parser, base token.Token, operator token.Type) 
 		value = (0x100 - value) & 0xff
 	}
 	p.AdvanceReadPosition(2)
-	return rawOperand{token: base, register: cpusm83.RegSP, value: ast.NewNumber(value)}, nil
+	return rawOperand{
+		token:    base,
+		register: cpusm83.RegSP,
+		value:    ast.NewNumber(value),
+	}, nil
 }
 
 func parseParenthesizedOperand(p arch.Parser) (rawOperand, error) {
@@ -353,15 +366,27 @@ func parseParenthesizedIdentifier(p arch.Parser, inner token.Token) (rawOperand,
 func buildParenthesizedRegOrLabel(inner token.Token) (rawOperand, error) {
 	switch strings.ToLower(inner.Value) {
 	case "hl+":
-		return rawOperand{indirect: true, isHLPlus: true}, nil
+		return rawOperand{
+			indirect: true,
+			isHLPlus: true,
+		}, nil
 	case "hl-":
-		return rawOperand{indirect: true, isHLMinus: true}, nil
+		return rawOperand{
+			indirect:  true,
+			isHLMinus: true,
+		}, nil
 	}
 	if indReg, ok := lookupIndirectRegister(inner.Value); ok {
-		return rawOperand{indirect: true, indirectReg: indReg}, nil
+		return rawOperand{
+			indirect:    true,
+			indirectReg: indReg,
+		}, nil
 	}
 	if reg, ok := lookupRegister(inner.Value); ok {
-		return rawOperand{indirect: true, register: reg}, nil
+		return rawOperand{
+			indirect: true,
+			register: reg,
+		}, nil
 	}
 
 	return rawOperand{
@@ -374,7 +399,11 @@ func parseHLPlusMinus(p arch.Parser, _ token.Token, plus bool) (rawOperand, erro
 	closing := p.NextToken(3)
 	if closing.Type == token.RightParentheses {
 		p.AdvanceReadPosition(3)
-		return rawOperand{indirect: true, isHLPlus: plus, isHLMinus: !plus}, nil
+		return rawOperand{
+			indirect:  true,
+			isHLPlus:  plus,
+			isHLMinus: !plus,
+		}, nil
 	}
 
 	return rawOperand{}, fmt.Errorf("expected closing parenthesis after (hl%s)", map[bool]string{true: "+", false: "-"}[plus])
@@ -393,7 +422,10 @@ func parseParenthesizedNumber(p arch.Parser, inner token.Token) (rawOperand, err
 		if !ok {
 			return rawOperand{}, fmt.Errorf("unsupported parenthesized value '%s'", inner.Value)
 		}
-		return rawOperand{indirect: true, value: value}, nil
+		return rawOperand{
+			indirect: true,
+			value:    value,
+		}, nil
 
 	case token.Plus, token.Minus:
 		return parseParenthesizedExpressionOperand(p, inner)
@@ -475,7 +507,9 @@ func parseValueOperand(tok token.Token) (ast.Node, bool, error) {
 }
 
 // resolveInstruction dispatches to the appropriate resolver based on operand count.
-func resolveInstruction(name string, variants []*cpusm83.Instruction, operands []rawOperand) (*ResolvedInstruction, error) {
+func resolveInstruction(name string, variants []*cpusm83.Instruction,
+	operands []rawOperand) (*ResolvedInstruction, error) {
+
 	switch len(operands) {
 	case 0:
 		return resolveNoOperand(variants)
@@ -711,7 +745,9 @@ func matchRstVariant(variants []*cpusm83.Instruction, rstParam cpusm83.RegisterP
 	return nil
 }
 
-func resolveTwoOperands(name string, variants []*cpusm83.Instruction, op1, op2 rawOperand) (*ResolvedInstruction, error) {
+func resolveTwoOperands(name string, variants []*cpusm83.Instruction, op1,
+	op2 rawOperand) (*ResolvedInstruction, error) {
+
 	if result := resolveSpecialLD(variants, op1, op2); result != nil {
 		return result, nil
 	}
@@ -737,11 +773,8 @@ func resolveTwoOperands(name string, variants []*cpusm83.Instruction, op1, op2 r
 	return resolveTwoOperandsFallback(name, variants, op1, op2)
 }
 
-func resolveTwoOperandsFallback(
-	name string,
-	variants []*cpusm83.Instruction,
-	op1, op2 rawOperand,
-) (*ResolvedInstruction, error) {
+func resolveTwoOperandsFallback(name string, variants []*cpusm83.Instruction, op1,
+	op2 rawOperand) (*ResolvedInstruction, error) {
 
 	if result := resolveConditionAddress(variants, op1, op2); result != nil {
 		return result, nil
@@ -878,12 +911,8 @@ func matchSpecialImplied(variants []*cpusm83.Instruction, target *cpusm83.Instru
 	}
 }
 
-func matchSpecialWithValue(
-	variants []*cpusm83.Instruction,
-	target *cpusm83.Instruction,
-	addressing cpusm83.AddressingMode,
-	value ast.Node,
-) *ResolvedInstruction {
+func matchSpecialWithValue(variants []*cpusm83.Instruction, target *cpusm83.Instruction,
+	addressing cpusm83.AddressingMode, value ast.Node) *ResolvedInstruction {
 
 	if !slices.Contains(variants, target) {
 		return nil

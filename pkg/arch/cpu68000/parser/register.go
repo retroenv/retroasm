@@ -20,15 +20,37 @@ func init() {
 	}
 
 	for i := range uint8(7) {
-		registers["A"+string(rune('0'+i))] = registerInfo{number: i, isAddr: true}
+		registers["A"+string(rune('0'+i))] = registerInfo{
+			number: i,
+			isAddr: true,
+		}
 	}
-	registers["A7"] = registerInfo{number: 7, isAddr: true}
-	registers["SP"] = registerInfo{number: 7, isAddr: true}
+	registers["A7"] = registerInfo{
+		number: 7,
+		isAddr: true,
+	}
+	registers["SP"] = registerInfo{
+		number: 7,
+		isAddr: true,
+	}
 
-	registers["SR"] = registerInfo{number: regSR, special: true}
-	registers["CCR"] = registerInfo{number: regCCR, special: true}
-	registers["USP"] = registerInfo{number: regUSP, special: true, isAddr: true}
-	registers["PC"] = registerInfo{number: regPC, special: true}
+	registers["SR"] = registerInfo{
+		number:  regSR,
+		special: true,
+	}
+	registers["CCR"] = registerInfo{
+		number:  regCCR,
+		special: true,
+	}
+	registers["USP"] = registerInfo{
+		number:  regUSP,
+		special: true,
+		isAddr:  true,
+	}
+	registers["PC"] = registerInfo{
+		number:  regPC,
+		special: true,
+	}
 }
 
 type registerInfo struct {

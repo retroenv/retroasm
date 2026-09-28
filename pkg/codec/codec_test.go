@@ -39,9 +39,21 @@ func TestCodec_ParseTypedStream(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, stream.Len())
-	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 1, Column: 1}, stream.At(0).Position)
-	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 2, Column: 1}, stream.At(1).Position)
-	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 3, Column: 1}, stream.At(2).Position)
+	assert.Equal(t, ast.SourcePosition{
+		Source: "input.asm",
+		Line:   1,
+		Column: 1,
+	}, stream.At(0).Position)
+	assert.Equal(t, ast.SourcePosition{
+		Source: "input.asm",
+		Line:   2,
+		Column: 1,
+	}, stream.At(1).Position)
+	assert.Equal(t, ast.SourcePosition{
+		Source: "input.asm",
+		Line:   3,
+		Column: 1,
+	}, stream.At(2).Position)
 	nodes := stream.Nodes()
 	assert.Len(t, nodes, 3)
 
@@ -62,7 +74,11 @@ func TestCodec_ParseAndAssembleStreamRecordsMetadata(t *testing.T) {
 	configuration := asmcpu6502.New()
 	configuration.CompatibilityMode = config.CompatCa65
 	segment := &config.Segment{
-		Memory:      config.Memory{Name: "code", Start: 0, Size: 0x10000},
+		Memory: config.Memory{
+			Name:  "code",
+			Start: 0,
+			Size:  0x10000,
+		},
 		SegmentName: "code",
 		Align:       16,
 	}
@@ -205,7 +221,11 @@ func TestCodec_ValidateStreamReportsInstructionPosition(t *testing.T) {
 
 	err = stream.Replace(1, 2, []ast.Entry{ast.NewEntry(
 		ast.NewInstruction("missing", 0, nil, nil),
-		ast.SourcePosition{Source: "input.asm", Line: 2, Column: 1},
+		ast.SourcePosition{
+			Source: "input.asm",
+			Line:   2,
+			Column: 1,
+		},
 	)})
 	assert.NoError(t, err)
 	err = c.ValidateStream(stream)
@@ -224,7 +244,11 @@ func TestCodec_ValidateStreamReportsDataPosition(t *testing.T) {
 	data := ast.NewData(ast.DataType, 1)
 	stream := ast.NewStream(ast.NewEntry(
 		data,
-		ast.SourcePosition{Source: "input.asm", Line: 6, Column: 3},
+		ast.SourcePosition{
+			Source: "input.asm",
+			Line:   6,
+			Column: 3,
+		},
 	))
 
 	err := c.ValidateStream(stream)
@@ -544,7 +568,11 @@ func TestCodec_FormatStreamRejectsUnsupportedNodes(t *testing.T) {
 	c := newCPU6502Codec(t)
 	stream := ast.NewStream(ast.NewEntry(
 		ast.NewScope("inner"),
-		ast.SourcePosition{Source: "input.asm", Line: 4, Column: 1},
+		ast.SourcePosition{
+			Source: "input.asm",
+			Line:   4,
+			Column: 1,
+		},
 	))
 
 	_, err := c.FormatStream(stream)

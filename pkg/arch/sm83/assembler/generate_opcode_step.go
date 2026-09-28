@@ -43,13 +43,8 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func buildOpcodeBytes(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved sm83parser.ResolvedInstruction,
-	opcodeInfo cpusm83.OpcodeInfo,
-	addressing cpusm83.AddressingMode,
-) ([]byte, error) {
+func buildOpcodeBytes(assigner arch.AddressAssigner, ins arch.Instruction, resolved sm83parser.ResolvedInstruction,
+	opcodeInfo cpusm83.OpcodeInfo, addressing cpusm83.AddressingMode) ([]byte, error) {
 
 	if isCBBitInstruction(resolved.Instruction) {
 		return buildBitOpcode(assigner, resolved, opcodeInfo)
@@ -78,13 +73,8 @@ func buildOpcodeBytes(
 	}
 }
 
-func appendImmediateOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved sm83parser.ResolvedInstruction,
-	opcodeInfo cpusm83.OpcodeInfo,
-	opcodes []byte,
-) ([]byte, error) {
+func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved sm83parser.ResolvedInstruction, opcodeInfo cpusm83.OpcodeInfo, opcodes []byte) ([]byte, error) {
 
 	remaining := int(opcodeInfo.Size) - len(opcodes)
 	switch remaining {
@@ -122,12 +112,8 @@ func appendImmediateOperand(
 	}
 }
 
-func appendExtendedOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved sm83parser.ResolvedInstruction,
-	opcodes []byte,
-) ([]byte, error) {
+func appendExtendedOperand(assigner arch.AddressAssigner, ins arch.Instruction, resolved sm83parser.ResolvedInstruction,
+	opcodes []byte) ([]byte, error) {
 
 	value, err := resolvedOperandValue(assigner, resolved)
 	if err != nil {
@@ -142,13 +128,8 @@ func appendExtendedOperand(
 	return opcodes, nil
 }
 
-func appendRelativeOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved sm83parser.ResolvedInstruction,
-	opcodeInfo cpusm83.OpcodeInfo,
-	opcodes []byte,
-) ([]byte, error) {
+func appendRelativeOperand(assigner arch.AddressAssigner, ins arch.Instruction, resolved sm83parser.ResolvedInstruction,
+	opcodeInfo cpusm83.OpcodeInfo, opcodes []byte) ([]byte, error) {
 
 	value, err := resolvedOperandValue(assigner, resolved)
 	if err != nil {
@@ -166,13 +147,8 @@ func appendRelativeOperand(
 	return opcodes, nil
 }
 
-func appendOptionalByteOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved sm83parser.ResolvedInstruction,
-	opcodeInfo cpusm83.OpcodeInfo,
-	opcodes []byte,
-) ([]byte, error) {
+func appendOptionalByteOperand(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved sm83parser.ResolvedInstruction, opcodeInfo cpusm83.OpcodeInfo, opcodes []byte) ([]byte, error) {
 
 	remaining := int(opcodeInfo.Size) - len(opcodes)
 	if remaining == 0 {
@@ -195,14 +171,8 @@ func appendOptionalByteOperand(
 	return opcodes, nil
 }
 
-func recordSM83Relocation(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved sm83parser.ResolvedInstruction,
-	byteOffset uint64,
-	kind ast.RelocationKind,
-	width ast.DataWidth,
-) {
+func recordSM83Relocation(assigner arch.AddressAssigner, ins arch.Instruction, resolved sm83parser.ResolvedInstruction,
+	byteOffset uint64, kind ast.RelocationKind, width ast.DataWidth) {
 
 	if len(resolved.OperandValues) == 0 {
 		return
@@ -224,7 +194,9 @@ func baseOpcodeBytes(opcodeInfo cpusm83.OpcodeInfo) []byte {
 	return append(opcodes, opcodeInfo.Opcode)
 }
 
-func buildBitOpcode(assigner arch.AddressAssigner, resolved sm83parser.ResolvedInstruction, opcodeInfo cpusm83.OpcodeInfo) ([]byte, error) {
+func buildBitOpcode(assigner arch.AddressAssigner, resolved sm83parser.ResolvedInstruction,
+	opcodeInfo cpusm83.OpcodeInfo) ([]byte, error) {
+
 	opcodes := make([]byte, 0, 2)
 	opcodes = append(opcodes, opcodeInfo.Prefix)
 

@@ -50,9 +50,12 @@ func TestBuildLogFields(t *testing.T) {
 			expected: 3,
 		},
 		{
-			name:     "input with z80 profile",
-			input:    "test.asm",
-			options:  &optionFlags{cpu: cpuZ80, z80Profile: profile.StrictDocumented.String()},
+			name:  "input with z80 profile",
+			input: "test.asm",
+			options: &optionFlags{
+				cpu:        cpuZ80,
+				z80Profile: profile.StrictDocumented.String(),
+			},
 			expected: 3,
 		},
 	}
@@ -109,10 +112,14 @@ func TestCreateLogger(t *testing.T) {
 	}
 }
 
-func TestValidateSystem(t *testing.T) {
-	logger := log.NewTestLogger(t)
+func validateSystemTestCases(logger *log.Logger) []struct {
+	name        string
+	options     *optionFlags
+	expectedErr error
+	expectSys   string
+} {
 
-	tests := []struct {
+	return []struct {
 		name        string
 		options     *optionFlags
 		expectedErr error
@@ -124,28 +131,46 @@ func TestValidateSystem(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name:        "valid nes system",
-			options:     &optionFlags{system: "nes", logger: logger},
+			name: "valid nes system",
+			options: &optionFlags{
+				system: "nes",
+				logger: logger,
+			},
 			expectedErr: nil,
 			expectSys:   systemNES,
 		},
 		{
-			name:        "valid gameboy system",
-			options:     &optionFlags{system: "gameboy", logger: logger},
+			name: "valid gameboy system",
+			options: &optionFlags{
+				system: "gameboy",
+				logger: logger,
+			},
 			expectedErr: nil,
 			expectSys:   systemGameBoy,
 		},
 		{
-			name:        "unsupported system",
-			options:     &optionFlags{system: "dos", logger: logger},
+			name: "unsupported system",
+			options: &optionFlags{
+				system: "dos",
+				logger: logger,
+			},
 			expectedErr: ErrUnsupportedSystem,
 		},
 		{
-			name:        "invalid system",
-			options:     &optionFlags{system: "invalid", logger: logger},
+			name: "invalid system",
+			options: &optionFlags{
+				system: "invalid",
+				logger: logger,
+			},
 			expectedErr: ErrUnsupportedSystem,
 		},
 	}
+}
+
+func TestValidateSystem(t *testing.T) {
+	logger := log.NewTestLogger(t)
+
+	tests := validateSystemTestCases(logger)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -333,6 +358,7 @@ func architectureValidationCases(logger *log.Logger) []architectureValidationCas
 
 func architectureValidationCasesCore(logger *log.Logger) []architectureValidationCase {
 	cases := architectureValidationCasesDefaults(logger)
+	cases = append(cases, architectureValidationCasesAlternativeDefaults(logger)...)
 	cases = append(cases, architectureValidationCasesCompatibility(logger)...)
 	return cases
 }
@@ -348,48 +374,72 @@ func architectureValidationCasesDefaults(logger *log.Logger) []architectureValid
 			expectProfile: profile.Default.String(),
 		},
 		{
-			name:          "valid nes system defaults to 6502",
-			options:       &optionFlags{system: "nes", logger: logger},
+			name: "valid nes system defaults to 6502",
+			options: &optionFlags{
+				system: "nes",
+				logger: logger,
+			},
 			expectedErr:   nil,
 			expectCPU:     cpu6502Name,
 			expectSys:     systemNES,
 			expectProfile: profile.Default.String(),
 		},
 		{
-			name:          "valid 6502 cpu defaults to nes",
-			options:       &optionFlags{cpu: "6502", logger: logger},
+			name: "valid 6502 cpu defaults to nes",
+			options: &optionFlags{
+				cpu:    "6502",
+				logger: logger,
+			},
 			expectedErr:   nil,
 			expectCPU:     cpu6502Name,
 			expectSys:     systemNES,
 			expectProfile: profile.Default.String(),
 		},
 		{
-			name:          "valid nes and 6502 combination",
-			options:       &optionFlags{system: "nes", cpu: "6502", logger: logger},
+			name: "valid nes and 6502 combination",
+			options: &optionFlags{
+				system: "nes",
+				cpu:    "6502",
+				logger: logger,
+			},
 			expectedErr:   nil,
 			expectCPU:     cpu6502Name,
 			expectSys:     systemNES,
 			expectProfile: profile.Default.String(),
 		},
+	}
+}
+
+func architectureValidationCasesAlternativeDefaults(logger *log.Logger) []architectureValidationCase {
+	return []architectureValidationCase{
 		{
-			name:          "z80 cpu defaults to generic",
-			options:       &optionFlags{cpu: "z80", logger: logger},
+			name: "z80 cpu defaults to generic",
+			options: &optionFlags{
+				cpu:    "z80",
+				logger: logger,
+			},
 			expectedErr:   nil,
 			expectCPU:     cpuZ80,
 			expectSys:     systemGeneric,
 			expectProfile: profile.Default.String(),
 		},
 		{
-			name:          "gameboy system defaults to sm83",
-			options:       &optionFlags{system: "gameboy", logger: logger},
+			name: "gameboy system defaults to sm83",
+			options: &optionFlags{
+				system: "gameboy",
+				logger: logger,
+			},
 			expectedErr:   nil,
 			expectCPU:     cpuSM83,
 			expectSys:     systemGameBoy,
 			expectProfile: profile.Default.String(),
 		},
 		{
-			name:          "strict profile without cpu/system implies z80",
-			options:       &optionFlags{z80Profile: profile.StrictDocumented.String(), logger: logger},
+			name: "strict profile without cpu/system implies z80",
+			options: &optionFlags{
+				z80Profile: profile.StrictDocumented.String(),
+				logger:     logger,
+			},
 			expectedErr:   nil,
 			expectCPU:     cpuZ80,
 			expectSys:     systemGeneric,
@@ -401,13 +451,20 @@ func architectureValidationCasesDefaults(logger *log.Logger) []architectureValid
 func architectureValidationCasesCompatibility(logger *log.Logger) []architectureValidationCase {
 	return []architectureValidationCase{
 		{
-			name:        "incompatible nes and z80",
-			options:     &optionFlags{system: "nes", cpu: "z80", logger: logger},
+			name: "incompatible nes and z80",
+			options: &optionFlags{
+				system: "nes",
+				cpu:    "z80",
+				logger: logger,
+			},
 			expectedErr: ErrIncompatibleArch,
 		},
 		{
-			name:        "unsupported system",
-			options:     &optionFlags{system: "dos", logger: logger},
+			name: "unsupported system",
+			options: &optionFlags{
+				system: "dos",
+				logger: logger,
+			},
 			expectedErr: ErrUnsupportedSystem,
 		},
 	}
@@ -416,13 +473,21 @@ func architectureValidationCasesCompatibility(logger *log.Logger) []architecture
 func architectureValidationCasesProfiles(logger *log.Logger) []architectureValidationCase {
 	return []architectureValidationCase{
 		{
-			name:        "strict profile with 6502 is incompatible",
-			options:     &optionFlags{cpu: "6502", z80Profile: profile.StrictDocumented.String(), logger: logger},
+			name: "strict profile with 6502 is incompatible",
+			options: &optionFlags{
+				cpu:        "6502",
+				z80Profile: profile.StrictDocumented.String(),
+				logger:     logger,
+			},
 			expectedErr: ErrIncompatibleArch,
 		},
 		{
-			name:        "unsupported z80 profile",
-			options:     &optionFlags{cpu: "z80", z80Profile: "strict", logger: logger},
+			name: "unsupported z80 profile",
+			options: &optionFlags{
+				cpu:        "z80",
+				z80Profile: "strict",
+				logger:     logger,
+			},
 			expectedErr: profile.ErrUnsupportedProfile,
 		},
 	}

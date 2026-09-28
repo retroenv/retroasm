@@ -56,27 +56,45 @@ func (operand Operand) raw() (rawOperand, error) {
 			return rawOperand{}, errInvalidOperandRegister
 		}
 		if indirect := indirectRegister(operand.Register); indirect != sm83.RegNone {
-			return rawOperand{indirect: true, indirectReg: indirect}, nil
+			return rawOperand{
+				indirect:    true,
+				indirectReg: indirect,
+			}, nil
 		}
-		return rawOperand{indirect: true, register: operand.Register}, nil
+		return rawOperand{
+			indirect: true,
+			register: operand.Register,
+		}, nil
 
 	case OperandIndirectValue:
 		if operand.Value == nil {
 			return rawOperand{}, errInvalidOperandValue
 		}
-		return rawOperand{indirect: true, value: operand.Value.Copy()}, nil
+		return rawOperand{
+			indirect: true,
+			value:    operand.Value.Copy(),
+		}, nil
 
 	case OperandHLIncrement:
-		return rawOperand{indirect: true, isHLPlus: true}, nil
+		return rawOperand{
+			indirect: true,
+			isHLPlus: true,
+		}, nil
 
 	case OperandHLDecrement:
-		return rawOperand{indirect: true, isHLMinus: true}, nil
+		return rawOperand{
+			indirect:  true,
+			isHLMinus: true,
+		}, nil
 
 	case OperandSPOffset:
 		if operand.Value == nil {
 			return rawOperand{}, errInvalidOperandValue
 		}
-		return rawOperand{register: sm83.RegSP, value: operand.Value.Copy()}, nil
+		return rawOperand{
+			register: sm83.RegSP,
+			value:    operand.Value.Copy(),
+		}, nil
 
 	default:
 		return rawOperand{}, errInvalidOperandKind
@@ -85,22 +103,34 @@ func (operand Operand) raw() (rawOperand, error) {
 
 // RegisterOperand constructs a direct register or condition operand.
 func RegisterOperand(register sm83.RegisterParam) Operand {
-	return Operand{Kind: OperandRegister, Register: register}
+	return Operand{
+		Kind:     OperandRegister,
+		Register: register,
+	}
 }
 
 // ValueOperand constructs an immediate, address, label, or expression operand.
 func ValueOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandValue, Value: value}
+	return Operand{
+		Kind:  OperandValue,
+		Value: value,
+	}
 }
 
 // IndirectRegisterOperand constructs a parenthesized register operand.
 func IndirectRegisterOperand(register sm83.RegisterParam) Operand {
-	return Operand{Kind: OperandIndirectRegister, Register: register}
+	return Operand{
+		Kind:     OperandIndirectRegister,
+		Register: register,
+	}
 }
 
 // IndirectValueOperand constructs a parenthesized address or expression operand.
 func IndirectValueOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandIndirectValue, Value: value}
+	return Operand{
+		Kind:  OperandIndirectValue,
+		Value: value,
+	}
 }
 
 // HLIncrementOperand constructs the SM83 post-increment memory operand (HL+).
@@ -115,7 +145,11 @@ func HLDecrementOperand() Operand {
 
 // SPOffsetOperand constructs the signed-byte SP+e operand.
 func SPOffsetOperand(offset ast.Node) Operand {
-	return Operand{Kind: OperandSPOffset, Register: sm83.RegSP, Value: offset}
+	return Operand{
+		Kind:     OperandSPOffset,
+		Register: sm83.RegSP,
+		Value:    offset,
+	}
 }
 
 func copyOperands(operands []Operand) []Operand {
@@ -226,7 +260,10 @@ func rawRegisterOperand(register sm83.RegisterParam) (rawOperand, error) {
 }
 
 func identifierToken(register sm83.RegisterParam) token.Token {
-	return token.Token{Type: token.Identifier, Value: register.String()}
+	return token.Token{
+		Type:  token.Identifier,
+		Value: register.String(),
+	}
 }
 
 func validDirectRegister(register sm83.RegisterParam) bool {

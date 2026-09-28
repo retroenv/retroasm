@@ -13,9 +13,18 @@ func TestResolveInstruction_ReturnsIsolatedTypedProjection(t *testing.T) {
 	t.Parallel()
 
 	expression := ast.NewExpression(
-		token.Token{Type: token.LeftParentheses, Value: "("},
-		token.Token{Type: token.Identifier, Value: "source"},
-		token.Token{Type: token.RightParentheses, Value: ")"},
+		token.Token{
+			Type:  token.LeftParentheses,
+			Value: "(",
+		},
+		token.Token{
+			Type:  token.Identifier,
+			Value: "source",
+		},
+		token.Token{
+			Type:  token.RightParentheses,
+			Value: ")",
+		},
 	)
 	instruction := ast.NewInstruction(
 		cpu6502.LdaName,

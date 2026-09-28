@@ -54,11 +54,8 @@ func resolvedInstruction(argument any) (parser.ResolvedInstruction, error) {
 	return resolved, nil
 }
 
-func resolveAddressingMode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) (cpu65816.AddressingMode, error) {
+func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) (cpu65816.AddressingMode, error) {
 
 	addressing := resolved.Addressing
 	modes, ok := disambiguousAddressing[addressing]
@@ -81,11 +78,8 @@ func resolveAddressingMode(
 	return addressing, nil
 }
 
-func resolvedOperandValue(
-	assigner arch.AddressAssigner,
-	resolved parser.ResolvedInstruction,
-	index int,
-) (uint64, error) {
+func resolvedOperandValue(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	index int) (uint64, error) {
 
 	if index < 0 || index >= len(resolved.Operands) || resolved.Operands[index].Value == nil {
 		return 0, fmt.Errorf("operand %d is missing", index)

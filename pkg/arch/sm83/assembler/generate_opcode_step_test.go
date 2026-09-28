@@ -274,7 +274,10 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assigner := &mockAssigner{values: map[string]uint64{"value": test.value}}
-			ins := &mockInstruction{name: test.resolved.Instruction.Name, argument: test.resolved}
+			ins := &mockInstruction{
+				name:     test.resolved.Instruction.Name,
+				argument: test.resolved,
+			}
 
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)

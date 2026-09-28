@@ -132,14 +132,29 @@ func TestStreamAppendStreamCopiesMutableState(t *testing.T) {
 func streamJoinFixture(name, source string) *Stream {
 	address := NewData(AddressType, 2)
 	address.ReferenceType = FullAddress
-	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: name})}
-	label := NewEntry(NewLabel(name), SourcePosition{Source: source, Line: 2, Column: 1})
+	address.Values = []*expression.Expression{expression.New(token.Token{
+		Type:  token.Identifier,
+		Value: name,
+	})}
+	label := NewEntry(NewLabel(name), SourcePosition{
+		Source: source,
+		Line:   2,
+		Column: 1,
+	})
 	label.Annotations = []Annotation{&streamTestAnnotation{Value: name}}
 	label.Boundary = BoundaryBefore | BoundaryAfter
 	stream := NewStream(
-		NewEntry(NewSegment("code"), SourcePosition{Source: source, Line: 1, Column: 1}),
+		NewEntry(NewSegment("code"), SourcePosition{
+			Source: source,
+			Line:   1,
+			Column: 1,
+		}),
 		label,
-		NewEntry(address, SourcePosition{Source: source, Line: 3, Column: 1}),
+		NewEntry(address, SourcePosition{
+			Source: source,
+			Line:   3,
+			Column: 1,
+		}),
 	)
 	stream.RecordSymbol(Symbol{
 		EntryIndex: 1,

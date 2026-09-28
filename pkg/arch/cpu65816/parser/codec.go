@@ -21,23 +21,14 @@ type FormatOptions struct {
 }
 
 // BuildInstruction constructs a typed CPU65816 instruction in the default 8-bit state.
-func BuildInstruction(
-	mnemonic string,
-	instruction *cpu65816.Instruction,
-	operands Operands,
-) (ast.Instruction, error) {
-
+func BuildInstruction(mnemonic string, instruction *cpu65816.Instruction, operands Operands) (ast.Instruction, error) {
 	built, _, err := BuildInstructionWithState(mnemonic, instruction, operands, DefaultState())
 	return built, err
 }
 
 // BuildInstructionWithState constructs a typed CPU65816 instruction and returns its successor state.
-func BuildInstructionWithState(
-	mnemonic string,
-	instruction *cpu65816.Instruction,
-	operands Operands,
-	state State,
-) (ast.Instruction, State, error) {
+func BuildInstructionWithState(mnemonic string, instruction *cpu65816.Instruction, operands Operands,
+	state State) (ast.Instruction, State, error) {
 
 	var zero State
 	mnemonic = strings.ToLower(strings.TrimSpace(mnemonic))

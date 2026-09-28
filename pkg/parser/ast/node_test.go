@@ -41,7 +41,10 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "label", node: NewLabel("entry")},
 		{name: "number", node: NewNumber(1)},
 		{name: "identifier", node: NewIdentifier("value")},
-		{name: "expression", node: NewExpression(token.Token{Type: token.Number, Value: "1"})},
+		{name: "expression", node: NewExpression(token.Token{
+			Type:  token.Number,
+			Value: "1",
+		})},
 		{name: "operator", node: NewOperator("+")},
 		{name: "register value", node: NewRegisterValue(1, NewNumber(2))},
 		{name: "register pair value", node: NewRegisterRegisterValue(1, 2, NewNumber(3))},
@@ -59,7 +62,11 @@ func TestNodeCopiesOwnInlineComments(t *testing.T) {
 		{name: "else", node: NewElse()},
 		{name: "else if", node: NewElseIf(nil)},
 		{name: "endif", node: NewEndif()},
-		{name: "configuration", node: Configuration{node: &node{}, Item: ConfigMapper, Expression: expression.New()}},
+		{name: "configuration", node: Configuration{
+			node:       &node{},
+			Item:       ConfigMapper,
+			Expression: expression.New(),
+		}},
 		{name: "repeat", node: NewRept(nil)},
 		{name: "repeat end", node: NewEndr()},
 		{name: "scope", node: NewScope("local")},
@@ -303,8 +310,14 @@ func TestData_Copy(t *testing.T) {
 	t.Run("data with value expressions", func(t *testing.T) {
 		original := NewData(AddressType, 2)
 		original.Values = []*expression.Expression{
-			expression.New(token.Token{Type: token.Identifier, Value: "target"}),
-			expression.New(token.Token{Type: token.Number, Value: "1"}),
+			expression.New(token.Token{
+				Type:  token.Identifier,
+				Value: "target",
+			}),
+			expression.New(token.Token{
+				Type:  token.Number,
+				Value: "1",
+			}),
 		}
 		original.ReferenceType = FullAddress
 		original.Fill = true
@@ -323,9 +336,97 @@ func TestData_Copy(t *testing.T) {
 	})
 }
 
+type dataValidationCase struct {
+	name string
+	data Data
+}
+
+func invalidDataCases(newValue func() *expression.Expression) []dataValidationCase {
+	return []dataValidationCase{
+		{name: "invalid type", data: NewData(InvalidDataType, 1)},
+		{name: "invalid width", data: NewData(DataType, 0)},
+		{name: "nil size", data: Data{
+			node:   &node{},
+			Type:   DataType,
+			Width:  1,
+			Values: []*expression.Expression{newValue()},
+		}},
+		{name: "missing values", data: NewData(DataType, 1)},
+		{name: "nil value", data: Data{
+			node:   &node{},
+			Type:   DataType,
+			Width:  1,
+			Size:   expression.New(),
+			Values: []*expression.Expression{nil},
+		}},
+		{name: "empty value", data: Data{
+			node:   &node{},
+			Type:   DataType,
+			Width:  1,
+			Size:   expression.New(),
+			Values: []*expression.Expression{expression.New()},
+		}},
+	}
+}
+
+func invalidAddressCases(newValue func() *expression.Expression) []dataValidationCase {
+	return []dataValidationCase{
+		{name: "data with reference type", data: Data{
+			node:          &node{},
+			Type:          DataType,
+			Width:         1,
+			ReferenceType: FullAddress,
+			Size:          expression.New(),
+			Values:        []*expression.Expression{newValue()},
+		}},
+		{name: "address with invalid reference", data: Data{
+			node:   &node{},
+			Type:   AddressType,
+			Width:  2,
+			Size:   expression.New(),
+			Values: []*expression.Expression{newValue()},
+		}},
+		{name: "address with expression", data: Data{
+			node:          &node{},
+			Type:          AddressType,
+			Width:         2,
+			ReferenceType: FullAddress,
+			Size:          expression.New(),
+			Values: []*expression.Expression{expression.New(token.Token{
+				Type:  token.Number,
+				Value: "1",
+			}, token.Token{
+				Type:  token.Plus,
+				Value: "+",
+			}, token.Token{
+				Type:  token.Number,
+				Value: "2",
+			})},
+		}},
+		{name: "address fill", data: Data{
+			node:          &node{},
+			Type:          AddressType,
+			Width:         2,
+			ReferenceType: FullAddress,
+			Fill:          true,
+			Size:          newValue(),
+			Values:        []*expression.Expression{newValue()},
+		}},
+		{name: "fill without size", data: Data{
+			node:  &node{},
+			Type:  DataType,
+			Width: 1,
+			Fill:  true,
+			Size:  expression.New(),
+		}}}
+}
+
 func TestData_Validate(t *testing.T) {
 	newValue := func() *expression.Expression {
-		return expression.New(token.Token{Type: token.Number, Value: "1"})
+		return expression.New(token.Token{
+			Type:  token.Number,
+			Value: "1",
+		})
 	}
 
 	validData := NewData(DataType, 1)
@@ -337,23 +438,7 @@ func TestData_Validate(t *testing.T) {
 	validFill.Size = newValue()
 	assert.NoError(t, validFill.Validate())
 
-	tests := []struct {
-		name string
-		data Data
-	}{
-		{name: "invalid type", data: NewData(InvalidDataType, 1)},
-		{name: "invalid width", data: NewData(DataType, 0)},
-		{name: "nil size", data: Data{node: &node{}, Type: DataType, Width: 1, Values: []*expression.Expression{newValue()}}},
-		{name: "missing values", data: NewData(DataType, 1)},
-		{name: "nil value", data: Data{node: &node{}, Type: DataType, Width: 1, Size: expression.New(), Values: []*expression.Expression{nil}}},
-		{name: "empty value", data: Data{node: &node{}, Type: DataType, Width: 1, Size: expression.New(), Values: []*expression.Expression{expression.New()}}},
-		{name: "data with reference type", data: Data{node: &node{}, Type: DataType, Width: 1, ReferenceType: FullAddress, Size: expression.New(), Values: []*expression.Expression{newValue()}}},
-		{name: "address with invalid reference", data: Data{node: &node{}, Type: AddressType, Width: 2, Size: expression.New(), Values: []*expression.Expression{newValue()}}},
-		{name: "address with expression", data: Data{node: &node{}, Type: AddressType, Width: 2, ReferenceType: FullAddress, Size: expression.New(), Values: []*expression.Expression{expression.New(token.Token{Type: token.Number, Value: "1"}, token.Token{Type: token.Plus, Value: "+"}, token.Token{Type: token.Number, Value: "2"})}}},
-		{name: "address fill", data: Data{node: &node{}, Type: AddressType, Width: 2, ReferenceType: FullAddress, Fill: true, Size: newValue(), Values: []*expression.Expression{newValue()}}},
-		{name: "fill without size", data: Data{node: &node{}, Type: DataType, Width: 1, Fill: true, Size: expression.New()}},
-	}
-
+	tests := append(invalidDataCases(newValue), invalidAddressCases(newValue)...)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assert.ErrorIs(t, test.data.Validate(), ErrInvalidData)

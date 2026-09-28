@@ -99,12 +99,8 @@ func Parse(value string) (Kind, error) {
 }
 
 // ValidateInstruction checks if the selected instruction is allowed by the profile.
-func ValidateInstruction(
-	kind Kind,
-	instruction *cpuz80.Instruction,
-	addressing cpuz80.AddressingMode,
-	registerParams []cpuz80.RegisterParam,
-) error {
+func ValidateInstruction(kind Kind, instruction *cpuz80.Instruction, addressing cpuz80.AddressingMode,
+	registerParams []cpuz80.RegisterParam) error {
 
 	if kind == Default {
 		return nil
@@ -171,11 +167,8 @@ func isUndocumentedInstruction(instruction *cpuz80.Instruction, info cpuz80.Opco
 	return undocumentedOpcodeKeys.Contains(opcodeKey(info.Prefix, info.Opcode))
 }
 
-func opcodeInfo(
-	instruction *cpuz80.Instruction,
-	addressing cpuz80.AddressingMode,
-	registerParams []cpuz80.RegisterParam,
-) (cpuz80.OpcodeInfo, error) {
+func opcodeInfo(instruction *cpuz80.Instruction, addressing cpuz80.AddressingMode,
+	registerParams []cpuz80.RegisterParam) (cpuz80.OpcodeInfo, error) {
 
 	switch len(registerParams) {
 	case 1:

@@ -15,7 +15,10 @@ func TestNoOp(t *testing.T) {
 			{Type: token.Identifier, Value: "list"},
 		}
 		if arguments {
-			tokens = append(tokens, token.Token{Type: token.Identifier, Value: "on"})
+			tokens = append(tokens, token.Token{
+				Type:  token.Identifier,
+				Value: "on",
+			})
 		}
 		tokens = append(tokens, token.Token{Type: token.EOL})
 		parser := newMockParser(tokens)

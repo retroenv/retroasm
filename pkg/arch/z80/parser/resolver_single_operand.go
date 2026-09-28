@@ -89,7 +89,9 @@ func resolveSingleRegisterOperand(variants []*cpuz80.Instruction, operand rawOpe
 	return nil
 }
 
-func matchRegisterOpcodeVariant(variants []*cpuz80.Instruction, operand rawOperand, candidates []cpuz80.RegisterParam) *ResolvedInstruction {
+func matchRegisterOpcodeVariant(variants []*cpuz80.Instruction, operand rawOperand,
+	candidates []cpuz80.RegisterParam) *ResolvedInstruction {
+
 	for _, variant := range variants {
 		if len(variant.RegisterOpcodes) == 0 {
 			continue

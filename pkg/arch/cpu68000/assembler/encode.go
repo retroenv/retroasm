@@ -43,12 +43,8 @@ func encodeEAField(ea *parser.EffectiveAddress) (mode, reg uint8) {
 }
 
 // appendEAExtensionWords appends the extension words for an EA to the opcode buffer.
-func appendEAExtensionWords(
-	buf []byte,
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-) ([]byte, error) {
+func appendEAExtensionWords(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize) ([]byte, error) {
 
 	if ea == nil {
 		return buf, nil
@@ -78,12 +74,8 @@ func appendEAExtensionWords(
 	}
 }
 
-func appendDisplacementEAExtension(
-	buf []byte,
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-) ([]byte, error) {
+func appendDisplacementEAExtension(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize) ([]byte, error) {
 
 	v, err := eaValue(assigner, ea)
 	if err != nil {
@@ -102,12 +94,8 @@ func appendDisplacementEAExtension(
 	return buf, nil
 }
 
-func appendIndexedEAExtension(
-	buf []byte,
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-) ([]byte, error) {
+func appendIndexedEAExtension(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize) ([]byte, error) {
 
 	byteOffset := uint64(len(buf))
 	buf, err := appendIndexExtensionWord(buf, assigner, ea)
@@ -118,12 +106,8 @@ func appendIndexedEAExtension(
 	return buf, nil
 }
 
-func appendAbsoluteEAExtension(
-	buf []byte,
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-) ([]byte, error) {
+func appendAbsoluteEAExtension(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize) ([]byte, error) {
 
 	v, err := eaValue(assigner, ea)
 	if err != nil {
@@ -139,12 +123,8 @@ func appendAbsoluteEAExtension(
 	return buf, nil
 }
 
-func appendImmediateEAExtension(
-	buf []byte,
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-) ([]byte, error) {
+func appendImmediateEAExtension(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize) ([]byte, error) {
 
 	byteOffset := uint64(len(buf))
 	buf, err := appendImmediateExtension(buf, assigner, ea, opSize)
@@ -186,12 +166,8 @@ func appendIndexExtensionWord(buf []byte, assigner arch.AddressAssigner, ea *par
 	return binary.BigEndian.AppendUint16(buf, ext), nil
 }
 
-func recordEAExtensionRelocation(
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-	byteOffset uint64,
-) {
+func recordEAExtensionRelocation(assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize, byteOffset uint64) {
 
 	if ea == nil || ea.Value == nil {
 		return
@@ -256,12 +232,8 @@ func pcRelativeValue(assigner arch.AddressAssigner, target, byteOffset uint64, b
 	return uint64(displacement), nil
 }
 
-func appendImmediateExtension(
-	buf []byte,
-	assigner arch.AddressAssigner,
-	ea *parser.EffectiveAddress,
-	opSize cpu68000.OperandSize,
-) ([]byte, error) {
+func appendImmediateExtension(buf []byte, assigner arch.AddressAssigner, ea *parser.EffectiveAddress,
+	opSize cpu68000.OperandSize) ([]byte, error) {
 
 	v, err := eaValue(assigner, ea)
 	if err != nil {

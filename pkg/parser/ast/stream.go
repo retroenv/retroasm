@@ -190,12 +190,18 @@ func NewDefinitionSymbolExpression(definition *expression.Expression) SymbolExpr
 
 // NewEntry returns a stream entry for node and position.
 func NewEntry(node Node, position SourcePosition) Entry {
-	return Entry{Node: node, Position: position}
+	return Entry{
+		Node:     node,
+		Position: position,
+	}
 }
 
 // NewStream returns a stream that owns copies of entries.
 func NewStream(entries ...Entry) *Stream {
-	return &Stream{entries: copyEntries(entries), revision: &streamRevision{}}
+	return &Stream{
+		entries:  copyEntries(entries),
+		revision: &streamRevision{},
+	}
 }
 
 // NewStreamFromNodes returns a stream for nodes without source metadata.

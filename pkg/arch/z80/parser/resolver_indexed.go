@@ -5,7 +5,9 @@ import (
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
-func resolveRegisterIndexedOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
+func resolveRegisterIndexedOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool) {
+
 	if operand2.displacement == nil {
 		return nil, false
 	}
@@ -49,7 +51,9 @@ func resolveRegisterIndexedOperands(variants []*cpuz80.Instruction, operand1, op
 	return nil, false
 }
 
-func resolveIndexedRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
+func resolveIndexedRegisterOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool) {
+
 	if operand1.displacement == nil {
 		return nil, false
 	}

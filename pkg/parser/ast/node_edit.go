@@ -5,6 +5,11 @@ import (
 	"reflect"
 )
 
+// These nonzero-size tokens identify edit sources and stream revisions.
+// Their values have no assembly meaning.
+type entryHandle struct{ _ byte }
+type streamRevision struct{ _ byte }
+
 // NodeEdit owns a native view with explicit handles for its input entries.
 // Node.Copy and value copies retain handles. New nodes have no source entry.
 // An accepted commit invalidates the view. Any other stream mutation also invalidates it.
@@ -82,11 +87,6 @@ func (edit *NodeEdit) Len() int { return len(edit.nodes) }
 
 // Nodes returns independent native nodes with their source handles.
 func (edit *NodeEdit) Nodes() []Node { return CopyNodes(edit.nodes) }
-
-// These nonzero-size tokens identify edit sources and stream revisions.
-// Their values have no assembly meaning.
-type entryHandle struct{ _ byte }
-type streamRevision struct{ _ byte }
 
 type entryCarrier interface {
 	entryHandle() *entryHandle

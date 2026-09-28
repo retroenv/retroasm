@@ -189,11 +189,8 @@ func operandReferencesSymbol(value ast.Node) bool {
 	return ok
 }
 
-func resolvedFromParsed(
-	instruction ast.Instruction,
-	details *cpu65816.Instruction,
-	state State,
-) (ast.Instruction, ResolvedInstruction, error) {
+func resolvedFromParsed(instruction ast.Instruction, details *cpu65816.Instruction,
+	state State) (ast.Instruction, ResolvedInstruction, error) {
 
 	operands, err := operandsFromParsed(instruction)
 	if err != nil {
@@ -422,11 +419,8 @@ func resolveIndexedY(instruction *cpu65816.Instruction, operand Operand) cpu6581
 	return firstSupported(instruction, cpu65816.AbsoluteIndexedYAddressing, cpu65816.DirectPageIndexedYAddressing)
 }
 
-func resolveSizedPair(
-	instruction *cpu65816.Instruction,
-	operand Operand,
-	directPage, absolute cpu65816.AddressingMode,
-) cpu65816.AddressingMode {
+func resolveSizedPair(instruction *cpu65816.Instruction, operand Operand, directPage,
+	absolute cpu65816.AddressingMode) cpu65816.AddressingMode {
 
 	switch operand.Size {
 	case AddressDirectPage:
@@ -442,11 +436,7 @@ func resolveSizedPair(
 	}
 }
 
-func sizedAddressing(
-	size AddressSize,
-	directPage, absolute, long cpu65816.AddressingMode,
-) cpu65816.AddressingMode {
-
+func sizedAddressing(size AddressSize, directPage, absolute, long cpu65816.AddressingMode) cpu65816.AddressingMode {
 	switch size {
 	case AddressDirectPage:
 		return directPage

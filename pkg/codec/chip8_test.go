@@ -184,7 +184,10 @@ func TestCHIP8Codec_RecordsInstructionRelocations(t *testing.T) {
 	assembly, err := c.AssembleStream(t.Context(), stream)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{0x22, 0x00, 0xb2, 0x00, 0xa2, 0x00, 0x00, 0xe0}, assembly.Binary)
-	addressField := ast.PackedField{BitWidth: 12, PreserveMask: 0xf000}
+	addressField := ast.PackedField{
+		BitWidth:     12,
+		PreserveMask: 0xf000,
+	}
 	assert.Equal(t, []ast.Relocation{
 		{EntryIndex: 1, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig, Field: addressField},
 		{EntryIndex: 2, Kind: ast.AbsoluteRelocation, Expression: ast.NewSymbolExpression("target", 0, ast.FullAddress), Width: ast.WidthWord, ByteOrder: ast.ByteOrderBig, Field: addressField},
@@ -202,21 +205,7 @@ func TestCHIP8Codec_RecordsTypedInstructionRelocationAddends(t *testing.T) {
 	t.Parallel()
 
 	c := newCHIP8Codec(t)
-	address := ast.NewExpression(
-		token.Token{Type: token.Identifier, Value: "target"},
-		token.Token{Type: token.Plus},
-		token.Token{Type: token.Number, Value: "2"},
-	)
-	byteValue := ast.NewExpression(
-		token.Token{Type: token.Identifier, Value: "target"},
-		token.Token{Type: token.Minus},
-		token.Token{Type: token.Number, Value: "257"},
-	)
-	nibble := ast.NewExpression(
-		token.Token{Type: token.Identifier, Value: "target"},
-		token.Token{Type: token.Minus},
-		token.Token{Type: token.Number, Value: "507"},
-	)
+	address, byteValue, nibble := chip8RelocationExpressions()
 	call, err := codec.BuildInstruction(c, chip8.CallName, chip8parser.Operands{
 		chip8parser.AddressOperand(address),
 	})
@@ -238,7 +227,10 @@ func TestCHIP8Codec_RecordsTypedInstructionRelocationAddends(t *testing.T) {
 			EntryIndex: 1, Kind: ast.AbsoluteRelocation,
 			Expression: ast.NewSymbolExpression("target", 2, ast.FullAddress),
 			Width:      ast.WidthWord, ByteOrder: ast.ByteOrderBig,
-			Field: ast.PackedField{BitWidth: 12, PreserveMask: 0xf000},
+			Field: ast.PackedField{
+				BitWidth:     12,
+				PreserveMask: 0xf000,
+			},
 		},
 		{
 			EntryIndex: 2, ByteOffset: 1, Kind: ast.AbsoluteRelocation,
@@ -249,10 +241,50 @@ func TestCHIP8Codec_RecordsTypedInstructionRelocationAddends(t *testing.T) {
 			EntryIndex: 3, ByteOffset: 1, Kind: ast.AbsoluteRelocation,
 			Expression: ast.NewSymbolExpression("target", -507, ast.FullAddress),
 			Width:      ast.WidthByte, ByteOrder: ast.ByteOrderBig,
-			Field: ast.PackedField{BitWidth: 4, PreserveMask: 0xf0},
+			Field: ast.PackedField{
+				BitWidth:     4,
+				PreserveMask: 0xf0,
+			},
 		},
 	}, assembly.Stream.Relocations())
 	assert.NoError(t, assembly.Stream.Validate())
+}
+
+func chip8RelocationExpressions() (ast.Expression, ast.Expression, ast.Expression) {
+	address := ast.NewExpression(
+		token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		},
+		token.Token{Type: token.Plus},
+		token.Token{
+			Type:  token.Number,
+			Value: "2",
+		},
+	)
+	byteValue := ast.NewExpression(
+		token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		},
+		token.Token{Type: token.Minus},
+		token.Token{
+			Type:  token.Number,
+			Value: "257",
+		},
+	)
+	nibble := ast.NewExpression(
+		token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		},
+		token.Token{Type: token.Minus},
+		token.Token{
+			Type:  token.Number,
+			Value: "507",
+		},
+	)
+	return address, byteValue, nibble
 }
 
 func TestCHIP8Codec_RejectsStalePackedRelocation(t *testing.T) {
@@ -260,9 +292,15 @@ func TestCHIP8Codec_RejectsStalePackedRelocation(t *testing.T) {
 
 	c := newCHIP8Codec(t)
 	value := ast.NewExpression(
-		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		},
 		token.Token{Type: token.Minus},
-		token.Token{Type: token.Number, Value: "512"},
+		token.Token{
+			Type:  token.Number,
+			Value: "512",
+		},
 	)
 	call, err := codec.BuildInstruction(c, chip8.CallName, chip8parser.Operands{
 		chip8parser.AddressOperand(value),
@@ -333,7 +371,10 @@ func TestCHIP8TypedInstructionFormattingOptions(t *testing.T) {
 	assert.NoError(t, err)
 	formatted, err := chip8parser.FormatInstructionWithOptions(
 		instruction,
-		chip8parser.FormatOptions{Indent: "  ", Uppercase: true},
+		chip8parser.FormatOptions{
+			Indent:    "  ",
+			Uppercase: true,
+		},
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, "  LD VA,0x01", formatted)
@@ -347,13 +388,22 @@ func newCHIP8Codec(t *testing.T) *codec.Codec[*chip8.Instruction] {
 }
 
 func astToken(value string) token.Token {
-	return token.Token{Type: token.Identifier, Value: value}
+	return token.Token{
+		Type:  token.Identifier,
+		Value: value,
+	}
 }
 
 func astOperatorToken(value string) token.Token {
-	return token.Token{Type: token.Percent, Value: value}
+	return token.Token{
+		Type:  token.Percent,
+		Value: value,
+	}
 }
 
 func astNumberToken(value string) token.Token {
-	return token.Token{Type: token.Number, Value: value}
+	return token.Token{
+		Type:  token.Number,
+		Value: value,
+	}
 }

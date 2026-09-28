@@ -18,7 +18,10 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 		Addressing:  chip8.RegisterValueAddressing,
 		Operands: Operands{
 			RegisterOperand(1),
-			ByteOperand(ast.NewExpression(token.Token{Type: token.Identifier, Value: "source"})),
+			ByteOperand(ast.NewExpression(token.Token{
+				Type:  token.Identifier,
+				Value: "source",
+			})),
 		},
 	}
 	copied := original.CopyInstructionArgument().(ResolvedInstruction)
@@ -35,9 +38,15 @@ func TestResolvedInstruction_InstructionReferences(t *testing.T) {
 	resolved := ResolvedInstruction{Operands: Operands{
 		RegisterOperand(0),
 		AddressOperand(ast.NewExpression(
-			token.Token{Type: token.Identifier, Value: "target"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "target",
+			},
 			token.Token{Type: token.Plus},
-			token.Token{Type: token.Number, Value: "2"},
+			token.Token{
+				Type:  token.Number,
+				Value: "2",
+			},
 		)),
 		NibbleOperand(ast.NewNumber(1)),
 	}}

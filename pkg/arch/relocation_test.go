@@ -42,7 +42,9 @@ func (*recordingAssigner) RelativeOffset(uint64, uint64) (byte, error) {
 	return 0, nil
 }
 
-func (ass *recordingAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any, encoding arch.RelocationEncoding) {
+func (ass *recordingAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any,
+	encoding arch.RelocationEncoding) {
+
 	ass.argument = argument
 	ass.encoding = encoding
 }

@@ -102,11 +102,7 @@ func (ar *architecture) ParseIdentifier(p arch.Parser, _ string, ins *Instructio
 	return sm83parser.ParseIdentifier(p, ins.Name, ins.Variants) //nolint:wrapcheck // thin delegation to sub-package
 }
 
-func (ar *architecture) BuildInstruction(
-	mnemonic string,
-	operands sm83parser.Operands,
-) (ast.Instruction, error) {
-
+func (ar *architecture) BuildInstruction(mnemonic string, operands sm83parser.Operands) (ast.Instruction, error) {
 	group, ok := ar.Instruction(mnemonic)
 	if !ok {
 		return ast.Instruction{}, fmt.Errorf("unknown SM83 instruction %q", mnemonic)

@@ -124,12 +124,8 @@ func parseOpcodeID[T any](t *testing.T, architecture arch.Architecture[T], sourc
 	return parseInstruction(t, architecture, source).OpcodeID
 }
 
-func assertRegisteredOpcodeIDs[T any, ID ~uint8](
-	t *testing.T,
-	architecture arch.Architecture[T],
-	expectedArchitecture retroarch.Architecture,
-	registered map[string]ID,
-) {
+func assertRegisteredOpcodeIDs[T any, ID ~uint8](t *testing.T, architecture arch.Architecture[T],
+	expectedArchitecture retroarch.Architecture, registered map[string]ID) {
 
 	t.Helper()
 	for name, expectedValue := range registered {

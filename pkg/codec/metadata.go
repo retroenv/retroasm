@@ -28,7 +28,10 @@ func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 	}
 	relocations := set.New[relocationLocation]()
 	for _, relocation := range stream.Relocations() {
-		relocations.Add(relocationLocation{entryIndex: relocation.EntryIndex, byteOffset: relocation.ByteOffset})
+		relocations.Add(relocationLocation{
+			entryIndex: relocation.EntryIndex,
+			byteOffset: relocation.ByteOffset,
+		})
 	}
 	for index, entry := range stream.Entries() {
 		switch node := entry.Node.(type) {
@@ -77,7 +80,11 @@ func recordDataRelocations(stream *ast.Stream, entryIndex int, data ast.Data, or
 	}
 	for valueIndex, value := range data.Values {
 		byteOffset := uint64(valueIndex * width)
-		if recorded.Contains(relocationLocation{entryIndex: entryIndex, byteOffset: byteOffset}) {
+		if recorded.Contains(relocationLocation{
+			entryIndex: entryIndex,
+			byteOffset: byteOffset,
+		}) {
+
 			continue
 		}
 		symbol, addend, ok := ast.ParseSymbolReference(value)

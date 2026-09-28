@@ -54,12 +54,19 @@ func AccumulatorOperand() Operand {
 
 // ImmediateOperand constructs a #value operand.
 func ImmediateOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandImmediate, Value: value}
+	return Operand{
+		Kind:  OperandImmediate,
+		Value: value,
+	}
 }
 
 // MemoryOperand constructs a value-bearing addressing operand.
 func MemoryOperand(kind OperandKind, size AddressSize, value ast.Node) Operand {
-	return Operand{Kind: kind, Size: size, Value: value}
+	return Operand{
+		Kind:  kind,
+		Size:  size,
+		Value: value,
+	}
 }
 
 // BlockMoveOperands constructs source and destination bank operands.

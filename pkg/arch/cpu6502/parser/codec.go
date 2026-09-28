@@ -21,12 +21,7 @@ type FormatOptions struct {
 
 // BuildInstruction constructs a typed CPU6502 instruction without parsing text.
 // It preserves the compatibility AST argument layout used by existing CPU6502 passes.
-func BuildInstruction(
-	mnemonic string,
-	instruction *cpu6502.Instruction,
-	operands Operands,
-) (ast.Instruction, error) {
-
+func BuildInstruction(mnemonic string, instruction *cpu6502.Instruction, operands Operands) (ast.Instruction, error) {
 	mnemonic = strings.ToLower(strings.TrimSpace(mnemonic))
 	if instruction == nil || mnemonic == "" || instruction.Name != mnemonic {
 		return ast.Instruction{}, fmt.Errorf("%w: mnemonic %q", ErrInvalidInstruction, mnemonic)
@@ -36,7 +31,11 @@ func BuildInstruction(
 	if err != nil {
 		return ast.Instruction{}, fmt.Errorf("%w: resolving %s operands: %w", ErrInvalidInstruction, mnemonic, err)
 	}
-	resolved := ResolvedInstruction{Instruction: instruction, Addressing: addressing, Operands: operands}
+	resolved := ResolvedInstruction{
+		Instruction: instruction,
+		Addressing:  addressing,
+		Operands:    operands,
+	}
 	if err := validateResolved(resolved); err != nil {
 		return ast.Instruction{}, err
 	}
@@ -64,11 +63,8 @@ func FormatInstruction(instruction ast.Instruction, expected *cpu6502.Instructio
 }
 
 // FormatInstructionWithOptions formats one typed CPU6502 projection.
-func FormatInstructionWithOptions(
-	instruction ast.Instruction,
-	expected *cpu6502.Instruction,
-	options FormatOptions,
-) (string, error) {
+func FormatInstructionWithOptions(instruction ast.Instruction, expected *cpu6502.Instruction,
+	options FormatOptions) (string, error) {
 
 	resolved, err := ResolveInstruction(instruction, expected)
 	if err != nil {

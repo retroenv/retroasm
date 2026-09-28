@@ -147,7 +147,11 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 				test.state,
 			)
 			assigner := &mockAssigner{}
-			ins := &mockInstruction{name: test.mnemonic, addressing: int(test.addressing), argument: resolved}
+			ins := &mockInstruction{
+				name:       test.mnemonic,
+				addressing: int(test.addressing),
+				argument:   resolved,
+			}
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)
 			assert.Len(t, assigner.relocations, 1)
@@ -193,7 +197,10 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
 func (m *mockAssigner) ProgramCounter() uint64                   { return 0 }
 func (m *mockAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any, encoding arch.RelocationEncoding) {
-	m.relocations = append(m.relocations, recordedRelocation{argument: argument, encoding: encoding})
+	m.relocations = append(m.relocations, recordedRelocation{
+		argument: argument,
+		encoding: encoding,
+	})
 }
 
 func (m *mockInstruction) Address() uint64        { return m.address }
@@ -208,21 +215,12 @@ func (m *mockInstruction) SetAddressing(a int)    { m.addressing = a }
 func (m *mockInstruction) SetOpcodes(o []byte)    { m.opcodes = o }
 func (m *mockInstruction) SetSize(s int)          { m.size = s }
 
-func testResolvedInstruction(
-	name string,
-	addressing cpu65816.AddressingMode,
-	value uint64,
-) parser.ResolvedInstruction {
-
+func testResolvedInstruction(name string, addressing cpu65816.AddressingMode, value uint64) parser.ResolvedInstruction {
 	return testResolvedInstructionWithValue(name, addressing, ast.NewNumber(value), parser.DefaultState())
 }
 
-func testResolvedInstructionWithValue(
-	name string,
-	addressing cpu65816.AddressingMode,
-	value ast.Node,
-	state parser.State,
-) parser.ResolvedInstruction {
+func testResolvedInstructionWithValue(name string, addressing cpu65816.AddressingMode, value ast.Node,
+	state parser.State) parser.ResolvedInstruction {
 
 	return parser.ResolvedInstruction{
 		Instruction: cpu65816.Instructions[name],

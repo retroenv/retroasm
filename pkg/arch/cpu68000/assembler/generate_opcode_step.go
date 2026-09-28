@@ -17,7 +17,10 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 		return fmt.Errorf("resolving instruction argument: %w", err)
 	}
 
-	encodingAssigner := &instructionRelocationAssigner{AddressAssigner: assigner, instruction: ins}
+	encodingAssigner := &instructionRelocationAssigner{
+		AddressAssigner: assigner,
+		instruction:     ins,
+	}
 	opcodes, err := encodeInstruction(encodingAssigner, ins, resolved)
 	if err != nil {
 		return fmt.Errorf("encoding instruction '%s': %w", ins.Name(), err)
@@ -45,7 +48,9 @@ func recordCPU68000Relocation(assigner arch.AddressAssigner, argument any, encod
 	}
 }
 
-func cpu68000RelocationEncoding(byteOffset uint64, kind ast.RelocationKind, width ast.DataWidth) arch.RelocationEncoding {
+func cpu68000RelocationEncoding(byteOffset uint64, kind ast.RelocationKind,
+	width ast.DataWidth) arch.RelocationEncoding {
+
 	return arch.RelocationEncoding{
 		ByteOffset:    byteOffset,
 		Kind:          kind,
@@ -55,7 +60,9 @@ func cpu68000RelocationEncoding(byteOffset uint64, kind ast.RelocationKind, widt
 	}
 }
 
-func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, resolved parser.ResolvedInstruction) ([]byte, error) { //nolint:cyclop,gocyclo,funlen,maintidx // instruction encoding requires many cases
+func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) ([]byte, error) {
+
 	name := resolved.Instruction.Name
 
 	switch name {
@@ -94,6 +101,17 @@ func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, reso
 	case cpu68000.CMPMName:
 		return encodeCMPM(resolved)
 
+	default:
+		return encodeInstructionImmediate(assigner, ins, resolved)
+	}
+}
+
+func encodeInstructionImmediate(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) ([]byte, error) {
+
+	name := resolved.Instruction.Name
+
+	switch name {
 	case cpu68000.ADDIName:
 		return encodeImmediate(assigner, resolved, 0x0600)
 	case cpu68000.SUBIName:
@@ -127,6 +145,17 @@ func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, reso
 	case cpu68000.TASName:
 		return encodeUnaryByte(assigner, resolved, 0x4AC0)
 
+	default:
+		return encodeInstructionControl(assigner, ins, resolved)
+	}
+}
+
+func encodeInstructionControl(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) ([]byte, error) {
+
+	name := resolved.Instruction.Name
+
+	switch name {
 	case cpu68000.BccName, cpu68000.BRAName, cpu68000.BSRName:
 		return encodeBranch(assigner, ins, resolved)
 	case cpu68000.DBccName:
@@ -164,6 +193,15 @@ func encodeInstruction(assigner arch.AddressAssigner, ins arch.Instruction, reso
 	case cpu68000.STOPName:
 		return encodeSTOP(assigner, resolved)
 
+	default:
+		return encodeInstructionRemaining(assigner, resolved)
+	}
+}
+
+func encodeInstructionRemaining(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction) ([]byte, error) {
+	name := resolved.Instruction.Name
+
+	switch name {
 	case cpu68000.MOVEMName:
 		return encodeMOVEM(assigner, resolved)
 	case cpu68000.MOVEPName:

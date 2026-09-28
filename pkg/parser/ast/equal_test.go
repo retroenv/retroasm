@@ -126,8 +126,14 @@ func equalityFieldCases() []Node {
 		Instruction{Argument: Number{}}, Instruction{Argument: Number{Value: 1}},
 		Instruction{Argument: NewNumber(1)}, Instruction{Argument: NewNumber(1)},
 		Instruction{Argument: Label{Name: "name"}}, Instruction{Argument: Identifier{Name: "name"}},
-		Instruction{Argument: RegisterValue{Register: 1, Value: Number{Value: 1}}},
-		Instruction{Argument: RegisterValue{Register: 2, Value: Number{Value: 1}}},
+		Instruction{Argument: RegisterValue{
+			Register: 1,
+			Value:    Number{Value: 1},
+		}},
+		Instruction{Argument: RegisterValue{
+			Register: 2,
+			Value:    Number{Value: 1},
+		}},
 		Instruction{Modifier: []Modifier{}}, Instruction{Modifier: []Modifier{{}}},
 		Instruction{Modifier: []Modifier{{node: *comment}}},
 		Instruction{Modifier: []Modifier{{Value: "1"}}},
@@ -144,7 +150,11 @@ func TestEqualIgnoresEntryHandles(t *testing.T) {
 	for _, source := range []Node{
 		NewInstruction("lda", 0, NewNumber(1), nil), NewNumber(1), NewLabel("entry"),
 		NewIdentifier("symbol"), NewData(DataType, 1), &Comment{Message: "source"},
-		RegisterValue{node: &node{}, Register: 1, Value: NewNumber(2)},
+		RegisterValue{
+			node:     &node{},
+			Register: 1,
+			Value:    NewNumber(2),
+		},
 		NewAlias("alias"),
 	} {
 		left, right := source.Copy(), source.Copy()
@@ -156,9 +166,15 @@ func TestEqualIgnoresEntryHandles(t *testing.T) {
 		right.SetComment("changed")
 		assert.False(t, Equal(left, right), "%T", source)
 	}
-	left := &equalityExtension{node: &node{handle: &entryHandle{}}, Payload: []int{1}}
+	left := &equalityExtension{
+		node:    &node{handle: &entryHandle{}},
+		Payload: []int{1},
+	}
 	left.Next = left
-	right := &equalityExtension{node: &node{}, Payload: []int{1}}
+	right := &equalityExtension{
+		node:    &node{},
+		Payload: []int{1},
+	}
 	right.Next = right
 	assert.True(t, Equal(left, right))
 	right.Payload = []int{2}

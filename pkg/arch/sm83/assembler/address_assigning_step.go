@@ -45,6 +45,8 @@ func resolvedInstruction(argument any) (sm83parser.ResolvedInstruction, error) {
 	return resolved, nil
 }
 
-func opcodeInfoForResolvedInstruction(resolved sm83parser.ResolvedInstruction) (cpusm83.OpcodeInfo, cpusm83.AddressingMode, error) {
+func opcodeInfoForResolvedInstruction(
+	resolved sm83parser.ResolvedInstruction) (cpusm83.OpcodeInfo, cpusm83.AddressingMode, error) {
+
 	return resolved.OpcodeInfo() //nolint:wrapcheck // parser owns resolved SM83 variant selection
 }

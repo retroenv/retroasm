@@ -161,7 +161,10 @@ func (n *node) copyNode() *node {
 	if n == nil {
 		return &node{}
 	}
-	return &node{comment: n.comment, handle: n.handle}
+	return &node{
+		comment: n.comment,
+		handle:  n.handle,
+	}
 }
 
 func (n *node) inlineComment() string {

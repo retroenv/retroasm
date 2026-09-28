@@ -12,11 +12,8 @@ import (
 
 // GenerateInstructionOpcode generates the instruction opcode based on the instruction base opcode,
 // its addressing mode and parameters.
-func GenerateInstructionOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	instructionInfo *cpu6502.Instruction,
-) error {
+func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	instructionInfo *cpu6502.Instruction) error {
 
 	if instructionInfo == nil {
 		return fmt.Errorf("unsupported instruction %q", ins.Name())
@@ -62,11 +59,8 @@ func GenerateInstructionOpcode(
 	return nil
 }
 
-func generateByteAddressingOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	instructionInfo *cpu6502.Instruction,
-) error {
+func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	instructionInfo *cpu6502.Instruction) error {
 
 	value, err := assigner.ArgumentValue(ins.Argument())
 	if err != nil {
@@ -107,12 +101,8 @@ func upgradeToAbsolute(mode cpu6502.AddressingMode) cpu6502.AddressingMode {
 }
 
 // upgradeAndGenerateWord re-encodes the instruction using the absolute addressing variant.
-func upgradeAndGenerateWord(
-	ins arch.Instruction,
-	instructionInfo *cpu6502.Instruction,
-	newMode cpu6502.AddressingMode,
-	value uint64,
-) error {
+func upgradeAndGenerateWord(ins arch.Instruction, instructionInfo *cpu6502.Instruction, newMode cpu6502.AddressingMode,
+	value uint64) error {
 
 	if instructionInfo == nil {
 		return fmt.Errorf("value %d exceeds byte (no instruction info for upgrade)", value)
@@ -200,14 +190,8 @@ func generateZeroPageRelativeAddressingOpcode(assigner arch.AddressAssigner, ins
 	return nil
 }
 
-func recordCPU6502Relocation(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	argument any,
-	byteOffset uint64,
-	kind ast.RelocationKind,
-	width ast.DataWidth,
-) {
+func recordCPU6502Relocation(assigner arch.AddressAssigner, ins arch.Instruction, argument any, byteOffset uint64,
+	kind ast.RelocationKind, width ast.DataWidth) {
 
 	arch.RecordInstructionRelocation(assigner, ins, argument, arch.RelocationEncoding{
 		ByteOffset:    byteOffset,

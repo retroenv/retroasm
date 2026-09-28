@@ -5,7 +5,9 @@ import (
 	cpuz80 "github.com/retroenv/retrogolib/arch/cpu/z80"
 )
 
-func resolvePortImmediateOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+func resolvePortImmediateOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if operand1.displacement != nil || operand2.displacement != nil {
 		return nil, false, nil
 	}
@@ -18,7 +20,9 @@ func resolvePortImmediateOperands(variants []*cpuz80.Instruction, operand1, oper
 	return resolvePortImmediateRegisterValue(variants, operand1, operand2)
 }
 
-func resolvePortImmediateValueRegister(variants []*cpuz80.Instruction, valueOperand, registerOperand rawOperand) (*ResolvedInstruction, bool, error) {
+func resolvePortImmediateValueRegister(variants []*cpuz80.Instruction, valueOperand,
+	registerOperand rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if !valueOperand.parenthesized {
 		return nil, false, nil
 	}
@@ -51,7 +55,9 @@ func resolvePortImmediateValueRegister(variants []*cpuz80.Instruction, valueOper
 	return nil, false, nil
 }
 
-func resolvePortImmediateRegisterValue(variants []*cpuz80.Instruction, registerOperand, valueOperand rawOperand) (*ResolvedInstruction, bool, error) {
+func resolvePortImmediateRegisterValue(variants []*cpuz80.Instruction, registerOperand,
+	valueOperand rawOperand) (*ResolvedInstruction, bool, error) {
+
 	if !valueOperand.parenthesized {
 		return nil, false, nil
 	}
@@ -84,7 +90,9 @@ func resolvePortImmediateRegisterValue(variants []*cpuz80.Instruction, registerO
 	return nil, false, nil
 }
 
-func resolvePortRegisterOperands(variants []*cpuz80.Instruction, operand1, operand2 rawOperand) (*ResolvedInstruction, bool) {
+func resolvePortRegisterOperands(variants []*cpuz80.Instruction, operand1,
+	operand2 rawOperand) (*ResolvedInstruction, bool) {
+
 	if operand1.displacement != nil || operand2.displacement != nil {
 		return nil, false
 	}

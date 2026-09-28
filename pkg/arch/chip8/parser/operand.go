@@ -32,22 +32,34 @@ type Operands []Operand
 
 // RegisterOperand constructs a V0..VF operand.
 func RegisterOperand(register byte) Operand {
-	return Operand{Kind: OperandRegister, Register: register}
+	return Operand{
+		Kind:     OperandRegister,
+		Register: register,
+	}
 }
 
 // ByteOperand constructs an 8-bit value operand.
 func ByteOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandByte, Value: value}
+	return Operand{
+		Kind:  OperandByte,
+		Value: value,
+	}
 }
 
 // AddressOperand constructs a 12-bit address operand.
 func AddressOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandAddress, Value: value}
+	return Operand{
+		Kind:  OperandAddress,
+		Value: value,
+	}
 }
 
 // NibbleOperand constructs a 4-bit value operand.
 func NibbleOperand(value ast.Node) Operand {
-	return Operand{Kind: OperandNibble, Value: value}
+	return Operand{
+		Kind:  OperandNibble,
+		Value: value,
+	}
 }
 
 // SpecialOperand constructs an I, timer, key, font, BCD, or [I] operand.

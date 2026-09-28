@@ -124,9 +124,15 @@ func TestCPU68000Codec_RecordsTypedInstructionRelocationAddends(t *testing.T) {
 
 	c := newCPU68000Codec(t)
 	value := ast.NewExpression(
-		token.Token{Type: token.Identifier, Value: "target"},
+		token.Token{
+			Type:  token.Identifier,
+			Value: "target",
+		},
 		token.Token{Type: token.Plus},
-		token.Token{Type: token.Number, Value: "2"},
+		token.Token{
+			Type:  token.Number,
+			Value: "2",
+		},
 	)
 	instruction, err := codec.BuildInstruction(c, "move.w", cpu68000parser.BinaryOperands(
 		cpu68000.SizeWord,
@@ -416,7 +422,10 @@ func TestCPU68000TypedInstructionFormattingOptions(t *testing.T) {
 
 	formatted, err := cpu68000parser.FormatInstructionWithOptions(
 		instruction,
-		cpu68000parser.FormatOptions{Indent: "  ", Uppercase: true},
+		cpu68000parser.FormatOptions{
+			Indent:    "  ",
+			Uppercase: true,
+		},
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, "  MOVE.L 0x00000042.l,D0", formatted)

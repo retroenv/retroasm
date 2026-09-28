@@ -253,9 +253,21 @@ func TestParser_TokensToStreamPreservesPositionsAndState(t *testing.T) {
 	stream, err := parser.TokensToStream("input.asm")
 	assert.NoError(t, err)
 	assert.Equal(t, 3, stream.Len())
-	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 1, Column: 1}, stream.At(0).Position)
-	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 2, Column: 3}, stream.At(1).Position)
-	assert.Equal(t, ast.SourcePosition{Source: "input.asm", Line: 3, Column: 1}, stream.At(2).Position)
+	assert.Equal(t, ast.SourcePosition{
+		Source: "input.asm",
+		Line:   1,
+		Column: 1,
+	}, stream.At(0).Position)
+	assert.Equal(t, ast.SourcePosition{
+		Source: "input.asm",
+		Line:   2,
+		Column: 3,
+	}, stream.At(1).Position)
+	assert.Equal(t, ast.SourcePosition{
+		Source: "input.asm",
+		Line:   3,
+		Column: 1,
+	}, stream.At(2).Position)
 
 	initial, final, ok := ast.StateSnapshots[string](stream)
 	assert.True(t, ok)

@@ -89,11 +89,8 @@ func allInstructionVariantsForCoverage() []*cpuz80.Instruction {
 	return instructions
 }
 
-func addInstructionSlice(
-	instructions []*cpuz80.Instruction,
-	seen set.Set[*cpuz80.Instruction],
-	candidates []*cpuz80.Instruction,
-) []*cpuz80.Instruction {
+func addInstructionSlice(instructions []*cpuz80.Instruction, seen set.Set[*cpuz80.Instruction],
+	candidates []*cpuz80.Instruction) []*cpuz80.Instruction {
 
 	for _, instruction := range candidates {
 		if instruction == nil {
@@ -127,7 +124,9 @@ func tableInstructionSlice(table [256]cpuz80.Opcode) []*cpuz80.Instruction {
 	return instructions
 }
 
-func coverageResolvedInstruction(instruction *cpuz80.Instruction) (z80parser.ResolvedInstruction, cpuz80.OpcodeInfo, error) {
+func coverageResolvedInstruction(
+	instruction *cpuz80.Instruction) (z80parser.ResolvedInstruction, cpuz80.OpcodeInfo, error) {
+
 	resolved := z80parser.ResolvedInstruction{
 		Instruction: instruction,
 	}

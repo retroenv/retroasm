@@ -57,7 +57,10 @@ func TestGenerateInstructionOpcode_RecordsRelocations(t *testing.T) { //nolint:f
 			want: arch.RelocationEncoding{
 				ByteOffset: 1, Kind: ast.AbsoluteRelocation, Width: ast.WidthByte,
 				ByteOrder: ast.ByteOrderBig, ReferenceType: ast.FullAddress,
-				Field: ast.PackedField{BitWidth: 4, PreserveMask: 0xf0},
+				Field: ast.PackedField{
+					BitWidth:     4,
+					PreserveMask: 0xf0,
+				},
 			},
 		},
 	}
@@ -68,7 +71,11 @@ func TestGenerateInstructionOpcode_RecordsRelocations(t *testing.T) { //nolint:f
 				Instruction: chip8.Instructions[test.instruction], Addressing: test.addressing, Operands: test.operands,
 			}
 			assigner := &relocationAssigner{values: map[string]uint64{"target": test.value}}
-			instruction := &mockInstruction{name: test.instruction, addressing: int(test.addressing), argument: resolved}
+			instruction := &mockInstruction{
+				name:       test.instruction,
+				addressing: int(test.addressing),
+				argument:   resolved,
+			}
 
 			err := GenerateInstructionOpcode(assigner, instruction)
 			assert.NoError(t, err)
@@ -86,7 +93,11 @@ func TestGenerateInstructionOpcode_DoesNotRecordImpliedRelocation(t *testing.T) 
 		Addressing:  chip8.ImpliedAddressing,
 	}
 	assigner := &relocationAssigner{}
-	instruction := &mockInstruction{name: chip8.ClsName, addressing: int(chip8.ImpliedAddressing), argument: resolved}
+	instruction := &mockInstruction{
+		name:       chip8.ClsName,
+		addressing: int(chip8.ImpliedAddressing),
+		argument:   resolved,
+	}
 
 	err := GenerateInstructionOpcode(assigner, instruction)
 	assert.NoError(t, err)
@@ -98,7 +109,10 @@ func chip8AddressRelocationEncoding() arch.RelocationEncoding {
 	return arch.RelocationEncoding{
 		Kind: ast.AbsoluteRelocation, Width: ast.WidthWord,
 		ByteOrder: ast.ByteOrderBig, ReferenceType: ast.FullAddress,
-		Field: ast.PackedField{BitWidth: 12, PreserveMask: 0xf000},
+		Field: ast.PackedField{
+			BitWidth:     12,
+			PreserveMask: 0xf000,
+		},
 	}
 }
 
@@ -131,13 +145,13 @@ func (*relocationAssigner) RelativeOffset(uint64, uint64) (byte, error) {
 	return 0, nil
 }
 
-func (ass *relocationAssigner) RecordInstructionRelocation(
-	_ arch.Instruction,
-	argument any,
-	encoding arch.RelocationEncoding,
-) {
+func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any,
+	encoding arch.RelocationEncoding) {
 
-	ass.relocations = append(ass.relocations, recordedRelocation{argument: argument, encoding: encoding})
+	ass.relocations = append(ass.relocations, recordedRelocation{
+		argument: argument,
+		encoding: encoding,
+	})
 }
 
 type mockInstruction struct {

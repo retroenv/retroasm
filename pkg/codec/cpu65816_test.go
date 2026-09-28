@@ -579,7 +579,11 @@ func TestCPU65816TypedInstructionFormattingOptions(t *testing.T) {
 
 	formatted, err := cpu65816parser.FormatInstructionWithOptions(
 		instruction,
-		cpu65816parser.FormatOptions{Indent: "  ", Uppercase: true, WordHexDigits: 6},
+		cpu65816parser.FormatOptions{
+			Indent:        "  ",
+			Uppercase:     true,
+			WordHexDigits: 6,
+		},
 	)
 
 	assert.NoError(t, err)
@@ -591,10 +595,8 @@ func newCPU65816Codec(t *testing.T) *codec.Codec[*cpu65816.Instruction] {
 	return newCPU65816CodecWithConfig(t, asmcpu65816.New())
 }
 
-func newCPU65816CodecWithConfig(
-	t *testing.T,
-	configuration *config.Config[*cpu65816.Instruction],
-) *codec.Codec[*cpu65816.Instruction] {
+func newCPU65816CodecWithConfig(t *testing.T,
+	configuration *config.Config[*cpu65816.Instruction]) *codec.Codec[*cpu65816.Instruction] {
 
 	t.Helper()
 	segment := &config.Segment{

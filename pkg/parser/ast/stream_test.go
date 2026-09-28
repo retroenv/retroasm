@@ -39,7 +39,12 @@ func (ref streamTestInstructionReferences) InstructionReferences() []Instruction
 }
 
 func TestStream_OwnsEntriesAndMetadata(t *testing.T) {
-	position := SourcePosition{Source: "input.asm", Line: 3, Column: 5, Offset: 12}
+	position := SourcePosition{
+		Source: "input.asm",
+		Line:   3,
+		Column: 5,
+		Offset: 12,
+	}
 	entry := NewEntry(NewLabel("entry"), position)
 	entry.Annotations = []Annotation{&streamTestAnnotation{Value: "hot"}}
 	entry.Boundary = BoundaryBefore | BoundaryAfter
@@ -120,14 +125,29 @@ func TestStream_RejectsMutableStateWithoutCopyContract(t *testing.T) {
 }
 
 func TestStream_ValidateAcceptsCompleteMetadata(t *testing.T) {
-	position := SourcePosition{Source: "input.asm", Line: 1, Column: 1}
+	position := SourcePosition{
+		Source: "input.asm",
+		Line:   1,
+		Column: 1,
+	}
 	address := NewData(AddressType, 2)
 	address.ReferenceType = FullAddress
-	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: "entry"})}
+	address.Values = []*expression.Expression{expression.New(token.Token{
+		Type:  token.Identifier,
+		Value: "entry",
+	})}
 	stream := NewStream(
 		NewEntry(NewLabel("entry"), position),
-		NewEntry(address, SourcePosition{Source: "input.asm", Line: 2, Column: 1}),
-		NewEntry(NewSegment("code"), SourcePosition{Source: "input.asm", Line: 3, Column: 1}),
+		NewEntry(address, SourcePosition{
+			Source: "input.asm",
+			Line:   2,
+			Column: 1,
+		}),
+		NewEntry(NewSegment("code"), SourcePosition{
+			Source: "input.asm",
+			Line:   3,
+			Column: 1,
+		}),
 	)
 	stream.RecordSymbol(Symbol{
 		EntryIndex: 0,
@@ -200,22 +220,43 @@ func TestStream_ValidatePackedRelocationField(t *testing.T) {
 	instruction := NewInstruction("jp", 0, NewLabel("target"), nil)
 
 	valid := base
-	valid.Field = PackedField{BitWidth: 12, PreserveMask: 0xf000}
+	valid.Field = PackedField{
+		BitWidth:     12,
+		PreserveMask: 0xf000,
+	}
 	stream := NewStreamFromNodes(instruction)
 	stream.RecordRelocation(valid)
 	assert.NoError(t, stream.Validate())
 	offsetField := base
-	offsetField.Field = PackedField{BitOffset: 4, BitWidth: 4, PreserveMask: 0xff0f}
+	offsetField.Field = PackedField{
+		BitOffset:    4,
+		BitWidth:     4,
+		PreserveMask: 0xff0f,
+	}
 	stream = NewStreamFromNodes(instruction)
 	stream.RecordRelocation(offsetField)
 	assert.NoError(t, stream.Validate())
 
 	address := NewData(AddressType, 2)
 	address.ReferenceType = FullAddress
-	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: "target"})}
+	address.Values = []*expression.Expression{expression.New(token.Token{
+		Type:  token.Identifier,
+		Value: "target",
+	})}
 	stream = NewStreamFromNodes(address)
 	stream.RecordRelocation(valid)
 	assert.ErrorIs(t, stream.Validate(), ErrInvalidStream)
+}
+
+func TestStream_ValidateRejectsInvalidPackedRelocationField(t *testing.T) {
+	t.Parallel()
+	base := Relocation{
+		Kind:       AbsoluteRelocation,
+		Expression: NewSymbolExpression("target", 0, FullAddress),
+		Width:      WidthWord,
+		ByteOrder:  ByteOrderBig,
+	}
+	instruction := NewInstruction("jp", 0, NewLabel("target"), nil)
 
 	tests := []struct {
 		name  string
@@ -223,7 +264,10 @@ func TestStream_ValidatePackedRelocationField(t *testing.T) {
 		field PackedField
 	}{
 		{name: "missing bit width", width: WidthWord, field: PackedField{BitOffset: 1}},
-		{name: "outside encoded width", width: WidthWord, field: PackedField{BitOffset: 8, BitWidth: 9}},
+		{name: "outside encoded width", width: WidthWord, field: PackedField{
+			BitOffset: 8,
+			BitWidth:  9,
+		}},
 		{name: "inconsistent preserve mask", width: WidthWord, field: PackedField{BitWidth: 12}},
 		{name: "encoded width exceeds mask", width: DataWidth(9), field: PackedField{BitWidth: 1}},
 	}
@@ -252,15 +296,30 @@ func TestStream_ValidateRejectsInvalidMetadata(t *testing.T) {
 	}
 }
 
-func TestStream_ReplaceReindexesCompatibleMetadataAtomically(t *testing.T) {
-	position := SourcePosition{Source: "input.asm", Line: 1, Column: 1}
+func reindexableStream() *Stream {
+	position := SourcePosition{
+		Source: "input.asm",
+		Line:   1,
+		Column: 1,
+	}
 	address := NewData(AddressType, 2)
 	address.ReferenceType = FullAddress
-	address.Values = []*expression.Expression{expression.New(token.Token{Type: token.Identifier, Value: "entry"})}
+	address.Values = []*expression.Expression{expression.New(token.Token{
+		Type:  token.Identifier,
+		Value: "entry",
+	})}
 	stream := NewStream(
 		NewEntry(NewLabel("entry"), position),
-		NewEntry(address, SourcePosition{Source: "input.asm", Line: 2, Column: 1}),
-		NewEntry(NewSegment("code"), SourcePosition{Source: "input.asm", Line: 3, Column: 1}),
+		NewEntry(address, SourcePosition{
+			Source: "input.asm",
+			Line:   2,
+			Column: 1,
+		}),
+		NewEntry(NewSegment("code"), SourcePosition{
+			Source: "input.asm",
+			Line:   3,
+			Column: 1,
+		}),
 	)
 	stream.RecordSymbol(Symbol{
 		EntryIndex: 0,
@@ -281,6 +340,12 @@ func TestStream_ReplaceReindexesCompatibleMetadataAtomically(t *testing.T) {
 		Name:       "code",
 		ByteOrder:  ByteOrderLittle,
 	})
+
+	return stream
+}
+
+func TestStream_ReplaceReindexesCompatibleMetadataAtomically(t *testing.T) {
+	stream := reindexableStream()
 
 	err := stream.Replace(0, 0, []Entry{NewEntry(&Comment{Message: "header"}, SourcePosition{})})
 	assert.NoError(t, err)
@@ -304,11 +369,22 @@ func TestStream_ReplaceReindexesCompatibleMetadataAtomically(t *testing.T) {
 func TestStream_ResolveSymbolValuesPreservesDefinitionsAndInput(t *testing.T) {
 	alias := NewAlias("constant")
 	alias.SymbolReusable = true
-	alias.Expression = expression.New(token.Token{Type: token.Number, Value: "1"})
+	alias.Expression = expression.New(token.Token{
+		Type:  token.Number,
+		Value: "1",
+	})
 	alias.Expression.SetEvaluateOnce(true)
-	labelPosition := SourcePosition{Source: "input.asm", Line: 2, Column: 1}
+	labelPosition := SourcePosition{
+		Source: "input.asm",
+		Line:   2,
+		Column: 1,
+	}
 	stream := NewStream(
-		NewEntry(alias, SourcePosition{Source: "input.asm", Line: 1, Column: 1}),
+		NewEntry(alias, SourcePosition{
+			Source: "input.asm",
+			Line:   1,
+			Column: 1,
+		}),
 		NewEntry(NewLabel("entry"), labelPosition),
 	)
 	stream.RecordSymbol(Symbol{
@@ -328,7 +404,10 @@ func TestStream_ResolveSymbolValuesPreservesDefinitionsAndInput(t *testing.T) {
 	assert.NoError(t, stream.Validate())
 
 	external := stream.Symbols()
-	external[0].Expression.Definition.AddTokens(token.Token{Type: token.Number, Value: "2"})
+	external[0].Expression.Definition.AddTokens(token.Token{
+		Type:  token.Number,
+		Value: "2",
+	})
 	assert.Len(t, stream.Symbols()[0].Expression.Definition.Tokens(), 1)
 
 	err := stream.ResolveSymbolValues(map[string]uint64{"entry": 0x8000})
@@ -340,6 +419,11 @@ func TestStream_ResolveSymbolValuesPreservesDefinitionsAndInput(t *testing.T) {
 }
 
 func invalidStreamMetadataCases() []invalidStreamMetadataCase {
+	cases := invalidStreamEntryCases()
+	return append(cases, invalidStreamRecordCases()...)
+}
+
+func invalidStreamEntryCases() []invalidStreamMetadataCase {
 	return []invalidStreamMetadataCase{
 		{
 			name:   "nil stream",
@@ -363,6 +447,11 @@ func invalidStreamMetadataCases() []invalidStreamMetadataCase {
 				Boundary: OptimizationBoundary(4),
 			}),
 		},
+	}
+}
+
+func invalidStreamRecordCases() []invalidStreamMetadataCase {
+	return []invalidStreamMetadataCase{
 		{
 			name: "invalid symbol expression",
 			stream: streamWithSymbols(Symbol{
@@ -374,9 +463,13 @@ func invalidStreamMetadataCases() []invalidStreamMetadataCase {
 		{
 			name: "absolute symbol expression with addend",
 			stream: streamWithSymbols(Symbol{
-				Kind:       LabelSymbol,
-				Name:       "entry",
-				Expression: SymbolExpression{Kind: SymbolExpressionAbsolute, Addend: 1, ReferenceType: FullAddress},
+				Kind: LabelSymbol,
+				Name: "entry",
+				Expression: SymbolExpression{
+					Kind:          SymbolExpressionAbsolute,
+					Addend:        1,
+					ReferenceType: FullAddress,
+				},
 			}),
 		},
 		{
@@ -397,8 +490,7 @@ func invalidStreamMetadataCases() []invalidStreamMetadataCase {
 				Alignment:  3,
 				ByteOrder:  ByteOrderLittle,
 			}),
-		},
-	}
+		}}
 }
 
 func streamWithSymbols(symbols ...Symbol) *Stream {

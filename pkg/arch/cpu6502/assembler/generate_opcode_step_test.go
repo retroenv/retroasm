@@ -93,7 +93,11 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 			t.Parallel()
 
 			assigner := &mockAssigner{value: test.value}
-			ins := &mockInstruction{name: test.instruction.Name, addressing: int(test.addressing), argument: "target"}
+			ins := &mockInstruction{
+				name:       test.instruction.Name,
+				addressing: int(test.addressing),
+				argument:   "target",
+			}
 			err := GenerateInstructionOpcode(assigner, ins, test.instruction)
 			assert.NoError(t, err)
 			assert.Equal(t, int(test.expectedAddressing), ins.addressing)
@@ -152,7 +156,10 @@ func (m *mockAssigner) ArgumentValue(_ any) (uint64, error)      { return m.valu
 func (m *mockAssigner) RelativeOffset(_, _ uint64) (byte, error) { return 0, nil }
 func (m *mockAssigner) ProgramCounter() uint64                   { return 0 }
 func (m *mockAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any, encoding arch.RelocationEncoding) {
-	m.relocations = append(m.relocations, recordedRelocation{argument: argument, encoding: encoding})
+	m.relocations = append(m.relocations, recordedRelocation{
+		argument: argument,
+		encoding: encoding,
+	})
 }
 
 func (m *mockInstruction) Address() uint64        { return m.address }

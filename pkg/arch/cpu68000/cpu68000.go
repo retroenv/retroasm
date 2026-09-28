@@ -34,11 +34,7 @@ func (*architecture) ByteOrder() ast.ByteOrder {
 	return ast.ByteOrderBig
 }
 
-func (ar *architecture) BuildInstruction(
-	mnemonic string,
-	operands parser.Operands,
-) (ast.Instruction, error) {
-
+func (ar *architecture) BuildInstruction(mnemonic string, operands parser.Operands) (ast.Instruction, error) {
 	instruction, ok := ar.Instruction(strings.TrimSpace(mnemonic))
 	if !ok {
 		return ast.Instruction{}, fmt.Errorf("unknown CPU68000 instruction %q", mnemonic)

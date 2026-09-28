@@ -14,8 +14,11 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 	original := ResolvedInstruction{
 		Instruction: cpu68000.Instructions[cpu68000.MOVEName],
 		SrcEA: &EffectiveAddress{
-			Mode:  cpu68000.ImmediateMode,
-			Value: ast.NewExpression(token.Token{Type: token.Identifier, Value: "source"}),
+			Mode: cpu68000.ImmediateMode,
+			Value: ast.NewExpression(token.Token{
+				Type:  token.Identifier,
+				Value: "source",
+			}),
 		},
 		DstEA: &EffectiveAddress{Mode: cpu68000.DataRegDirectMode},
 	}
@@ -34,9 +37,15 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 func TestResolvedInstruction_InstructionReferences(t *testing.T) {
 	resolved := ResolvedInstruction{
 		SrcEA: Immediate(ast.NewExpression(
-			token.Token{Type: token.Identifier, Value: "source"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "source",
+			},
 			token.Token{Type: token.Plus},
-			token.Token{Type: token.Number, Value: "2"},
+			token.Token{
+				Type:  token.Number,
+				Value: "2",
+			},
 		)),
 		DstEA: Absolute(true, ast.NewLabel("destination")),
 	}

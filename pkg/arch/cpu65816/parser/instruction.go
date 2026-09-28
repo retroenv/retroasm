@@ -512,7 +512,9 @@ func parseInstructionImmediateAddressing(ins *instruction) (ast.Node, error) {
 	return ast.NewInstruction(ins.instruction.Name, int(cpu65816.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
-func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instruction, tok token.Token) (ast.Node, error) {
+func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instruction,
+	tok token.Token) (ast.Node, error) {
+
 	if !ins.instruction.HasAddressing(cpu65816.ImmediateAddressing) {
 		return nil, errors.New("invalid immediate addressing mode usage")
 	}
@@ -628,12 +630,18 @@ func resolveArg1Token(p arch.Parser) token.Token {
 	}
 	if arg.Type == token.Colon {
 		if name, ok := resolveUnnamedLabelRef(p); ok {
-			return token.Token{Type: token.Identifier, Value: name}
+			return token.Token{
+				Type:  token.Identifier,
+				Value: name,
+			}
 		}
 	}
 	if arg.Type == token.Dot {
 		if name, ok := resolveDotLocalLabelRef(p); ok {
-			return token.Token{Type: token.Identifier, Value: name}
+			return token.Token{
+				Type:  token.Identifier,
+				Value: name,
+			}
 		}
 	}
 	return arg

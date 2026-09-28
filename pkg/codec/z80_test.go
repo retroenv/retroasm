@@ -244,9 +244,13 @@ func TestZ80Codec_RecordsInstructionRelocations(t *testing.T) {
 	assert.Equal(t, assembly.Stream.Relocations(), reassembled.Stream.Relocations())
 }
 
-func TestZ80TypedOperandsHaveCanonicalFormatting(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
+func z80FormattingCases() []struct {
+	name    string
+	operand z80parser.Operand
+	want    string
+} {
+
+	return []struct {
 		name    string
 		operand z80parser.Operand
 		want    string
@@ -254,31 +258,54 @@ func TestZ80TypedOperandsHaveCanonicalFormatting(t *testing.T) {
 		{
 			name: "symbolic value",
 			operand: z80parser.ValueOperand(ast.NewExpression(
-				token.Token{Type: token.Identifier, Value: "target"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "target",
+				},
 				token.Token{Type: token.Plus},
-				token.Token{Type: token.Number, Value: "$2"},
+				token.Token{
+					Type:  token.Number,
+					Value: "$2",
+				},
 			)),
 			want: "target+0x2",
 		},
 		{
 			name: "symbolic address",
 			operand: z80parser.IndirectValueOperand(ast.NewExpression(
-				token.Token{Type: token.Identifier, Value: "table"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "table",
+				},
 				token.Token{Type: token.Plus},
-				token.Token{Type: token.Identifier, Value: "index"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "index",
+				},
 			)),
 			want: "(table+index)",
 		},
 		{
 			name: "symbolic index",
 			operand: z80parser.IndexedOperand(cpuz80.RegIX, ast.NewExpression(
-				token.Token{Type: token.Identifier, Value: "offset"},
+				token.Token{
+					Type:  token.Identifier,
+					Value: "offset",
+				},
 				token.Token{Type: token.Plus},
-				token.Token{Type: token.Number, Value: "1"},
+				token.Token{
+					Type:  token.Number,
+					Value: "1",
+				},
 			)),
 			want: "(ix+offset+0x1)",
 		},
 	}
+}
+
+func TestZ80TypedOperandsHaveCanonicalFormatting(t *testing.T) {
+	t.Parallel()
+	tests := z80FormattingCases()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

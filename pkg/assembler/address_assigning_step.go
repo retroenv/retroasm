@@ -98,7 +98,9 @@ func (aa *addressAssign[T]) ProgramCounter() uint64 {
 }
 
 // RecordInstructionRelocation records a relocation for a source stream entry.
-func (aa *addressAssign[T]) RecordInstructionRelocation(ins arch.Instruction, argument any, encoding arch.RelocationEncoding) {
+func (aa *addressAssign[T]) RecordInstructionRelocation(ins arch.Instruction, argument any,
+	encoding arch.RelocationEncoding) {
+
 	instruction, ok := ins.(*instruction)
 	if !ok || !instruction.hasSourceEntry || aa.instructionRelocations == nil {
 		return

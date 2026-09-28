@@ -36,11 +36,7 @@ func (*arch65816[T]) ByteOrder() ast.ByteOrder {
 	return ast.ByteOrderLittle
 }
 
-func (ar *arch65816[T]) BuildInstruction(
-	mnemonic string,
-	operands parser.Operands,
-) (ast.Instruction, error) {
-
+func (ar *arch65816[T]) BuildInstruction(mnemonic string, operands parser.Operands) (ast.Instruction, error) {
 	lookupName := strings.ToLower(strings.TrimSpace(mnemonic))
 	instruction, ok := ar.Instruction(lookupName)
 	if !ok {
@@ -54,11 +50,8 @@ func (ar *arch65816[T]) BuildInstruction(
 	return built, nil
 }
 
-func (ar *arch65816[T]) BuildInstructionWithState(
-	mnemonic string,
-	operands parser.Operands,
-	state parser.State,
-) (ast.Instruction, parser.State, error) {
+func (ar *arch65816[T]) BuildInstructionWithState(mnemonic string, operands parser.Operands,
+	state parser.State) (ast.Instruction, parser.State, error) {
 
 	lookupName := strings.ToLower(strings.TrimSpace(mnemonic))
 	instruction, ok := ar.Instruction(lookupName)

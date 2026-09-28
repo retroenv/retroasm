@@ -34,7 +34,10 @@ func TestNodeEditRetainsExplicitSources(t *testing.T) {
 }
 
 func TestNodeEditCandidateIndependenceAndRejection(t *testing.T) {
-	stream := NewStream(NewEntry(NewInstruction("lda", 0, NewNumber(1), nil), SourcePosition{Source: "input.asm", Line: 7}))
+	stream := NewStream(NewEntry(NewInstruction("lda", 0, NewNumber(1), nil), SourcePosition{
+		Source: "input.asm",
+		Line:   7,
+	}))
 	before := stream.Copy()
 	edit, err := stream.EditNodes()
 	assert.NoError(t, err)

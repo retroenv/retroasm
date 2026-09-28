@@ -59,8 +59,14 @@ var opcodeEncodingTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.MOVEQName],
 			Size:        cpu68000.SizeLong,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0x42)},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.ImmediateMode,
+				Value: ast.NewNumber(0x42),
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
 		},
 		want: []byte{0x70, 0x42},
 	},
@@ -69,8 +75,14 @@ var opcodeEncodingTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.MOVEQName],
 			Size:        cpu68000.SizeLong,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0)},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 3},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.ImmediateMode,
+				Value: ast.NewNumber(0),
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 3,
+			},
 		},
 		want: []byte{0x76, 0x00},
 	},
@@ -81,8 +93,14 @@ var opcodeEncodingTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.MOVEName],
 			Size:        cpu68000.SizeLong,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 1},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 1,
+			},
 		},
 		want: []byte{0x22, 0x00},
 	},
@@ -92,7 +110,10 @@ var opcodeEncodingTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.CLRName],
 			Size:        cpu68000.SizeLong,
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
 		},
 		want: []byte{0x42, 0x80},
 	},
@@ -101,7 +122,10 @@ var opcodeEncodingTests = []struct {
 		name: "SWAP D3",
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.SWAPName],
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 3},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 3,
+			},
 		},
 		want: []byte{0x48, 0x43},
 	},
@@ -111,7 +135,10 @@ var opcodeEncodingTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.EXTName],
 			Size:        cpu68000.SizeWord,
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 2},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 2,
+			},
 		},
 		want: []byte{0x48, 0x82},
 	},
@@ -120,7 +147,10 @@ var opcodeEncodingTests = []struct {
 		name: "UNLK A6",
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.UNLKName],
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.AddrRegDirectMode, Register: 6},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.AddrRegDirectMode,
+				Register: 6,
+			},
 		},
 		want: []byte{0x4E, 0x5E},
 	},
@@ -129,7 +159,10 @@ var opcodeEncodingTests = []struct {
 		name: "TRAP #15",
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.TRAPName],
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(15)},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.ImmediateMode,
+				Value: ast.NewNumber(15),
+			},
 		},
 		want: []byte{0x4E, 0x4F},
 	},
@@ -139,8 +172,14 @@ var opcodeEncodingTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.ADDQName],
 			Size:        cpu68000.SizeWord,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(1)},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.ImmediateMode,
+				Value: ast.NewNumber(1),
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
 		},
 		want: []byte{0x52, 0x40},
 	},
@@ -153,7 +192,10 @@ var opcodeEncodingTests = []struct {
 			Instruction: cpu68000.Instructions[cpu68000.BccName],
 			Size:        cpu68000.SizeByte,
 			Extra:       7, // EQ condition
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.PCDisplacementMode, Value: ast.NewLabel("loop")},
+			DstEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.PCDisplacementMode,
+				Value: ast.NewLabel("loop"),
+			},
 		},
 		values: map[string]uint64{"loop": 0x1010},
 		// disp = 0x1010 - (0x1000 + 2) = 0x000E
@@ -266,8 +308,15 @@ func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assigner := &relocationAssigner{mockAssigner: mockAssigner{pc: test.address, values: test.values}}
-			ins := &mockInstruction{name: test.resolved.Instruction.Name, address: test.address, argument: test.resolved}
+			assigner := &relocationAssigner{mockAssigner: mockAssigner{
+				pc:     test.address,
+				values: test.values,
+			}}
+			ins := &mockInstruction{
+				name:     test.resolved.Instruction.Name,
+				address:  test.address,
+				argument: test.resolved,
+			}
 
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)
@@ -391,8 +440,15 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assigner := &relocationAssigner{mockAssigner: mockAssigner{pc: test.address, values: test.values}}
-			ins := &mockInstruction{name: test.resolved.Instruction.Name, address: test.address, argument: test.resolved}
+			assigner := &relocationAssigner{mockAssigner: mockAssigner{
+				pc:     test.address,
+				values: test.values,
+			}}
+			ins := &mockInstruction{
+				name:     test.resolved.Instruction.Name,
+				address:  test.address,
+				argument: test.resolved,
+			}
 
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.NoError(t, err)
@@ -430,7 +486,10 @@ func TestGenerateInstructionOpcode_RejectsSymbolicPCRelativeOverflow(t *testing.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assigner := &mockAssigner{values: map[string]uint64{"target": 0x10000}}
-			ins := &mockInstruction{name: cpu68000.LEAName, argument: test.resolved}
+			ins := &mockInstruction{
+				name:     cpu68000.LEAName,
+				argument: test.resolved,
+			}
 
 			err := GenerateInstructionOpcode(assigner, ins)
 			assert.ErrorContains(t, err, "PC-relative displacement")
@@ -449,6 +508,11 @@ type relocationAssigner struct {
 	relocations []recordedRelocation
 }
 
-func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any, encoding arch.RelocationEncoding) {
-	ass.relocations = append(ass.relocations, recordedRelocation{argument: argument, encoding: encoding})
+func (ass *relocationAssigner) RecordInstructionRelocation(_ arch.Instruction, argument any,
+	encoding arch.RelocationEncoding) {
+
+	ass.relocations = append(ass.relocations, recordedRelocation{
+		argument: argument,
+		encoding: encoding,
+	})
 }

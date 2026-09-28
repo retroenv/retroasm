@@ -9,7 +9,9 @@ import (
 	"github.com/retroenv/retrogolib/arch/cpu/cpu68000"
 )
 
-func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction, resolved parser.ResolvedInstruction) ([]byte, error) {
+func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) ([]byte, error) {
+
 	cond := resolved.Extra
 
 	switch resolved.Instruction.Name {
@@ -44,7 +46,9 @@ func encodeBranch(assigner arch.AddressAssigner, ins arch.Instruction, resolved 
 	return buf, nil
 }
 
-func encodeDBcc(assigner arch.AddressAssigner, ins arch.Instruction, resolved parser.ResolvedInstruction) ([]byte, error) {
+func encodeDBcc(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) ([]byte, error) {
+
 	cond := resolved.Extra
 	dn := uint16(resolved.SrcEA.Register)
 
@@ -115,7 +119,9 @@ func encodePEA(assigner arch.AddressAssigner, resolved parser.ResolvedInstructio
 	return buf, nil
 }
 
-func encodeJMPJSR(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeJMPJSR(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	dstMode, dstReg := encodeEAField(resolved.DstEA)
 
 	opcode := baseOpcode | uint16(dstMode)<<3 | uint16(dstReg)
@@ -325,7 +331,9 @@ func encodeBitOp(assigner arch.AddressAssigner, resolved parser.ResolvedInstruct
 	return buf, nil
 }
 
-func encodeMulDiv(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction, baseOpcode uint16) ([]byte, error) {
+func encodeMulDiv(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
+	baseOpcode uint16) ([]byte, error) {
+
 	dn := uint16(resolved.DstEA.Register)
 	srcMode, srcReg := encodeEAField(resolved.SrcEA)
 

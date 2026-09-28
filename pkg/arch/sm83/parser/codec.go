@@ -29,12 +29,7 @@ type FormatOptions struct {
 }
 
 // BuildInstruction constructs and validates a typed SM83 instruction without parsing text.
-func BuildInstruction(
-	mnemonic string,
-	variants []*sm83.Instruction,
-	operands ...Operand,
-) (ast.Instruction, error) {
-
+func BuildInstruction(mnemonic string, variants []*sm83.Instruction, operands ...Operand) (ast.Instruction, error) {
 	mnemonic = strings.ToLower(strings.TrimSpace(mnemonic))
 	if mnemonic == "" {
 		return ast.Instruction{}, fmt.Errorf("%w: missing mnemonic", ErrInvalidInstruction)
@@ -96,11 +91,7 @@ func FormatInstruction(instruction ast.Instruction) (string, error) {
 
 // FormatInstructionWithOptions returns one deterministic, parseable SM83
 // instruction line using the requested presentation policy.
-func FormatInstructionWithOptions(
-	instruction ast.Instruction,
-	options FormatOptions,
-) (string, error) {
-
+func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOptions) (string, error) {
 	resolved, err := resolvedArgument(instruction.Argument)
 	if err != nil {
 		return "", err
@@ -144,11 +135,8 @@ func FormatOperand(operand Operand) (string, error) {
 	return formatOperandWithOptions(operand, FormatOptions{}, false, false)
 }
 
-func validateResolvedMetadata(
-	instruction ast.Instruction,
-	resolved ResolvedInstruction,
-	variants []*sm83.Instruction,
-) error {
+func validateResolvedMetadata(instruction ast.Instruction, resolved ResolvedInstruction,
+	variants []*sm83.Instruction) error {
 
 	if resolved.Instruction == nil {
 		return fmt.Errorf("%w: missing instruction variant", ErrInvalidInstruction)
@@ -287,13 +275,7 @@ func sameOperands(left, right []Operand) bool {
 	return true
 }
 
-func formatOperandWithOptions(
-	operand Operand,
-	options FormatOptions,
-	decimalValue bool,
-	signedValue bool,
-) (string, error) {
-
+func formatOperandWithOptions(operand Operand, options FormatOptions, decimalValue, signedValue bool) (string, error) {
 	switch operand.Kind {
 	case OperandRegister:
 		if !validDirectRegister(operand.Register) {

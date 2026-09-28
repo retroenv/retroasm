@@ -95,8 +95,14 @@ var assignAddressTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.MOVEName],
 			Size:        cpu68000.SizeLong,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 1},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 1,
+			},
 		},
 		wantSize: 2,
 	},
@@ -105,8 +111,14 @@ var assignAddressTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.MOVEName],
 			Size:        cpu68000.SizeLong,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0)},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.ImmediateMode,
+				Value: ast.NewNumber(0),
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
 		},
 		wantSize: 6,
 	},
@@ -115,8 +127,14 @@ var assignAddressTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.MOVEName],
 			Size:        cpu68000.SizeWord,
-			SrcEA:       &parser.EffectiveAddress{Mode: cpu68000.ImmediateMode, Value: ast.NewNumber(0)},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: 0},
+			SrcEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.ImmediateMode,
+				Value: ast.NewNumber(0),
+			},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.DataRegDirectMode,
+				Register: 0,
+			},
 		},
 		wantSize: 4,
 	},
@@ -125,7 +143,10 @@ var assignAddressTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.CLRName],
 			Size:        cpu68000.SizeLong,
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewNumber(0)},
+			DstEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.AbsLongMode,
+				Value: ast.NewNumber(0),
+			},
 		},
 		wantSize: 6,
 	},
@@ -134,7 +155,10 @@ var assignAddressTests = []struct {
 		resolved: parser.ResolvedInstruction{
 			Instruction: cpu68000.Instructions[cpu68000.CLRName],
 			Size:        cpu68000.SizeWord,
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.AbsShortMode, Value: ast.NewNumber(0)},
+			DstEA: &parser.EffectiveAddress{
+				Mode:  cpu68000.AbsShortMode,
+				Value: ast.NewNumber(0),
+			},
 		},
 		wantSize: 4,
 	},
@@ -167,7 +191,10 @@ var assignAddressTests = []struct {
 			Instruction: cpu68000.Instructions[cpu68000.MOVEMName],
 			Extra:       0, // register-to-memory
 			SrcEA:       &parser.EffectiveAddress{RegList: 0x00FF},
-			DstEA:       &parser.EffectiveAddress{Mode: cpu68000.AddrRegIndirectMode, Register: 0},
+			DstEA: &parser.EffectiveAddress{
+				Mode:     cpu68000.AddrRegIndirectMode,
+				Register: 0,
+			},
 		},
 		wantSize: 4,
 	},

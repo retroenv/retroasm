@@ -43,13 +43,8 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func buildOpcodeBytes(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	opcodeInfo cpuz80.OpcodeInfo,
-	addressing cpuz80.AddressingMode,
-) ([]byte, error) {
+func buildOpcodeBytes(assigner arch.AddressAssigner, ins arch.Instruction, resolved z80parser.ResolvedInstruction,
+	opcodeInfo cpuz80.OpcodeInfo, addressing cpuz80.AddressingMode) ([]byte, error) {
 
 	if isIndexedBitInstruction(resolved.Instruction) {
 		return buildIndexedBitOpcode(assigner, ins, resolved, opcodeInfo)
@@ -82,13 +77,8 @@ func buildOpcodeBytes(
 	}
 }
 
-func appendImmediateOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	opcodeInfo cpuz80.OpcodeInfo,
-	opcodes []byte,
-) ([]byte, error) {
+func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction, resolved z80parser.ResolvedInstruction,
+	opcodeInfo cpuz80.OpcodeInfo, opcodes []byte) ([]byte, error) {
 
 	remaining := int(opcodeInfo.Size) - len(opcodes)
 	switch remaining {
@@ -144,12 +134,8 @@ func appendImmediateOperand(
 	}
 }
 
-func appendExtendedOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	opcodes []byte,
-) ([]byte, error) {
+func appendExtendedOperand(assigner arch.AddressAssigner, ins arch.Instruction, resolved z80parser.ResolvedInstruction,
+	opcodes []byte) ([]byte, error) {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -164,13 +150,8 @@ func appendExtendedOperand(
 	return opcodes, nil
 }
 
-func appendOptionalByteOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	opcodeInfo cpuz80.OpcodeInfo,
-	opcodes []byte,
-) ([]byte, error) {
+func appendOptionalByteOperand(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved z80parser.ResolvedInstruction, opcodeInfo cpuz80.OpcodeInfo, opcodes []byte) ([]byte, error) {
 
 	remaining := int(opcodeInfo.Size) - len(opcodes)
 	if remaining == 0 {
@@ -193,13 +174,8 @@ func appendOptionalByteOperand(
 	return opcodes, nil
 }
 
-func appendRelativeOperand(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	opcodeInfo cpuz80.OpcodeInfo,
-	opcodes []byte,
-) ([]byte, error) {
+func appendRelativeOperand(assigner arch.AddressAssigner, ins arch.Instruction, resolved z80parser.ResolvedInstruction,
+	opcodeInfo cpuz80.OpcodeInfo, opcodes []byte) ([]byte, error) {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -225,7 +201,9 @@ func baseOpcodeBytes(opcodeInfo cpuz80.OpcodeInfo) []byte {
 	return append(opcodes, opcodeInfo.Opcode)
 }
 
-func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, opcodeInfo cpuz80.OpcodeInfo) ([]byte, error) {
+func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction,
+	opcodeInfo cpuz80.OpcodeInfo) ([]byte, error) {
+
 	opcodes := make([]byte, 0, 2)
 	opcodes = append(opcodes, opcodeInfo.Prefix)
 
@@ -247,12 +225,8 @@ func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedIn
 	return opcodes, nil
 }
 
-func buildIndexedBitOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	opcodeInfo cpuz80.OpcodeInfo,
-) ([]byte, error) {
+func buildIndexedBitOpcode(assigner arch.AddressAssigner, ins arch.Instruction, resolved z80parser.ResolvedInstruction,
+	opcodeInfo cpuz80.OpcodeInfo) ([]byte, error) {
 
 	displacementIndex := 0
 	bitNumber := uint64(0)
@@ -289,15 +263,8 @@ func buildIndexedBitOpcode(
 	return opcodes, nil
 }
 
-func recordZ80Relocation(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved z80parser.ResolvedInstruction,
-	operandIndex int,
-	byteOffset uint64,
-	kind ast.RelocationKind,
-	width ast.DataWidth,
-) {
+func recordZ80Relocation(assigner arch.AddressAssigner, ins arch.Instruction, resolved z80parser.ResolvedInstruction,
+	operandIndex int, byteOffset uint64, kind ast.RelocationKind, width ast.DataWidth) {
 
 	if operandIndex < 0 || operandIndex >= len(resolved.OperandValues) {
 		return
@@ -311,7 +278,9 @@ func recordZ80Relocation(
 	})
 }
 
-func resolvedOperandValue(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction, index int) (uint64, error) {
+func resolvedOperandValue(assigner arch.AddressAssigner, resolved z80parser.ResolvedInstruction,
+	index int) (uint64, error) {
+
 	if index < 0 || index >= len(resolved.OperandValues) {
 		return 0, fmt.Errorf("%w: operand index %d", errMissingOperand, index)
 	}

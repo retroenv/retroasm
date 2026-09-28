@@ -15,11 +15,17 @@ func TestResolvedInstruction_CopyInstructionArgument(t *testing.T) {
 		Instruction:    cpusm83.LdImm8,
 		RegisterParams: []cpusm83.RegisterParam{cpusm83.RegA},
 		OperandValues: []ast.Node{
-			ast.NewExpression(token.Token{Type: token.Identifier, Value: "source"}),
+			ast.NewExpression(token.Token{
+				Type:  token.Identifier,
+				Value: "source",
+			}),
 			nil,
 		},
 		Operands: []Operand{
-			ValueOperand(ast.NewExpression(token.Token{Type: token.Identifier, Value: "operand"})),
+			ValueOperand(ast.NewExpression(token.Token{
+				Type:  token.Identifier,
+				Value: "operand",
+			})),
 		},
 	}
 
@@ -41,9 +47,15 @@ func TestResolvedInstruction_InstructionReferences(t *testing.T) {
 		ast.NewNumber(1),
 		ast.NewLabel("direct"),
 		ast.NewExpression(
-			token.Token{Type: token.Identifier, Value: "target"},
+			token.Token{
+				Type:  token.Identifier,
+				Value: "target",
+			},
 			token.Token{Type: token.Minus},
-			token.Token{Type: token.Number, Value: "2"},
+			token.Token{
+				Type:  token.Number,
+				Value: "2",
+			},
 		),
 	}}
 

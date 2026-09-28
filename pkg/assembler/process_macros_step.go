@@ -58,7 +58,9 @@ func resolveMacroUsage[T any](ctx context.Context, asm *Assembler[T], id ast.Ide
 }
 
 // resolveNamedMacro handles standard macro expansion with named parameters.
-func resolveNamedMacro[T any](ctx context.Context, asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
+func resolveNamedMacro[T any](ctx context.Context, asm *Assembler[T], mac macro,
+	id ast.Identifier) ([]ast.Node, error) {
+
 	if len(mac.arguments) != len(id.Arguments) {
 		return nil, fmt.Errorf("macro argument count %d does not match usage argument count %d",
 			len(mac.arguments), len(id.Arguments))
@@ -121,7 +123,9 @@ func macroTokensToAStNodes[T any](ctx context.Context, asm *Assembler[T], tokens
 }
 
 // resolvePositionalMacro handles NESASM-style macro expansion with \1-\9 positional parameters.
-func resolvePositionalMacro[T any](ctx context.Context, asm *Assembler[T], mac macro, id ast.Identifier) ([]ast.Node, error) {
+func resolvePositionalMacro[T any](ctx context.Context, asm *Assembler[T], mac macro,
+	id ast.Identifier) ([]ast.Node, error) {
+
 	var resolved []token.Token
 
 	for i := 0; i < len(mac.tokens); i++ {

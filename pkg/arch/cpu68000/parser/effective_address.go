@@ -158,7 +158,10 @@ func parseIndirectIdentifierEA(p arch.Parser, regTok token.Token) (*EffectiveAdd
 	case token.RightParentheses:
 		p.AdvanceReadPosition(2) // skip '(' register ')'
 		if info.number == regPC {
-			return &EffectiveAddress{Mode: cpu68000.PCDisplacementMode, Value: ast.NewNumber(0)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.PCDisplacementMode,
+				Value: ast.NewNumber(0),
+			}, nil
 		}
 		// Check for post-increment: (An)+
 		if p.NextToken(1).Type == token.Plus {
@@ -237,18 +240,30 @@ func parseIndirectNumberEA(p arch.Parser, numTok token.Token) (*EffectiveAddress
 		upper := strings.ToUpper(suffix.Value)
 		if upper == "W" {
 			p.AdvanceReadPosition(2)
-			return &EffectiveAddress{Mode: cpu68000.AbsShortMode, Value: ast.NewNumber(v)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.AbsShortMode,
+				Value: ast.NewNumber(v),
+			}, nil
 		}
 		if upper == "L" {
 			p.AdvanceReadPosition(2)
-			return &EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewNumber(v)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.AbsLongMode,
+				Value: ast.NewNumber(v),
+			}, nil
 		}
 	}
 
 	if v <= 0xFFFF {
-		return &EffectiveAddress{Mode: cpu68000.AbsShortMode, Value: ast.NewNumber(v)}, nil
+		return &EffectiveAddress{
+			Mode:  cpu68000.AbsShortMode,
+			Value: ast.NewNumber(v),
+		}, nil
 	}
-	return &EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewNumber(v)}, nil
+	return &EffectiveAddress{
+		Mode:  cpu68000.AbsLongMode,
+		Value: ast.NewNumber(v),
+	}, nil
 }
 
 func parseIndexedEA(p arch.Parser, base registerInfo) (*EffectiveAddress, error) {
@@ -316,19 +331,31 @@ func parseDisplacementOrAbsoluteEA(p arch.Parser, numTok token.Token) (*Effectiv
 		upper := strings.ToUpper(suffix.Value)
 		if upper == "W" {
 			p.AdvanceReadPosition(2) // skip '.W'
-			return &EffectiveAddress{Mode: cpu68000.AbsShortMode, Value: ast.NewNumber(v)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.AbsShortMode,
+				Value: ast.NewNumber(v),
+			}, nil
 		}
 		if upper == "L" {
 			p.AdvanceReadPosition(2) // skip '.L'
-			return &EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewNumber(v)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.AbsLongMode,
+				Value: ast.NewNumber(v),
+			}, nil
 		}
 	}
 
 	// Default: absolute (short if fits, long otherwise)
 	if v <= 0xFFFF {
-		return &EffectiveAddress{Mode: cpu68000.AbsShortMode, Value: ast.NewNumber(v)}, nil
+		return &EffectiveAddress{
+			Mode:  cpu68000.AbsShortMode,
+			Value: ast.NewNumber(v),
+		}, nil
 	}
-	return &EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewNumber(v)}, nil
+	return &EffectiveAddress{
+		Mode:  cpu68000.AbsLongMode,
+		Value: ast.NewNumber(v),
+	}, nil
 }
 
 func parseDisplacementEA(p arch.Parser, disp uint64) (*EffectiveAddress, error) {
@@ -377,21 +404,36 @@ func parseIdentifierEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error
 
 	if info.special {
 		if info.number == regSR {
-			return &EffectiveAddress{Mode: cpu68000.StatusRegMode, Register: regSR}, nil
+			return &EffectiveAddress{
+				Mode:     cpu68000.StatusRegMode,
+				Register: regSR,
+			}, nil
 		}
 		if info.number == regCCR {
-			return &EffectiveAddress{Mode: cpu68000.StatusRegMode, Register: regCCR}, nil
+			return &EffectiveAddress{
+				Mode:     cpu68000.StatusRegMode,
+				Register: regCCR,
+			}, nil
 		}
 		if info.number == regUSP {
-			return &EffectiveAddress{Mode: cpu68000.AddrRegDirectMode, Register: regUSP}, nil
+			return &EffectiveAddress{
+				Mode:     cpu68000.AddrRegDirectMode,
+				Register: regUSP,
+			}, nil
 		}
 		return nil, fmt.Errorf("unexpected special register '%s'", tok.Value)
 	}
 
 	if info.isAddr {
-		return &EffectiveAddress{Mode: cpu68000.AddrRegDirectMode, Register: info.number}, nil
+		return &EffectiveAddress{
+			Mode:     cpu68000.AddrRegDirectMode,
+			Register: info.number,
+		}, nil
 	}
-	return &EffectiveAddress{Mode: cpu68000.DataRegDirectMode, Register: info.number}, nil
+	return &EffectiveAddress{
+		Mode:     cpu68000.DataRegDirectMode,
+		Register: info.number,
+	}, nil
 }
 
 func parseLabelEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
@@ -408,16 +450,25 @@ func parseLabelEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
 		upper := strings.ToUpper(suffix.Value)
 		if upper == "W" {
 			p.AdvanceReadPosition(2)
-			return &EffectiveAddress{Mode: cpu68000.AbsShortMode, Value: ast.NewLabel(tok.Value)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.AbsShortMode,
+				Value: ast.NewLabel(tok.Value),
+			}, nil
 		}
 		if upper == "L" {
 			p.AdvanceReadPosition(2)
-			return &EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewLabel(tok.Value)}, nil
+			return &EffectiveAddress{
+				Mode:  cpu68000.AbsLongMode,
+				Value: ast.NewLabel(tok.Value),
+			}, nil
 		}
 	}
 
 	// Default: label as absolute long address
-	return &EffectiveAddress{Mode: cpu68000.AbsLongMode, Value: ast.NewLabel(tok.Value)}, nil
+	return &EffectiveAddress{
+		Mode:  cpu68000.AbsLongMode,
+		Value: ast.NewLabel(tok.Value),
+	}, nil
 }
 
 func parseLabelDisplacementEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {

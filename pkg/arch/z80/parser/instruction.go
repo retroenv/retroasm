@@ -20,12 +20,8 @@ func ParseIdentifier(parser arch.Parser, mnemonic string, variants []*cpuz80.Ins
 }
 
 // ParseIdentifierWithProfile parses a Z80 instruction and enforces the selected profile.
-func ParseIdentifierWithProfile(
-	parser arch.Parser,
-	mnemonic string,
-	variants []*cpuz80.Instruction,
-	profileKind profile.Kind,
-) (ast.Node, error) {
+func ParseIdentifierWithProfile(parser arch.Parser, mnemonic string, variants []*cpuz80.Instruction,
+	profileKind profile.Kind) (ast.Node, error) {
 
 	operands, err := parseOperands(parser)
 	if err != nil {
@@ -261,7 +257,9 @@ func parseExpressionOperand(parser arch.Parser, base token.Token) (rawOperand, b
 	}, true, nil
 }
 
-func parseParenthesizedExpressionOperand(parser arch.Parser, base token.Token, operator token.Type) (rawOperand, error) {
+func parseParenthesizedExpressionOperand(parser arch.Parser, base token.Token,
+	operator token.Type) (rawOperand, error) {
+
 	tokens, consumed, err := parseExpressionTokenList(parser, 2, token.RightParentheses, true)
 	if err != nil {
 		return rawOperand{}, err
@@ -296,7 +294,10 @@ func parseIndexedExpressionDisplacement(parser arch.Parser, operator token.Type)
 	}
 
 	negatedTokens := make([]token.Token, 0, len(tokens)+5)
-	negatedTokens = append(negatedTokens, token.Token{Type: token.Number, Value: "0"})
+	negatedTokens = append(negatedTokens, token.Token{
+		Type:  token.Number,
+		Value: "0",
+	})
 	negatedTokens = append(negatedTokens, token.Token{Type: token.Minus})
 	negatedTokens = append(negatedTokens, token.Token{Type: token.LeftParentheses})
 	negatedTokens = append(negatedTokens, tokens...)
@@ -305,12 +306,8 @@ func parseIndexedExpressionDisplacement(parser arch.Parser, operator token.Type)
 	return ast.NewExpression(negatedTokens...), consumed, nil
 }
 
-func parseExpressionTokenList(
-	parser arch.Parser,
-	startOffset int,
-	stopToken token.Type,
-	requireLeadingOperator bool,
-) ([]token.Token, int, error) {
+func parseExpressionTokenList(parser arch.Parser, startOffset int, stopToken token.Type,
+	requireLeadingOperator bool) ([]token.Token, int, error) {
 
 	var tokens []token.Token
 

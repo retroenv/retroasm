@@ -460,11 +460,8 @@ func cpu6502OperandsForAddressing(addressing cpu6502.AddressingMode) (cpu6502par
 	}
 }
 
-func cpu6502MemoryOperands(
-	kind cpu6502parser.OperandKind,
-	size cpu6502parser.AddressSize,
-	value ast.Node,
-) cpu6502parser.Operands {
+func cpu6502MemoryOperands(kind cpu6502parser.OperandKind, size cpu6502parser.AddressSize,
+	value ast.Node) cpu6502parser.Operands {
 
 	return cpu6502parser.Operands{cpu6502parser.MemoryOperand(kind, size, value)}
 }
@@ -496,13 +493,33 @@ func TestCPU6502Codec_SymbolicAddressAndImmediateExpressionRoundTrip(t *testing.
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{0xad, 0x03, 0x00}, builtAssembly.Binary)
 	assert.Equal(t, builtAssembly.Binary, parsedAssembly.Binary)
+}
 
+func TestCPU6502Codec_ImmediateExpressionRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	c := newCPU6502AssemblyCodec(t)
 	expression := ast.NewExpression(
-		token.Token{Type: token.LeftParentheses, Value: "("},
-		token.Token{Type: token.Identifier, Value: "value"},
-		token.Token{Type: token.Minus, Value: "-"},
-		token.Token{Type: token.Number, Value: "1"},
-		token.Token{Type: token.RightParentheses, Value: ")"},
+		token.Token{
+			Type:  token.LeftParentheses,
+			Value: "(",
+		},
+		token.Token{
+			Type:  token.Identifier,
+			Value: "value",
+		},
+		token.Token{
+			Type:  token.Minus,
+			Value: "-",
+		},
+		token.Token{
+			Type:  token.Number,
+			Value: "1",
+		},
+		token.Token{
+			Type:  token.RightParentheses,
+			Value: ")",
+		},
 	)
 	immediate, err := codec.BuildInstruction(
 		c,
@@ -522,7 +539,10 @@ func TestCPU6502Codec_CompatibilityProjectionPreservesModifiers(t *testing.T) {
 	t.Parallel()
 
 	c := newCPU6502AssemblyCodec(t)
-	modifier := ast.Modifier{Operator: ast.NewOperator("+"), Value: "2"}
+	modifier := ast.Modifier{
+		Operator: ast.NewOperator("+"),
+		Value:    "2",
+	}
 	operand := cpu6502parser.WithModifiers(
 		cpu6502parser.MemoryOperand(
 			cpu6502parser.OperandAddress,
@@ -598,7 +618,11 @@ func TestCPU6502TypedInstructionFormattingOptions(t *testing.T) {
 	formatted, err := cpu6502parser.FormatInstructionWithOptions(
 		instruction,
 		cpu6502.LdaInst,
-		cpu6502parser.FormatOptions{Indent: "  ", Uppercase: true, WordHexDigits: 6},
+		cpu6502parser.FormatOptions{
+			Indent:        "  ",
+			Uppercase:     true,
+			WordHexDigits: 6,
+		},
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, "  LDA A:$000042,X", formatted)
@@ -609,23 +633,21 @@ func newCPU6502AssemblyCodec(t *testing.T) *codec.Codec[*cpu6502.Instruction] {
 	return newCPU6502AssemblyCodecWithConfig(t, asmcpu6502.New())
 }
 
-func newCPU6502AssemblyCodecForVariant(
-	t *testing.T,
-	variant cpu6502.CPUVariant,
-) *codec.Codec[*cpu6502.Instruction] {
-
+func newCPU6502AssemblyCodecForVariant(t *testing.T, variant cpu6502.CPUVariant) *codec.Codec[*cpu6502.Instruction] {
 	t.Helper()
 	return newCPU6502AssemblyCodecWithConfig(t, asmcpu6502.New(asmcpu6502.WithVariant(variant)))
 }
 
-func newCPU6502AssemblyCodecWithConfig(
-	t *testing.T,
-	configuration *config.Config[*cpu6502.Instruction],
-) *codec.Codec[*cpu6502.Instruction] {
+func newCPU6502AssemblyCodecWithConfig(t *testing.T,
+	configuration *config.Config[*cpu6502.Instruction]) *codec.Codec[*cpu6502.Instruction] {
 
 	t.Helper()
 	segment := &config.Segment{
-		Memory:      config.Memory{Name: "code", Start: 0, Size: 0x10000},
+		Memory: config.Memory{
+			Name:  "code",
+			Start: 0,
+			Size:  0x10000,
+		},
 		SegmentName: "code",
 	}
 	configuration.Segments = map[string]*config.Segment{"code": segment}

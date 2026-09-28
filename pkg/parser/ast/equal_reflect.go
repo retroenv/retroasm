@@ -35,7 +35,11 @@ func equalValue(left, right reflect.Value, seen set.Set[equalVisit]) bool {
 		if left.Kind() != reflect.Pointer && left.Len() != right.Len() {
 			return false
 		}
-		visit := equalVisit{left: uintptr(left.UnsafePointer()), right: uintptr(right.UnsafePointer()), typ: left.Type()}
+		visit := equalVisit{
+			left:  uintptr(left.UnsafePointer()),
+			right: uintptr(right.UnsafePointer()),
+			typ:   left.Type(),
+		}
 		if visit.left == visit.right || seen.Contains(visit) {
 			return true
 		}

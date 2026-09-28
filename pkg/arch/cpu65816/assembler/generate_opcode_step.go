@@ -86,11 +86,8 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	return nil
 }
 
-func generateImmediateOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateImmediateOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -117,11 +114,8 @@ func generateImmediateOpcode(
 	return nil
 }
 
-func generateByteAddressingOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -137,11 +131,8 @@ func generateByteAddressingOpcode(
 	return nil
 }
 
-func generateWordAddressingOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -157,11 +148,8 @@ func generateWordAddressingOpcode(
 	return nil
 }
 
-func generateLongAddressingOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateLongAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -178,11 +166,8 @@ func generateLongAddressingOpcode(
 	return nil
 }
 
-func generateRelativeAddressingOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -202,11 +187,8 @@ func generateRelativeAddressingOpcode(
 	return nil
 }
 
-func generateRelativeLongOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateRelativeLongOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -227,11 +209,8 @@ func generateRelativeLongOpcode(
 	return nil
 }
 
-func generateBlockMoveOpcode(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-) error {
+func generateBlockMoveOpcode(assigner arch.AddressAssigner, ins arch.Instruction,
+	resolved parser.ResolvedInstruction) error {
 
 	src, err := resolvedOperandValue(assigner, resolved, 0)
 	if err != nil {
@@ -253,15 +232,8 @@ func generateBlockMoveOpcode(
 	return nil
 }
 
-func recordCPU65816Relocation(
-	assigner arch.AddressAssigner,
-	ins arch.Instruction,
-	resolved parser.ResolvedInstruction,
-	operandIndex int,
-	byteOffset uint64,
-	kind ast.RelocationKind,
-	width ast.DataWidth,
-) {
+func recordCPU65816Relocation(assigner arch.AddressAssigner, ins arch.Instruction, resolved parser.ResolvedInstruction,
+	operandIndex int, byteOffset uint64, kind ast.RelocationKind, width ast.DataWidth) {
 
 	if operandIndex < 0 || operandIndex >= len(resolved.Operands) {
 		return

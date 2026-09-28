@@ -132,16 +132,46 @@ func TestLexerReadNumber(t *testing.T) {
 		input    string
 		expected token.Token
 	}{
-		{"0ABCDh/4", token.Token{Type: token.Number, Value: "0x0ABCD"}},
-		{"0ABCDh", token.Token{Type: token.Number, Value: "0x0ABCD"}},
-		{"0ABCDH", token.Token{Type: token.Number, Value: "0x0ABCD"}},
-		{"$ABCD", token.Token{Type: token.Number, Value: "$ABCD"}},
-		{"12345", token.Token{Type: token.Number, Value: "12345"}},
-		{"%01010101", token.Token{Type: token.Number, Value: "%01010101"}},
-		{"01010101b", token.Token{Type: token.Number, Value: "01010101b"}},
-		{"#%10001000", token.Token{Type: token.Number, Value: "#%10001000"}},
-		{"#0x3c", token.Token{Type: token.Number, Value: "#0x3c"}},
-		{"0x3c", token.Token{Type: token.Number, Value: "0x3c"}},
+		{"0ABCDh/4", token.Token{
+			Type:  token.Number,
+			Value: "0x0ABCD",
+		}},
+		{"0ABCDh", token.Token{
+			Type:  token.Number,
+			Value: "0x0ABCD",
+		}},
+		{"0ABCDH", token.Token{
+			Type:  token.Number,
+			Value: "0x0ABCD",
+		}},
+		{"$ABCD", token.Token{
+			Type:  token.Number,
+			Value: "$ABCD",
+		}},
+		{"12345", token.Token{
+			Type:  token.Number,
+			Value: "12345",
+		}},
+		{"%01010101", token.Token{
+			Type:  token.Number,
+			Value: "%01010101",
+		}},
+		{"01010101b", token.Token{
+			Type:  token.Number,
+			Value: "01010101b",
+		}},
+		{"#%10001000", token.Token{
+			Type:  token.Number,
+			Value: "#%10001000",
+		}},
+		{"#0x3c", token.Token{
+			Type:  token.Number,
+			Value: "#0x3c",
+		}},
+		{"0x3c", token.Token{
+			Type:  token.Number,
+			Value: "0x3c",
+		}},
 	}
 
 	cfg := Config{

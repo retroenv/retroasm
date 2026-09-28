@@ -403,7 +403,7 @@ func (p *Parser[T]) isDotIdentifierKeyword(keyword token.Token) bool {
 //   - name .equ value (x816-style alias)
 //   - name .rs number (NESASM variable)
 //   - name .macro (NESASM macro definition)
-func (p *Parser[T]) parseDotIdentifier(tok token.Token, keyword token.Token) (ast.Node, error) {
+func (p *Parser[T]) parseDotIdentifier(tok, keyword token.Token) (ast.Node, error) {
 	switch strings.ToLower(keyword.Value) {
 	case "equ":
 		p.readPosition++ // skip the dot, so parseAlias sees "equ" as next

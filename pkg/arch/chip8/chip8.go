@@ -48,11 +48,7 @@ func (*archChip8[T]) ByteOrder() ast.ByteOrder {
 	return ast.ByteOrderBig
 }
 
-func (ar *archChip8[T]) BuildInstruction(
-	mnemonic string,
-	operands parser.Operands,
-) (ast.Instruction, error) {
-
+func (ar *archChip8[T]) BuildInstruction(mnemonic string, operands parser.Operands) (ast.Instruction, error) {
 	lookupName := strings.ToLower(strings.TrimSpace(mnemonic))
 	instruction, ok := ar.Instruction(lookupName)
 	if !ok {

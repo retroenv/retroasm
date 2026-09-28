@@ -30,22 +30,13 @@ type FormatOptions struct {
 }
 
 // BuildInstruction constructs and validates a typed Z80 instruction using the default profile.
-func BuildInstruction(
-	mnemonic string,
-	variants []*cpuz80.Instruction,
-	operands ...Operand,
-) (ast.Instruction, error) {
-
+func BuildInstruction(mnemonic string, variants []*cpuz80.Instruction, operands ...Operand) (ast.Instruction, error) {
 	return BuildInstructionWithProfile(mnemonic, variants, profile.Default, operands...)
 }
 
 // BuildInstructionWithProfile constructs and validates a typed Z80 instruction without parsing text.
-func BuildInstructionWithProfile(
-	mnemonic string,
-	variants []*cpuz80.Instruction,
-	profileKind profile.Kind,
-	operands ...Operand,
-) (ast.Instruction, error) {
+func BuildInstructionWithProfile(mnemonic string, variants []*cpuz80.Instruction, profileKind profile.Kind,
+	operands ...Operand) (ast.Instruction, error) {
 
 	mnemonic = strings.ToLower(strings.TrimSpace(mnemonic))
 	if mnemonic == "" {
@@ -77,12 +68,7 @@ func BuildInstructionWithProfile(
 }
 
 // ValidateInstruction checks typed Z80 metadata against its source-level operands and profile.
-func ValidateInstruction(
-	instruction ast.Instruction,
-	variants []*cpuz80.Instruction,
-	profileKind profile.Kind,
-) error {
-
+func ValidateInstruction(instruction ast.Instruction, variants []*cpuz80.Instruction, profileKind profile.Kind) error {
 	resolved, err := resolvedArgument(instruction.Argument)
 	if err != nil {
 		return err
@@ -118,11 +104,7 @@ func FormatInstruction(instruction ast.Instruction) (string, error) {
 
 // FormatInstructionWithOptions returns one deterministic, parseable Z80
 // instruction line using the requested presentation policy.
-func FormatInstructionWithOptions(
-	instruction ast.Instruction,
-	options FormatOptions,
-) (string, error) {
-
+func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOptions) (string, error) {
 	resolved, err := resolvedArgument(instruction.Argument)
 	if err != nil {
 		return "", err
@@ -166,12 +148,8 @@ func FormatOperand(operand Operand) (string, error) {
 	return formatOperandWithOptions(operand, FormatOptions{}, false)
 }
 
-func validateResolvedMetadata(
-	instruction ast.Instruction,
-	resolved ResolvedInstruction,
-	variants []*cpuz80.Instruction,
-	profileKind profile.Kind,
-) error {
+func validateResolvedMetadata(instruction ast.Instruction, resolved ResolvedInstruction, variants []*cpuz80.Instruction,
+	profileKind profile.Kind) error {
 
 	if resolved.Instruction == nil {
 		return fmt.Errorf("%w: missing instruction variant", ErrInvalidInstruction)
@@ -303,12 +281,7 @@ func sameValues(left, right []ast.Node) bool {
 	return true
 }
 
-func formatOperandWithOptions(
-	operand Operand,
-	options FormatOptions,
-	decimalValue bool,
-) (string, error) {
-
+func formatOperandWithOptions(operand Operand, options FormatOptions, decimalValue bool) (string, error) {
 	switch operand.Kind {
 	case OperandRegister:
 		if !validRegisterParam(operand.Register) {

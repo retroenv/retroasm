@@ -40,16 +40,40 @@ var parseSizeTokenTests = []struct {
 	tok      token.Token
 	wantSize cpu68000.OperandSize
 }{
-	{token.Token{Type: token.Identifier, Value: "B"}, cpu68000.SizeByte},
-	{token.Token{Type: token.Identifier, Value: "W"}, cpu68000.SizeWord},
-	{token.Token{Type: token.Identifier, Value: "L"}, cpu68000.SizeLong},
-	{token.Token{Type: token.Identifier, Value: "b"}, cpu68000.SizeByte},
-	{token.Token{Type: token.Identifier, Value: "w"}, cpu68000.SizeWord},
-	{token.Token{Type: token.Identifier, Value: "l"}, cpu68000.SizeLong},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "B",
+	}, cpu68000.SizeByte},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "W",
+	}, cpu68000.SizeWord},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "L",
+	}, cpu68000.SizeLong},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "b",
+	}, cpu68000.SizeByte},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "w",
+	}, cpu68000.SizeWord},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "l",
+	}, cpu68000.SizeLong},
 	// Non-size identifier
-	{token.Token{Type: token.Identifier, Value: "X"}, 0},
+	{token.Token{
+		Type:  token.Identifier,
+		Value: "X",
+	}, 0},
 	// Non-identifier token
-	{token.Token{Type: token.Number, Value: "1"}, 0},
+	{token.Token{
+		Type:  token.Number,
+		Value: "1",
+	}, 0},
 	{token.Token{Type: token.EOL}, 0},
 }
 
