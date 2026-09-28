@@ -79,7 +79,9 @@ func (ar *arch6502[T]) InstructionRegistrations() []arch.InstructionRegistration
 		}
 		slices.Sort(addressings)
 		registrations = append(registrations, arch.InstructionRegistration{
-			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: addressings,
+			Name:        instruction.Name,
+			OpcodeID:    ar.OpcodeID(instruction),
+			Addressings: addressings,
 		})
 	}
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {

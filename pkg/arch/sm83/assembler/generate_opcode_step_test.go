@@ -232,23 +232,28 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "immediate byte",
 			resolved: sm83parser.ResolvedInstruction{
-				Addressing: cpusm83.ImmediateAddressing, Instruction: cpusm83.LdImm8,
-				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegA}, OperandValues: []ast.Node{ast.NewLabel("value")},
+				Addressing:     cpusm83.ImmediateAddressing,
+				Instruction:    cpusm83.LdImm8,
+				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegA},
+				OperandValues:  []ast.Node{ast.NewLabel("value")},
 			},
 			value: 0x12, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthByte,
 		},
 		{
 			name: "immediate word",
 			resolved: sm83parser.ResolvedInstruction{
-				Addressing: cpusm83.ImmediateAddressing, Instruction: cpusm83.LdReg16,
-				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegBC}, OperandValues: []ast.Node{ast.NewLabel("value")},
+				Addressing:     cpusm83.ImmediateAddressing,
+				Instruction:    cpusm83.LdReg16,
+				RegisterParams: []cpusm83.RegisterParam{cpusm83.RegBC},
+				OperandValues:  []ast.Node{ast.NewLabel("value")},
 			},
 			value: 0x1234, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthWord,
 		},
 		{
 			name: "extended word",
 			resolved: sm83parser.ResolvedInstruction{
-				Addressing: cpusm83.ExtendedAddressing, Instruction: cpusm83.JpAbs,
+				Addressing:    cpusm83.ExtendedAddressing,
+				Instruction:   cpusm83.JpAbs,
 				OperandValues: []ast.Node{ast.NewLabel("value")},
 			},
 			value: 0x1234, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthWord,
@@ -256,7 +261,8 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "relative byte",
 			resolved: sm83parser.ResolvedInstruction{
-				Addressing: cpusm83.RelativeAddressing, Instruction: cpusm83.JrRel,
+				Addressing:    cpusm83.RelativeAddressing,
+				Instruction:   cpusm83.JrRel,
 				OperandValues: []ast.Node{ast.NewLabel("value")},
 			},
 			value: 2, wantOffset: 1, wantKind: ast.RelativeRelocation, wantWidth: ast.WidthByte,
@@ -264,7 +270,8 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "indirect immediate byte",
 			resolved: sm83parser.ResolvedInstruction{
-				Addressing: cpusm83.RegisterIndirectAddressing, Instruction: cpusm83.LdIndirectImm,
+				Addressing:    cpusm83.RegisterIndirectAddressing,
+				Instruction:   cpusm83.LdIndirectImm,
 				OperandValues: []ast.Node{ast.NewLabel("value")},
 			},
 			value: 0x12, wantOffset: 1, wantKind: ast.AbsoluteRelocation, wantWidth: ast.WidthByte,
@@ -283,8 +290,11 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Len(t, assigner.relocations, 1)
 			assert.Equal(t, arch.RelocationEncoding{
-				ByteOffset: test.wantOffset, Kind: test.wantKind, Width: test.wantWidth,
-				ByteOrder: ast.ByteOrderLittle, ReferenceType: ast.FullAddress,
+				ByteOffset:    test.wantOffset,
+				Kind:          test.wantKind,
+				Width:         test.wantWidth,
+				ByteOrder:     ast.ByteOrderLittle,
+				ReferenceType: ast.FullAddress,
 			}, assigner.relocations[0])
 		})
 	}

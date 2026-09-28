@@ -249,12 +249,15 @@ func rawRegisterOperand(register sm83.RegisterParam) (rawOperand, error) {
 	}
 	if register == sm83.RegCondC {
 		return rawOperand{
-			token: identifierToken(register), register: sm83.RegC,
-			indirectReg: register, isCondition: true,
+			token:       identifierToken(register),
+			register:    sm83.RegC,
+			indirectReg: register,
+			isCondition: true,
 		}, nil
 	}
 	return rawOperand{
-		token: identifierToken(register), register: register,
+		token:       identifierToken(register),
+		register:    register,
 		isCondition: isCondition(register),
 	}, nil
 }

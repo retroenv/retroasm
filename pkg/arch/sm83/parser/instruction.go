@@ -241,7 +241,9 @@ func parseIdentifierOperand(p arch.Parser, tok token.Token) (rawOperand, error) 
 		}
 		if cond, condOK := lookupCondition(tok.Value); condOK {
 			return rawOperand{
-				token: tok, register: reg, isCondition: true,
+				token:       tok,
+				register:    reg,
+				isCondition: true,
 				indirectReg: cond,
 			}, nil
 		}
@@ -285,7 +287,9 @@ func parseEmbeddedSPOffset(identifier token.Token) (rawOperand, bool, error) {
 		value = (0x100 - value) & 0xff
 	}
 	return rawOperand{
-		token: identifier, register: cpusm83.RegSP, value: ast.NewNumber(value),
+		token:    identifier,
+		register: cpusm83.RegSP,
+		value:    ast.NewNumber(value),
 	}, true, nil
 }
 

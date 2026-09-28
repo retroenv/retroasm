@@ -99,7 +99,9 @@ func (ar *arch65816[T]) InstructionRegistrations() []arch.InstructionRegistratio
 			addressings.Add(int(parser.YAddressing))
 		}
 		registrations = append(registrations, arch.InstructionRegistration{
-			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), Addressings: set.Sorted(addressings),
+			Name:        instruction.Name,
+			OpcodeID:    ar.OpcodeID(instruction),
+			Addressings: set.Sorted(addressings),
 		})
 	}
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {

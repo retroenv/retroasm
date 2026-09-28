@@ -212,8 +212,10 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "immediate byte",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.ImmediateAddressing, Instruction: cpuz80.LdImm8,
-				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA}, OperandValues: []ast.Node{ast.NewLabel("value")},
+				Addressing:     cpuz80.ImmediateAddressing,
+				Instruction:    cpuz80.LdImm8,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
+				OperandValues:  []ast.Node{ast.NewLabel("value")},
 			},
 			values: map[string]uint64{"value": 0x12}, wantOffsets: []uint64{1},
 			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthByte},
@@ -221,8 +223,10 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "prefixed immediate word",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.ImmediateAddressing, Instruction: cpuz80.DdLdIXnn,
-				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegIX}, OperandValues: []ast.Node{ast.NewLabel("value")},
+				Addressing:     cpuz80.ImmediateAddressing,
+				Instruction:    cpuz80.DdLdIXnn,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegIX},
+				OperandValues:  []ast.Node{ast.NewLabel("value")},
 			},
 			values: map[string]uint64{"value": 0x1234}, wantOffsets: []uint64{2},
 			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthWord},
@@ -230,7 +234,8 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "extended word",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.ExtendedAddressing, Instruction: cpuz80.JpAbs,
+				Addressing:    cpuz80.ExtendedAddressing,
+				Instruction:   cpuz80.JpAbs,
 				OperandValues: []ast.Node{ast.NewLabel("value")},
 			},
 			values: map[string]uint64{"value": 0x1234}, wantOffsets: []uint64{1},
@@ -239,7 +244,8 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "relative byte",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.RelativeAddressing, Instruction: cpuz80.JrRel,
+				Addressing:    cpuz80.RelativeAddressing,
+				Instruction:   cpuz80.JrRel,
 				OperandValues: []ast.Node{ast.NewLabel("value")},
 			},
 			values: map[string]uint64{"value": 2}, wantOffsets: []uint64{1},
@@ -248,8 +254,10 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "prefixed displacement",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.RegisterIndirectAddressing, Instruction: cpuz80.DdLdAIXd,
-				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA}, OperandValues: []ast.Node{ast.NewLabel("value")},
+				Addressing:     cpuz80.RegisterIndirectAddressing,
+				Instruction:    cpuz80.DdLdAIXd,
+				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegA},
+				OperandValues:  []ast.Node{ast.NewLabel("value")},
 			},
 			values: map[string]uint64{"value": 5}, wantOffsets: []uint64{2},
 			wantKinds: []ast.RelocationKind{ast.AbsoluteRelocation}, wantWidths: []ast.DataWidth{ast.WidthByte},
@@ -257,7 +265,8 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "indexed bit displacement",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.BitAddressing, Instruction: cpuz80.FdcbBit,
+				Addressing:     cpuz80.BitAddressing,
+				Instruction:    cpuz80.FdcbBit,
 				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegHLIndirect},
 				OperandValues:  []ast.Node{ast.NewNumber(3), ast.NewLabel("value")},
 			},
@@ -267,7 +276,8 @@ func TestGenerateInstructionOpcode_RecordsRelocationEncoding(t *testing.T) {
 		{
 			name: "displacement and immediate bytes",
 			resolved: z80parser.ResolvedInstruction{
-				Addressing: cpuz80.ImmediateAddressing, Instruction: cpuz80.DdLdIXdN,
+				Addressing:     cpuz80.ImmediateAddressing,
+				Instruction:    cpuz80.DdLdIXdN,
 				RegisterParams: []cpuz80.RegisterParam{cpuz80.RegImm8},
 				OperandValues:  []ast.Node{ast.NewLabel("displacement"), ast.NewLabel("value")},
 			},

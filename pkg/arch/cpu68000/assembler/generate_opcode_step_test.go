@@ -251,8 +251,10 @@ func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) {
 		{
 			name: "word immediate and absolute destination",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.MOVEName], Size: cpu68000.SizeWord,
-				SrcEA: parser.Immediate(ast.NewLabel("source")), DstEA: parser.Absolute(false, ast.NewLabel("destination")),
+				Instruction: cpu68000.Instructions[cpu68000.MOVEName],
+				Size:        cpu68000.SizeWord,
+				SrcEA:       parser.Immediate(ast.NewLabel("source")),
+				DstEA:       parser.Absolute(false, ast.NewLabel("destination")),
 			},
 			values: map[string]uint64{"source": 0x1234, "destination": 0x5678},
 			want: []arch.RelocationEncoding{
@@ -263,8 +265,10 @@ func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) {
 		{
 			name: "two long absolute operands",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.MOVEName], Size: cpu68000.SizeLong,
-				SrcEA: parser.Absolute(true, ast.NewLabel("source")), DstEA: parser.Absolute(true, ast.NewLabel("destination")),
+				Instruction: cpu68000.Instructions[cpu68000.MOVEName],
+				Size:        cpu68000.SizeLong,
+				SrcEA:       parser.Absolute(true, ast.NewLabel("source")),
+				DstEA:       parser.Absolute(true, ast.NewLabel("destination")),
 			},
 			values: map[string]uint64{"source": 0x123456, "destination": 0x789abc},
 			want: []arch.RelocationEncoding{
@@ -275,8 +279,10 @@ func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) {
 		{
 			name: "byte immediate uses low extension byte",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.MOVEName], Size: cpu68000.SizeByte,
-				SrcEA: parser.Immediate(ast.NewLabel("source")), DstEA: parser.DataRegister(0),
+				Instruction: cpu68000.Instructions[cpu68000.MOVEName],
+				Size:        cpu68000.SizeByte,
+				SrcEA:       parser.Immediate(ast.NewLabel("source")),
+				DstEA:       parser.DataRegister(0),
 			},
 			values: map[string]uint64{"source": 0x12},
 			want:   []arch.RelocationEncoding{cpu68000RelocationEncoding(3, ast.AbsoluteRelocation, ast.WidthByte)},
@@ -285,8 +291,10 @@ func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) {
 			name:    "PC displacement",
 			address: 0x1000,
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
-				SrcEA: parser.PCDisplacement(ast.NewLabel("target")), DstEA: parser.AddressRegister(0),
+				Instruction: cpu68000.Instructions[cpu68000.LEAName],
+				Size:        cpu68000.SizeLong,
+				SrcEA:       parser.PCDisplacement(ast.NewLabel("target")),
+				DstEA:       parser.AddressRegister(0),
 			},
 			values:      map[string]uint64{"target": 0x1010},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord)},
@@ -296,9 +304,10 @@ func TestGenerateInstructionOpcode_RecordsEAExtensionRelocations(t *testing.T) {
 			name:    "PC indexed displacement",
 			address: 0x1000,
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
-				SrcEA: parser.PCIndexed(1, false, cpu68000.SizeWord, ast.NewLabel("target")),
-				DstEA: parser.AddressRegister(0),
+				Instruction: cpu68000.Instructions[cpu68000.LEAName],
+				Size:        cpu68000.SizeLong,
+				SrcEA:       parser.PCIndexed(1, false, cpu68000.SizeWord, ast.NewLabel("target")),
+				DstEA:       parser.AddressRegister(0),
 			},
 			values:      map[string]uint64{"target": 0x1010},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(3, ast.RelativeRelocation, ast.WidthByte)},
@@ -344,8 +353,9 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 			name:    "byte branch",
 			address: 0x1000,
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.BRAName], Size: cpu68000.SizeByte,
-				DstEA: parser.PCDisplacement(ast.NewLabel("target")),
+				Instruction: cpu68000.Instructions[cpu68000.BRAName],
+				Size:        cpu68000.SizeByte,
+				DstEA:       parser.PCDisplacement(ast.NewLabel("target")),
 			},
 			values:      map[string]uint64{"target": 0x1010},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(1, ast.RelativeRelocation, ast.WidthByte)},
@@ -355,8 +365,9 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 			name:    "word branch",
 			address: 0x1000,
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.BSRName], Size: cpu68000.SizeWord,
-				DstEA: parser.PCDisplacement(ast.NewLabel("target")),
+				Instruction: cpu68000.Instructions[cpu68000.BSRName],
+				Size:        cpu68000.SizeWord,
+				DstEA:       parser.PCDisplacement(ast.NewLabel("target")),
 			},
 			values:      map[string]uint64{"target": 0x1200},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord)},
@@ -366,8 +377,10 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 			name:    "decrement and branch",
 			address: 0x1000,
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.DBccName], Extra: 6,
-				SrcEA: parser.DataRegister(0), DstEA: parser.PCDisplacement(ast.NewLabel("target")),
+				Instruction: cpu68000.Instructions[cpu68000.DBccName],
+				Extra:       6,
+				SrcEA:       parser.DataRegister(0),
+				DstEA:       parser.PCDisplacement(ast.NewLabel("target")),
 			},
 			values:      map[string]uint64{"target": 0x1200},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.RelativeRelocation, ast.WidthWord)},
@@ -376,8 +389,10 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 		{
 			name: "quick move",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.MOVEQName], Size: cpu68000.SizeLong,
-				SrcEA: parser.Immediate(ast.NewLabel("source")), DstEA: parser.DataRegister(0),
+				Instruction: cpu68000.Instructions[cpu68000.MOVEQName],
+				Size:        cpu68000.SizeLong,
+				SrcEA:       parser.Immediate(ast.NewLabel("source")),
+				DstEA:       parser.DataRegister(0),
 			},
 			values:      map[string]uint64{"source": 0x12},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(1, ast.AbsoluteRelocation, ast.WidthByte)},
@@ -387,7 +402,8 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 			name: "link displacement",
 			resolved: parser.ResolvedInstruction{
 				Instruction: cpu68000.Instructions[cpu68000.LINKName],
-				SrcEA:       parser.AddressRegister(0), DstEA: parser.Immediate(ast.NewLabel("frame")),
+				SrcEA:       parser.AddressRegister(0),
+				DstEA:       parser.Immediate(ast.NewLabel("frame")),
 			},
 			values:      map[string]uint64{"frame": 0xfffc},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord)},
@@ -406,8 +422,10 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 		{
 			name: "peripheral displacement",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.MOVEPName], Size: cpu68000.SizeWord,
-				SrcEA: parser.DataRegister(0), DstEA: parser.Displacement(0, ast.NewLabel("port")),
+				Instruction: cpu68000.Instructions[cpu68000.MOVEPName],
+				Size:        cpu68000.SizeWord,
+				SrcEA:       parser.DataRegister(0),
+				DstEA:       parser.Displacement(0, ast.NewLabel("port")),
 			},
 			values:      map[string]uint64{"port": 0x1234},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(2, ast.AbsoluteRelocation, ast.WidthWord)},
@@ -417,7 +435,8 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 			name: "immediate bit and destination",
 			resolved: parser.ResolvedInstruction{
 				Instruction: cpu68000.Instructions[cpu68000.BTSTName],
-				SrcEA:       parser.Immediate(ast.NewLabel("bit")), DstEA: parser.Absolute(false, ast.NewLabel("target")),
+				SrcEA:       parser.Immediate(ast.NewLabel("bit")),
+				DstEA:       parser.Absolute(false, ast.NewLabel("target")),
 			},
 			values: map[string]uint64{"bit": 3, "target": 0x1234},
 			want: []arch.RelocationEncoding{
@@ -429,8 +448,10 @@ func TestGenerateInstructionOpcode_RecordsDirectFieldRelocations(t *testing.T) {
 		{
 			name: "register list before destination",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.MOVEMName], Size: cpu68000.SizeWord,
-				SrcEA: parser.RegisterList(1), DstEA: parser.Absolute(false, ast.NewLabel("target")),
+				Instruction: cpu68000.Instructions[cpu68000.MOVEMName],
+				Size:        cpu68000.SizeWord,
+				SrcEA:       parser.RegisterList(1),
+				DstEA:       parser.Absolute(false, ast.NewLabel("target")),
 			},
 			values:      map[string]uint64{"target": 0x1234},
 			want:        []arch.RelocationEncoding{cpu68000RelocationEncoding(4, ast.AbsoluteRelocation, ast.WidthWord)},
@@ -469,16 +490,19 @@ func TestGenerateInstructionOpcode_RejectsSymbolicPCRelativeOverflow(t *testing.
 		{
 			name: "word displacement",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
-				SrcEA: parser.PCDisplacement(ast.NewLabel("target")), DstEA: parser.AddressRegister(0),
+				Instruction: cpu68000.Instructions[cpu68000.LEAName],
+				Size:        cpu68000.SizeLong,
+				SrcEA:       parser.PCDisplacement(ast.NewLabel("target")),
+				DstEA:       parser.AddressRegister(0),
 			},
 		},
 		{
 			name: "byte indexed displacement",
 			resolved: parser.ResolvedInstruction{
-				Instruction: cpu68000.Instructions[cpu68000.LEAName], Size: cpu68000.SizeLong,
-				SrcEA: parser.PCIndexed(0, false, cpu68000.SizeWord, ast.NewLabel("target")),
-				DstEA: parser.AddressRegister(0),
+				Instruction: cpu68000.Instructions[cpu68000.LEAName],
+				Size:        cpu68000.SizeLong,
+				SrcEA:       parser.PCIndexed(0, false, cpu68000.SizeWord, ast.NewLabel("target")),
+				DstEA:       parser.AddressRegister(0),
 			},
 		},
 	}

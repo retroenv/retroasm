@@ -44,8 +44,11 @@ func TestGenerateInstructionOpcode_RecordsRelocations(t *testing.T) { //nolint:f
 			operands: parser.Operands{parser.RegisterOperand(3), parser.ByteOperand(ast.NewLabel("target"))}, value: 0x7f,
 			wantCode: []byte{0x63, 0x7f},
 			want: arch.RelocationEncoding{
-				ByteOffset: 1, Kind: ast.AbsoluteRelocation, Width: ast.WidthByte,
-				ByteOrder: ast.ByteOrderBig, ReferenceType: ast.FullAddress,
+				ByteOffset:    1,
+				Kind:          ast.AbsoluteRelocation,
+				Width:         ast.WidthByte,
+				ByteOrder:     ast.ByteOrderBig,
+				ReferenceType: ast.FullAddress,
 			},
 		},
 		{
@@ -55,8 +58,11 @@ func TestGenerateInstructionOpcode_RecordsRelocations(t *testing.T) { //nolint:f
 			},
 			value: 5, wantCode: []byte{0xd1, 0x25},
 			want: arch.RelocationEncoding{
-				ByteOffset: 1, Kind: ast.AbsoluteRelocation, Width: ast.WidthByte,
-				ByteOrder: ast.ByteOrderBig, ReferenceType: ast.FullAddress,
+				ByteOffset:    1,
+				Kind:          ast.AbsoluteRelocation,
+				Width:         ast.WidthByte,
+				ByteOrder:     ast.ByteOrderBig,
+				ReferenceType: ast.FullAddress,
 				Field: ast.PackedField{
 					BitWidth:     4,
 					PreserveMask: 0xf0,
@@ -68,7 +74,9 @@ func TestGenerateInstructionOpcode_RecordsRelocations(t *testing.T) { //nolint:f
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resolved := parser.ResolvedInstruction{
-				Instruction: chip8.Instructions[test.instruction], Addressing: test.addressing, Operands: test.operands,
+				Instruction: chip8.Instructions[test.instruction],
+				Addressing:  test.addressing,
+				Operands:    test.operands,
 			}
 			assigner := &relocationAssigner{values: map[string]uint64{"target": test.value}}
 			instruction := &mockInstruction{
@@ -107,8 +115,10 @@ func TestGenerateInstructionOpcode_DoesNotRecordImpliedRelocation(t *testing.T) 
 
 func chip8AddressRelocationEncoding() arch.RelocationEncoding {
 	return arch.RelocationEncoding{
-		Kind: ast.AbsoluteRelocation, Width: ast.WidthWord,
-		ByteOrder: ast.ByteOrderBig, ReferenceType: ast.FullAddress,
+		Kind:          ast.AbsoluteRelocation,
+		Width:         ast.WidthWord,
+		ByteOrder:     ast.ByteOrderBig,
+		ReferenceType: ast.FullAddress,
 		Field: ast.PackedField{
 			BitWidth:     12,
 			PreserveMask: 0xf000,

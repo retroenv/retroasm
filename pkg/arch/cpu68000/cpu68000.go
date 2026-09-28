@@ -87,7 +87,9 @@ func (ar *architecture) InstructionRegistrations() []arch.InstructionRegistratio
 	registrations := make([]arch.InstructionRegistration, 0, len(cpu68000.Instructions))
 	for _, instruction := range cpu68000.Instructions {
 		registrations = append(registrations, arch.InstructionRegistration{
-			Name: instruction.Name, OpcodeID: ar.OpcodeID(instruction), DynamicOperands: true,
+			Name:            instruction.Name,
+			OpcodeID:        ar.OpcodeID(instruction),
+			DynamicOperands: true,
 		})
 	}
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
