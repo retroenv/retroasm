@@ -93,8 +93,11 @@ func TestASTAssembly(t *testing.T) {
 		expectedBinary []byte
 	}{
 		{
-			name:           "empty AST",
-			input:          &ASTInput{AST: []ast.Node{}, SourceName: testFilename},
+			name: "empty AST",
+			input: &ASTInput{
+				AST:        []ast.Node{},
+				SourceName: testFilename,
+			},
 			expectedBinary: nil,
 		},
 		{
@@ -276,7 +279,10 @@ func TestDefaultConfigurationMutation(t *testing.T) {
 	config := NewDefaultConfiguration().(*DefaultConfiguration)
 
 	// Test memory layout modification
-	newLayout := MemoryLayout{AddressSize: 8, Endianness: BigEndian}
+	newLayout := MemoryLayout{
+		AddressSize: 8,
+		Endianness:  BigEndian,
+	}
 	config.SetMemoryLayout(newLayout)
 	layout := config.MemoryLayout()
 	assert.Equal(t, 8, layout.AddressSize)

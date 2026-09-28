@@ -154,13 +154,8 @@ func TestParserX816DataWidths(t *testing.T) {
 	}
 }
 
-func assertX816ImmediateExpression(
-	t *testing.T,
-	node ast.Node,
-	left string,
-	operator, rightType token.Type,
-	right string,
-) {
+func assertX816ImmediateExpression(t *testing.T, node ast.Node, left string, operator, rightType token.Type,
+	right string) {
 
 	t.Helper()
 

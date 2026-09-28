@@ -65,11 +65,15 @@ func (a *ArchitectureAdapter[T]) CreateAssembler(cfg ArchitectureConfig) (Archit
 	}, nil
 }
 
-func (a *ArchitectureAdapter[T]) assembleAST(ctx context.Context, nodes []ast.Node, baseAddress uint64) ([]byte, error) {
+func (a *ArchitectureAdapter[T]) assembleAST(ctx context.Context, nodes []ast.Node,
+	baseAddress uint64) ([]byte, error) {
+
 	return assembleASTWithConfig(ctx, a.config, nodes, baseAddress)
 }
 
-func (a *ArchitectureAdapter[T]) assembleText(ctx context.Context, source anyReader, configFile string) ([]byte, error) {
+func (a *ArchitectureAdapter[T]) assembleText(ctx context.Context, source anyReader,
+	configFile string) ([]byte, error) {
+
 	return assembleTextWithConfig(ctx, a.config, source, configFile)
 }
 
@@ -214,7 +218,9 @@ func dispatcherForArchitecture(architecture Architecture) (architectureDispatche
 	return dispatcher, nil
 }
 
-func assembleASTWithConfig[T any](ctx context.Context, cfg *config.Config[T], nodes []ast.Node, baseAddress uint64) ([]byte, error) {
+func assembleASTWithConfig[T any](ctx context.Context, cfg *config.Config[T], nodes []ast.Node,
+	baseAddress uint64) ([]byte, error) {
+
 	if err := readAssemblerConfig(cfg, ""); err != nil {
 		return nil, err
 	}
@@ -231,8 +237,8 @@ func assembleASTWithConfig[T any](ctx context.Context, cfg *config.Config[T], no
 	return buf.Bytes(), nil
 }
 
-func assembleTextWithConfig[T any](ctx context.Context, cfg *config.Config[T],
-	source anyReader, configFile string) ([]byte, error) {
+func assembleTextWithConfig[T any](ctx context.Context, cfg *config.Config[T], source anyReader,
+	configFile string) ([]byte, error) {
 
 	if err := readAssemblerConfig(cfg, configFile); err != nil {
 		return nil, err

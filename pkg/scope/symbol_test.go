@@ -46,9 +46,18 @@ func TestScopeAllLabels(t *testing.T) {
 
 func TestScopeAddSymbolAliasOverwrite(t *testing.T) {
 	sc := New(nil)
-	assert.NoError(t, sc.AddSymbol(&Symbol{name: "x", typ: AliasType}))
-	assert.NoError(t, sc.AddSymbol(&Symbol{name: "x", typ: AliasType}))
-	assert.Error(t, sc.AddSymbol(&Symbol{name: "x", typ: LabelType}))
+	assert.NoError(t, sc.AddSymbol(&Symbol{
+		name: "x",
+		typ:  AliasType,
+	}))
+	assert.NoError(t, sc.AddSymbol(&Symbol{
+		name: "x",
+		typ:  AliasType,
+	}))
+	assert.Error(t, sc.AddSymbol(&Symbol{
+		name: "x",
+		typ:  LabelType,
+	}))
 }
 
 func TestNewSymbol(t *testing.T) {
@@ -76,12 +85,18 @@ func TestSymbolValueLabel(t *testing.T) {
 func TestSymbolValueExpression(t *testing.T) {
 	sc := New(nil)
 	for _, typ := range []SymbolType{AliasType, EquType} {
-		sym := &Symbol{typ: typ, expression: &mockExpr{value: int64(42)}}
+		sym := &Symbol{
+			typ:        typ,
+			expression: &mockExpr{value: int64(42)},
+		}
 		val, err := sym.Value(sc)
 		assert.NoError(t, err)
 		assert.Equal(t, int64(42), val)
 
-		sym2 := &Symbol{typ: typ, expression: &mockExpr{err: errors.New("bad")}}
+		sym2 := &Symbol{
+			typ:        typ,
+			expression: &mockExpr{err: errors.New("bad")},
+		}
 		_, err = sym2.Value(sc)
 		assert.Error(t, err)
 	}

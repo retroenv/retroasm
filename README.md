@@ -17,6 +17,7 @@ syntax tree (AST) to machine code and ROM files.
 * **Library API** - Assembles source text or an AST from Go programs
 * **Configuration files** - Uses ca65-style files to define memory and segments
 * **Macros and conditionals** - Processes macros and conditional assembly directives
+* **Expressions** - Evaluates arithmetic and bitwise expressions in assembly source
 * **Z80 profiles** - Selects the full, strict documented, or Game Boy instruction set
 
 ## Supported Systems

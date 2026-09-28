@@ -41,9 +41,12 @@ func TestBuildLogFields(t *testing.T) {
 			expected: 2,
 		},
 		{
-			name:     "input with cpu and system",
-			input:    "test.asm",
-			options:  &optionFlags{cpu: "6502", system: "nes"},
+			name:  "input with cpu and system",
+			input: "test.asm",
+			options: &optionFlags{
+				cpu:    "6502",
+				system: "nes",
+			},
 			expected: 3,
 		},
 		{
@@ -88,8 +91,11 @@ func TestCreateLogger(t *testing.T) {
 			expected: log.ErrorLevel,
 		},
 		{
-			name:     "quiet overrides debug",
-			options:  &optionFlags{debug: true, quiet: true},
+			name: "quiet overrides debug",
+			options: &optionFlags{
+				debug: true,
+				quiet: true,
+			},
 			expected: log.ErrorLevel,
 		},
 	}

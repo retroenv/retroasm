@@ -111,7 +111,10 @@ func BenchmarkDirectiveParsing(b *testing.B) {
 
 	b.Run("data_directive", func(b *testing.B) {
 		for range b.N {
-			p := &mockParser{tokens: parser.tokens, position: 0}
+			p := &mockParser{
+				tokens:   parser.tokens,
+				position: 0,
+			}
 			_, _ = Data(p)
 		}
 	})
@@ -125,7 +128,10 @@ func BenchmarkDirectiveParsing(b *testing.B) {
 
 	b.Run("base_directive", func(b *testing.B) {
 		for range b.N {
-			p := &mockParser{tokens: orgParser.tokens, position: 0}
+			p := &mockParser{
+				tokens:   orgParser.tokens,
+				position: 0,
+			}
 			_, _ = Base(p)
 		}
 	})
