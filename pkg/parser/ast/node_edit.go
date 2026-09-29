@@ -72,12 +72,10 @@ func (edit *NodeEdit) Commit(nodes []Node) error {
 				return fmt.Errorf("%w: node %d has a foreign entry handle", ErrInvalidStream, index)
 			}
 		}
-		edits[index] = EntryEdit{SourceIndex: source}
-		copied := node.Copy()
-		if carrier, ok := copied.(entryCarrier); ok {
-			carrier.setEntryHandle(nil)
+		edits[index] = EntryEdit{
+			SourceIndex: source,
+			Node:        node,
 		}
-		edits[index].Node = copied
 	}
 	return edit.stream.Rewrite(edits)
 }
@@ -87,6 +85,19 @@ func (edit *NodeEdit) Len() int { return len(edit.nodes) }
 
 // Nodes returns independent native nodes with their source handles.
 func (edit *NodeEdit) Nodes() []Node { return CopyNodes(edit.nodes) }
+
+// Replace publishes a half-open node range with the source checks from Commit.
+// A rejected edit leaves the stream and this view unchanged.
+func (edit *NodeEdit) Replace(start, end int, replacement []Node) error {
+	if start < 0 || end < start || end > edit.Len() {
+		return fmt.Errorf("%w: node replacement range %d:%d is outside %d nodes", ErrInvalidStream, start, end, edit.Len())
+	}
+	nodes := make([]Node, 0, edit.Len()-(end-start)+len(replacement))
+	nodes = append(nodes, edit.nodes[:start]...)
+	nodes = append(nodes, replacement...)
+	nodes = append(nodes, edit.nodes[end:]...)
+	return edit.Commit(nodes)
+}
 
 type entryCarrier interface {
 	entryHandle() *entryHandle

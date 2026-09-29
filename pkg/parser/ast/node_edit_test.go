@@ -170,3 +170,83 @@ func TestNodeEditRejectsUnsupportedNodes(t *testing.T) {
 	assert.Error(t, edit.Commit([]Node{unsupportedEditNode{}}))
 	assert.Equal(t, before, stream)
 }
+
+func TestNodeEditCommitClearsPublishedHandles(t *testing.T) {
+	stream := NewStreamFromNodes(NewInstruction("lda", 0, NewNumber(1), nil))
+	edit, err := stream.EditNodes()
+	assert.NoError(t, err)
+	candidate := edit.At(0)
+	handle := candidate.(entryCarrier).entryHandle()
+	assert.NotNil(t, handle)
+	assert.NoError(t, edit.Commit([]Node{candidate, candidate}))
+	assert.True(t, candidate.(entryCarrier).entryHandle() == handle)
+	assert.Nil(t, stream.entries[0].Node.(entryCarrier).entryHandle())
+	assert.Nil(t, stream.entries[1].Node.(entryCarrier).entryHandle())
+
+	candidate.SetComment("caller")
+	stream.entries[0].Node.SetComment("first")
+	assert.Equal(t, "", InlineComment(stream.entries[1].Node))
+}
+
+func TestNodeEditReplaceMatchesCommit(t *testing.T) {
+	for _, operation := range []string{"remove", "insert", "move", "copy", "replace", "empty", "all"} {
+		t.Run(operation, func(t *testing.T) {
+			stream := streamJoinFixture("entry", "input.asm")
+			stream.RecordState(streamJoinState{values: []int{1}}, streamJoinState{values: []int{2}})
+			reference := stream.Copy()
+			edit, err := stream.EditNodes()
+			assert.NoError(t, err)
+			expectedEdit, err := reference.EditNodes()
+			assert.NoError(t, err)
+			start, end, replacement := nodeEditReplacement(edit, operation)
+			assert.NoError(t, edit.Replace(start, end, replacement))
+			start, end, replacement = nodeEditReplacement(expectedEdit, operation)
+			nodes := expectedEdit.Nodes()
+			result := append([]Node(nil), nodes[:start]...)
+			result = append(result, replacement...)
+			result = append(result, nodes[end:]...)
+			assert.NoError(t, expectedEdit.Commit(result))
+			assert.Equal(t, reference, stream)
+			assert.ErrorContains(t, edit.Replace(0, 0, nil), "stale")
+		})
+	}
+}
+
+func TestNodeEditReplaceRejectsAtomically(t *testing.T) {
+	stream := streamJoinFixture("entry", "input.asm")
+	edit, err := stream.EditNodes()
+	assert.NoError(t, err)
+	foreign, err := stream.Copy().EditNodes()
+	assert.NoError(t, err)
+	before := stream.Copy()
+	assert.ErrorIs(t, edit.Replace(-1, 0, nil), ErrInvalidStream)
+	assert.ErrorIs(t, edit.Replace(2, 1, nil), ErrInvalidStream)
+	assert.ErrorIs(t, edit.Replace(0, 4, nil), ErrInvalidStream)
+	assert.ErrorIs(t, edit.Replace(0, 1, foreign.Nodes()), ErrInvalidStream)
+	assert.ErrorIs(t, edit.Replace(0, 1, []Node{nil}), ErrInvalidStream)
+	var absent *Instruction
+	assert.ErrorIs(t, edit.Replace(0, 1, []Node{absent}), ErrInvalidStream)
+	assert.Equal(t, before, stream)
+	assert.NoError(t, edit.Replace(0, 0, nil))
+}
+
+func nodeEditReplacement(edit *NodeEdit, operation string) (int, int, []Node) {
+	switch operation {
+	case "remove":
+		return 1, 2, nil
+	case "insert":
+		return 2, 2, []Node{NewLabel("inserted")}
+	case "move":
+		return 1, 3, []Node{edit.At(2), edit.At(1)}
+	case "copy":
+		return 2, 3, []Node{edit.At(2), edit.At(2)}
+	case "replace":
+		replacement := edit.At(1).(Label)
+		replacement.Name = "renamed"
+		return 1, 2, []Node{replacement}
+	case "empty":
+		return 2, 2, nil
+	default:
+		return 0, edit.Len(), nil
+	}
+}

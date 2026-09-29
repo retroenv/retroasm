@@ -106,3 +106,62 @@ func TestStreamRewriteRetainsSourceComments(t *testing.T) {
 	assert.Error(t, stream.Rewrite([]EntryEdit{{SourceIndex: 0, Node: replacement}}))
 	assert.Equal(t, before, stream)
 }
+
+func TestStreamRewriteReplacementOwnership(t *testing.T) {
+	stream := streamJoinFixture("entry", "input.asm")
+	stream.RecordState(streamJoinState{values: []int{1}}, streamJoinState{values: []int{2}})
+	source := stream.entries[1]
+	replacement := NewLabel("changed")
+	assert.NoError(t, stream.Rewrite([]EntryEdit{
+		{SourceIndex: 1, Node: replacement},
+		{SourceIndex: 1, Node: replacement},
+		{SourceIndex: 0},
+		{SourceIndex: 2},
+	}))
+
+	replacement.SetComment("caller")
+	source.Annotations[0].(*streamTestAnnotation).Value = "source"
+	stream.entries[0].Node.SetComment("first")
+	stream.entries[0].Annotations[0].(*streamTestAnnotation).Value = "first"
+	assert.Equal(t, "", InlineComment(stream.entries[1].Node))
+	assert.Equal(t, "entry", stream.entries[1].Annotations[0].(*streamTestAnnotation).Value)
+	assert.Equal(t, source.Position, stream.entries[0].Position)
+	assert.Equal(t, source.Boundary, stream.entries[0].Boundary)
+}
+
+func TestStreamRewriteRemovedPlainNodesAllocations(t *testing.T) {
+	allocations := make([]float64, 2)
+	for index, count := range []int{8, 4096} {
+		entries := make([]Entry, count)
+		for i := range entries {
+			entries[i].Node = NewInstruction("lda", 0, NewNumber(uint64(i)), nil)
+		}
+		allocations[index] = testing.AllocsPerRun(10, func() {
+			stream := &Stream{entries: entries}
+			assert.NoError(t, stream.Rewrite(nil))
+			assert.Equal(t, 0, stream.Len())
+			assert.Empty(t, stream.RemovedEntries())
+		})
+	}
+	assert.True(t, allocations[1] <= allocations[0], "removing plain nodes must not allocate per input node")
+}
+
+func BenchmarkStreamRewriteReplacements(b *testing.B) {
+	nodes := make([]Node, 256)
+	for index := range nodes {
+		nodes[index] = NewInstruction("lda", 0, NewNumber(uint64(index)), nil)
+	}
+	stream := NewStreamFromNodes(nodes...)
+	edits := make([]EntryEdit, len(nodes))
+	for index, native := range nodes {
+		edits[index] = EntryEdit{
+			SourceIndex: index,
+			Node:        native,
+		}
+	}
+	b.ReportAllocs()
+
+	for b.Loop() {
+		assert.NoError(b, stream.Rewrite(edits))
+	}
+}

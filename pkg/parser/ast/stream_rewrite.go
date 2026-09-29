@@ -26,28 +26,32 @@ type EntryEdit struct {
 // Symbols are rebuilt because edits can change their addresses and segments.
 // Retained relocations and segment changes must still match their result nodes.
 // The caller must also validate target state and instruction legality with its codec.
+// Each result entry is copied once. Result nodes have no native edit handles.
 func (stm *Stream) Rewrite(edits []EntryEdit) error {
 	if err := stm.Validate(); err != nil {
 		return err
 	}
-	candidate := stm.Copy()
-	candidate.entries = make([]Entry, len(edits))
+	candidate := &Stream{
+		entries:        make([]Entry, len(edits)),
+		removedEntries: copyEntries(stm.removedEntries),
+		initialState:   copyStreamState(stm.initialState),
+		finalState:     copyStreamState(stm.finalState),
+	}
 	destinations := make([][]int, stm.Len())
 	for index, edit := range edits {
 		if edit.SourceIndex < NoSourceEntry || edit.SourceIndex >= stm.Len() {
 			return fmt.Errorf("%w: edit %d has source index %d", ErrInvalidStream, index, edit.SourceIndex)
 		}
+		var source Entry
 		if edit.SourceIndex != NoSourceEntry {
-			candidate.entries[index] = stm.entries[edit.SourceIndex].Copy()
+			source = stm.entries[edit.SourceIndex]
 			destinations[edit.SourceIndex] = append(destinations[edit.SourceIndex], index)
 		}
-		if edit.Node != nil {
-			replacement := edit.Node.Copy()
-			if err := retainEntryComment(candidate.entries[index].Node, replacement); err != nil {
-				return fmt.Errorf("%w: edit %d: %w", ErrInvalidStream, index, err)
-			}
-			candidate.entries[index].Node = replacement
+		entry, err := copyRewriteEntry(source, edit.Node)
+		if err != nil {
+			return fmt.Errorf("%w: edit %d: %w", ErrInvalidStream, index, err)
 		}
+		candidate.entries[index] = entry
 	}
 	candidate.rewriteMetadata(stm, destinations)
 	if err := candidate.RebuildSymbols(); err != nil {
@@ -90,6 +94,23 @@ func (stm *Stream) rewriteMetadata(source *Stream, destinations [][]int) {
 			stm.removedEntries = append(stm.removedEntries, entry.Copy())
 		}
 	}
+}
+
+func copyRewriteEntry(source Entry, replacement Node) (Entry, error) {
+	original := source.Node
+	if replacement != nil {
+		source.Node = replacement
+	}
+	copied := source.Copy()
+	if carrier, ok := copied.Node.(entryCarrier); ok {
+		carrier.setEntryHandle(nil)
+	}
+	if replacement != nil {
+		if err := retainEntryComment(original, copied.Node); err != nil {
+			return Entry{}, err
+		}
+	}
+	return copied, nil
 }
 
 func entryHasSourceMetadata(entry Entry) bool {
