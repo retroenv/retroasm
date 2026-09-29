@@ -74,7 +74,7 @@ func equalPointer[T any](left, right *T, equal func(T, T) bool) bool {
 }
 
 func equalBase(left, right *node) bool {
-	return left == right || left != nil && right != nil && left.comment.Message == right.comment.Message
+	return left == right || left != nil && right != nil && left.comment == right.comment
 }
 
 func equalNumber(left, right Number) bool {

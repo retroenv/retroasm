@@ -13,7 +13,7 @@ func TestNode_SetComment(t *testing.T) {
 	t.Run("set comment on base node", func(t *testing.T) {
 		n := &node{}
 		n.SetComment("test comment")
-		assert.Equal(t, "test comment", n.comment.Message)
+		assert.Equal(t, "test comment", n.comment)
 	})
 
 	t.Run("set comment on instruction", func(t *testing.T) {
@@ -30,6 +30,29 @@ func TestNode_SetComment(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, "main", copied.Name)
 	})
+}
+
+func TestNodeCopyPreservesMetadata(t *testing.T) {
+	handle := &entryHandle{}
+	original := &node{
+		comment: "original",
+		handle:  handle,
+	}
+	copied := original.copyNode()
+	assert.Equal(t, "original", copied.inlineComment())
+	assert.True(t, copied.entryHandle() == handle)
+
+	copied.SetComment("copy")
+	copied.setEntryHandle(nil)
+	assert.Equal(t, "original", original.inlineComment())
+	assert.True(t, original.entryHandle() == handle)
+
+	var empty *node
+	copyOfEmpty := empty.copyNode()
+	assert.Empty(t, copyOfEmpty.inlineComment())
+	assert.Nil(t, copyOfEmpty.entryHandle())
+	copyOfEmpty.SetComment("new comment")
+	assert.Equal(t, "new comment", copyOfEmpty.inlineComment())
 }
 
 func TestNodeCopiesOwnInlineComments(t *testing.T) {

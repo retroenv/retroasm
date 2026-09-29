@@ -108,7 +108,7 @@ func equalityCases() []Node {
 
 func equalityFieldCases() []Node {
 	base := &node{}
-	comment := &node{comment: Comment{Message: "comment"}}
+	comment := &node{comment: "comment"}
 	return []Node{
 		Number{node: base}, Number{node: &node{}}, Number{node: comment}, Number{Value: 1},
 		Label{node: base}, Label{node: &node{}}, Label{node: comment}, Label{Name: "name"},
