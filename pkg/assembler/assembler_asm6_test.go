@@ -683,7 +683,7 @@ start:
 .org $0000
   lda #$01
 far_away:
-.org $0100
+.org $0082
   beq start    ; This should fail - too far
 `
 

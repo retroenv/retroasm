@@ -236,6 +236,13 @@ func assignAddressesStep[T any](_ context.Context, asm *Assembler[T]) error {
 			if err != nil {
 				return err
 			}
+			if aa.programCounter < seg.config.Memory.Start ||
+				aa.programCounter-seg.config.Memory.Start > seg.config.Memory.Size {
+
+				return fmt.Errorf("segment %q exceeds memory %q size %d at $%x",
+					seg.config.SegmentName, seg.config.Memory.Name,
+					seg.config.Memory.Size, aa.programCounter)
+			}
 		}
 	}
 

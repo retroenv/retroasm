@@ -69,3 +69,19 @@ target: rts
 	assert.Equal(t, want, buf.Bytes())
 	assert.Equal(t, uint64(0x8010), asm.Symbols()["target"])
 }
+
+func TestBankedOutputRejectsOversizedSegmentBeforeOpcodeGeneration(t *testing.T) {
+	cfg := cpu6502.New()
+	assert.NoError(t, cfg.ReadCa65Config(strings.NewReader(`
+MEMORY { BANK: start = $e000, size = $2000, fill = yes, fillval = $ff; }
+SEGMENTS { INIT: load = BANK; }`)))
+	var buf bytes.Buffer
+	asm := New(cfg, &buf)
+	err := asm.Process(t.Context(), strings.NewReader(`
+.segment "INIT"
+    jsr end
+    .dsb $2000
+end: rts
+`))
+	assert.ErrorContains(t, err, `segment "INIT" exceeds memory "BANK"`)
+}
