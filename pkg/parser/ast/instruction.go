@@ -64,12 +64,9 @@ func (i *Instruction) SetOpcodeID(id OpcodeID) {
 
 // Copy returns a copy of the instruction node.
 func (i Instruction) Copy() Node {
-	var arg Node
-	if i.Argument != nil {
-		arg = i.Argument.Copy()
-	}
+	metadata, arg := copyInstructionArgumentAndMetadata(i)
 	return Instruction{
-		node:       i.node.copyNode(),
+		node:       metadata,
 		OpcodeID:   i.OpcodeID,
 		Name:       i.Name,
 		Addressing: i.Addressing,
@@ -91,4 +88,36 @@ func WithInstructionOpcodeID(n Node, id OpcodeID) Node {
 		}
 	}
 	return n
+}
+
+func copyInstructionArgumentAndMetadata(i Instruction) (*node, Node) {
+	switch argument := i.Argument.(type) {
+	case Number:
+		metadata, operandMetadata := copyInstructionMetadata(i.node, argument.node)
+		argument.node = operandMetadata
+		return metadata, argument
+	case Identifier:
+		metadata, operandMetadata := copyInstructionMetadata(i.node, argument.node)
+		argument.node = operandMetadata
+		argument.Arguments = slices.Clone(argument.Arguments)
+		return metadata, argument
+	default:
+		var argumentCopy Node
+		if i.Argument != nil {
+			argumentCopy = i.Argument.Copy()
+		}
+		return i.node.copyNode(), argumentCopy
+	}
+}
+
+// The instruction and operand have separate metadata in one allocation.
+func copyInstructionMetadata(instruction, operand *node) (*node, *node) {
+	metadata := &[2]node{}
+	if instruction != nil {
+		metadata[0] = *instruction
+	}
+	if operand != nil {
+		metadata[1] = *operand
+	}
+	return &metadata[0], &metadata[1]
 }
