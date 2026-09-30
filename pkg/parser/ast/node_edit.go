@@ -68,7 +68,7 @@ func (edit *NodeEdit) Commit(nodes []Node) error {
 		}
 		edits[index] = entry
 	}
-	return edit.stream.Rewrite(edits)
+	return edit.stream.rewriteValidatedSource(edits)
 }
 
 // Len returns the number of input entries.
@@ -106,7 +106,7 @@ func (edit *NodeEdit) Replace(start, end int, replacement []Node) error {
 	for index := end; index < edit.Len(); index++ {
 		edits[start+len(replacement)+index-end].SourceIndex = index
 	}
-	return edit.stream.Rewrite(edits)
+	return edit.stream.rewriteValidatedSource(edits)
 }
 
 func (edit *NodeEdit) entryEdit(node Node, index int) (EntryEdit, error) {
@@ -125,6 +125,10 @@ func (edit *NodeEdit) entryEdit(node Node, index int) (EntryEdit, error) {
 			return EntryEdit{}, fmt.Errorf("%w: node %d has a foreign entry handle", ErrInvalidStream, index)
 		}
 	}
+	// The source handle establishes correspondence. Equality only avoids a copy.
+	if source != NoSourceEntry && equalRetainedNode(node, edit.nodes[source]) {
+		node = nil
+	}
 	return EntryEdit{
 		SourceIndex: source,
 		Node:        node,
@@ -134,4 +138,18 @@ func (edit *NodeEdit) entryEdit(node Node, index int) (EntryEdit, error) {
 type entryCarrier interface {
 	entryHandle() *entryHandle
 	setEntryHandle(*entryHandle)
+}
+
+// Use scalar comparisons here. Reflection can cost more than a node copy.
+func equalRetainedNode(left, right Node) bool {
+	value := left
+	if instruction, ok := InstructionFromNode(left); ok {
+		value = instruction.Argument
+	}
+	switch value.(type) {
+	case nil, Number, *Number, Label, *Label, Identifier, *Identifier, Operator, *Operator, *Comment:
+		return Equal(left, right)
+	default:
+		return false
+	}
 }

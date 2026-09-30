@@ -26,18 +26,32 @@ type EntryEdit struct {
 // Symbols are rebuilt because edits can change their addresses and segments.
 // Retained relocations and segment changes must still match their result nodes.
 // The caller must also validate target state and instruction legality with its codec.
-// Each result entry is copied once. Result nodes have no native edit handles.
+// Owned node payloads are read-only. Unchanged entries can retain these payloads.
+// Duplicate entries and replacement nodes have independent copies.
+// Result nodes have no native edit handles.
 func (stm *Stream) Rewrite(edits []EntryEdit) error {
 	if err := stm.Validate(); err != nil {
 		return err
 	}
+	return stm.rewriteValidatedSource(edits)
+}
+
+// RemovedEntries returns independent copies of entries removed by explicit rewrites.
+// Entries are ordered by rewrite, then by their order in that rewrite's input.
+func (stm *Stream) RemovedEntries() []Entry {
+	return copyEntries(stm.removedEntries)
+}
+
+// rewriteValidatedSource requires a validated, unchanged source revision.
+// It validates the complete output before publication.
+func (stm *Stream) rewriteValidatedSource(edits []EntryEdit) error {
 	candidate := &Stream{
 		entries:        make([]Entry, len(edits)),
 		removedEntries: copyEntries(stm.removedEntries),
 		initialState:   copyStreamState(stm.initialState),
 		finalState:     copyStreamState(stm.finalState),
 	}
-	destinations := make([][]int, stm.Len())
+	destinations := make([]rewriteDestinations, stm.Len())
 	for index, edit := range edits {
 		if edit.SourceIndex < NoSourceEntry || edit.SourceIndex >= stm.Len() {
 			return fmt.Errorf("%w: edit %d has source index %d", ErrInvalidStream, index, edit.SourceIndex)
@@ -45,9 +59,13 @@ func (stm *Stream) Rewrite(edits []EntryEdit) error {
 		var source Entry
 		if edit.SourceIndex != NoSourceEntry {
 			source = stm.entries[edit.SourceIndex]
-			destinations[edit.SourceIndex] = append(destinations[edit.SourceIndex], index)
+			destinations[edit.SourceIndex].add(index)
 		}
-		entry, err := copyRewriteEntry(source, edit.Node)
+		replacement := edit.Node
+		if replacement == nil && edit.SourceIndex != NoSourceEntry && len(destinations[edit.SourceIndex].indices) > 1 {
+			replacement = source.Node
+		}
+		entry, err := copyRewriteEntry(source, replacement)
 		if err != nil {
 			return fmt.Errorf("%w: edit %d: %w", ErrInvalidStream, index, err)
 		}
@@ -65,16 +83,10 @@ func (stm *Stream) Rewrite(edits []EntryEdit) error {
 	return nil
 }
 
-// RemovedEntries returns independent copies of entries removed by explicit rewrites.
-// Entries are ordered by rewrite, then by their order in that rewrite's input.
-func (stm *Stream) RemovedEntries() []Entry {
-	return copyEntries(stm.removedEntries)
-}
-
-func (stm *Stream) rewriteMetadata(source *Stream, destinations [][]int) {
+func (stm *Stream) rewriteMetadata(source *Stream, destinations []rewriteDestinations) {
 	stm.relocations = nil
 	for _, relocation := range source.relocations {
-		for _, index := range destinations[relocation.EntryIndex] {
+		for _, index := range destinations[relocation.EntryIndex].indices {
 			copied := relocation
 			copied.EntryIndex = index
 			copied.Expression = relocation.Expression.Copy()
@@ -83,21 +95,48 @@ func (stm *Stream) rewriteMetadata(source *Stream, destinations [][]int) {
 	}
 	stm.segmentChanges = nil
 	for _, change := range source.segmentChanges {
-		for _, index := range destinations[change.EntryIndex] {
+		for _, index := range destinations[change.EntryIndex].indices {
 			copied := change
 			copied.EntryIndex = index
 			stm.segmentChanges = append(stm.segmentChanges, copied)
 		}
 	}
 	for index, entry := range source.entries {
-		if len(destinations[index]) == 0 && entryHasSourceMetadata(entry) {
+		if len(destinations[index].indices) == 0 && entryHasSourceMetadata(entry) {
 			stm.removedEntries = append(stm.removedEntries, entry.Copy())
 		}
 	}
 }
 
+type rewriteDestinations struct {
+	indices []int
+	// first stores one destination without a separate allocation.
+	first [1]int
+}
+
+func (destinations *rewriteDestinations) add(index int) {
+	if len(destinations.indices) == 0 {
+		destinations.first[0] = index
+		destinations.indices = destinations.first[:]
+		return
+	}
+	destinations.indices = append(destinations.indices, index)
+}
+
 func copyRewriteEntry(source Entry, replacement Node) (Entry, error) {
 	original := source.Node
+	if replacement == nil {
+		if carrier, ok := original.(entryCarrier); ok && carrier.entryHandle() == nil {
+			source.Node = nil
+			copied := source.Copy()
+			copied.Node = original
+			if instruction, ok := original.(Instruction); ok {
+				// Instruction payload sharing did not improve the full build.
+				copied.Node = instruction.Copy()
+			}
+			return copied, nil
+		}
+	}
 	if replacement != nil {
 		source.Node = replacement
 	}

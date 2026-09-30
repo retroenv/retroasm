@@ -71,7 +71,7 @@ func (i Instruction) Copy() Node {
 		Name:       i.Name,
 		Addressing: i.Addressing,
 		Argument:   arg,
-		Modifier:   slices.Clone(i.Modifier),
+		Modifier:   copyInstructionModifiers(i.Modifier),
 	}
 }
 
@@ -120,4 +120,14 @@ func copyInstructionMetadata(instruction, operand *node) (*node, *node) {
 		metadata[1] = *operand
 	}
 	return &metadata[0], &metadata[1]
+}
+
+func copyInstructionModifiers(modifiers []Modifier) []Modifier {
+	copied := slices.Clone(modifiers)
+	for index := range copied {
+		if copied[index].Operator.node != nil {
+			copied[index].Operator.node = copied[index].Operator.node.copyNode()
+		}
+	}
+	return copied
 }
