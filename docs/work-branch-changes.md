@@ -8,24 +8,23 @@ architecture. Do not merge the complete `work2` branch.
 
 | Item | Verified value |
 |---|---|
-| Review date | 2026-09-29 |
+| Review date | 2026-10-02 |
 | Source branch | `work2` |
-| Source commit | `586df3b3e73e7f5305cd4cb1b57676c4d701692d` |
+| Source commit | `f29b126adb0d15c61e6abbab636a3ebc1911af71` |
 | Local target commit | `0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3` |
 | Merge base | Same commit as local `main` |
 | Working tree before this plan | Clean |
-| Complete branch difference | 267 files; 38,827 added lines; 931 removed lines |
+| Complete branch difference | 274 files; 39,813 added lines; 939 removed lines |
 
 These values refer to local Git refs. The remote target was not fetched.
 `main` is an ancestor of the source commit. At this base, the two-dot and
 three-dot diffs describe the same changes. The old instruction to synchronize
 `main` into `work2` before extraction is no longer necessary.
 
-The previous plan described an August base. It did not include the later AST,
-stream, codec, relocation, and memory-output changes. Use this plan in its
-place. Old statements that CPU6502 changes are comments only, that AST helpers
-have no production callers, and that `default.go` has only format changes are
-no longer applicable.
+The counts describe the fixed source commit before this document update.
+The previous source was `586df3b`. The new source also includes independent
+instruction metadata, modifier copying, native edit snapshots, range edits,
+and rewrite ownership changes. P05 and P22 include these changes below.
 
 ## Excluded work
 
@@ -54,10 +53,10 @@ integration used only by excluded CPUs. Defer packed relocation fields used
 only by excluded instruction encoders. Generic stream state ownership can
 remain for stream joins, with tests that use a small test state type.
 
-The path-level inventory excludes 131 files, with 25,941 added lines and one
-removed line. The other 136 files have 12,886 added lines and 930 removed lines.
-The second group contains mixed files, branch reports, and the local module
-replacement. It is an inventory to split, not a patch to merge in full.
+The remaining paths include mixed files, branch reports, and the local module
+replacement. Use the per-part file lists below to select changes. A listed
+file can contain changes for several parts. Its presence is not permission
+to copy the complete file.
 
 ## Merge method and common checks
 
@@ -142,7 +141,7 @@ code; they do not imply that other source-branch changes must be imported.
 | P18 | Instruction registration inventory | P13 | Medium |
 | P19 | Exact AST equality | P05, P12, P14 | Medium |
 | P20 | Stream joins and metadata reindexing | P17 | High |
-| P21 | Atomic symbol rename | P17 | High |
+| P21 | Atomic symbol rename | P16, P17 | High |
 | P22 | Explicit stream rewrites and native node edits | P19-P21 | High |
 | P23 | User docs and final scope audit | All included parts | Medium |
 
@@ -150,9 +149,36 @@ P01, P04, and P05 are independent of the output fixes. Keep the listed order
 for a simple review queue. If urgent, move an independent part earlier without
 changing its scope. P22 has two review steps described below.
 
+### How to use the file lists
+
+Paths in the tables are relative to the repository root. A brace list names
+each file: `pkg/lexer/{lexer.go,lexer_test.go}` names two files. Each row states
+the change to extract, not a whole-file copy operation. Keep imports and test
+helpers limited to the parts already present on the candidate.
+
+Use the fixed source SHA from the scope table for extraction. For example,
+these read-only commands show the P01 patch and the current target file:
+
+```sh
+git diff 0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3 f29b126adb0d15c61e6abbab636a3ebc1911af71 -- pkg/lexer/lexer.go pkg/lexer/lexer_test.go
+git show main:pkg/lexer/lexer.go
+```
+
+The first command shows the original source difference. It does not remove
+parts already merged into a later target. Use the progress record for that.
+Rows marked **Add on target** describe required candidate work that is not
+provided as a complete patch in the source. Do not report those checks as
+existing source coverage or as passing results.
+
 ## Phase A: Correctness and data ownership
 
 ### P00 — Establish the target baseline
+
+| Files to inspect | Action |
+|---|---|
+| `go.mod` | Confirm the pinned dependency. Exclude the local replacement. |
+| `Makefile` | Confirm the build, lint, and race-test commands on the target. |
+| `docs/work-branch-changes.md` | Record target/source SHAs and candidate results on the source branch. Do not copy this plan to the product branch. |
 
 Record the current target SHA, source SHA, and merge base. Confirm that the
 candidate has only the existing CPU implementation and the pinned dependency.
@@ -168,6 +194,11 @@ No synchronization merge is required at the verified base.
 
 ### P01 — Accept prefixed hexadecimal literals
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/lexer/lexer.go` | Retain the token prefix when reading a `0x` number after `#`. |
+| `pkg/lexer/lexer_test.go` | Include the `#0x3c` token case. |
+
 Extract the `#0x3c` lexer handling and its regression case from
 `pkg/lexer/{lexer.go,lexer_test.go}`.
 
@@ -176,6 +207,15 @@ Extract the `#0x3c` lexer handling and its regression case from
 number token. Existing decimal, binary, and hexadecimal token cases still pass.
 
 ### P02 — Preserve memory-relative output and bank fill
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/assembler/memory.go` | Use offsets relative to memory start. Check write bounds. |
+| `pkg/assembler/memory_test.go` | Include offset, fill, and invalid-write cases. |
+| `pkg/assembler/address_assigning_step.go` | Start each segment at `SegmentStart`. Reject memory overflow after address assignment. Leave relocation recording for P17. |
+| `pkg/assembler/write_output_step.go` | Write the memory buffer with its requested padding. |
+| `pkg/assembler/banked_output_test.go` | Include bank fill, segment address, and overflow regressions. Use target `m6502` imports. |
+| `pkg/assembler/assembler_asm6_test.go` | Adjust only the out-of-range branch fixture so the new memory check does not hide the branch error. |
 
 Extract the memory layout changes as one coherent part:
 
@@ -206,8 +246,15 @@ Source reference: `1dcc23f` and `586df3b`. Inspect their patches before use.
 
 ### P03 — Change the default library output length separately
 
+| Source or target file | Change to extract or add |
+|---|---|
+| `pkg/retroasm/default.go` | Remove `fill = yes` from `defaultConfig`. Keep the target imports and dispatcher. |
+| `pkg/retroasm/assembler_test.go` | **Add on target:** explicit default, filled, and unfilled length comparisons. Its source diff changes imports and names, not output-length assertions. |
+| `pkg/retroasm/example_test.go` | Check the existing example output after P02/P03. Its source diff belongs to P11. |
+| `docs/library-usage.md` | **Add on target:** show an explicit filled memory config for fixed-size output. |
+
 Extract the removal of `fill = yes` from the private `defaultConfig` in
-`pkg/retroasm/default.go`, plus the related expectations in library tests.
+`pkg/retroasm/default.go`, plus explicit output-length tests on the candidate.
 Do not include the package rename or unrelated comment changes.
 
 This changes public output behavior. With no supplied config, a short program
@@ -222,6 +269,11 @@ from the memory correctness fix.
 
 ### P04 — Support three-byte numbers
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/number/number.go` | Accept width three in `CheckDataWidth` and write three little-endian bytes. Leave the byte-order API for P15. |
+| `pkg/number/number_test.go` | Include width-three boundary and encoding cases. Split byte-order cases into P15. |
+
 Extract width-three range checks and little-endian output from
 `pkg/number/{number.go,number_test.go}`. Preserve `WriteToBytes` behavior for
 all existing widths. Keep this part small; byte-order selection can wait for
@@ -232,6 +284,21 @@ P15/P17.
 check; all existing number cases pass. This supports ca65 data, with no new CPU.
 
 ### P05 — Make AST copies own mutable data
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/node.go` | Add nil-safe `copyNode` and `InlineComment`. Use the current string comment field. Omit source handles until P22. |
+| `pkg/parser/ast/instruction.go` | Copy instruction and operand metadata separately. Copy modifier operator metadata, not only the modifier slice. Keep the target opcode ID type until P12. |
+| `pkg/parser/ast/instruction_argument.go` | Add the opaque copy contract, validation, and `CopyNodes`. Leave form/state/reference providers for their users. |
+| `pkg/parser/ast/{alias,bank,base,condition,configuration,data,enum,error,expression,function,identifier,include,label,macro,number,offset_counter,operator,register,rept,scope,segment,variable}.go` | Update each `Copy` method to own metadata and mutable fields. Keep the pre-P06 data field type. |
+| `pkg/parser/ast/{node_test,instruction_argument_test}.go` | Extract copy and nil cases. Omit stream, scoped-ID, form, and handle cases until their parts. |
+| `pkg/parser/ast/instruction_copy_metadata_test.go` | Retain independent comments, identifier arguments, and nil metadata tests. Remove scoped-ID and handle setup until P12/P22. |
+| `pkg/parser/ast/instruction_modifier_ownership_test.go` | Extract `TestInstructionCopyKeepsModifierOperatorsIndependent`. Leave the native edit test for P22. |
+| `pkg/parser/ast/node_copy_bench_test.go` | Optional copy benchmark. Retain its shared benchmark variable if later benchmark files use it. |
+
+`comment.go` adds source handles in the source diff. That change belongs to
+P22, not this copy phase. The metadata allocation layout is private. Preserve
+its ownership behavior without requiring an allocation improvement claim.
 
 Extract `copyNode`, `CopyNodes`, inline comment access, and all dependent node
 `Copy` changes under `pkg/parser/ast`. Include nil-safe configuration copying
@@ -251,6 +318,20 @@ construction. Explain this API requirement and test its failure behavior.
 nil values, and typed nils retain their documented behavior.
 
 ### P06 — Represent and evaluate each data item separately
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/data.go` | Change `Values` to an expression slice and copy each expression. Leave codec validation for P15. |
+| `pkg/parser/ast/node_test.go` | Migrate data construction and copy assertions to the new field type. |
+| `pkg/parser/ast/{symbol_reference.go,symbol_reference_test.go}` | Parse a symbol and its signed addend. Include invalid-reference cases. |
+| `pkg/parser/directives/{addr,base,data,hex}.go` | Read one expression per data item. Retain storage/fill and address-byte behavior. Leave NESASM `ds` for P09. |
+| `pkg/parser/directives/directives_test.go` | Include independent data expressions and update data assertions. |
+| `pkg/assembler/nodes.go` | Store independent values and reference offsets. Leave opcode IDs and source-entry fields for P12/P17. |
+| `pkg/assembler/parse_ast_nodes.go` | Reserve each directive's full size and collect its values. Keep the target byte-order behavior. |
+| `pkg/assembler/expression_evaluation_step.go` | Evaluate each value and apply reference offsets with overflow checks. |
+| `pkg/assembler/generate_opcode_step.go` | Emit values once, with their declared width. Leave instruction relocation callbacks for P17. |
+| `pkg/assembler/{assembler_asm6_test,assembler_x816_test,parse_ast_nodes_test}.go` | Include mixed arithmetic and forward-data tests. Update direct data construction without the package rename. |
+| `docs/library-usage.md` | **Add on target:** migrate direct `ast.Data.Values` construction to an expression slice. |
 
 Extract the `ast.Data.Values` migration from one expression to an expression
 slice. Change all users in the same part:
@@ -282,6 +363,16 @@ migration example for direct `ast.Data.Values` users.
 
 ### P07 — Extract asm6 and asm6f additions
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/directives/directives.go` | Add the asm6 overlay and its selection in `BuildHandlers`. Keep the existing x816 map location. |
+| `pkg/parser/directives/nesasm.go` | Add `Nes2Config` and the NES 2.0 directive-to-item mapping. The filename does not make these P09 changes. |
+| `pkg/parser/ast/configuration.go` | Add the NES 2.0 configuration item constants. |
+| `pkg/parser/parser.go` | Enable asm6 local-label scoping and global-label scope updates. Leave ca65/NESASM branches for P08/P09. |
+| `pkg/parser/parser_asm6_test.go` | Include local-label scope and default-mode rejection tests. |
+| `pkg/parser/directives/noop_test.go` | Extract asm6/asm6f no-op and NES 2.0 parser cases. |
+| `docs/asm6-compatibility.md` | Publish the retained syntax and output limits. Omit claims not verified on the candidate. |
+
 Extract asm6 handler additions, NES 2.0 AST configuration items and parser
 handlers, local-label scope updates in `parser.go`, focused parser tests, and
 `docs/asm6-compatibility.md`.
@@ -297,6 +388,17 @@ Document NES 2.0 directives as parsed configuration where applicable. Their
 parser nodes alone do not prove that the assembler writes a NES 2.0 header.
 
 ### P08 — Extract ca65 additions
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/parser.go` | Add ca65 colon definitions, unnamed references, and local-label scope behavior. |
+| `pkg/parser/directives/ca65.go` | Add scope, string, far-address, bank-byte, and diagnostic handlers with their actual semantics. |
+| `pkg/parser/directives/directives.go` | Add and select the ca65 overlay. |
+| `pkg/parser/directives/macro.go` | Accept `.endmacro` as a macro terminator. |
+| `pkg/parser/parser_ca65_test.go` | Include unnamed/local labels, scopes, strings, macro termination, and directive tests. Adapt imports to the current target. |
+| `pkg/parser/directives/noop_test.go` | Extract only ca65 handler/no-op cases. |
+| `pkg/assembler/assembler_ca65_test.go` | Include `TestAssemblerCa65FarAddressUsesDeclaredWidth`. |
+| `docs/ca65-compatibility.md` | State the limits for warnings, import/export, assertions, and linker behavior. |
 
 Extract the colon-label definition logic, local-label scope updates, and
 unnamed-label reference handling. Add ca65 handlers from
@@ -316,6 +418,19 @@ semantics are stated in `docs/ca65-compatibility.md`.
 
 ### P09 — Extract NESASM labels and positional macros
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/parser.go` | Add dot-local definitions, scope updates, and `name .macro` parsing in NESASM mode. |
+| `pkg/parser/directives/directives.go` | Add and select the NESASM overlay. |
+| `pkg/parser/directives/data.go` | Add the one-byte `ds` width. |
+| `pkg/assembler/process_macros_step.go` | Expand positional parameters while retaining named-argument checks. |
+| `pkg/parser/parser_nesasm_test.go` | Include label, macro-definition, no-op, fail, and default-mode rejection cases. |
+| `docs/nesasm-compatibility.md` | Publish macro and section-directive limits. |
+
+**Add on target:** Assembly tests for positional substitution and named macro
+regressions. The source `parser_nesasm_test.go` checks macro definitions; it
+does not prove that expanded macros emit the correct bytes.
+
 Extract dot-local label definitions, scope updates, `name .macro`, NESASM
 handler overlays, `ds` width, and `process_macros_step.go` positional expansion.
 Include parser tests and assembly tests for actual macro expansion.
@@ -331,6 +446,14 @@ their behavior, and dot-local syntax is rejected in default mode. Include
 `docs/nesasm-compatibility.md` with tested limitations.
 
 ### P10 — Expose compatibility selection in the CLI
+
+| Source file | Change to extract |
+|---|---|
+| `cmd/retroasm/main.go` | Add the `compat` field, both flags, and the typed compatibility log field. |
+| `cmd/retroasm/assemble.go` | Add `parseCompatMode` and pass its result to architecture registration. Exclude `assembleChip8File`. |
+| `cmd/retroasm/architecture.go` | Pass the mode into the existing 6502 config. Exclude new CPU imports, profiles, and system rules. |
+| `cmd/retroasm/main_test.go` | Extract compatibility flag, parsing, logging, and propagation cases with only target CPU fixtures. |
+| `docs/compatibility-mode-plan.md` | Extract checked compatibility commands and guide links. Keep branch implementation history out of target user docs. |
 
 Extract `compat` options, `-compat` and `-m`, `parseCompatMode`, typed log fields,
 and propagation into the existing 6502 configuration. Adapt
@@ -349,6 +472,22 @@ that the mode reaches the parser. Existing CLI architecture errors still pass.
 ## Phase C: Existing 6502 APIs and owned streams
 
 ### P11 — Rename m6502 to cpu6502 as an API migration
+
+| Source or target file | Change to extract or add |
+|---|---|
+| `pkg/arch/m6502/m6502.go` → `pkg/arch/cpu6502/cpu6502.go` | Move the target adapter and change package names. Do not copy the source adapter's added methods yet. |
+| `pkg/arch/m6502/assembler/{address_assigning_step,generate_opcode_step,generate_opcode_step_test,instruction_size}.go` → matching `pkg/arch/cpu6502/assembler/` paths | Move the target files with no behavior change. Retain the target test cases. |
+| `pkg/arch/m6502/parser/{addressing,instruction,instruction_test}.go` → matching `pkg/arch/cpu6502/parser/` paths | Move the target parser. Leave source correctness and typed-operand changes for P13. |
+| `cmd/retroasm/architecture.go`, `examples/ast-first/main.go` | Update imports and constructor names for the existing CPU. |
+| `pkg/retroasm/{default,assembler_test,example_test,doc}.go` | Update implementation imports, test constructors, and API examples. |
+| `pkg/assembler/{assembler_asm6_test,assembler_ca65_test,assembler_x816_test,banked_output_test}.go` | Update the tests already present after P02-P09. |
+| `pkg/parser/{parser_asm6_test,parser_ca65_test,parser_nesasm_test,parser_test,parser_x816_test}.go` | Update parser test imports and constructors. |
+| `docs/library-usage.md`, `README.md` | Update retained 6502 examples where needed. Keep the target support matrix. |
+| Old `pkg/arch/m6502/` public paths | **Add on target:** forwarding packages if required by the migration decision. These are not provided by the source branch. |
+
+Search the candidate for all old imports after these edits. Parts P02-P10 can
+add callers that did not exist on the original target. The source's new
+`options.go` and variant-only `cpu6502_test.go` are not rename files.
 
 Move only the existing package implementation from `pkg/arch/m6502` to
 `pkg/arch/cpu6502`. Update all repository imports, examples, and library docs.
@@ -371,6 +510,19 @@ whole-commit extraction.
 
 ### P12 — Replace the global opcode lookup with scoped identity
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/instruction.go` | Add `OpcodeID`, its constructor/validation, and identity assignment helpers. Remove the global callback. |
+| `pkg/arch/arch.go` | Change the instruction ID contract and add adapter `OpcodeID`. Keep the target `ParseIdentifier` signature. |
+| `pkg/parser/parser.go` | Assign IDs from the active architecture after instruction parsing. |
+| `pkg/assembler/nodes.go` | Store and return the scoped ID. |
+| `pkg/arch/cpu6502/cpu6502.go` | Implement architecture-local ID lookup. |
+| `pkg/arch/cpu6502/assembler/{address_assigning_step,generate_opcode_step}.go` | Read the scoped ID and retain legacy mnemonic lookup for unset IDs. |
+| `pkg/arch/cpu6502/assembler/generate_opcode_step_test.go` | Migrate the mock instruction ID and retain default-6502 tests. |
+| `pkg/parser/opcode_identity_test.go` | Adapt parser-isolation and foreign-ID cases to 6502 plus a small test adapter. Exclude new CPU imports. |
+| `pkg/parser/ast/{node_test,instruction_copy_metadata_test}.go` | Add scoped-ID assignment and copy assertions. Leave handles for P22. |
+| `docs/library-usage.md` | **Add on target:** explain scoped IDs, custom adapter changes, and legacy unset IDs. |
+
 Extract `ast.OpcodeID{Architecture, Value}`, its helpers, architecture-local
 lookup, and parser identity assignment. Update `arch.Instruction`, assembler
 instruction storage, mocks, and the default 6502 adapter together.
@@ -388,6 +540,23 @@ Direct legacy AST construction with an unset ID still assembles through the
 existing library API. Preserve mnemonic lookup for that path.
 
 ### P13 — Add the typed default 6502 instruction contract
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/arch/cpu6502/parser/operand.go` | Add owned typed operands for existing addressing modes. Remove variant-only operand kinds. |
+| `pkg/arch/cpu6502/parser/resolved.go` | Add the owned typed-to-native projection and default-mode validation. |
+| `pkg/arch/cpu6502/parser/codec.go` | Add typed construction, validation, and instruction formatting. Omit variant-only branches. |
+| `pkg/arch/cpu6502/parser/{instruction,addressing}.go` | Retain typed operands and modifiers; fix numeric relative targets and filtered addressing selection. |
+| `pkg/arch/cpu6502/cpu6502.go` | Expose the default builder, validator, and formatter. Leave byte order and registrations for P15/P18. |
+| `pkg/arch/cpu6502/assembler/generate_opcode_step.go` | Retain the one-byte BRK fix. Leave relocation recording for P17. |
+| `pkg/arch/cpu6502/assembler/generate_opcode_step_test.go` | Include BRK and default addressing regressions. Exclude added variant modes. |
+| `pkg/arch/cpu6502/parser/resolved_test.go` | Include the isolated expression projection regression. |
+| `pkg/parser/ast/{value_format.go,value_format_test.go}` | Add number, symbol, and expression formatting used by the typed codec. |
+| `pkg/parser/ast/{node.go,node_test.go}` | Extract only lookup helpers called by the retained implementation and their tests. |
+
+The large round-trip suite in `pkg/codec/cpu6502_test.go` requires P15.
+Add focused builder/validator checks to the candidate if that suite contains
+the only source coverage for a P13 behavior.
 
 Extract default 6502 operand types, isolated resolved projection, typed builder,
 validator, and instruction formatter from CPU6502 `parser/{operand,resolved,codec}.go`
@@ -408,6 +577,18 @@ Codec integration tests follow in P15.
 
 ### P14 — Add owned stream entries and symbol metadata
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/stream.go` | Add entries, positions, boundaries, owned access, metadata types, state copies, and validation. Leave joins, range replacement, removed entries, and native edit revisions for P20/P22. |
+| `pkg/parser/ast/stream_symbols.go` | Rebuild symbols and segment assignments from retained nodes. |
+| `pkg/parser/ast/instruction_argument.go` | Add `InstructionReference` and its provider for retained relocation validation. |
+| `pkg/parser/ast/node.go` | Add symbol/node lookup helpers required by stream validation. |
+| `pkg/parser/ast/stream_test.go` | Include ownership, generic state, symbol, and metadata validation cases. Omit packed fields and range replacement until their applicable parts. |
+| `pkg/parser/ast/node_test.go` | Include tests for helpers introduced in this part. |
+
+Keep test helper definitions used by these cases. Do not copy later mutation
+tests merely because they share this test file.
+
 Extract the shared stream model, source positions, boundaries, annotations,
 symbol expressions, symbol rebuilding, owned getters, and validation from
 `ast/stream.go`, `stream_symbols.go`, and their tests. Add instruction reference
@@ -425,6 +606,22 @@ changing the stream. Check reusable aliases and scoped definitions; do not
 claim linker-ready symbol resolution from flat metadata alone.
 
 ### P15 — Connect parser streams and basic codec operations
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/parser.go` | Add source positions, `TokensToStream`, and symbol rebuilding while retaining the node API. |
+| `pkg/parser/parser_test.go` | Extract stream position and symbol-definition cases. Replace the stateful CPU fixture with a default 6502 case where needed. |
+| `pkg/codec/codec.go` | Add construction, parse, identity, build, instruction format, validation, and direct assembly operations. Omit directive formatting, stateful CPU APIs, and instruction relocation reconciliation. |
+| `pkg/codec/doc.go` | Describe only the API included in the candidate. |
+| `pkg/codec/metadata.go` | Extract symbol, data-relocation, and segment metadata used by basic stream operations. Omit later instruction reconciliation dependencies. |
+| `pkg/codec/codec_test.go` | Include constructor errors, parse/build/assemble, source diagnostics, and cancellation cases with 6502 fixtures. Split later formatting and instruction relocation assertions. |
+| `pkg/codec/cpu6502_test.go` | Include default addressing, relative branches, modifiers, expressions, invalid operands, and instruction format options. Omit variant and stale-relocation cases. |
+| `pkg/parser/ast/{data.go,node_test.go}` | Add `Data.Validate` and its cases required by codec validation. |
+| `pkg/arch/arch.go`, `pkg/arch/cpu6502/cpu6502.go` | Add `ByteOrderer` and the default 6502 report. |
+| `pkg/arch/byte_order_test.go` | Keep the 6502 case. Replace other CPU fixtures with a test adapter only if needed. |
+| `pkg/number/{number.go,number_test.go}` | Add `WriteToBytesWithOrder`, its wrapper, and byte-order tests if used by the retained pipeline. |
+| `pkg/assembler/{assembler,parse_ast_nodes,expression_evaluation_step,generate_opcode_step}.go` | Pass byte order through data encoding if required. Preserve a legacy fallback or document the mandatory adapter migration. |
+| `docs/library-usage.md` | **Add on target:** basic codec usage and any byte-order adapter migration. |
 
 Extract `TokensToStream(sourceName)` and retain `TokensToAstNodes` as the native
 node API. Add the basic `pkg/codec` constructor, parse, single-instruction,
@@ -450,6 +647,13 @@ legacy and stream APIs with macros, conditionals, includes, and reusable aliases
 
 ### P16 — Format data and directive streams
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/codec/codec.go` | Add `FormatStream`, data/address directive selection, layout/configuration formatting, and supported-node dispatch. |
+| `pkg/codec/directive_format.go` | Add structural, conditional, scope, macro, include, and diagnostic formatting. |
+| `pkg/codec/codec_test.go` | Include `FormatStream` round-trip, byte-equivalence, and rejection cases. Keep only 6502 constructors and applicable mode cases. |
+| `pkg/codec/doc.go`, `docs/library-usage.md` | Describe supported formatting and errors. Explain that original source spacing is not retained. |
+
 Extract data formatting and `pkg/codec/directive_format.go`. Add symbols,
 layout, conditionals, scopes, repeats, macros, includes, configuration, and
 comment cases from `codec_test.go`. Keep formatters mode-aware.
@@ -466,6 +670,24 @@ assembly before and after formatting produces the same bytes and symbols.
 Include default, asm6, ca65, NESASM, and x816 cases with their actual limitations.
 
 ### P17 — Record selected 6502 instruction relocations
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/arch/arch.go` | Add `RelocationEncoding`, the optional recorder, and its dispatch helper without packed fields. |
+| `pkg/arch/relocation_test.go` | Include recorder and unsupported-recorder behavior. Remove packed-field expectations if present. |
+| `pkg/assembler/nodes.go` | Add source-entry index and presence fields to instructions. |
+| `pkg/assembler/assembler.go` | Reset, collect, and return owned relocations. Assign source indices only to direct source instructions. |
+| `pkg/assembler/address_assigning_step.go` | Add the recorder and reference/addend normalization. Keep P02 bounds behavior. |
+| `pkg/assembler/address_assigning_step_test.go` | Extract `TestAddressAssign_RecordInstructionRelocation` without packed-field setup or assertions. |
+| `pkg/assembler/generate_opcode_step.go` | Connect the recorder to instruction generation. |
+| `pkg/arch/cpu6502/assembler/generate_opcode_step.go` | Report selected displacement/address fields from default 6502 encoders. Exclude variant encoders. |
+| `pkg/codec/codec.go` | Reconcile selected instruction relocations after assembly. Reject incompatible supplied records. |
+| `pkg/codec/codec_test.go` | Include the 6502 instruction relocation case and applicable metadata assertions. |
+| `pkg/codec/cpu6502_test.go` | Include `TestCPU6502Codec_RejectsStaleSelectedWidthRelocation` and relocation assertions in default-mode cases. |
+| `pkg/parser/ast/stream_test.go` | Retain instruction reference/addend validation cases required by the recorder. |
+
+Defer `pkg/codec/metadata_completion_test.go` to P20 because its regression
+uses entry insertion. Do not add range replacement early only for this test.
 
 Extract `RelocationEncoding`, the optional recorder, source-entry indices in
 assembler instructions, reference/addend normalization, owned relocation
@@ -488,6 +710,12 @@ Source references: `eb5df59` and `58d2939`. Exclude the later new-CPU encoders.
 
 ### P18 — Expose the 6502 instruction registration inventory
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/arch/arch.go` | Add `InstructionRegistration` and its provider. Retain only fields required by the included contract. |
+| `pkg/arch/cpu6502/cpu6502.go` | Return sorted default 6502 registrations with copied addressing selectors. |
+| `pkg/arch/instruction_registration_test.go` | Extract the 6502 case and sorting/identity checks. Exclude 65816 fixtures. |
+
 Extract `InstructionRegistration`, its provider, sorted default 6502 output,
 and the 6502 case from `instruction_registration_test.go`.
 
@@ -500,6 +728,13 @@ requires them.
 ## Phase D: Safe stream transformations
 
 ### P19 — Add exact AST equality
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/equal.go` | Add exact comparisons for supported native nodes, including modifier metadata. Adapt to the current P05 comment representation. |
+| `pkg/parser/ast/equal_reflect.go` | Add composite/extension comparisons and cycle tracking. Omit handle-specific exceptions until P22. |
+| `pkg/parser/ast/equal_test.go` | Include field inventory, reflection parity, nil/type distinctions, cycles, and allocation assertions. Split handle tests into P22. |
+| `pkg/parser/ast/equal_bench_test.go` | Optional equality benchmark. No measured performance result is required. |
 
 Extract `ast/equal.go`, `equal_reflect.go`, their tests, and the optional
 benchmark. Keep dynamic types, comments, instruction identities, and nil/empty
@@ -514,11 +749,19 @@ required to merge this behavior.
 
 ### P20 — Join streams without losing metadata
 
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/stream_join.go` | Add `AppendStream`, generic state compatibility, and metadata transfer. |
+| `pkg/parser/ast/stream.go` | Add range `Replace`, metadata reindexing, and index mapping used by joins and insertion. |
+| `pkg/parser/ast/stream_join_test.go` | Include joins, empty/self cases, state copies, and atomic failure tests with generic state fixtures. |
+| `pkg/parser/ast/stream_test.go` | Include `TestStream_ReplaceReindexesCompatibleMetadataAtomically`. |
+| `pkg/codec/metadata_completion_test.go` | Include metadata completion after insertion, now that both P17 and range replacement exist. |
+
 Extract `AppendStream`, associated insertion/reindexing logic, and tests.
 Use generic test state for join compatibility. Retain positions, annotations,
 comments, symbols, relocations, and segment changes at their new indices.
 
-**Focused check:** `go test ./pkg/parser/ast/... -run 'Stream.*(Append|Replace|Join)'`.
+**Focused check:** `go test ./pkg/parser/ast/... ./pkg/codec/... -run 'Stream.*(Append|Replace|Join)|CompletesMetadataAfterEntryInsertion'`.
 **Exit condition:** Empty streams, self-append, incompatible state, and invalid
 metadata have tested behavior. Rejected joins leave the destination unchanged.
 Returned metadata cannot mutate either input.
@@ -526,6 +769,13 @@ Returned metadata cannot mutate either input.
 Source reference: `b9b1294`.
 
 ### P21 — Rename symbols atomically
+
+| Source file | Change to extract |
+|---|---|
+| `pkg/parser/ast/symbol_rewrite.go` | Rewrite definitions, expressions, native operands, and supported typed references. |
+| `pkg/parser/ast/stream_rename.go` | Validate the complete rename and publish nodes/metadata together. Leave native edit revision fields until P22. |
+| `pkg/parser/ast/stream_rename_test.go` | Include swaps, expressions, collisions, capture, unsupported operands, and atomic failure cases. |
+| `pkg/codec/stream_rename_test.go` | Extract only the 6502 integration case. Adapt the shared fixture helper described in P22. |
 
 Extract `symbol_rewrite.go`, `stream_rename.go`, and their tests. Include the
 6502 codec rename test. Update definitions, operand references, expressions,
@@ -540,6 +790,36 @@ effect. Test pointer/value support explicitly or document rejected forms.
 Source reference: `dce3ccc`.
 
 ### P22 — Rewrite entries, then support native node edits
+
+| Step | Source file | Change to extract |
+|---|---|---|
+| P22a | `pkg/parser/ast/stream_rewrite.go` | Add `EntryEdit`, rewrite validation/publication, metadata remapping, and removed-source records. Adapt handle-dependent code until P22b. |
+| P22a | `pkg/parser/ast/stream.go` | Add storage/copy support for removed entries. |
+| P22a | `pkg/parser/ast/stream_rewrite_test.go` | Include moves, copies, inserts, comments, replacement ownership, and atomic rejection. |
+| P22a | `pkg/parser/ast/stream_rewrite_retained_test.go` | Extract duplicate-node ownership and many-copy relocation cases that do not need native views. |
+| P22a | `pkg/codec/stream_rewrite_test.go` | Extract the 6502 explicit rewrite case. Leave `NodeEdit` cases for P22b. |
+| P22b | `pkg/parser/ast/node_edit.go` | Add source handles, snapshots, owned `At`/`Nodes` reads, `Len`, `Commit`, and half-open range `Replace`. Validate the complete result before publication. |
+| P22b | `pkg/parser/ast/{node,comment,instruction}.go` | Add handle storage and preserve handles in copies. Keep instruction and operand metadata independent. |
+| P22b | `pkg/parser/ast/{stream,stream_symbols,stream_join,stream_rename,stream_rewrite}.go` | Invalidate views on accepted mutations. Clear published handles and preserve old snapshot reads. |
+| P22b | `pkg/parser/ast/{equal,equal_reflect,equal_test}.go` | Ignore operational handles in equality. Add handle parity cases. |
+| P22b | `pkg/parser/ast/node_edit_test.go` | Include correspondence, revision, range replacement, unsupported-node, and atomic failure tests. |
+| P22b | `pkg/parser/ast/node_edit_snapshot_test.go` | Verify independent reads and retained source revisions after all stream mutations. |
+| P22b | `pkg/parser/ast/node_edit_validation_test.go` | Verify invalid nodes and relocations cannot be published by `Commit` or `Replace`. |
+| P22b | `pkg/parser/ast/node_edit_data_bench_test.go` | Retain `TestNodeEditComplexDataPublicationKeepsOwnership`, even if benchmarks are omitted. |
+| P22b | `pkg/parser/ast/stream_rewrite_retained_test.go` | Add snapshot, handle-clearing, and native commit ownership cases deferred from P22a. |
+| P22b | `pkg/parser/ast/{node_test,instruction_copy_metadata_test,instruction_modifier_ownership_test}.go` | Add handle propagation and native-read modifier ownership assertions deferred from P05/P12. |
+| P22b | `pkg/codec/{stream_rewrite_test,stream_equivalence_test}.go` | Add default 6502 native edits and the complete transformation comparison. |
+
+The codec rename/rewrite tests share fixtures from `stream_equivalence_test.go`.
+When P21 first needs them, extract the 6502 fixture and its required helpers.
+Defer the full equivalence test until P22b. Remove helper constructors and
+imports for excluded CPUs; selecting one table row is not sufficient.
+
+The source now avoids some copies of retained internal nodes. Include this
+only with independent public reads, independent duplicates, old snapshot
+reads, and atomic publication. A simpler owned-copy implementation is valid
+if these contracts pass. Record omitted allocation changes as deferred;
+do not omit their ownership regression tests.
 
 Use two successive PRs if the combined patch is difficult to review:
 
@@ -567,9 +847,25 @@ file is in the shared package.
 
 Source references: `41d0738`, `f766c2e`, and `8ce3906`.
 
+Later source references: `042e562`, `9968043`, `2d731ad`, `dfba5ee`, and
+`f29b126`. These patches cross P05, P19, and P22. Do not cherry-pick them as
+independent merge parts without adaptation.
+
 ## Phase E: Documentation and final audit
 
 ### P23 — Finish user documentation and the remaining-difference audit
+
+| File | Target action |
+|---|---|
+| `README.md` | Publish verified 6502 commands and links to the merged compatibility guides. Exclude the source's added CPU/system claims. |
+| `docs/library-usage.md` | Complete the default-output, data, package, identity, codec, and stream-edit examples for merged APIs. |
+| `examples/ast-first/main.go`, `pkg/retroasm/{doc,example_test}.go`, `pkg/codec/doc.go` | Check that examples and package docs use the merged API and supported CPU. |
+| `docs/{asm6-compatibility,ca65-compatibility,nesasm-compatibility,compatibility-mode-plan,x816-compatibility-plan}.md` | Retain verified syntax and limits. Remove obsolete implementation checklists from the material copied to target user docs. |
+| `docs/work-branch-changes.md`, `CHANGES_SUMMARY.md` | Update source-branch tracking only. Record each remaining included hunk as merged, superseded, or deferred. |
+
+For each deferred hunk, record its file, symbol or test name, reason, and
+follow-up part. An unassigned hunk is an audit failure. New CPU files and the
+local module replacement remain excluded regardless of the final diff size.
 
 Update README examples and library usage for APIs already merged. Keep the
 support matrix at the target's implemented CPUs. Do not copy the source README
@@ -604,6 +900,7 @@ branch diff as the completion criterion.
 | `pkg/arch/instruction_registration_test.go` | P18: retain only 6502 cases and their helpers. |
 | `pkg/arch/relocation_test.go` | P17: shared recorder test; no new CPU required. |
 | `pkg/assembler/address_assigning_step.go` | P02 segment start and bounds; P17 relocation capture. |
+| `pkg/assembler/address_assigning_step_test.go` | P17 recorder tests without packed fields. |
 | `pkg/assembler/assembler.go` | P15 byte-order use, if required; P17 source indices and relocation output. |
 | `pkg/assembler/nodes.go` | P06 data values and offsets; P12 ID type; P17 source indices. |
 | `pkg/assembler/parse_ast_nodes.go` | P06 data/address parsing; P15 byte-order use, if required. |
@@ -626,6 +923,9 @@ branch diff as the completion criterion.
 | `pkg/parser/ast/configuration.go` | P05 nil-safe copy; P07 NES 2.0 item names. |
 | `pkg/parser/ast/data.go` | P05 copying; P06 field type; P15 validation used by codec. |
 | `pkg/parser/ast/instruction.go` | P05 copy ownership; P12 identity; P13 used operand helpers. |
+| `pkg/parser/ast/instruction_copy_metadata_test.go` | P05 copy isolation; P12 scoped IDs; P22 handle propagation. |
+| `pkg/parser/ast/instruction_modifier_ownership_test.go` | P05 modifier operator copying; P22 native read ownership. |
+| `pkg/parser/ast/node_copy_bench_test.go` | P05 optional benchmark and shared benchmark variable. |
 | `pkg/parser/ast/instruction_argument.go` | P05 copy contract; P14 references; defer unused target-only form/state contracts. |
 | `pkg/parser/ast/value_format*.go`, `symbol_reference*.go` | P13 value formatting; P06 symbol/addend parsing. |
 | `pkg/parser/ast/stream*.go` | P14 model/symbols; P20 join; P21 rename; P22 rewrite and revision handling. |
@@ -636,12 +936,12 @@ branch diff as the completion criterion.
 | `pkg/codec/{codec,doc,metadata}.go`, `codec_test.go` | P15 basic operations; P16 formatting; P17 metadata reconciliation. Split shared test imports and helpers. |
 | `pkg/codec/cpu6502_test.go` | P15 default codec cases; P17 relocations. Defer variant-specific cases. |
 | `pkg/codec/directive_format.go` | P16. |
-| `pkg/codec/metadata_completion_test.go` | P17/P20: add once metadata and insertion paths exist. |
-| `pkg/codec/stream_equivalence_test.go` | P22: 6502 case and its helper closure only. |
+| `pkg/codec/metadata_completion_test.go` | P20: metadata completion after insertion, with P17 as a prerequisite. |
+| `pkg/codec/stream_equivalence_test.go` | P21: extract required 6502 helpers; P22: complete 6502 comparison. |
 | `pkg/codec/stream_rename_test.go`, `stream_rewrite_test.go` | P21 and P22. |
 | CLI files and `main_test.go` | P10 mode selection; P11 imports. Exclude new CPU registrations, fixture helpers, and profiles. |
 | `pkg/retroasm/default.go` | P03 default fill; P11 imports. Preserve the target's public dispatcher. |
-| `pkg/retroasm/{assembler_test,example_test,doc}.go` | P03 output assertions; P11 import/API docs. |
+| `pkg/retroasm/{assembler_test,example_test,doc}.go` | P03: add output-length coverage on the target; P11: extract import/API docs. |
 | `pkg/lexer/**`, `pkg/number/**` | P01 literals; P04 width three; P15 byte order if used. |
 | `README.md`, `docs/library-usage.md`, `examples/ast-first/main.go` | P11 migration examples; P23 verified usage. |
 | Compatibility docs | P07-P10 tested reference material; P23 final audit. |

@@ -2,27 +2,27 @@
 
 ## Status
 
-**COMPLETE** -- All 74 instruction mnemonics, 14 addressing modes, and comprehensive tests implemented.
+The 68000 adapter, parser, encoders, and codec tests are present on `work2`.
+This reference was reviewed on 2026-10-02. The adapter is absent from local
+`main` at `0e4317a` and excluded from the
+[current merge plan](work-branch-changes.md). Source coverage does not prove
+complete instruction-set conformance or that an extracted candidate passes.
 
-## Metrics
+## Coverage sources
 
-| Metric | Count |
-|--------|-------|
-| Instruction mnemonics | 74 |
-| Addressing modes | 14 (12 standard + StatusReg + QuickImmediate) |
-| Condition codes | 16 (+ 2 aliases: HS=CC, LO=CS) |
-| Test packages | 3 (cpu68000, assembler, parser) |
-| Integration test functions | 14 |
-| Parser unit test cases | 40+ |
-| Assembler unit test cases | 30+ |
-| Coverage subtests | 74 (one per mnemonic) |
+| Source | Purpose |
+|---|---|
+| `pkg/arch/cpu68000/assembler/coverage_test.go` | Registered mnemonic encoding cases |
+| `pkg/arch/cpu68000/assembler/generate_opcode_step_test.go` | Opcode and operand boundary cases |
+| `pkg/arch/cpu68000/cpu68000_test.go` | Architecture assembly cases |
+| `pkg/codec/cpu68000_test.go` | Typed construction, formatting, assembly, and relocations |
 
 ## Architecture Overview
 
 - `*cpu68000.Instruction` as generic type T (like CPU6502, not grouped like Z80)
 - 24-bit address width
 - Big-endian opcode output (unlike CPU6502/Z80 which are little-endian)
-- `lastMnemonic` field bridges `Instruction()` to `ParseIdentifier()` for condition code and size suffix resolution
+- `ParseIdentifier` receives the mnemonic explicitly for condition and size suffix resolution; the adapter has no mutable `lastMnemonic` field
 
 ### Instruction Lookup
 
@@ -115,9 +115,29 @@ pkg/arch/cpu68000/
 
 ## Completed Work
 
+The dates below are historical records. They are not validation results for
+the current source snapshot.
+
 | Date | Change |
 |------|--------|
 | 2026-03-06 | Full CPU68000 implementation: 74 mnemonics, 14 EA modes, big-endian output, CLI integration |
 | 2026-03-06 | Parser + assembler unit tests, AddressWidth fix (type assertion for 24-bit) |
 | 2026-03-06 | Linter cleanup: dead code, staticcheck SA fixes, nolint directives, modernize |
 | 2026-03-06 | Coverage test: all 74 CPU68000 instruction names exercised through full encode pipeline |
+
+## Typed API and future extraction
+
+The file tree above describes the original parser and encoder. The current
+parser also has `operand.go`, `codec.go`, `codec_test.go`,
+`resolved_copy_test.go`, and `symbol_rewrite.go`. These files provide owned
+operands, typed construction/formatting, and symbol rewriting. The adapter
+reports big-endian byte order and scoped opcode identities.
+
+Keep signed effective addresses, explicit sizes, register lists, relocation
+fields, and their tests together in a future extraction. Shared byte-order
+support must precede that candidate. Add CLI registration from
+`cmd/retroasm/architecture.go` only after the adapter is present.
+
+No code tests were run for this documentation review. Validate a future
+candidate with focused architecture, codec, and CLI tests, then the common
+build, lint, and test gates. Use the pinned dependency without a local replacement.

@@ -2,8 +2,10 @@
 
 ## Overview
 
-Z80 assembler support for retroasm. All planned phases (0--19) are complete.
-Implementation dates: February 28 -- March 5, 2026.
+The Z80 implementation is present on `work2`, reviewed on 2026-10-02.
+It is absent from local `main` at `0e4317a` and excluded from the
+[current merge plan](work-branch-changes.md). Earlier implementation phases
+are historical records, not proof that this branch has been merged.
 
 ## Architecture
 
@@ -35,19 +37,19 @@ type InstructionGroup struct {
 
 ### Resolver Structure
 
-The resolver is split across 9 files (1761 lines total):
+The resolver is split by operand behavior:
 
-| File | Lines | Responsibility |
-|------|------:|----------------|
-| `resolver.go` | 166 | Types, dispatcher, no-operand, shared helpers |
-| `resolver_diagnostics.go` | 248 | Error diagnostics and ambiguity guidance |
-| `resolver_extended.go` | 181 | Extended memory operations |
-| `resolver_indexed.go` | 106 | Indexed register operations |
-| `resolver_indirect.go` | 295 | Indirect load/store and indirect immediate |
-| `resolver_port.go` | 139 | Port I/O operations |
-| `resolver_single_operand.go` | 243 | Single operand resolution |
-| `resolver_two_operand.go` | 224 | Two operand dispatch, register pairs, special pairs |
-| `resolver_value.go` | 159 | Value-register and bit operations |
+| File | Responsibility |
+|---|---|
+| `resolver.go` | Types, dispatcher, no-operand, shared helpers |
+| `resolver_diagnostics.go` | Error diagnostics and ambiguity guidance |
+| `resolver_extended.go` | Extended memory operations |
+| `resolver_indexed.go` | Indexed register operations |
+| `resolver_indirect.go` | Indirect load/store and indirect immediate |
+| `resolver_port.go` | Port I/O operations |
+| `resolver_single_operand.go` | Single operand resolution |
+| `resolver_two_operand.go` | Two operand dispatch, register pairs, special pairs |
+| `resolver_value.go` | Value-register and bit operations |
 
 ### Profiles
 
@@ -63,8 +65,12 @@ Three profiles are supported via `-z80-profile` CLI flag:
 
 - `-cpu z80` selects Z80 architecture
 - Compatible systems: `generic`, `gameboy`, `zx-spectrum`
-- System defaults: `gameboy` and `zx-spectrum` default to Z80; `generic` defaults to Z80
+- System defaults: `zx-spectrum` and `generic` select Z80; `gameboy` selects SM83
 - `-z80-profile` flag for profile selection
+
+Use explicit `-cpu z80 -system gameboy` for the Z80 subset. It does not provide
+SM83 instruction semantics. Supply a memory config with `-c`; system selection
+does not create a cartridge header.
 
 ## Supported Features
 
@@ -100,6 +106,9 @@ Three profiles are supported via `-z80-profile` CLI flag:
 - Indexed vs non-indexed forms: routed by IX/IY base register detection before generic parsing
 
 ## Test Coverage
+
+The lists below identify tests in the source. No code tests were run for this
+documentation review.
 
 ### Unit Tests
 
@@ -148,3 +157,16 @@ Three profiles are supported via `-z80-profile` CLI flag:
 **In scope:** Z80 architecture in `pkg/arch/z80`, Zilog-style core syntax, end-to-end assembly pipeline, CPU/system CLI flags.
 
 **Out of scope:** Full assembler dialect compatibility beyond baseline Zilog syntax, systems not modeled in retrogolib (`msx`, `sms`), Game Boy-specific instruction behavior differences beyond the accepted Z80 subset.
+
+### Typed API and extraction dependencies
+
+`parser/operand.go` owns typed operands. `parser/codec.go` provides build,
+validation, and formatting. `parser/symbol_rewrite.go` rewrites typed symbol
+references. Copy tests are in `parser/resolved_copy_test.go`; codec tests are
+in `pkg/codec/z80_test.go`.
+
+A future Z80 extraction must include its parser, profile rules, address and
+opcode generation, relocation records, and tests. Add CLI registration,
+`cmd/retroasm/z80_fixture_test.go`, and `tests/z80/` after those dependencies.
+Run focused Z80/codec/CLI checks and the common code gates on the extracted
+candidate. Use the pinned dependency without the source branch's local replacement.

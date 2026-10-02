@@ -4,6 +4,10 @@ This document tracks compatibility with the x816 assembler syntax used by
 legacy 6502 and 65816 sources. Select `config.CompatX816` when constructing the
 assembler or parser to enable these rules.
 
+This reference describes `work2`, reviewed on 2026-10-02. Use `-compat x816`
+for the CLI. The [merge plan](work-branch-changes.md) separates existing
+target behavior from later data-expression and codec changes.
+
 ## Implemented Syntax
 
 ### Labels and program counter
@@ -67,14 +71,21 @@ x816 mode also uses the assembler's existing conditionals, macros, binary
 includes, padding, keyword expression operators, and hexadecimal/binary number
 formats.
 
-## Compatibility Validation
+## Historical compatibility report
 
 The original [Super Mario Bros. x816 disassembly](https://gist.github.com/1wErt3r/4048722)
-passes the complete RetroASM pipeline when assembled in x816 mode inside a
+was reported to pass the RetroASM pipeline in an earlier review inside a
 configured `CODE` segment. The 16,351-line source fills the expected `$8000`–`$ffff`
 PRG range, places `AreaParserCore` at `$93fc`, and matches the 32 KiB PRG output
 from the asm6f port byte-for-byte. The external source is not vendored because it
-does not state an open-source license.
+does not state an open-source license. This external comparison was not
+repeated for the current documentation review. The report does not establish
+complete x816 compatibility.
+
+Current repository regressions are in `pkg/parser/parser_x816_test.go` and
+`pkg/assembler/assembler_x816_test.go`. They cover label definitions, width
+selection for data directives, forward data references, mixed expressions,
+and numeric indirect jumps. No code tests were run for this documentation edit.
 
 ## Remaining Work
 

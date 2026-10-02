@@ -1,8 +1,14 @@
 # Z80 Support -- Development History
 
-This document is a historical reference for the Z80 architecture implementation in retroasm.
-The Z80 branch has been merged to `main`. For current file tracking, see
-[work-branch-changes.md](work-branch-changes.md).
+This document records the original Z80 implementation work. Review date:
+2026-10-02. The Z80 package is present on `work2` and absent from local `main`
+at `0e4317a`. The earlier statement that it was merged to `main` was incorrect
+for these local refs. No remote ref was fetched for this review.
+
+For current behavior, see [Z80 support](z80-support-plan.md). For extraction
+scope, see [work-branch-changes.md](work-branch-changes.md), which excludes Z80.
+The counts, dependency changes, and layer description below are historical;
+they are not a current patch inventory or a merge sequence.
 
 **Scope:** ~50 files changed, ~8700 insertions, ~150 deletions across three categories:
 1. Shared infrastructure -- architecture-agnostic pipeline extensions
@@ -35,12 +41,13 @@ architecture, independent of Z80-specific code.
 
 ### High-Level API (`pkg/retroasm/default.go`)
 
-Refactored from hard-coded CPU6502 dispatch to architecture-agnostic dispatch:
-- `resolveArchitectureConfig()` selects the registered architecture (backward-compatible CPU6502 default)
-- Generic helpers: `assembleASTWithConfig[T]`, `assembleTextWithConfig[T]`, `readAssemblerConfig[T]`, `applyBaseAddress[T]`
-- Sentinel errors: `errAmbiguousArchitecture`, `errArchitectureAdapterMismatch`, `errArchitectureNotRegistered`, `errUnsupportedArchitectureConfig`
+The high-level API now uses generic dispatch:
 
-### CLI (`cmd/retroasm/main.go`)
+- `resolveArchitectureDispatcher()` selects the registered architecture with a default 6502 path
+- Generic helpers: `assembleASTWithConfig[T]`, `assembleTextWithConfig[T]`, `readAssemblerConfig[T]`, `applyBaseAddress[T]`
+- Selection errors: `errAmbiguousArchitecture`, `errArchitectureAdapterMismatch`, `errArchitectureNotRegistered`
+
+### CLI (`cmd/retroasm/main.go`, `cmd/retroasm/architecture.go`)
 
 - Replaced single-CPU constants with lookup tables (`supportedSystemsByCPU`, `defaultSystemByCPU`, `defaultCPUBySystem`)
 - Added `-z80-profile` flag (values: `default`, `strict-documented`, `gameboy-z80-subset`)
@@ -172,3 +179,16 @@ Layer 1: Shared assembler + AST extensions (pkg/assembler/, pkg/parser/ast/)
 
 Layer 1 was fully extractable to `main` without pulling in any Z80-specific code, making the
 pipeline generic for any multi-operand architecture.
+
+## Current additions and validation limits
+
+The current source also contains `parser/operand.go`, `parser/codec.go`,
+`parser/symbol_rewrite.go`, `parser/resolved_copy_test.go`, and
+`pkg/codec/z80_test.go`. These add typed construction, formatting, operand
+ownership, symbol rewriting, and relocation tests. Shared stream contracts
+have changed since the original layer description.
+
+Do not use the historical four-layer list as a complete extraction plan.
+Check current shared contracts and all CLI/test helpers first. No code tests
+were run for this documentation review. Historical test descriptions are
+not passing results for the current branch or a future merge candidate.

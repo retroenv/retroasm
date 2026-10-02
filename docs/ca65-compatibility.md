@@ -2,7 +2,8 @@
 
 ## Overview
 
-ca65 is the assembler component of the cc65 C compiler toolchain. It targets 6502-family processors and is widely used for NES, SNES, C64, and other retro platform development.
+This reference describes ca65 syntax accepted on `work2`, reviewed on
+2026-10-02. It does not describe full cc65 object-file or linker support.
 
 See [Compatibility Mode Infrastructure](compatibility-mode-plan.md) for shared features.
 
@@ -144,11 +145,11 @@ These are added by `ca65Handlers()` on top of the shared set.
 | `.linecont` | `NoOp` | Stub | Line continuation (ignored) |
 | `.list` / `.listbytes` | `NoOp` | Stub | Listing control (ignored) |
 | `.local` | `NoOp` | Stub | Local symbol in macro (ignored) |
-| `.out` | `Out` | Done | Print message during assembly |
+| `.out` | `Out` | Stub | Consumes the line without printing a message |
 | `.repeat` | `Rept` | Done | Alias for `.rept` |
 | `.scope` | `Scope` | Done | Named/anonymous scope |
 | `.undefine` | `NoOp` | Stub | Remove text macro (ignored) |
-| `.warning` | `Warning` | Done | Warning message |
+| `.warning` | `Warning` | Limited | Creates `ast.Error`; assembly fails instead of returning a non-fatal warning |
 | `.error` | `Error` | Done | Error message (via shared handler) |
 
 ### Stub Directives
@@ -174,7 +175,15 @@ The following ca65 features are not yet supported.
 | String functions | `.concat`, `.left`, `.right`, `.mid`, `.string`, `.sprintf`, `.ident` |
 | Symbol predicates | `.blank`, `.const`, `.ref`, `.match`, `.xmatch` |
 | Size operators | `.sizeof`, `.loword`, `.hiword` |
-| Addressing mode overrides | `a:`, `z:`, `f:` prefixes |
+| Long addressing override | `f:` requires a CPU with long addressing. It is not a default 6502 mode. |
+
+The 6502 parser accepts `a:` and `z:` address-size prefixes. See
+`pkg/arch/cpu6502/parser/addressing.go` and `pkg/codec/cpu6502_test.go`.
+`.faraddr` has a declared-width assembly regression in
+`pkg/assembler/assembler_ca65_test.go`. Parser tests for `.warning` verify
+its AST node; they do not establish warning delivery.
+
+No code tests were run for this documentation review.
 
 ## Notes
 

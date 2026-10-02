@@ -2,14 +2,16 @@
 
 ## Overview
 
-retroasm supports the WDC 65C816 (65816) processor, a 16/24-bit extension of the 6502 used in the Super Nintendo Entertainment System (SNES/Super Famicom) and Apple IIGS.
+The `work2` branch contains a WDC 65C816 adapter. This reference was reviewed
+on 2026-10-02. The adapter is absent from local `main` at `0e4317a` and is
+excluded from the [current merge plan](work-branch-changes.md).
 
 ## Architecture Details
 
 - **Address width:** 24-bit (16 MB address space)
 - **Byte order:** Little-endian
-- **Instruction set:** 83 mnemonics, 256 opcodes
-- **Addressing modes:** 21 modes (extending 6502 with indirect long, stack relative, block move, relative long)
+- **Instruction definitions:** Supplied by the pinned retrogolib dependency
+- **Addressing:** Includes indirect long, stack relative, block move, and relative long forms
 - **Opcode size:** 1-4 bytes depending on addressing mode
 
 ## Addressing Modes
@@ -54,10 +56,17 @@ When an instruction supports both direct page and absolute addressing, the assem
 - `a:` — Force absolute addressing: `LDA a:$0010`
 - `f:` — Force long addressing: `LDA f:$7E0010`
 
-## Current Limitations
+## Register-width state
 
-- **Emulation mode only:** Initial implementation assumes 8-bit accumulator and index registers (M=1, X=1). The `BaseSize` field is used directly for instruction sizing.
-- **16-bit mode deferred:** `.a8`/`.a16`/`.i8`/`.i16` directives for switching between 8-bit and 16-bit register widths are not yet implemented. When enabled, immediate addressing for accumulator instructions (LDA, ADC, etc.) would use 2 bytes instead of 1.
+`parser.DefaultState()` starts in native mode with 8-bit accumulator and index
+widths. Parser streams own their state. `REP`, `SEP`, `CLC`, `SEC`, `XCE`,
+`PLP`, and `RTI` update tracked width, carry, and emulation information.
+Immediate encoding uses the selected width. Runtime-dependent state can make
+a width unknown; the codec rejects operands that require an unknown width.
+
+Use the stateful codec API for an explicit entry state. This is sequential
+stream tracking, not control-flow analysis. `.a8`, `.a16`, `.i8`, and `.i16`
+are not registered directives. x816 `.mem` and `.index` remain no-ops.
 
 ## Implementation
 
@@ -66,6 +75,11 @@ The implementation follows the established CPU6502 pattern:
 - `pkg/arch/cpu65816/cpu65816.go` — Architecture entry point
 - `pkg/arch/cpu65816/parser/addressing.go` — Addressing mode constants and disambiguation
 - `pkg/arch/cpu65816/parser/instruction.go` — Instruction parser
+- `pkg/arch/cpu65816/parser/state.go` — Entry state and instruction transitions
+- `pkg/arch/cpu65816/parser/operand.go` — Owned typed operands
+- `pkg/arch/cpu65816/parser/resolved.go` — Resolved operands and width selection
+- `pkg/arch/cpu65816/parser/codec.go` — Typed build, validation, and formatting
+- `pkg/arch/cpu65816/parser/symbol_rewrite.go` — Typed symbol rewriting
 - `pkg/arch/cpu65816/assembler/address_assigning_step.go` — Address assignment
 - `pkg/arch/cpu65816/assembler/generate_opcode_step.go` — Opcode generation
 
@@ -73,8 +87,23 @@ The implementation follows the established CPU6502 pattern:
 
 ```bash
 # Assemble a 65816 program for SNES
-retroasm -cpu 65816 -system snes -o game.sfc program.asm
+retroasm -cpu 65816 -system snes -c memory.cfg -o game.sfc program.asm
 
 # With generic system
-retroasm -cpu 65816 -system generic -o program.bin program.asm
+retroasm -cpu 65816 -system generic -c memory.cfg -o program.bin program.asm
 ```
+
+Supply the memory layout and cartridge data. `-system snes` does not generate
+a complete SNES cartridge header or memory map.
+
+## Validation and extraction
+
+`pkg/codec/cpu65816_test.go` contains stateful width, transition, independent
+stream, relocation, and invalid-state tests. Architecture assembly tests are
+in `pkg/arch/cpu65816/cpu65816_test.go` and its assembler subpackage.
+No code tests were run for this documentation review.
+
+A future extraction must include the state API, typed operands, encoder width
+selection, and their tests together. CLI registration and user documentation
+must follow the adapter. Run focused CPU/codec/CLI checks and the common code
+gates on that candidate with the pinned dependency and no local replacement.

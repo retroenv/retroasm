@@ -2,9 +2,8 @@
 
 ## Overview
 
-NESASM (based on MagicKit/PCEas by David Michel) is a 6502 assembler designed for NES
-development. It uses a bank-based memory model and has unique syntax for macros, local labels,
-and character data.
+This reference describes NESASM syntax accepted on `work2`, reviewed on
+2026-10-02. Select `-compat nesasm` or `config.CompatNesasm`.
 
 See [Compatibility Mode Infrastructure](compatibility-mode-plan.md) for shared features.
 
@@ -48,8 +47,12 @@ another_routine:
 .org $0000          ; CHR bank 0
 ```
 
-The assembler tracks the current bank number and bank size. Each `.bank` directive advances the
-output position to `bank_number * bank_size`. `.org` sets the PC within the current bank.
+These directives are parsed, but `.bank` does not select an output bank in
+the current assembler pipeline. Address assignment rejects the resulting
+`ast.Bank` node. Do not use this example as a complete memory
+layout. Define memory areas and segments in a ca65-style config, then select
+them with `.segment`. `.org` changes the address within the configured layout.
+The output writer uses configured memory areas and their fill settings.
 
 ### NESASM Macro Syntax
 
@@ -77,7 +80,7 @@ add_val .macro
 | `.dw` / `.word` | Data | Word data |
 | `.incbin` | Include | Binary include |
 | `.include` | Include | Source include |
-| `.org` | Base | Set PC (within bank) |
+| `.org` | Base | Set PC within the configured memory layout |
 
 #### Symbol and Variable Definition
 
@@ -88,6 +91,9 @@ add_val .macro
 | `.rsset` | OffsetCounter | Set RS counter base address |
 
 #### iNES Header
+
+These handlers create configuration nodes. The output writer does not generate
+an iNES header from them. Supply header bytes in a configured header segment.
 
 | Directive | Handler | Notes |
 |---|---|---|
@@ -102,7 +108,7 @@ add_val .macro
 
 | Directive | Handler | Notes |
 |---|---|---|
-| `.bank` | Bank | Select ROM bank |
+| `.bank` | Bank | Parsed only; assembly does not implement bank selection |
 | `.endp` | EndProc | End procedure |
 | `.macro` / `.endm` | Macro | Macro definition (NESASM syntax) |
 | `.proc` | Proc | Procedure definition |
@@ -159,9 +165,11 @@ The following NESASM features are not currently supported.
 
 ## Notes
 
-- NESASM's bank model is tightly coupled to NES mapper hardware. The assembler needs to know the
-  bank size (typically 8KB or 16KB for PRG, 8KB for CHR).
+- Configure each output bank explicitly. Memory areas can share CPU addresses
+  while retaining separate output bytes.
 - The `name .macro` syntax (name before keyword) is unique among 6502 assemblers and requires
   special parsing in the identifier handler.
-- Many NESASM projects use a simple flat structure with sequential `.bank`/`.org` pairs, making
-  compatibility straightforward for common cases.
+- `pkg/parser/parser_nesasm_test.go` checks local labels and macro definitions.
+  It does not verify emitted bytes from positional macro expansion. The
+  [merge plan](work-branch-changes.md) requires that coverage in P09.
+- No code tests were run for this documentation review.

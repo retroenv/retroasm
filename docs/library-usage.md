@@ -1,6 +1,8 @@
 # Library Usage
 
-This document covers the embeddable `pkg/retroasm` API.
+This document covers `pkg/retroasm` and the owned stream API in `pkg/codec`.
+It describes the `work2` source branch reviewed on 2026-10-02. The
+[merge plan](work-branch-changes.md) defines the smaller scope for `main`.
 For most users, the `retroasm` CLI is the primary interface. The library API is mainly useful when you are:
 
 - generating assembly code programmatically
@@ -9,12 +11,14 @@ For most users, the `retroasm` CLI is the primary interface. The library API is 
 
 ## Current Target Coverage
 
-The public library API is designed around a reusable assembler interface with pluggable architectures.
-At the moment, the implemented production path matches the current CLI target:
+Without registration, `retroasm.New()` selects 6502. A registered architecture
+adapter supplies another CPU configuration. The CLI registers 6502, 65816,
+68000, SM83, or Z80 through this API. The CHIP-8 CLI path uses `pkg/assembler`
+directly. A system name does not supply a cartridge header or memory layout.
 
-- system: NES
-- CPU: 6502
-- text formats: `asm6`, `ca65`, `nesasm`
+Select syntax through `config.Config.CompatibilityMode`. Available modes are
+default, asm6, ca65, NESASM, and x816. Each mode supports a subset of the
+original syntax. See the [compatibility guide](compatibility-mode-plan.md).
 
 The core entry points are:
 
@@ -29,7 +33,7 @@ go get github.com/retroenv/retroasm
 
 Requirements:
 
-- Go 1.24 or later
+- Go 1.25.0 or later
 
 ## Basic Setup
 
@@ -41,6 +45,7 @@ package main
 
 import (
 	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
 )
@@ -49,6 +54,7 @@ func newAssembler() (retroasm.Assembler, error) {
 	assembler := retroasm.New()
 
 	cpu6502Arch := cpu6502.New()
+	cpu6502Arch.CompatibilityMode = config.CompatCa65
 	adapter := retroasm.NewArchitectureAdapter(string(arch.CPU6502), cpu6502Arch, cpu6502Arch)
 	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		return nil, err
@@ -72,6 +78,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch/cpu6502"
+	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/retroasm"
 	"github.com/retroenv/retrogolib/arch"
 )
@@ -80,6 +87,7 @@ func main() {
 	assembler := retroasm.New()
 
 	cpu6502Arch := cpu6502.New()
+	cpu6502Arch.CompatibilityMode = config.CompatCa65
 	adapter := retroasm.NewArchitectureAdapter(string(arch.CPU6502), cpu6502Arch, cpu6502Arch)
 	if err := assembler.RegisterArchitecture(string(arch.CPU6502), adapter); err != nil {
 		panic(err)
@@ -101,8 +109,11 @@ func main() {
 Notes:
 
 - `Source` is required.
-- `SourceName` is used in diagnostics and symbol metadata.
-- `Format` should be one of `retroasm.FormatAsm6`, `retroasm.FormatCa65`, or `retroasm.FormatNesasm`.
+- `SourceName` labels copied input symbol metadata. Use `codec.ParseStream`
+  to attach a source name to stream positions and codec diagnostics.
+- `Format` does not select compatibility behavior in the current dispatcher.
+  Set `cpu6502Arch.CompatibilityMode = config.CompatCa65` before registration
+  for ca65 syntax. Import `pkg/assembler/config` for the mode constants.
 - If `ConfigFile` is empty, retroasm uses its built-in default ca65-style memory configuration for the current implementation.
 
 ### Using a ca65 Config File
@@ -174,13 +185,17 @@ Notes:
 
 Both `AssembleText` and `AssembleAST` return `*retroasm.AssemblyOutput`.
 
-Relevant fields:
+The current high-level dispatcher fills these fields:
 
-- `Binary`: assembled machine code
-- `AST`: AST nodes returned by the assembly flow
-- `Symbols`: symbol metadata keyed by symbol name
-- `Segments`: segment output metadata
-- `Diagnostics`: warnings or informational diagnostics
+| Field | Current behavior |
+|---|---|
+| `Binary` | Assembled bytes. The default config starts at `$8000` and emits used bytes without full-bank padding. |
+| `AST` | Original input nodes for `AssembleAST`; not populated by `AssembleText`. |
+| `Symbols` | Copies of input symbol metadata. These values are not injected into expression resolution. Newly resolved labels are not returned here. |
+| `Segments`, `Diagnostics` | Not populated by this dispatcher. Assembly errors are returned as errors. |
+
+For resolved labels and relocation records, use `pkg/codec`. Do not use the
+high-level `Symbols` map as a linker result.
 
 Example:
 
@@ -222,15 +237,81 @@ At the moment, the active implementation primarily consumes:
 - `ASTInput.BaseAddr` for AST-based base address control
 - `ASTInput.Symbols` and `TextInput.Symbols` for symbol metadata passed into the output
 
-So while `SetConfiguration` exists on the public interface, callers should currently treat it as a broader API surface than the main configuration mechanism used by the implemented target path today.
+`SetConfiguration` stores the builder result, but the assembly dispatcher does
+not apply it. `ArchitectureAdapter.CreateAssembler().AssembleAST` also does
+not generate bytes. Use the top-level methods or `pkg/codec` for assembly.
+
+### Fixed-size output
+
+Pass a config file through `TextInput.ConfigFile` when callers need bank fill:
+
+```text
+MEMORY {
+    CODE: start = $8000, size = $8000, fill = yes, fillval = $ff;
+}
+SEGMENTS {
+    CODE: load = CODE, type = rw;
+}
+```
+
+The source must select `CODE`. This requests a filled 32 KiB memory area.
+For custom AST memory layouts, use the configured lower-level assembler or
+codec. The high-level AST path reloads its built-in config.
+
+## Owned streams and resolved output
+
+Use `pkg/codec` for source positions, resolved labels, and relocation metadata.
+Load a memory config before assembly; `codec.New` does not load one.
+
+```go
+cfg := cpu6502.New()
+cfg.CompatibilityMode = config.CompatCa65
+if err := cfg.ReadCa65Config(strings.NewReader(memoryConfig)); err != nil {
+	return err
+}
+c, err := codec.New(cfg)
+if err != nil {
+	return err
+}
+stream, err := c.ParseStream(ctx, "input.asm", strings.NewReader(source))
+if err != nil {
+	return err
+}
+result, err := c.AssembleStream(ctx, stream)
+if err != nil {
+	return err
+}
+fmt.Printf("% X\n", result.Binary)
+```
+
+This fragment also requires `pkg/codec`. `result.Symbols` contains resolved
+label addresses. `result.Stream.Relocations()` returns owned relocation
+records. Assembly operates on a copy of the input stream.
+
+Stream getters return copies. Use `RenameSymbols`, `Rewrite`, or `EditNodes`
+to publish changes. Native edit `At` and `Nodes` reads are independent copies.
+An accepted mutation makes earlier edit views stale. `FormatStream` returns
+normalized source and rejects unsupported nodes; it does not preserve original
+spacing. Relocations do not provide a complete external linker interface.
+
+### AST migration details
+
+- Import `pkg/arch/cpu6502` instead of `pkg/arch/m6502` on this branch.
+- `ast.Data.Values` is `[]*expression.Expression`. Put each data item in a
+  separate expression. Do not put a complete comma-separated list in one.
+- Opcode IDs contain an architecture and a numeric value. Use codec parsing
+  or `codec.BuildInstruction` to obtain typed instructions with valid IDs.
+- Mutable opaque instruction arguments must implement
+  `ast.InstructionArgumentCopier`. Unsupported mutable values cause a panic
+  at construction or copying.
+- Custom assembly adapters must implement `arch.ByteOrderer` on this branch.
 
 ## Limitations
 
-The current library surface is intentionally narrow:
-
-- only the current NES/6502 path is implemented as a production target
-- text assembly still depends on the existing assembler pipeline and ca65-style configuration model
-- library consumers should expect the AST-first path to be the more specialized integration mode
+Memory layout still uses ca65-style configuration. Supply a layout suitable
+for the selected CPU. Register one architecture per assembler when possible:
+with multiple registrations, the dispatcher prefers `6502` or returns an
+ambiguity error. The high-level API does not select a CPU from `TextInput.Format`.
 
 ## Related References
 

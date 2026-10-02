@@ -2,13 +2,18 @@
 
 ## Overview
 
-asm6 (v1.6) by loopy is a popular 6502 assembler for NES development. asm6f is a community fork adding undocumented opcode support, iNES headers, and symbol file export. Both share identical syntax.
+This reference describes asm6/asm6f syntax accepted on `work2`, reviewed on
+2026-10-02. Select `-compat asm6` or `config.CompatAsm6`. Parser acceptance
+does not imply complete asm6f output support.
 
 See [Compatibility Mode Infrastructure](compatibility-mode-plan.md) for shared features (anonymous labels, colon-optional labels, number formats).
 
 ## Directive Support
 
-All asm6 directives listed below are implemented. Directives marked "base" are available in all compatibility modes; directives marked "asm6" are added by the asm6 handler overlay.
+The parser registers the directives below. The base map is shared; an overlay
+can replace a handler, as x816 does for `DL`. Header directives create AST
+configuration nodes. The output writer does not generate an iNES or NES 2.0
+header from these nodes. Supply header bytes and memory layout explicitly.
 
 | Directive | Handler | Source |
 |---|---|---|
@@ -80,7 +85,8 @@ label2:
 - `EQU` is handled via `parseDotIdentifier` as an alias (numeric assignment).
 - `=` evaluates to a number and the symbol can be reassigned.
 
-Both are currently treated as numeric assignment. True text-substitution semantics for `EQU` (like C `#define`) are not implemented, but this rarely matters in practice since most real-world `EQU` usage is for numeric constants.
+Both are treated as numeric assignments. General text substitution for `EQU`
+is not implemented.
 
 ### Absolute Addressing Prefix (`a:`)
 
@@ -92,7 +98,8 @@ lda a:$00    ; force absolute addressing
 
 ### Expression Operators
 
-asm6 uses C-style operators with standard precedence:
+The following table describes the intended asm6 operator syntax. It is not a
+complete conformance result for the retroasm expression evaluator:
 
 | Precedence | Operators |
 |---|---|
@@ -117,5 +124,10 @@ The following asm6 features are not yet supported:
 
 | Feature | Description |
 |---|---|
-| String arithmetic | `DB "ABCDE"+1` shifts all character values by an offset |
 | Undocumented opcodes | `UNSTABLE`/`HUNSTABLE` are accepted as no-ops but do not gate opcode availability; the undocumented opcodes themselves need retrogolib registration |
+
+String arithmetic has assembly coverage in
+`pkg/assembler/assembler_asm6_test.go`: `TestAssemblerAsm6DataModifier`
+checks a character offset. `TestAssemblerAsm6DataItemExpressions` checks
+independent arithmetic items. These tests do not establish full expression
+compatibility. No code tests were run for this documentation review.

@@ -18,7 +18,8 @@
 coverage.txt
 
 *.nes
-docs/
+docs/*
+!docs/README.md
 dist/
 tests/*
 /retroasm
