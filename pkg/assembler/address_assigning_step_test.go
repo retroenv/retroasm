@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	asmcpu6502 "github.com/retroenv/retroasm/pkg/arch/cpu6502"
 	"github.com/retroenv/retroasm/pkg/lexer/token"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	"github.com/retroenv/retroasm/pkg/scope"
+	"github.com/retroenv/retrogolib/arch/cpu/cpu6502"
 	"github.com/retroenv/retrogolib/assert"
 )
 
@@ -34,14 +36,16 @@ func TestParseReferenceOffset(t *testing.T) {
 }
 
 func TestAssignVariableAddress(t *testing.T) {
-	aa := addressAssign[any]{
+	aa := addressAssign[*cpu6502.Instruction]{
+		arch:           asmcpu6502.New().Arch,
 		programCounter: 0x200,
 	}
 	v := &variable{
 		v: ast.NewVariable("test", 4),
 	}
 
-	result := assignVariableAddress(aa, v)
+	result, err := assignVariableAddress(aa, v)
+	assert.NoError(t, err)
 	assert.Equal(t, uint64(0x204), result)
 	assert.Equal(t, uint64(0x200), v.address)
 }

@@ -227,7 +227,7 @@ func assignAddressesStep[T any](_ context.Context, asm *Assembler[T]) error {
 				err = assignSymbolAddress(aa, n)
 
 			case *variable:
-				aa.programCounter = assignVariableAddress(aa, n)
+				aa.programCounter, err = assignVariableAddress(aa, n)
 
 			default:
 				return fmt.Errorf("unsupported node type %T", n)
@@ -306,10 +306,26 @@ func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {
 	return aa.programCounter, nil
 }
 
-func assignVariableAddress[T any](aa addressAssign[T], v *variable) uint64 {
+func assignVariableAddress[T any](aa addressAssign[T], v *variable) (uint64, error) {
+	if v.v.Size < 0 {
+		return 0, fmt.Errorf("reservation size %d is negative", v.v.Size)
+	}
+	size := uint64(v.v.Size)
+	if size > math.MaxUint64-aa.programCounter {
+		return 0, fmt.Errorf("reservation of %d bytes at $%x overflows the address", size, aa.programCounter)
+	}
+	end := aa.programCounter + size
+	width := aa.arch.AddressWidth()
+	if width <= 0 || width > 64 {
+		return 0, fmt.Errorf("reservation address width %d is not supported", width)
+	}
+	if width < 64 && end > uint64(1)<<width {
+		return 0, fmt.Errorf("reservation of %d bytes at $%x exceeds the %d-bit address space",
+			size, aa.programCounter, width)
+	}
+
 	v.address = aa.programCounter
-	aa.programCounter += uint64(v.v.Size)
-	return aa.programCounter
+	return end, nil
 }
 
 func assignBaseAddress(b ast.Base) (uint64, error) {

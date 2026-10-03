@@ -74,7 +74,7 @@ func parseASTNode[T any](ctx context.Context, asm *parseAST[T], node ast.Node) (
 		nodes, err = parseMacro(n)
 
 	case ast.Variable:
-		parseVariable(n)
+		nodes, err = parseVariable(n)
 
 		// default case for node types that do not have special handling at this point
 	default:
@@ -445,9 +445,12 @@ func parseSourceInclude[T any](ctx context.Context, asm *parseAST[T], name strin
 	return result, nil
 }
 
-func parseVariable(astVar ast.Variable) []ast.Node {
+func parseVariable(astVar ast.Variable) ([]ast.Node, error) {
+	if astVar.UseOffsetCounter {
+		return nil, fmt.Errorf("offset-counter reservation %q is not supported", astVar.Name)
+	}
 	v := &variable{v: astVar}
-	return []ast.Node{v}
+	return []ast.Node{v}, nil
 }
 
 func parseFunction[T any](asm *parseAST[T], fun ast.Function) ([]ast.Node, error) {
