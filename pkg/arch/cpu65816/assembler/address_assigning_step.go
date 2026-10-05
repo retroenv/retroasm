@@ -9,6 +9,7 @@ import (
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/cpu65816/parser"
 	"github.com/retroenv/retroasm/pkg/number"
+	"github.com/retroenv/retroasm/pkg/scope"
 	"github.com/retroenv/retrogolib/arch/cpu/cpu65816"
 )
 
@@ -65,6 +66,12 @@ func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction,
 	}
 
 	value, err := resolvedOperandValue(assigner, resolved, 0)
+	if errors.Is(err, scope.ErrForwardReference) {
+		// Keep the wider form until the label has an address.
+		// Opcode generation checks the final operand and addressing mode.
+		ins.SetAddressing(int(modes[0]))
+		return modes[0], nil
+	}
 	if err != nil {
 		return cpu65816.NoAddressing, fmt.Errorf("getting instruction argument: %w", err)
 	}
