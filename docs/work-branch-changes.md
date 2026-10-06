@@ -1281,11 +1281,42 @@ The absolute replacement in `go.mod` is excluded from every proposal.
 
 ## Progress record
 
-All parts remain proposed in this refreshed plan. No part has been extracted
-or merged by this task. No candidate build boundary has been validated here.
-No code tests or linters were run for this documentation change. Verification
-for this plan consists of local branch/base checks, source and diff review,
-path ownership review, and `git diff --check`.
+P00 and P01 are complete locally as of 2026-10-06. P02 is the next part.
+P02-P23, V01, and T01-T06 remain planned. The scope table above describes
+the original source snapshot, not the current target after extraction.
+
+### P00 — Complete
+
+- Target baseline: `dfff226de66987f15d173c5af52a2d7a75c3c0d1`.
+  The remote `main` ref matched this commit before extraction.
+- Source snapshot: `1a3ab37a50401077c6324e8203da1af90f12abff`.
+- Candidate checkout: created from `main` outside the source checkout.
+  The target has only the existing `m6502` implementation.
+- Dependency: `retrogolib v0.0.0-20260924213440-9b578e97f6b3` with no local
+  replacement. No Go workspace was active. Checks used `GOWORK=off`.
+- Passed on the baseline: `make build`, `make lint`, `make test`, and
+  `git diff --check`. The hunk ownership table above remains the extraction
+  inventory. P01 required only the two lexer files.
+
+### P01 — Complete
+
+- Target commit: `80bc1425d8df88080ea738ae6e9062e2766d4dcb` on local `main`.
+  Base: `dfff226de66987f15d173c5af52a2d7a75c3c0d1`.
+- Included files: `pkg/lexer/lexer.go` and `pkg/lexer/lexer_test.go`.
+  Extracted only the prefixed hexadecimal handling and the `#0x3c` case.
+- Before: `TestLexerReadNumber` failed because the token value was `#0`.
+  After: the token value is `#0x3c`, and all lexer tests pass.
+- Passed on the final candidate: `gofmt`,
+  `GOWORK=off go test ./pkg/lexer/... -count=1`, `GOWORK=off make build`,
+  `GOWORK=off make lint`, `GOWORK=off make test`, and `git diff --check`.
+  Lint reported zero issues. The test gate included race checks.
+- No new CPU, codec, output, or dependency changes were included.
+  No public API migration is required.
+- No PR or push was requested. Target GitHub CI for this local commit is
+  pending a later push. No remote CI success is claimed.
+- The temporary candidate checkout was removed after the commit.
+  No temporary file is required for P02. Start P02 from the current `main`
+  endpoint and retain its CI setup changes.
 
 For each future part, record:
 
