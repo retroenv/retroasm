@@ -164,6 +164,10 @@ func TestLexerReadNumber(t *testing.T) {
 			Type:  token.Number,
 			Value: "#%10001000",
 		}},
+		{"#0x3c", token.Token{
+			Type:  token.Number,
+			Value: "#0x3c",
+		}},
 		{"0x3c", token.Token{
 			Type:  token.Number,
 			Value: "0x3c",

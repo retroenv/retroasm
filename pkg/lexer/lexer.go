@@ -250,7 +250,9 @@ func (l *Lexer) processNumberCharacter(firstCharacter, r rune, i int, isBinary, 
 		*hasPrefix = true
 		return false, true
 
-	case i == 1 && firstCharacter == '0' && (r == 'x' || r == 'X'): // hex prefix
+	case i == 1 && (r == 'x' || r == 'X') &&
+		(firstCharacter == '0' ||
+			firstCharacter == l.cfg.DecimalPrefix && literal.String() == string(l.cfg.DecimalPrefix)+"0"): // hex prefix
 		literal.WriteRune(r)
 		*hasPrefix = true
 		return false, true
