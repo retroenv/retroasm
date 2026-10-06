@@ -8,13 +8,13 @@ architecture. Do not merge the complete `work2` branch.
 
 | Item | Verified value |
 |---|---|
-| Review date | 2026-10-02 |
+| Review date | 2026-10-06 |
 | Source branch | `work2` |
-| Source commit | `f29b126adb0d15c61e6abbab636a3ebc1911af71` |
+| Source commit | `1a3ab37a50401077c6324e8203da1af90f12abff` |
 | Local target commit | `0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3` |
 | Merge base | Same commit as local `main` |
 | Working tree before this plan | Clean |
-| Complete branch difference | 274 files; 39,813 added lines; 939 removed lines |
+| Complete branch difference | 277 files; 40,558 added lines; 970 removed lines |
 
 These values refer to local Git refs. The remote target was not fetched.
 `main` is an ancestor of the source commit. At this base, the two-dot and
@@ -22,9 +22,14 @@ three-dot diffs describe the same changes. The old instruction to synchronize
 `main` into `work2` before extraction is no longer necessary.
 
 The counts describe the fixed source commit before this document update.
-The previous source was `586df3b`. The new source also includes independent
-instruction metadata, modifier copying, native edit snapshots, range edits,
-and rewrite ownership changes. P05 and P22 include these changes below.
+The previous plan used `f29b126`. The current source also contains reservation
+conversion and bounds checks, codec reservation tests, and a CPU65816 forward
+storage fix. P02a and P15/P16 include the shared 6502 changes. The CPU65816 fix
+remains deferred with its architecture. The documentation index is now tracked.
+
+This plan retains the existing 6502 scope. The complete branch inventory is in
+[CHANGES_SUMMARY.md](../CHANGES_SUMMARY.md). The follow-up table below assigns
+the remaining architecture file groups to separate proposals.
 
 ## Excluded work
 
@@ -39,7 +44,8 @@ Exclude these architecture packages and all their integration changes:
 
 Also exclude their codec test files, CPU support plans, Z80 branch report,
 CLI imports, registrations, profiles, system defaults, help text, and README
-support claims. The `.gitignore` change only enables Z80 fixtures. Exclude it.
+support claims. The `.gitignore` change enables Z80 fixtures and the documentation index.
+Exclude the fixture rules. P23 can extract the documentation-index rule.
 
 For this plan, also defer the explicit 6502 variant option and added variant
 instruction modes. This includes `WithVariant`, zero-page-relative BBR/BBS,
@@ -123,6 +129,7 @@ code; they do not imply that other source-branch changes must be imported.
 | P00 | Target baseline and extraction inventory | None | Low |
 | P01 | Prefixed hexadecimal literals | P00 | Low |
 | P02 | Memory ranges, bank fill, and segment addresses | P00 | High |
+| P02a | Storage reservation conversion and bounds | P02 | High |
 | P03 | Default library output length | P02 | High |
 | P04 | Three-byte number support | P00 | Low |
 | P05 | AST copy ownership | P00 | Medium |
@@ -135,7 +142,7 @@ code; they do not imply that other source-branch changes must be imported.
 | P12 | Scoped instruction identity | P05, P11 | High API risk |
 | P13 | Typed default 6502 operands and instruction codec | P01, P12 | High |
 | P14 | Owned stream and symbol metadata | P05, P06, P12 | High |
-| P15 | Parser stream output and basic codec operations | P13, P14 | High |
+| P15 | Parser stream output and basic codec operations | P02a, P13, P14 | High |
 | P16 | Data and directive stream formatting | P07-P09, P15 | High |
 | P17 | Instruction relocation output | P02, P06, P15 | High |
 | P18 | Instruction registration inventory | P13 | Medium |
@@ -160,7 +167,7 @@ Use the fixed source SHA from the scope table for extraction. For example,
 these read-only commands show the P01 patch and the current target file:
 
 ```sh
-git diff 0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3 f29b126adb0d15c61e6abbab636a3ebc1911af71 -- pkg/lexer/lexer.go pkg/lexer/lexer_test.go
+git diff 0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3 1a3ab37a50401077c6324e8203da1af90f12abff -- pkg/lexer/lexer.go pkg/lexer/lexer_test.go
 git show main:pkg/lexer/lexer.go
 ```
 
@@ -243,6 +250,37 @@ still test branch distance rather than fail first on a memory limit.
 returns an error without a panic. Existing output fixtures still pass.
 
 Source reference: `1dcc23f` and `586df3b`. Inspect their patches before use.
+
+### P02a — Retain storage reservations and check their bounds
+
+| Source or target file | Change to extract or add |
+|---|---|
+| `pkg/assembler/parse_ast_nodes.go` | Return the variable nodes from `parseVariable`. Reject `UseOffsetCounter` until its separate address model is implemented. Keep data and byte-order changes for P06/P15. |
+| `pkg/assembler/address_assigning_step.go` | Make `assignVariableAddress` return an error. Reject negative sizes, unsigned overflow, unsupported address widths, and CPU address overflow. Retain P02 memory checks. Leave relocation code for P17. |
+| `pkg/assembler/address_assigning_step_test.go` | Adapt `TestAssignVariableAddress` to an architecture with a valid address width. Use the target `m6502` package before P11. |
+| `pkg/assembler/parse_ast_nodes_test.go` | **Add on target:** variable conversion and offset-counter rejection cases. The current source diff only changes a CPU import. |
+| `pkg/assembler/address_assigning_step_test.go` | **Add on target:** negative sizes, zero sizes, exact address end, integer overflow, CPU address overflow, and RAM capacity cases. |
+| `pkg/codec/reservation_test.go` | Use the 6502 cases as regression specifications for assembler tests in this part. Extract codec tests later in P15/P16. Remove all other CPU imports from candidate tests. |
+
+This fix can reach the existing assembler before the codec exists. Test text
+assembly and `ProcessAST` with two reservations in RAM. With start `$0200`
+and sizes three and five, labels must have addresses `$0200`, `$0203`, and
+`$0208`. A RAM-only program must emit no load bytes. A reservation between
+code bytes must preserve the following byte address and the output gap.
+
+A reservation can end exactly at the CPU address limit. A following zero-size
+reservation must remain valid. A reservation beyond that limit must fail.
+Offset-counter reservations must return an error, not use the code address.
+
+The source regression tests use the codec and several new architectures.
+Adapt their assertions to the existing assembler API for this phase. Do not
+import the codec early only to copy those tests. The CPU65816 wider-form fix
+and `pkg/arch/cpu65816/forward_storage_test.go` remain outside this phase.
+
+**Focused check:** `go test ./pkg/assembler/...`.
+**Exit condition:** Reservations reach address assignment, preserve separate
+RAM addresses, emit no RAM load bytes, and reject invalid extents. Existing
+segment bounds and filled output checks still pass.
 
 ### P03 — Change the default library output length separately
 
@@ -480,7 +518,7 @@ that the mode reaches the parser. Existing CLI architecture errors still pass.
 | `pkg/arch/m6502/parser/{addressing,instruction,instruction_test}.go` → matching `pkg/arch/cpu6502/parser/` paths | Move the target parser. Leave source correctness and typed-operand changes for P13. |
 | `cmd/retroasm/architecture.go`, `examples/ast-first/main.go` | Update imports and constructor names for the existing CPU. |
 | `pkg/retroasm/{default,assembler_test,example_test,doc}.go` | Update implementation imports, test constructors, and API examples. |
-| `pkg/assembler/{assembler_asm6_test,assembler_ca65_test,assembler_x816_test,banked_output_test}.go` | Update the tests already present after P02-P09. |
+| `pkg/assembler/{assembler_asm6_test,assembler_ca65_test,assembler_x816_test,banked_output_test,address_assigning_step_test}.go` | Update the tests already present after P02-P09, including P02a. |
 | `pkg/parser/{parser_asm6_test,parser_ca65_test,parser_nesasm_test,parser_test,parser_x816_test}.go` | Update parser test imports and constructors. |
 | `docs/library-usage.md`, `README.md` | Update retained 6502 examples where needed. Keep the target support matrix. |
 | Old `pkg/arch/m6502/` public paths | **Add on target:** forwarding packages if required by the migration decision. These are not provided by the source branch. |
@@ -616,6 +654,7 @@ claim linker-ready symbol resolution from flat metadata alone.
 | `pkg/codec/metadata.go` | Extract symbol, data-relocation, and segment metadata used by basic stream operations. Omit later instruction reconciliation dependencies. |
 | `pkg/codec/codec_test.go` | Include constructor errors, parse/build/assemble, source diagnostics, and cancellation cases with 6502 fixtures. Split later formatting and instruction relocation assertions. |
 | `pkg/codec/cpu6502_test.go` | Include default addressing, relative branches, modifiers, expressions, invalid operands, and instruction format options. Omit variant and stale-relocation cases. |
+| `pkg/codec/reservation_test.go` | Extract direct assembly extent, exact-end, offset-counter rejection, and 6502 architecture-bound cases. Add `newReservationCodec` and required helpers with only 6502 imports. Leave `FormatStream` cases for P16. |
 | `pkg/parser/ast/{data.go,node_test.go}` | Add `Data.Validate` and its cases required by codec validation. |
 | `pkg/arch/arch.go`, `pkg/arch/cpu6502/cpu6502.go` | Add `ByteOrderer` and the default 6502 report. |
 | `pkg/arch/byte_order_test.go` | Keep the 6502 case. Replace other CPU fixtures with a test adapter only if needed. |
@@ -653,6 +692,7 @@ legacy and stream APIs with macros, conditionals, includes, and reusable aliases
 | `pkg/codec/directive_format.go` | Add structural, conditional, scope, macro, include, and diagnostic formatting. |
 | `pkg/codec/codec_test.go` | Include `FormatStream` round-trip, byte-equivalence, and rejection cases. Keep only 6502 constructors and applicable mode cases. |
 | `pkg/codec/doc.go`, `docs/library-usage.md` | Describe supported formatting and errors. Explain that original source spacing is not retained. |
+| `pkg/codec/reservation_test.go` | Add the typed/text reservation comparison, text RAM capacity, and code-gap cases that use `ParseStream` or `FormatStream`. Keep only 6502 fixtures. |
 
 Extract data formatting and `pkg/codec/directive_format.go`. Add symbols,
 layout, conditionals, scopes, repeats, macros, includes, configuration, and
@@ -862,6 +902,7 @@ independent merge parts without adaptation.
 | `examples/ast-first/main.go`, `pkg/retroasm/{doc,example_test}.go`, `pkg/codec/doc.go` | Check that examples and package docs use the merged API and supported CPU. |
 | `docs/{asm6-compatibility,ca65-compatibility,nesasm-compatibility,compatibility-mode-plan,x816-compatibility-plan}.md` | Retain verified syntax and limits. Remove obsolete implementation checklists from the material copied to target user docs. |
 | `docs/work-branch-changes.md`, `CHANGES_SUMMARY.md` | Update source-branch tracking only. Record each remaining included hunk as merged, superseded, or deferred. |
+| `docs/README.md`, `.gitignore` | Adapt the user-guide index to target features. Keep the `!docs/README.md` rule if needed. Remove links to source-only plans and excluded CPU guides from the target index. Leave Z80 fixture rules deferred. |
 
 For each deferred hunk, record its file, symbol or test name, reason, and
 follow-up part. An unassigned hunk is an audit failure. New CPU files and the
@@ -899,11 +940,11 @@ branch diff as the completion criterion.
 | `pkg/arch/byte_order_test.go` | P15: retain 6502 coverage and use a test adapter for generic behavior. |
 | `pkg/arch/instruction_registration_test.go` | P18: retain only 6502 cases and their helpers. |
 | `pkg/arch/relocation_test.go` | P17: shared recorder test; no new CPU required. |
-| `pkg/assembler/address_assigning_step.go` | P02 segment start and bounds; P17 relocation capture. |
-| `pkg/assembler/address_assigning_step_test.go` | P17 recorder tests without packed fields. |
+| `pkg/assembler/address_assigning_step.go` | P02 segment start and bounds; P02a reservation extents; P17 relocation capture. |
+| `pkg/assembler/address_assigning_step_test.go` | P02a reservation checks; P11 CPU imports; P17 recorder tests without packed fields. |
 | `pkg/assembler/assembler.go` | P15 byte-order use, if required; P17 source indices and relocation output. |
 | `pkg/assembler/nodes.go` | P06 data values and offsets; P12 ID type; P17 source indices. |
-| `pkg/assembler/parse_ast_nodes.go` | P06 data/address parsing; P15 byte-order use, if required. |
+| `pkg/assembler/parse_ast_nodes.go` | P02a variable conversion and offset-counter rejection; P06 data/address parsing; P15 byte-order use, if required. |
 | `pkg/assembler/expression_evaluation_step.go`, `generate_opcode_step.go` | P06 independent data and references; P15 byte order; P17 encoder metadata. |
 | `pkg/assembler/memory*.go`, `write_output_step.go`, `banked_output_test.go` | P02 only. Adapt imports until P11 lands. |
 | `pkg/assembler/process_macros_step.go` | P09 positional macro expansion. |
@@ -936,6 +977,7 @@ branch diff as the completion criterion.
 | `pkg/codec/{codec,doc,metadata}.go`, `codec_test.go` | P15 basic operations; P16 formatting; P17 metadata reconciliation. Split shared test imports and helpers. |
 | `pkg/codec/cpu6502_test.go` | P15 default codec cases; P17 relocations. Defer variant-specific cases. |
 | `pkg/codec/directive_format.go` | P16. |
+| `pkg/codec/reservation_test.go` | P02a: adapt regression assertions to assembler tests. P15: direct codec checks. P16: text/format comparisons. Exclude new CPU imports and test invocations. |
 | `pkg/codec/metadata_completion_test.go` | P20: metadata completion after insertion, with P17 as a prerequisite. |
 | `pkg/codec/stream_equivalence_test.go` | P21: extract required 6502 helpers; P22: complete 6502 comparison. |
 | `pkg/codec/stream_rename_test.go`, `stream_rewrite_test.go` | P21 and P22. |
@@ -947,11 +989,300 @@ branch diff as the completion criterion.
 | Compatibility docs | P07-P10 tested reference material; P23 final audit. |
 | `go.mod` | Omit the absolute local replacement. |
 | `CHANGES_SUMMARY.md`, `docs/work-branch-changes.md` | Branch tracking only. |
-| `.gitignore`, excluded architecture docs/tests/examples | Excluded. |
+| `docs/README.md`, `.gitignore` | P23: target user-guide index and its ignore exception. Exclude Z80 fixture rules and source-only links. |
+| Excluded architecture docs/tests/examples | Deferred as listed below. |
+
+## Deferred architecture proposals
+
+These proposals are outside P00-P23. Each needs a separate scope decision and
+candidate validation after the shared APIs it uses are merged. The order is
+for review only. It is not a claim that one CPU package requires another.
+Each file list below names all architecture-specific paths in the current
+branch difference. Shared files need selected imports, cases, and helpers.
+
+The following shared contracts were deferred from the 6502 queue. Add each
+contract with its first CPU user and its focused regression tests. Later CPU
+proposals must use the contract already present on the target.
+
+| First user | Shared files | Changes to merge |
+|---|---|---|
+| T01: Chip-8 | `pkg/parser/ast/stream.go`, `pkg/parser/ast/stream_test.go`, `pkg/arch/arch.go`, `pkg/arch/relocation_test.go`, `pkg/assembler/address_assigning_step.go`, `pkg/assembler/address_assigning_step_test.go`, `pkg/codec/codec.go` | Add packed relocation fields, validation, recording, and reconciliation for bits inside an instruction word. |
+| T02: CPU65816 | `pkg/arch/arch.go`, `pkg/parser/parser.go`, `pkg/parser/parser_test.go`, `pkg/parser/ast/instruction_argument.go`, `pkg/parser/ast/instruction_argument_test.go`, `pkg/parser/ast/stream.go`, `pkg/parser/ast/stream_test.go`, `pkg/codec/codec.go`, `pkg/codec/codec_test.go` | Add parser state methods, instruction state transitions, state-aware construction/parsing, and validation. Keep state private to each parser and stream. |
+| T05: Z80 | `pkg/arch/arch.go`, `pkg/parser/parser.go`, registered adapter methods and parser mocks on the target | Pass the original mnemonic to `ParseIdentifier` for target forms that need it. Update all existing adapters and mocks in this candidate. The 6502 queue retains the old signature. |
+
+Review these rows against the target before extraction. If an earlier CPU
+proposal already needs a contract, move that row to its first user. Do not
+copy unrelated fields or assertions from the same shared files.
+
+| Proposal | Files and changes | Prerequisites and candidate checks |
+|---|---|---|
+| V01: 6502 variants | `pkg/arch/cpu6502/options.go`, `pkg/arch/cpu6502/cpu6502_test.go`; variant hunks in `cpu6502.go`, parser `operand.go`, `resolved.go`, `instruction.go`, and encoder `generate_opcode_step.go`; variant cases in encoder tests and `pkg/codec/cpu6502_test.go`. Add `WithVariant`, zero-page-relative, zero-page indirect, and absolute-X indirect modes. | P13/P17/P18. Check each registry, default behavior, operand validation, bytes, and relocation widths with `go test ./pkg/arch/cpu6502/... ./pkg/codec/...`. |
+
+### T01 — Chip-8
+
+Packed relocation fields, fixed-width instructions, direct CLI assembly, and examples.
+
+Files to merge with this proposal:
+
+- `pkg/arch/chip8/assembler/address_assigning_step.go`
+- `pkg/arch/chip8/assembler/generate_opcode_step.go`
+- `pkg/arch/chip8/assembler/generate_opcode_step_test.go`
+- `pkg/arch/chip8/chip8.go`
+- `pkg/arch/chip8/chip8_assemble_test.go`
+- `pkg/arch/chip8/chip8_test.go`
+- `pkg/arch/chip8/parser/codec.go`
+- `pkg/arch/chip8/parser/codec_test.go`
+- `pkg/arch/chip8/parser/instruction.go`
+- `pkg/arch/chip8/parser/operand.go`
+- `pkg/arch/chip8/parser/resolved.go`
+- `pkg/arch/chip8/parser/resolved_copy_test.go`
+- `pkg/arch/chip8/parser/symbol_rewrite.go`
+- `pkg/codec/chip8_test.go`
+- `examples/chip8/README.md`
+- `examples/chip8/cube.asm`
+- `examples/chip8/hello.asm`
+
+Split shared changes in `pkg/arch/byte_order_test.go`,
+`pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
+`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
+tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+registration, defaults, validation, help, and tests from
+`cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
+them. Publish checked README commands and guide links with the CPU phase.
+
+**Prerequisites:** The used shared contracts from P05, P12-P18, and P20-P22.
+Check exact calls and omit unused shared features.
+**Focused check:** `go test ./pkg/arch/chip8/...` and `go test ./pkg/codec/... -run 'CHIP8|Chip8'`; run the common candidate gates after the complete phase.
+**Exit condition:** Encoding, references, bounds, copy ownership, and all
+public paths added by this proposal pass on its extracted candidate.
+
+### T02 — CPU65816
+
+Parser state, register widths, state transitions, long addresses, block moves, and forward RAM references.
+
+Files to merge with this proposal:
+
+- `pkg/arch/cpu65816/assembler/address_assigning_step.go`
+- `pkg/arch/cpu65816/assembler/generate_opcode_step.go`
+- `pkg/arch/cpu65816/assembler/generate_opcode_step_test.go`
+- `pkg/arch/cpu65816/cpu65816.go`
+- `pkg/arch/cpu65816/cpu65816_test.go`
+- `pkg/arch/cpu65816/forward_storage_test.go`
+- `pkg/arch/cpu65816/parser/addressing.go`
+- `pkg/arch/cpu65816/parser/codec.go`
+- `pkg/arch/cpu65816/parser/instruction.go`
+- `pkg/arch/cpu65816/parser/operand.go`
+- `pkg/arch/cpu65816/parser/resolved.go`
+- `pkg/arch/cpu65816/parser/resolved_copy_test.go`
+- `pkg/arch/cpu65816/parser/state.go`
+- `pkg/arch/cpu65816/parser/symbol_rewrite.go`
+- `pkg/codec/cpu65816_test.go`
+- `docs/cpu65816-support-plan.md`
+
+Split shared changes in `pkg/arch/byte_order_test.go`,
+`pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
+`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
+tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+registration, defaults, validation, help, and tests from
+`cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
+them. Publish checked README commands and guide links with the CPU phase.
+
+**Prerequisites:** The used shared contracts from P05, P12-P18, and P20-P22.
+Check exact calls and omit unused shared features.
+**Focused check:** `go test ./pkg/arch/cpu65816/...` and `go test ./pkg/codec/... -run CPU65816`; run the common candidate gates after the complete phase.
+**Exit condition:** Encoding, references, bounds, copy ownership, and all
+public paths added by this proposal pass on its extracted candidate.
+
+### T03 — CPU68000
+
+Big-endian data, effective addresses, size suffixes, register lists, and instruction encoders.
+
+Files to merge with this proposal:
+
+- `pkg/arch/cpu68000/assembler/address_assigning_step.go`
+- `pkg/arch/cpu68000/assembler/address_assigning_step_test.go`
+- `pkg/arch/cpu68000/assembler/coverage_test.go`
+- `pkg/arch/cpu68000/assembler/encode.go`
+- `pkg/arch/cpu68000/assembler/encode_alu.go`
+- `pkg/arch/cpu68000/assembler/encode_misc.go`
+- `pkg/arch/cpu68000/assembler/generate_opcode_step.go`
+- `pkg/arch/cpu68000/assembler/generate_opcode_step_test.go`
+- `pkg/arch/cpu68000/cpu68000.go`
+- `pkg/arch/cpu68000/cpu68000_test.go`
+- `pkg/arch/cpu68000/parser/codec.go`
+- `pkg/arch/cpu68000/parser/codec_test.go`
+- `pkg/arch/cpu68000/parser/condition.go`
+- `pkg/arch/cpu68000/parser/condition_test.go`
+- `pkg/arch/cpu68000/parser/effective_address.go`
+- `pkg/arch/cpu68000/parser/instruction.go`
+- `pkg/arch/cpu68000/parser/operand.go`
+- `pkg/arch/cpu68000/parser/register.go`
+- `pkg/arch/cpu68000/parser/register_list.go`
+- `pkg/arch/cpu68000/parser/register_list_test.go`
+- `pkg/arch/cpu68000/parser/resolved.go`
+- `pkg/arch/cpu68000/parser/resolved_copy_test.go`
+- `pkg/arch/cpu68000/parser/size.go`
+- `pkg/arch/cpu68000/parser/size_test.go`
+- `pkg/arch/cpu68000/parser/symbol_rewrite.go`
+- `pkg/codec/cpu68000_test.go`
+- `docs/cpu68000-support-plan.md`
+
+Split shared changes in `pkg/arch/byte_order_test.go`,
+`pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
+`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
+tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+registration, defaults, validation, help, and tests from
+`cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
+them. Publish checked README commands and guide links with the CPU phase.
+
+**Prerequisites:** The used shared contracts from P05, P12-P18, and P20-P22.
+Check exact calls and omit unused shared features.
+**Focused check:** `go test ./pkg/arch/cpu68000/...` and `go test ./pkg/codec/... -run CPU68000`; run the common candidate gates after the complete phase.
+**Exit condition:** Encoding, references, bounds, copy ownership, and all
+public paths added by this proposal pass on its extracted candidate.
+
+### T04 — SM83
+
+Game Boy operands, LDH forms, typed instruction groups, and opcode generation.
+
+Files to merge with this proposal:
+
+- `pkg/arch/sm83/assembler/address_assigning_step.go`
+- `pkg/arch/sm83/assembler/generate_opcode_step.go`
+- `pkg/arch/sm83/assembler/generate_opcode_step_test.go`
+- `pkg/arch/sm83/parser/codec.go`
+- `pkg/arch/sm83/parser/instruction.go`
+- `pkg/arch/sm83/parser/operand.go`
+- `pkg/arch/sm83/parser/register.go`
+- `pkg/arch/sm83/parser/resolved_copy_test.go`
+- `pkg/arch/sm83/parser/symbol_rewrite.go`
+- `pkg/arch/sm83/sm83.go`
+- `pkg/arch/sm83/sm83_test.go`
+- `pkg/codec/sm83_test.go`
+- `docs/sm83-support-plan.md`
+
+Split shared changes in `pkg/arch/byte_order_test.go`,
+`pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
+`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
+tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+registration, defaults, validation, help, and tests from
+`cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
+them. Publish checked README commands and guide links with the CPU phase.
+
+**Prerequisites:** The used shared contracts from P05, P12-P18, and P20-P22.
+Check exact calls and omit unused shared features.
+**Focused check:** `go test ./pkg/arch/sm83/...` and `go test ./pkg/codec/... -run SM83`; run the common candidate gates after the complete phase.
+**Exit condition:** Encoding, references, bounds, copy ownership, and all
+public paths added by this proposal pass on its extracted candidate.
+
+### T05 — Z80
+
+Operand resolution, indexed displacements, instruction profiles, CLI flags, and assembly fixtures.
+
+Files to merge with this proposal:
+
+- `pkg/arch/z80/assembler/address_assigning_step.go`
+- `pkg/arch/z80/assembler/address_assigning_step_test.go`
+- `pkg/arch/z80/assembler/coverage_test.go`
+- `pkg/arch/z80/assembler/doc.go`
+- `pkg/arch/z80/assembler/generate_opcode_step.go`
+- `pkg/arch/z80/assembler/generate_opcode_step_test.go`
+- `pkg/arch/z80/options.go`
+- `pkg/arch/z80/parser/codec.go`
+- `pkg/arch/z80/parser/doc.go`
+- `pkg/arch/z80/parser/fuzz_test.go`
+- `pkg/arch/z80/parser/instruction.go`
+- `pkg/arch/z80/parser/instruction_test.go`
+- `pkg/arch/z80/parser/mock_parser_test.go`
+- `pkg/arch/z80/parser/operand.go`
+- `pkg/arch/z80/parser/profile_test.go`
+- `pkg/arch/z80/parser/register.go`
+- `pkg/arch/z80/parser/register_test.go`
+- `pkg/arch/z80/parser/resolved_copy_test.go`
+- `pkg/arch/z80/parser/resolver.go`
+- `pkg/arch/z80/parser/resolver_diagnostics.go`
+- `pkg/arch/z80/parser/resolver_extended.go`
+- `pkg/arch/z80/parser/resolver_indexed.go`
+- `pkg/arch/z80/parser/resolver_indirect.go`
+- `pkg/arch/z80/parser/resolver_port.go`
+- `pkg/arch/z80/parser/resolver_single_operand.go`
+- `pkg/arch/z80/parser/resolver_two_operand.go`
+- `pkg/arch/z80/parser/resolver_value.go`
+- `pkg/arch/z80/parser/symbol_rewrite.go`
+- `pkg/arch/z80/profile/doc.go`
+- `pkg/arch/z80/profile/profile.go`
+- `pkg/arch/z80/profile/profile_test.go`
+- `pkg/arch/z80/z80.go`
+- `pkg/arch/z80/z80_test.go`
+- `pkg/codec/z80_test.go`
+- `docs/z80-support-plan.md`
+- `docs/z80-branch-changes.md`
+- `cmd/retroasm/z80_fixture_test.go`
+- `tests/z80/basic.asm`
+- `tests/z80/branches.asm`
+- `tests/z80/branches_overflow.asm`
+- `tests/z80/compatibility.asm`
+- `tests/z80/expressions.asm`
+- `tests/z80/indexed.asm`
+- `tests/z80/indexed_boundaries.asm`
+- `tests/z80/io_extended.asm`
+- `tests/z80/offsets.asm`
+- `tests/z80/offsets_chained.asm`
+- `tests/z80/profile_gameboy_subset.asm`
+- `tests/z80/profile_gameboy_subset_rejects.asm`
+- `tests/z80/profile_strict_documented.asm`
+- `tests/z80/profile_strict_documented_rejects.asm`
+
+Split shared changes in `pkg/arch/byte_order_test.go`,
+`pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
+`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
+tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+registration, defaults, validation, help, and tests from
+`cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
+them. Publish checked README commands and guide links with the CPU phase.
+
+Extract the Z80 fixture exceptions from `.gitignore` in this proposal.
+Run `go test ./cmd/retroasm/...` to check the CLI fixture runner, profiles,
+defaults, and error cases with the Z80 fixtures present.
+
+**Prerequisites:** The used shared contracts from P05, P12-P18, and P20-P22.
+Check exact calls and omit unused shared features.
+**Focused check:** `go test ./pkg/arch/z80/...` and `go test ./pkg/codec/... -run Z80`; run the common candidate gates after the complete phase.
+**Exit condition:** Encoding, references, bounds, copy ownership, and all
+public paths added by this proposal pass on its extracted candidate.
+
+### T06 — x86 library
+
+Register, immediate, and direct operand encoding. Keep library-only scope unless a separate CLI change is approved.
+
+Files to merge with this proposal:
+
+- `pkg/arch/x86/assembler/address_assigning_step.go`
+- `pkg/arch/x86/assembler/generate_opcode_step.go`
+- `pkg/arch/x86/instruction.go`
+- `pkg/arch/x86/parser/instruction.go`
+- `pkg/arch/x86/types.go`
+- `pkg/arch/x86/x86.go`
+- `pkg/arch/x86/x86_test.go`
+
+Add the x86 byte-order case in `pkg/arch/byte_order_test.go`. Do not infer
+a complete typed codec contract from the presence of the architecture adapter.
+
+**Prerequisites:** The used shared contracts from P05, P12-P18, and P20-P22.
+Check exact calls and omit unused shared features.
+**Focused check:** `go test ./pkg/arch/x86/...`; run the common candidate gates after the complete phase.
+**Exit condition:** Encoding, references, bounds, copy ownership, and all
+public paths added by this proposal pass on its extracted candidate.
+
+Use `docs/README.md`, `README.md`, and `docs/library-usage.md` only for features
+present on the target after each proposal. Keep `docs/z80-branch-changes.md`
+as historical evidence unless it has a separate target documentation purpose.
+The absolute replacement in `go.mod` is excluded from every proposal.
 
 ## Progress record
 
-All parts are planned. No part has been extracted or merged by this task.
+All parts remain proposed in this refreshed plan. No part has been extracted
+or merged by this task. No candidate build boundary has been validated here.
 No code tests or linters were run for this documentation change. Verification
 for this plan consists of local branch/base checks, source and diff review,
 path ownership review, and `git diff --check`.

@@ -2,15 +2,42 @@
 
 ## Overview
 
-The clean `work2` branch adds typed assembly streams and codecs, expands target and compatibility support, and changes shared assembly output handling. This summary covers 271 files in `main...HEAD` at `a7b8387`.
+The clean `work2` branch adds typed assembly streams and codecs, expands CPU
+and syntax support, and changes shared output and storage handling. This
+summary covers local `main...HEAD` on 2026-10-06: source `1a3ab37`, target and
+merge base `0e4317a`. The fixed snapshot has 277 changed files, including this
+summary; the table below lists the other 276 files.
+
+The [gradual merge plan](docs/work-branch-changes.md) defines the detailed
+6502 merge queue. It lists files, changes, dependencies, candidate checks, and
+exit conditions for each part. Additional CPUs and 6502 variants remain
+separate follow-up work under the existing plan's scope.
 
 ## Changes
 
-- **Typed stream and codec:** The AST records source positions, comments, symbols, relocations, target state, and formatting details. It supports exact node comparison, stream joins, symbol renames, and edits that retain source entry metadata. The codec can parse, build, format, validate, and assemble typed streams.
-- **Targets:** The branch moves `m6502` to `cpu6502` and adds Chip-8, CPU65816, CPU68000, SM83, Z80, and an x86 library package. The CLI registers the first five added targets; the x86 package is library-only.
-- **Syntax and CLI:** Parser and directive changes add asm6, ca65, and NESASM forms alongside existing x816 support. CLI flags select compatibility mode and a Z80 instruction profile.
-- **Assembler:** Target byte order controls data output. The assembler records instruction relocations, resolves data lists and forward references, and places bytes at configured segment addresses with bounds checks.
-- **Dependency:** `go.mod` requests Go 1.25 and a newer `retrogolib`, but replaces that module with an absolute local path. This checkout depends on that local directory until the replacement is removed.
+- **Typed stream and codec:** Owned AST data records positions, comments,
+  symbols, relocations, target state, and formatting details. The APIs provide
+  exact node comparison, stream joins, atomic symbol renames, explicit rewrites,
+  and native edits with independent snapshots. The codec can parse, build,
+  format, validate, and assemble typed streams.
+- **Targets:** The branch moves `m6502` to `cpu6502` and adds Chip-8, CPU65816,
+  CPU68000, SM83, Z80, and x86 packages. The CLI adds the first five targets;
+  x86 remains a library package. Explicit 6502 variants add instruction modes.
+- **Syntax and CLI:** Parser and directive changes add asm6, ca65, and NESASM
+  forms. Existing x816 behavior must be retained during extraction. CLI flags
+  select compatibility mode and a Z80 instruction profile.
+- **Assembler and output:** Data uses the target byte order and declared width.
+  Independent data items can contain forward references and symbol offsets.
+  Output uses configured segment addresses, memory bounds, and bank fill.
+  The default library configuration emits used bytes without full-bank fill.
+- **Storage:** Variable nodes now reach address assignment. Reservations advance
+  RAM addresses without load bytes. Negative sizes, integer overflow, CPU
+  address overflow, and memory overflow return errors. Offset-counter
+  reservations are rejected. CPU65816 retains a wider instruction form while
+  a forward reference has no address.
+- **Dependency:** Both branch tips use Go 1.25.0 and the same pinned
+  `retrogolib` version. Only the absolute local replacement differs. Merge
+  candidates must use the pinned module without that replacement.
 
 ## Files
 
@@ -51,11 +78,17 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | Typed stream | Modified | `pkg/parser/ast/instruction.go` | Stores target-scoped opcode identity and typed instruction metadata. |
 | Typed stream | Modified | `pkg/parser/ast/instruction_argument.go` | Copies and validates typed instruction operands and references. |
 | Typed stream | Modified | `pkg/parser/ast/instruction_argument_test.go` | Checks AST instruction argument behavior. |
+| Typed stream | Added | `pkg/parser/ast/instruction_copy_metadata_test.go` | Checks independent instruction and operand metadata, comments, and nil metadata. |
+| Typed stream | Added | `pkg/parser/ast/instruction_modifier_ownership_test.go` | Checks modifier operator copies and independent native edit reads. |
 | Typed stream | Modified | `pkg/parser/ast/label.go` | Keeps label comments and edit handles. |
 | Typed stream | Modified | `pkg/parser/ast/macro.go` | Keeps macro comments and edit handles. |
 | Typed stream | Modified | `pkg/parser/ast/node.go` | Defines node copy, comment, and source entry handle operations. |
+| Typed stream | Added | `pkg/parser/ast/node_copy_bench_test.go` | Measures instruction copy allocation and retains a shared benchmark result variable. |
 | Typed stream | Added | `pkg/parser/ast/node_edit.go` | Commits native node edits through source entry handles. |
+| Typed stream | Added | `pkg/parser/ast/node_edit_data_bench_test.go` | Checks complex data ownership after publication and measures data edits. |
+| Typed stream | Added | `pkg/parser/ast/node_edit_snapshot_test.go` | Checks independent snapshot reads, source revisions, operands, and handles. |
 | Typed stream | Added | `pkg/parser/ast/node_edit_test.go` | Checks AST node edit behavior. |
+| Typed stream | Added | `pkg/parser/ast/node_edit_validation_test.go` | Checks atomic rejection of invalid nodes and relocations during native edits. |
 | Typed stream | Modified | `pkg/parser/ast/node_test.go` | Checks AST node behavior. |
 | Typed stream | Modified | `pkg/parser/ast/number.go` | Keeps number node metadata in copies and edits. |
 | Typed stream | Modified | `pkg/parser/ast/offset_counter.go` | Keeps offset node metadata in copies and edits. |
@@ -70,6 +103,7 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | Typed stream | Added | `pkg/parser/ast/stream_rename.go` | Renames symbol definitions and references in one atomic edit. |
 | Typed stream | Added | `pkg/parser/ast/stream_rename_test.go` | Checks AST stream rename behavior. |
 | Typed stream | Added | `pkg/parser/ast/stream_rewrite.go` | Rewrites entries while retaining source metadata and tracking removed entries. |
+| Typed stream | Added | `pkg/parser/ast/stream_rewrite_retained_test.go` | Checks retained snapshots, independent duplicates, cleared handles, and copied relocations. |
 | Typed stream | Added | `pkg/parser/ast/stream_rewrite_test.go` | Checks AST stream rewrite behavior. |
 | Typed stream | Added | `pkg/parser/ast/stream_symbols.go` | Rebuilds symbol metadata from stream entries. |
 | Typed stream | Added | `pkg/parser/ast/stream_test.go` | Checks AST stream behavior. |
@@ -83,24 +117,24 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | Shared targets | Added | `pkg/arch/byte_order_test.go` | Checks native byte order reports for architecture adapters. |
 | Shared targets | Added | `pkg/arch/instruction_registration_test.go` | Checks registered instruction selectors and opcode identities. |
 | Shared targets | Added | `pkg/arch/relocation_test.go` | Checks architecture relocation recording contracts. |
-| Assembler | Modified | `pkg/assembler/address_assigning_step.go` | Starts segments at configured addresses and records instruction relocations. |
+| Assembler | Modified | `pkg/assembler/address_assigning_step.go` | Uses configured segment addresses, checks reservation bounds, and records instruction relocations. |
 | Assembler | Modified | `pkg/assembler/address_assigning_step_test.go` | Checks segment address and reference assignment behavior. |
 | Assembler | Modified | `pkg/assembler/assembler.go` | Selects target byte order, tracks source entries, and exposes instruction relocations. |
 | Assembler | Modified | `pkg/assembler/assembler_asm6_test.go` | Checks asm6 assembly behavior. |
 | Assembler | Modified | `pkg/assembler/assembler_ca65_test.go` | Checks ca65 assembly behavior. |
 | Assembler | Modified | `pkg/assembler/assembler_x816_test.go` | Checks x816 assembly behavior. |
 | Assembler | Added | `pkg/assembler/banked_output_test.go` | Checks output padding and placement across banks. |
-| Assembler | Modified | `pkg/assembler/config/ca65_test.go` | Checks ca65 configuration parsing used by output layout. |
 | Assembler | Modified | `pkg/assembler/expression_evaluation_step.go` | Evaluates data item lists with target byte order and defers forward references. |
 | Assembler | Modified | `pkg/assembler/generate_opcode_step.go` | Encodes deferred data and references and collects instruction relocations. |
 | Assembler | Modified | `pkg/assembler/memory.go` | Writes by absolute memory address and rejects out-of-range writes. |
 | Assembler | Added | `pkg/assembler/memory_test.go` | Checks memory bounds and addressed writes. |
 | Assembler | Modified | `pkg/assembler/nodes.go` | Carries data item lists, typed opcode IDs, and source entry indices. |
-| Assembler | Modified | `pkg/assembler/parse_ast_nodes.go` | Converts typed data and instruction AST nodes for target byte order. |
+| Assembler | Modified | `pkg/assembler/parse_ast_nodes.go` | Converts typed data and instructions, retains reservation nodes, and rejects offset-counter reservations. |
 | Assembler | Modified | `pkg/assembler/parse_ast_nodes_test.go` | Checks AST conversion for data and instruction nodes. |
 | Assembler | Modified | `pkg/assembler/process_macros_step.go` | Expands NESASM positional macro parameters. |
 | Assembler | Modified | `pkg/assembler/write_output_step.go` | Writes memory buffers with bank padding and address checks. |
-| Assembler | Modified | `pkg/number/number.go` | Adds byte order selection for numeric encoding. |
+| Assembler | Added | `pkg/codec/reservation_test.go` | Checks RAM reservations, capacity, address limits, code gaps, and offset-counter rejection through the codec. |
+| Assembler | Modified | `pkg/number/number.go` | Adds three-byte numbers and byte order selection for numeric output. |
 | Assembler | Modified | `pkg/number/number_test.go` | Checks numeric encoding under both byte orders. |
 | Syntax | Modified | `pkg/lexer/lexer.go` | Accepts a hexadecimal marker after a configured decimal prefix and zero. |
 | Syntax | Modified | `pkg/lexer/lexer_test.go` | Checks prefixed hexadecimal number tokenization. |
@@ -124,9 +158,9 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | Syntax | Modified | `pkg/parser/parser_test.go` | Checks shared parser behavior after typed stream conversion. |
 | Syntax | Modified | `pkg/parser/parser_x816_test.go` | Checks x816 syntax after parser changes. |
 | CPU6502 | Renamed | `pkg/arch/cpu6502/assembler/address_assigning_step.go` | Moves from `pkg/arch/m6502/assembler/address_assigning_step.go`. CPU6502: Assigns instruction sizes and addresses. |
-| CPU6502 | Added | `pkg/arch/cpu6502/assembler/generate_opcode_step.go` | CPU6502: Encodes instructions and records operand relocations. |
+| CPU6502 | Renamed | `pkg/arch/cpu6502/assembler/generate_opcode_step.go` | Moves from `pkg/arch/m6502/assembler/generate_opcode_step.go`. CPU6502: Encodes instructions and records operand relocations. |
 | CPU6502 | Added | `pkg/arch/cpu6502/assembler/generate_opcode_step_test.go` | Checks CPU6502 generate opcode step behavior. |
-| CPU6502 | Added | `pkg/arch/cpu6502/assembler/instruction_size.go` | CPU6502: Calculates instruction size from selected addressing. |
+| CPU6502 | Renamed | `pkg/arch/cpu6502/assembler/instruction_size.go` | Moves from `pkg/arch/m6502/assembler/instruction_size.go`. CPU6502: Calculates instruction size from selected addressing. |
 | CPU6502 | Added | `pkg/arch/cpu6502/cpu6502.go` | Registers the CPU6502 adapter, instruction forms, and target settings. |
 | CPU6502 | Added | `pkg/arch/cpu6502/cpu6502_test.go` | Checks CPU6502 adapter behavior. |
 | CPU6502 | Added | `pkg/arch/cpu6502/options.go` | CPU6502: Defines target-specific adapter options. |
@@ -137,9 +171,7 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | CPU6502 | Added | `pkg/arch/cpu6502/parser/operand.go` | CPU6502: Defines and classifies typed instruction operands. |
 | CPU6502 | Added | `pkg/arch/cpu6502/parser/resolved.go` | CPU6502: Stores resolved instruction forms and copy behavior. |
 | CPU6502 | Added | `pkg/arch/cpu6502/parser/resolved_test.go` | Checks CPU6502 resolved behavior. |
-| CPU6502 | Deleted | `pkg/arch/m6502/assembler/generate_opcode_step.go` | Replaces old opcode generation with the cpu6502 encoder. |
 | CPU6502 | Deleted | `pkg/arch/m6502/assembler/generate_opcode_step_test.go` | Replaces old encoder tests with cpu6502 tests. |
-| CPU6502 | Deleted | `pkg/arch/m6502/assembler/instruction_size.go` | Moves instruction sizing into the cpu6502 package. |
 | CPU6502 | Deleted | `pkg/arch/m6502/m6502.go` | Replaces the old adapter with the cpu6502 adapter. |
 | Chip-8 | Added | `pkg/arch/chip8/assembler/address_assigning_step.go` | Chip-8: Assigns instruction sizes and addresses. |
 | Chip-8 | Added | `pkg/arch/chip8/assembler/generate_opcode_step.go` | Chip-8: Encodes instructions and records operand relocations. |
@@ -159,6 +191,7 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | CPU65816 | Added | `pkg/arch/cpu65816/assembler/generate_opcode_step_test.go` | Checks CPU65816 generate opcode step behavior. |
 | CPU65816 | Added | `pkg/arch/cpu65816/cpu65816.go` | Registers the CPU65816 adapter, instruction forms, and target settings. |
 | CPU65816 | Added | `pkg/arch/cpu65816/cpu65816_test.go` | Checks the CPU65816 adapter. |
+| CPU65816 | Added | `pkg/arch/cpu65816/forward_storage_test.go` | Checks forward RAM references through text and typed assembly without RAM load bytes. |
 | CPU65816 | Added | `pkg/arch/cpu65816/parser/addressing.go` | CPU65816: Defines and selects target addressing forms. |
 | CPU65816 | Added | `pkg/arch/cpu65816/parser/codec.go` | CPU65816: Builds, validates, and formats typed target operands. |
 | CPU65816 | Added | `pkg/arch/cpu65816/parser/instruction.go` | CPU65816: Parses target instruction syntax and selects forms. |
@@ -257,7 +290,7 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | x86 | Added | `pkg/arch/x86/types.go` | x86: Defines x86 instruction and operand types. |
 | x86 | Added | `pkg/arch/x86/x86.go` | Registers the x86 adapter, instruction forms, and target settings. |
 | x86 | Added | `pkg/arch/x86/x86_test.go` | Checks the x86 adapter. |
-| CLI | Modified | `.gitignore` | Keeps Z80 assembly fixtures in Git while other generated test files stay ignored. |
+| CLI | Modified | `.gitignore` | Keeps the documentation index and Z80 assembly fixtures visible to Git. |
 | CLI | Modified | `cmd/retroasm/architecture.go` | Validates CPU, system, Z80 profile, and compatibility choices; registers target adapters. |
 | CLI | Modified | `cmd/retroasm/assemble.go` | Routes Chip-8 through the direct assembler and passes syntax mode and Z80 profile to other adapters. |
 | CLI | Modified | `cmd/retroasm/main.go` | Adds compatibility and Z80 profile flags and related log fields. |
@@ -267,19 +300,18 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | Library API | Modified | `pkg/retroasm/default.go` | Uses cpu6502 defaults and emits only used bytes unless fill is configured. |
 | Library API | Modified | `pkg/retroasm/doc.go` | Updates public library documentation for registered targets. |
 | Library API | Modified | `pkg/retroasm/example_test.go` | Updates library examples for cpu6502. |
-| Dependencies | Modified | `Makefile` | Updates the golangci-lint version. |
-| Dependencies | Modified | `go.mod` | Moves to Go 1.25 and a newer retrogolib version; adds a local replacement path. |
-| Dependencies | Modified | `go.sum` | Removes checksums for earlier retrogolib versions. |
+| Dependencies | Modified | `go.mod` | Adds an absolute local retrogolib replacement. The Go version and pinned module version already match main. |
 | Docs/examples | Modified | `README.md` | Lists supported CPUs, systems, syntax modes, CLI flags, and examples. |
+| Docs/examples | Added | `docs/README.md` | Indexes user guides and the 6502 merge plan. States source-branch scope. |
 | Docs/examples | Added | `docs/asm6-compatibility.md` | Documents asm6 syntax coverage and limits. |
 | Docs/examples | Added | `docs/ca65-compatibility.md` | Documents ca65 syntax coverage and limits. |
 | Docs/examples | Added | `docs/compatibility-mode-plan.md` | Records the compatibility mode implementation plan. |
 | Docs/examples | Added | `docs/cpu65816-support-plan.md` | Records CPU65816 support and remaining limits. |
 | Docs/examples | Added | `docs/cpu68000-support-plan.md` | Records CPU68000 support and remaining limits. |
-| Docs/examples | Modified | `docs/library-usage.md` | Changes library examples to the cpu6502 package and identifiers. |
+| Docs/examples | Modified | `docs/library-usage.md` | Documents the high-level API, dispatcher limits, owned codec streams, and public API migrations. |
 | Docs/examples | Added | `docs/nesasm-compatibility.md` | Documents NESASM syntax coverage and limits. |
 | Docs/examples | Added | `docs/sm83-support-plan.md` | Records SM83 support and remaining limits. |
-| Docs/examples | Added | `docs/work-branch-changes.md` | Records an older branch extraction plan; its snapshot is dated. |
+| Docs/examples | Added | `docs/work-branch-changes.md` | Defines the 6502 merge phases, file changes, dependencies, exclusions, and candidate checks. |
 | Docs/examples | Added | `docs/x816-compatibility-plan.md` | Documents x816 syntax and planned coverage. |
 | Docs/examples | Added | `docs/z80-branch-changes.md` | Records Z80 implementation history. |
 | Docs/examples | Added | `docs/z80-support-plan.md` | Records Z80 support and remaining limits. |
@@ -288,22 +320,39 @@ The clean `work2` branch adds typed assembly streams and codecs, expands target 
 | Docs/examples | Added | `examples/chip8/cube.asm` | Provides a Chip-8 cube program example. |
 | Docs/examples | Added | `examples/chip8/hello.asm` | Provides a small Chip-8 program example. |
 
-## Possible commit slices
+## Merge phases
 
-- **Typed stream foundation:** AST node ownership, metadata, equality, stream editing, symbol rewrites, and tests. The codec and parser stream entry points depend on these types. The `stream-symbol-renames`, `source-entry-output`, and `native-entry-handles` branches provide commit context for the later stream changes; all are already ancestors of this branch.
-- **Codec and relocation contract:** Target operand builders and formatters, shared codec behavior, architecture registration, and relocation recording. This depends on the typed stream foundation. `pkg/arch/arch.go`, `pkg/assembler/assembler.go`, and the target parser and encoder files cross this boundary and need hunk-level review.
-- **Architecture packages:** CPU6502 migration, Chip-8, CPU65816, CPU68000, SM83, Z80, and x86 can be reviewed by target with each target's tests. Shared parser, assembler, and codec files cross target boundaries and need hunk-level separation. The x86 package has no CLI registration.
-- **Syntax modes and CLI:** asm6, ca65, and NESASM parser and directive changes can be reviewed by dialect. `pkg/parser/parser.go`, `pkg/parser/directives/directives.go`, and the CLI files need hunk-level separation. The CLI target registrations depend on the target packages.
-- **Output layout and documentation:** Segment placement and bank padding can be reviewed with assembler tests. Update README and user guides only after their public paths work in the destination branch. The older `docs/work-branch-changes.md` is branch tracking material.
-- **Dependency prerequisite:** Replace the absolute `retrogolib` path with a portable dependency before a merge candidate. Each proposed boundary needs its own build and test results before it can be treated as independent.
+| Phase | Parts | Changes to merge | Dependency and file rules |
+| --- | --- | --- | --- |
+| A: Correctness and ownership | P00-P06, including P02a | Baseline inventory, prefixed hex, memory layout, reservation checks, default output length, three-byte numbers, AST copy ownership, and independent data expressions. | P02a follows P02. Keep output-size and public data-field changes separate. See each part's exact file table in the plan. |
+| B: Compatibility | P07-P10 | asm6/asm6f, ca65, NESASM labels/macros, and CLI mode selection. | Requires P06. Split parser, directive, CLI, and shared test changes by behavior. |
+| C: 6502 and codec APIs | P11-P18 | Package migration, scoped opcode IDs, default 6502 typed operands, owned streams, codec operations, formatting, relocations, and registrations. | Uses Phase A/B APIs. P15/P16 add codec reservation checks after P02a. Adapt tests to 6502. |
+| D: Stream changes | P19-P22b | Exact equality, joins, atomic rename, explicit rewrites, and native edits. | Merge P22a before P22b. Keep view invalidation, handle copying, and publication checks together. |
+| E: User documentation and audit | P23 | Final usage examples and review of all remaining included changes. | Publish migration notes with the API change that needs them. Keep branch tracking documents on the source branch. |
+| Deferred CPU work | Separate proposals | Chip-8, CPU65816, CPU68000, SM83, Z80, x86, and 6502 variants. | Do not include their imports or helpers in the 6502 queue. The plan lists follow-up file groups. |
+
+These are candidate boundaries. No extracted phase has a verified build or
+test result from this task. Use the plan's mixed-file ownership table to split
+files that contain changes for several parts. Historical commits can combine
+features; inspect their complete patches before selecting a commit.
 
 ## Verification
 
-- Passed: `git diff --stat main...HEAD`, `git diff --name-status main...HEAD`, and component diff inspection — confirmed the scoped file set and behavior claims.
-- Not run: build, lint, and tests — this documentation task does not change build inputs; no current result is claimed for the branch.
+- Reviewed: clean initial worktree, local branch refs, merge base, changed-file
+  status, source differences, current plan, and newer storage changes.
+- Not run: build, lint, and code tests. This task changes documentation only.
+  Test files describe intended coverage; they do not prove a passing run.
+- Passed: inventory comparison found all 276 scoped files exactly once.
+  Local document links and whitespace checks passed.
+- Passed: `git diff --check -- CHANGES_SUMMARY.md docs/work-branch-changes.md`.
 
 ## Notes
 
-- The worktree had no staged, unstaged, or untracked files before this summary. The comparison base is local `main` at `bf78324`.
-- The branch references above give provenance. They do not add files outside `main...HEAD` to this summary.
-- `docs/work-branch-changes.md` contains an August snapshot with older counts and prerequisites. Use the current diff for extraction decisions.
+- Local `main` is the merge base. No remote refs were fetched.
+- `Makefile`, `go.sum`, and `pkg/assembler/config/ca65_test.go` have no remaining
+  difference from local `main`; their old summary entries were removed.
+- Rename status is recomputed from the current diff. Source and destination
+  paths for each detected rename are listed together.
+- The inventory describes the fixed source commit before this refresh.
+  Later extractions must use a new target comparison and a progress record.
+- No source code or Git history was changed by this documentation task.
