@@ -1,11 +1,14 @@
 name: codecov
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
       - main
   pull_request:
-    types: [review_requested, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 jobs:
   codecov:
@@ -14,14 +17,13 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-        id: go
-
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: stable
 
       - name: Get dependencies
         run: go mod download

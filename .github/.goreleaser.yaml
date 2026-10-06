@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod download
@@ -20,7 +22,7 @@ universal_binaries:
 
 archives:
   - id: retroasm
-    builds: ['retroasm']
+    ids: ['retroasm']
     name_template: >-
       {{ .ProjectName }}_v{{ .Version }}_
       {{- if eq .Os "darwin" }}macos
@@ -31,13 +33,13 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ .Tag }}-snapshot"
+  version_template: "{{ .Version }}-snapshot"
 
 changelog:
-  skip: true
+  disable: true
