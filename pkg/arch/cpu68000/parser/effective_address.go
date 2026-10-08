@@ -82,11 +82,13 @@ func parseImmediateHashEA(p arch.Parser) (*EffectiveAddress, error) {
 			Mode:  cpu68000.ImmediateMode,
 			Value: ast.NewNumber(v),
 		}, nil
+
 	case token.Identifier:
 		return &EffectiveAddress{
 			Mode:  cpu68000.ImmediateMode,
 			Value: ast.NewLabel(tok.Value),
 		}, nil
+
 	case token.Minus:
 		numberToken := p.NextToken(1)
 		if numberToken.Type != token.Number {
@@ -102,6 +104,7 @@ func parseImmediateHashEA(p arch.Parser) (*EffectiveAddress, error) {
 			Value:    ast.NewNumber(v),
 			Negative: true,
 		}, nil
+
 	default:
 		return nil, fmt.Errorf("expected immediate value after #, got %s", tok.Type)
 	}
@@ -286,6 +289,7 @@ func parseIndexedEA(p arch.Parser, base registerInfo) (*EffectiveAddress, error)
 		case "W":
 			indexSize = cpu68000.SizeWord
 			p.AdvanceReadPosition(2) // skip '.W'
+
 		case "L":
 			indexSize = cpu68000.SizeLong
 			p.AdvanceReadPosition(2) // skip '.L'

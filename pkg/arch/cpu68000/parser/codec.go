@@ -121,11 +121,13 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch typed := argument.(type) {
 	case ast.InstructionArgument:
 		value = typed.Value
+
 	case *ast.InstructionArgument:
 		if typed == nil {
 			return ResolvedInstruction{}, fmt.Errorf("%w: nil instruction argument", ErrInvalidInstruction)
 		}
 		value = typed.Value
+
 	default:
 		return ResolvedInstruction{}, fmt.Errorf("%w: unexpected argument %T", ErrInvalidInstruction, argument)
 	}
@@ -133,6 +135,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch resolved := value.(type) {
 	case ResolvedInstruction:
 		return resolved, nil
+
 	case *ResolvedInstruction:
 		if resolved != nil {
 			return *resolved, nil
@@ -188,18 +191,22 @@ func validateOperandShape(resolved ResolvedInstruction) error {
 		if source || destination {
 			return fmt.Errorf("%w: %s takes no operands", ErrInvalidInstruction, name)
 		}
+
 	case name == cpu68000.TRAPName || name == cpu68000.STOPName:
 		if !source || destination {
 			return fmt.Errorf("%w: %s requires one source operand", ErrInvalidInstruction, name)
 		}
+
 	case isDestinationOnlyInstruction(name), isBranchInstruction(name):
 		if source || !destination {
 			return fmt.Errorf("%w: %s requires one destination operand", ErrInvalidInstruction, name)
 		}
+
 	case isShiftRotateInstruction(name):
 		if !destination {
 			return fmt.Errorf("%w: %s requires a destination operand", ErrInvalidInstruction, name)
 		}
+
 	default:
 		if !source || !destination {
 			return fmt.Errorf("%w: %s requires source and destination operands", ErrInvalidInstruction, name)
@@ -249,15 +256,18 @@ func validateEffectiveAddress(address *EffectiveAddress, size cpu68000.OperandSi
 	switch address.Mode {
 	case cpu68000.DataRegDirectMode:
 		return validateRegister(address.Register)
+
 	case cpu68000.AddrRegDirectMode:
 		if address.Register == regUSP {
 			return nil
 		}
 		return validateRegister(address.Register)
+
 	case cpu68000.AddrRegIndirectMode, cpu68000.PostIncrementMode, cpu68000.PreDecrementMode:
 		return validateRegister(address.Register)
 	case cpu68000.DisplacementMode, cpu68000.PCDisplacementMode:
 		return validateValue(address.Value, math.MaxUint16)
+
 	case cpu68000.IndexedMode, cpu68000.PCIndexedMode:
 		if address.IndexSize != cpu68000.SizeWord && address.IndexSize != cpu68000.SizeLong {
 			return fmt.Errorf("invalid index size %d", address.IndexSize)
@@ -266,6 +276,7 @@ func validateEffectiveAddress(address *EffectiveAddress, size cpu68000.OperandSi
 			return err
 		}
 		return validateValue(address.Value, math.MaxUint8)
+
 	case cpu68000.AbsShortMode:
 		return validateValue(address.Value, math.MaxUint16)
 	case cpu68000.AbsLongMode:
@@ -274,11 +285,13 @@ func validateEffectiveAddress(address *EffectiveAddress, size cpu68000.OperandSi
 		return validateValue(address.Value, sizeMaximum(size))
 	case cpu68000.QuickImmediateMode:
 		return validateValue(address.Value, math.MaxUint8)
+
 	case cpu68000.StatusRegMode:
 		if address.Register != regSR && address.Register != regCCR {
 			return fmt.Errorf("invalid status register %d", address.Register)
 		}
 		return nil
+
 	default:
 		return fmt.Errorf("unsupported effective-address mode %d", address.Mode)
 	}
@@ -318,10 +331,12 @@ func validateSpecialValues(resolved ResolvedInstruction) error {
 		if value, ok := ast.NumberValue(resolved.SrcEA.Value); !ok || value < 1 || value > 8 {
 			return fmt.Errorf("%w: quick value must be 1..8", ErrInvalidInstruction)
 		}
+
 	case cpu68000.TRAPName:
 		if value, ok := ast.NumberValue(resolved.SrcEA.Value); !ok || value > 15 {
 			return fmt.Errorf("%w: trap vector must be 0..15", ErrInvalidInstruction)
 		}
+
 	case cpu68000.MOVEMName:
 		sourceList := resolved.SrcEA.RegList != 0
 		destinationList := resolved.DstEA.RegList != 0
@@ -471,11 +486,13 @@ func formatEffectiveAddress(address *EffectiveAddress, operandSize cpu68000.Oper
 	switch address.Mode {
 	case cpu68000.DataRegDirectMode:
 		return register("d", address.Register), nil
+
 	case cpu68000.AddrRegDirectMode:
 		if address.Register == regUSP {
 			return formatKeyword("usp", options), nil
 		}
 		return addressRegister, nil
+
 	case cpu68000.AddrRegIndirectMode:
 		return "(" + addressRegister + ")", nil
 	case cpu68000.PostIncrementMode:
@@ -486,37 +503,45 @@ func formatEffectiveAddress(address *EffectiveAddress, operandSize cpu68000.Oper
 		return formatDisplacement(address.Value, addressRegister, address.Negative, options.DecimalValues)
 	case cpu68000.IndexedMode:
 		return formatIndexedAddress(address, addressRegister, options)
+
 	case cpu68000.AbsShortMode:
 		return formatAbsoluteAddress(
 			address.Value, ".w", math.MaxUint16, address.Negative, options.DecimalValues,
 		)
+
 	case cpu68000.AbsLongMode:
 		return formatAbsoluteAddress(
 			address.Value, ".l", math.MaxUint32, address.Negative, options.DecimalValues,
 		)
+
 	case cpu68000.PCDisplacementMode:
 		return formatDisplacement(
 			address.Value, formatKeyword("pc", options), address.Negative, options.DecimalValues,
 		)
+
 	case cpu68000.PCIndexedMode:
 		return formatIndexedAddress(address, formatKeyword("pc", options), options)
+
 	case cpu68000.ImmediateMode:
 		value, err := format68000Value(address.Value, sizeMaximum(operandSize), options.DecimalValues)
 		if err != nil {
 			return "", err
 		}
 		return "#" + signedCPU68000Value(value, address.Negative), nil
+
 	case cpu68000.QuickImmediateMode:
 		value, err := format68000Value(address.Value, math.MaxUint8, options.DecimalValues)
 		if err != nil {
 			return "", err
 		}
 		return "#" + signedCPU68000Value(value, address.Negative), nil
+
 	case cpu68000.StatusRegMode:
 		if address.Register == regCCR {
 			return formatKeyword("ccr", options), nil
 		}
 		return formatKeyword("sr", options), nil
+
 	default:
 		return "", fmt.Errorf("unsupported effective-address mode %d", address.Mode)
 	}

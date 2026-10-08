@@ -90,22 +90,26 @@ func InstructionArgumentForm(argument Node) string {
 		return "none"
 	case InstructionArgument:
 		return instructionArgumentValueForm(value.Value)
+
 	case *InstructionArgument:
 		if value == nil {
 			return "none"
 		}
 		return instructionArgumentValueForm(value.Value)
+
 	case InstructionArguments:
 		forms := make([]string, len(value.Values))
 		for index, item := range value.Values {
 			forms[index] = InstructionArgumentForm(item)
 		}
 		return "list[" + strings.Join(forms, ",") + "]"
+
 	case *InstructionArguments:
 		if value == nil {
 			return "none"
 		}
 		return InstructionArgumentForm(*value)
+
 	default:
 		return fmt.Sprintf("%T", argument)
 	}
@@ -116,11 +120,13 @@ func InstructionStateTransitionForm(argument Node) (string, bool) {
 	switch value := argument.(type) {
 	case InstructionArgument:
 		return instructionArgumentValueStateTransitionForm(value.Value)
+
 	case *InstructionArgument:
 		if value == nil {
 			return "", false
 		}
 		return instructionArgumentValueStateTransitionForm(value.Value)
+
 	default:
 		return "", false
 	}
@@ -209,6 +215,7 @@ func instructionArgumentValueIsImmutable(value reflect.Value) bool {
 		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
 		reflect.String:
 		return true
+
 	case reflect.Array:
 		for index := range value.Len() {
 			if !instructionArgumentValueIsImmutable(value.Index(index)) {
@@ -216,6 +223,7 @@ func instructionArgumentValueIsImmutable(value reflect.Value) bool {
 			}
 		}
 		return true
+
 	case reflect.Struct:
 		for index := range value.NumField() {
 			if !instructionArgumentValueIsImmutable(value.Field(index)) {
@@ -223,6 +231,7 @@ func instructionArgumentValueIsImmutable(value reflect.Value) bool {
 			}
 		}
 		return true
+
 	case reflect.Interface:
 		return value.IsNil() || instructionArgumentValueIsImmutable(value.Elem())
 	default:

@@ -411,12 +411,15 @@ func (c *Codec[T]) addressDirective(data ast.Data) (string, error) {
 		if data.Width == 3 && c.configuration.CompatibilityMode == config.CompatCa65 {
 			return ".faraddr", nil
 		}
+
 	case ast.LowAddressByte:
 		if c.configuration.CompatibilityMode != config.CompatX816 {
 			return ".dl", nil
 		}
+
 	case ast.HighAddressByte:
 		return ".dh", nil
+
 	case ast.BankAddressByte:
 		if c.configuration.CompatibilityMode == config.CompatCa65 {
 			return ".bankbytes", nil

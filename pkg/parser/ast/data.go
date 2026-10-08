@@ -134,6 +134,7 @@ func DataFromNode(n Node) (Data, bool) {
 	switch data := n.(type) {
 	case Data:
 		return data, true
+
 	case *Data:
 		if data != nil {
 			return *data, true

@@ -196,10 +196,12 @@ func (a *defaultAssembler) resolveArchitectureDispatcher() (architectureDispatch
 	switch len(a.architectures) {
 	case 0:
 		return newConfigDispatcher(cpu6502.New()), nil
+
 	case 1:
 		for _, architecture := range a.architectures {
 			return dispatcherForArchitecture(architecture)
 		}
+
 	default:
 		if architecture, ok := a.architectures["6502"]; ok {
 			return dispatcherForArchitecture(architecture)

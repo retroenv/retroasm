@@ -247,12 +247,14 @@ func coverageResolvedInstruction(ins *cpu68000.Instruction) (parser.ResolvedInst
 			Mode:  cpu68000.ImmediateMode,
 			Value: ast.NewNumber(0xFFFC),
 		}, 0, 0), nil
+
 	case cpu68000.UNLKName:
 		return r(nil, addrA0, 0, 0), nil
 
 	// TRAP / STOP
 	case cpu68000.TRAPName:
 		return r(immZero, nil, 0, 0), nil
+
 	case cpu68000.STOPName:
 		return r(&parser.EffectiveAddress{
 			Mode:  cpu68000.ImmediateMode,

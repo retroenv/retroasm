@@ -85,6 +85,7 @@ func parseOperand(parser arch.Parser) (rawOperand, error) {
 			return expressionOperand, nil
 		}
 		return rawOperand{token: tok}, nil
+
 	case token.LeftParentheses:
 		return parseParenthesizedOperand(parser)
 	case token.EOF, token.EOL, token.Comment:

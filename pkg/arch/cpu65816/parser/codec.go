@@ -126,11 +126,13 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch typed := argument.(type) {
 	case ast.InstructionArgument:
 		value = typed.Value
+
 	case *ast.InstructionArgument:
 		if typed == nil {
 			return ResolvedInstruction{}, fmt.Errorf("%w: nil instruction argument", ErrInvalidInstruction)
 		}
 		value = typed.Value
+
 	default:
 		return ResolvedInstruction{}, fmt.Errorf("%w: unexpected argument %T", ErrInvalidInstruction, argument)
 	}
@@ -138,6 +140,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch resolved := value.(type) {
 	case ResolvedInstruction:
 		return resolved, nil
+
 	case *ResolvedInstruction:
 		if resolved != nil {
 			return *resolved, nil
@@ -249,6 +252,7 @@ func operandHexDigits(resolved ResolvedInstruction, operand Operand, options For
 		return wordDigits
 	case AddressLong:
 		return longDigits
+
 	default:
 		if operand.Kind == OperandBlockMoveBank ||
 			resolved.Addressing == cpu65816.StackRelativeAddressing ||

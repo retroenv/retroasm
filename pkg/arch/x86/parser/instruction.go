@@ -108,6 +108,7 @@ func parseTwoOperandInstruction(instructionName string, arg1, arg2 token.Token) 
 			return nil, fmt.Errorf("unknown register: %s", arg2.Value)
 		}
 		argument = ast.NewIdentifier(regName)
+
 	case isRegisterToken(arg1) && arg2.Type == token.Number:
 		switch {
 		case arg2.Value[0] == '#':
@@ -120,6 +121,7 @@ func parseTwoOperandInstruction(instructionName string, arg1, arg2 token.Token) 
 				return nil, fmt.Errorf("immediate value '%s' exceeds word value", arg2.Value)
 			}
 			argument = ast.NewNumber(i)
+
 		default:
 			addressing = directAddressing
 			i, err := number.Parse(arg2.Value)
@@ -128,6 +130,7 @@ func parseTwoOperandInstruction(instructionName string, arg1, arg2 token.Token) 
 			}
 			argument = ast.NewNumber(i)
 		}
+
 	default:
 		return nil, fmt.Errorf("unsupported operand combination: %s, %s", arg1.Value, arg2.Value)
 	}

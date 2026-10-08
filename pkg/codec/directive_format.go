@@ -15,16 +15,19 @@ func (c *Codec[T]) formatStructuralNode(node ast.Node) (string, error) {
 	switch typed := node.(type) {
 	case ast.Scope:
 		return c.formatScope(typed)
+
 	case ast.ScopeEnd:
 		if c.configuration.CompatibilityMode != config.CompatCa65 {
 			return "", fmt.Errorf("%w: scope end in %s mode", ErrFormattingUnsupported, c.configuration.CompatibilityMode)
 		}
 		return ".endscope", nil
+
 	case ast.Function:
 		if !validIdentifier(typed.Name) {
 			return "", fmt.Errorf("%w: function name %q", ErrFormattingUnsupported, typed.Name)
 		}
 		return ".proc " + typed.Name, nil
+
 	case ast.FunctionEnd:
 		return ".endproc", nil
 	case ast.Enum:
@@ -44,16 +47,19 @@ func (c *Codec[T]) formatConditionalNode(node ast.Node) (string, error) {
 	switch typed := node.(type) {
 	case ast.If:
 		return formatExpressionDirective(".if", typed.Condition)
+
 	case ast.Ifdef:
 		if !validIdentifier(typed.Identifier) {
 			return "", fmt.Errorf("%w: ifdef identifier %q", ErrFormattingUnsupported, typed.Identifier)
 		}
 		return ".ifdef " + typed.Identifier, nil
+
 	case ast.Ifndef:
 		if !validIdentifier(typed.Identifier) {
 			return "", fmt.Errorf("%w: ifndef identifier %q", ErrFormattingUnsupported, typed.Identifier)
 		}
 		return ".ifndef " + typed.Identifier, nil
+
 	case ast.Else:
 		return ".else", nil
 	case ast.ElseIf:
@@ -175,6 +181,7 @@ func formatMacroTokens(tokens []token.Token) (string, error) {
 		case token.EOL:
 			builder.WriteByte('\n')
 			lineStart = true
+
 		case token.Comment:
 			if !lineStart {
 				builder.WriteByte(' ')
@@ -187,8 +194,10 @@ func formatMacroTokens(tokens []token.Token) (string, error) {
 			// The lexer consumes the source newline as part of a comment token.
 			builder.WriteByte('\n')
 			lineStart = true
+
 		case token.EOF, token.Illegal:
 			return "", fmt.Errorf("%w: macro body token %s", ErrFormattingUnsupported, bodyToken.Type)
+
 		default:
 			value, err := formatMacroToken(bodyToken)
 			if err != nil {

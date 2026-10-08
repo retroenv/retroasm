@@ -107,9 +107,11 @@ func nextState(state State, instruction *cpu65816.Instruction, operands Operands
 	case cpu65816.ClcName:
 		state.Carry = StatusClear
 		return state
+
 	case cpu65816.SecName:
 		state.Carry = StatusSet
 		return state
+
 	case cpu65816.PlpName, cpu65816.RtiName:
 		return stateAfterStatusRestore(state)
 	case cpu65816.XceName:
@@ -174,6 +176,7 @@ func stateAfterExchangeCarryEmulation(state State) State {
 	case StatusSet:
 		state.AccumulatorWidth = WidthByte
 		state.IndexWidth = WidthByte
+
 	case StatusUnknown:
 		// Both possible XCE outcomes retain byte widths when M/X are already set.
 		if state.AccumulatorWidth != WidthByte || state.IndexWidth != WidthByte {

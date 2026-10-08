@@ -138,6 +138,7 @@ func generateReferenceDataBytes(currentScope *scope.Scope, d *data, order binary
 			if err != nil {
 				return fmt.Errorf("writing full address as bytes: %w", err)
 			}
+
 		case lowAddressByte:
 			b = []byte{byte(address)}
 		case highAddressByte:
@@ -174,12 +175,14 @@ func resolveReferenceAddress(currentScope *scope.Scope, ref reference) (uint64, 
 			return 0, fmt.Errorf("reference '%s' resolved to negative value %d", ref.name, adjusted)
 		}
 		return uint64(adjusted), nil
+
 	case uint64:
 		adjusted, offsetErr := applyUint64Offset(v, ref.offset)
 		if offsetErr != nil {
 			return 0, fmt.Errorf("applying reference offset: %w", offsetErr)
 		}
 		return adjusted, nil
+
 	default:
 		return 0, fmt.Errorf("unexpected reference value type %T", value)
 	}

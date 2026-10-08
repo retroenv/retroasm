@@ -11,9 +11,11 @@ func Equal(left, right Node) bool {
 	case Instruction:
 		after, ok := right.(Instruction)
 		return ok && equalInstruction(before, after)
+
 	case *Instruction:
 		after, ok := right.(*Instruction)
 		return ok && equalPointer(before, after, equalInstruction)
+
 	default:
 		return equalLeaf(left, right)
 	}
@@ -30,18 +32,23 @@ func equalLeaf(left, right Node) bool {
 	switch before := left.(type) {
 	case nil:
 		return right == nil
+
 	case Number:
 		after, ok := right.(Number)
 		return ok && equalNumber(before, after)
+
 	case Label:
 		after, ok := right.(Label)
 		return ok && equalLabel(before, after)
+
 	case Identifier:
 		after, ok := right.(Identifier)
 		return ok && equalIdentifier(before, after)
+
 	case Operator:
 		after, ok := right.(Operator)
 		return ok && equalOperator(before, after)
+
 	default:
 		return equalLeafPointer(left, right)
 	}
@@ -52,18 +59,23 @@ func equalLeafPointer(left, right Node) bool {
 	case *Number:
 		after, ok := right.(*Number)
 		return ok && equalPointer(before, after, equalNumber)
+
 	case *Label:
 		after, ok := right.(*Label)
 		return ok && equalPointer(before, after, equalLabel)
+
 	case *Identifier:
 		after, ok := right.(*Identifier)
 		return ok && equalPointer(before, after, equalIdentifier)
+
 	case *Operator:
 		after, ok := right.(*Operator)
 		return ok && equalPointer(before, after, equalOperator)
+
 	case *Comment:
 		after, ok := right.(*Comment)
 		return ok && (before == after || before != nil && after != nil && before.Message == after.Message)
+
 	default:
 		return equalComposite(left, right)
 	}

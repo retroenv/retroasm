@@ -38,15 +38,18 @@ func symbolFromEntry(entryIndex int, segment string, entry Entry) (Symbol, bool)
 	switch node := entry.Node.(type) {
 	case Alias:
 		return symbolFromAlias(symbol, node), true
+
 	case *Alias:
 		if node != nil {
 			return symbolFromAlias(symbol, *node), true
 		}
+
 	case Label:
 		symbol.Kind = LabelSymbol
 		symbol.Name = node.Name
 		symbol.Expression = NewLocationSymbolExpression()
 		return symbol, true
+
 	case *Label:
 		if node != nil {
 			symbol.Kind = LabelSymbol
@@ -54,11 +57,13 @@ func symbolFromEntry(entryIndex int, segment string, entry Entry) (Symbol, bool)
 			symbol.Expression = NewLocationSymbolExpression()
 			return symbol, true
 		}
+
 	case Function:
 		symbol.Kind = FunctionSymbol
 		symbol.Name = node.Name
 		symbol.Expression = NewLocationSymbolExpression()
 		return symbol, true
+
 	case *Function:
 		if node != nil {
 			symbol.Kind = FunctionSymbol
@@ -84,6 +89,7 @@ func segmentFromNode(node Node) (Segment, bool) {
 	switch segment := node.(type) {
 	case Segment:
 		return segment, true
+
 	case *Segment:
 		if segment != nil {
 			return *segment, true

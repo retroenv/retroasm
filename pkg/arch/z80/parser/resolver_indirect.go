@@ -21,9 +21,11 @@ func resolveIndirectLoadStoreOperands(variants []*cpuz80.Instruction, operand1,
 	case operand2.parenthesized && !operand1.parenthesized:
 		regOp, indOp = operand1, operand2
 		isLoad = true
+
 	case operand1.parenthesized && !operand2.parenthesized:
 		regOp, indOp = operand2, operand1
 		isLoad = false
+
 	default:
 		return nil
 	}

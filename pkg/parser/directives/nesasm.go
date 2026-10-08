@@ -53,6 +53,7 @@ func NesasmConfig(p arch.Parser) (ast.Node, error) {
 		if i < 0xeff {
 			i *= 8192
 		}
+
 	case ast.ConfigPrg:
 		if i < 0xeff {
 			i *= 16384

@@ -638,6 +638,7 @@ func (p *Parser[T]) createIdentifier(tok token.Token) (ast.Node, error) {
 		switch tok.Type {
 		case token.Identifier, token.Number:
 			i.Arguments = append(i.Arguments, tok)
+
 		case token.Comma:
 		default:
 			end = true

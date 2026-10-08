@@ -257,8 +257,10 @@ func resolveOperands(instruction *cpu65816.Instruction, operands Operands) (cpu6
 			return cpu65816.ImpliedAddressing, nil
 		}
 		return cpu65816.NoAddressing, ErrUnsupportedAddressing
+
 	case 1:
 		return resolveSingleOperand(instruction, operands[0])
+
 	case 2:
 		if instruction.HasAddressing(cpu65816.BlockMoveAddressing) &&
 			operands[0].Kind == OperandBlockMoveBank && operands[1].Kind == OperandBlockMoveBank {
@@ -284,6 +286,7 @@ func resolveSingleOperand(instruction *cpu65816.Instruction, operand Operand) (c
 		addressing = resolveIndexedY(instruction, operand)
 	case OperandIndirect:
 		addressing = resolveSizedPair(instruction, operand, cpu65816.DirectPageIndirectAddressing, cpu65816.AbsoluteIndirectAddressing)
+
 	case OperandIndexedXIndirect:
 		addressing = resolveSizedPair(
 			instruction,
@@ -291,8 +294,10 @@ func resolveSingleOperand(instruction *cpu65816.Instruction, operand Operand) (c
 			cpu65816.DirectPageIndexedXIndirectAddressing,
 			cpu65816.AbsoluteIndexedXIndirectAddressing,
 		)
+
 	case OperandIndirectIndexedY:
 		addressing = cpu65816.DirectPageIndirectIndexedYAddressing
+
 	case OperandIndirectLong:
 		addressing = resolveSizedPair(
 			instruction,
@@ -300,6 +305,7 @@ func resolveSingleOperand(instruction *cpu65816.Instruction, operand Operand) (c
 			cpu65816.DirectPageIndirectLongAddressing,
 			cpu65816.AbsoluteIndirectLongAddressing,
 		)
+
 	case OperandIndirectLongIndexedY:
 		addressing = cpu65816.DirectPageIndirectLongIndexedYAddressing
 	case OperandStackRelative:
@@ -463,12 +469,15 @@ func supportsAddressing(instruction *cpu65816.Instruction, addressing cpu65816.A
 	case AbsoluteDirectPageAddressing:
 		return instruction.HasAddressing(cpu65816.AbsoluteAddressing) &&
 			instruction.HasAddressing(cpu65816.DirectPageAddressing)
+
 	case XAddressing:
 		return instruction.HasAddressing(cpu65816.AbsoluteIndexedXAddressing) &&
 			instruction.HasAddressing(cpu65816.DirectPageIndexedXAddressing)
+
 	case YAddressing:
 		return instruction.HasAddressing(cpu65816.AbsoluteIndexedYAddressing) &&
 			instruction.HasAddressing(cpu65816.DirectPageIndexedYAddressing)
+
 	default:
 		return instruction.HasAddressing(addressing)
 	}

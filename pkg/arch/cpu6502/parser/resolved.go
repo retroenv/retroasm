@@ -119,8 +119,10 @@ func resolveOperands(instruction *cpu6502.Instruction, operands Operands) (cpu65
 		if instruction.HasAddressing(cpu6502.ImpliedAddressing) {
 			return cpu6502.ImpliedAddressing, nil
 		}
+
 	case 1:
 		return resolveOperand(instruction, operands[0])
+
 	case 2:
 		if operands[0].Kind == OperandAddress && operands[0].Size == AddressZeroPage &&
 			operands[1].Kind == OperandRelativeTarget &&
@@ -145,6 +147,7 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 		addressing = resolveIndexed(instruction, operand, cpu6502.ZeroPageXAddressing, cpu6502.AbsoluteXAddressing, XAddressing)
 	case OperandIndexedY:
 		addressing = resolveIndexed(instruction, operand, cpu6502.ZeroPageYAddressing, cpu6502.AbsoluteYAddressing, YAddressing)
+
 	case OperandIndirect:
 		addressing = resolveIndirect(
 			instruction,
@@ -152,6 +155,7 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 			cpu6502.ZeroPageIndirectAddressing,
 			cpu6502.IndirectAddressing,
 		)
+
 	case OperandIndexedXIndirect:
 		addressing = resolveIndirect(
 			instruction,
@@ -159,6 +163,7 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 			cpu6502.IndirectXAddressing,
 			cpu6502.AbsoluteXIndirectAddressing,
 		)
+
 	case OperandIndirectIndexedY:
 		addressing = cpu6502.IndirectYAddressing
 	default:

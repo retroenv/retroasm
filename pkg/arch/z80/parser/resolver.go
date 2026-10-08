@@ -89,6 +89,7 @@ func (resolved ResolvedInstruction) OpcodeInfo() (cpuz80.OpcodeInfo, cpuz80.Addr
 			if info, ok := resolved.Instruction.RegisterOpcodes[resolved.RegisterParams[0]]; ok {
 				return info, resolved.effectiveAddressing(), nil
 			}
+
 		case 2:
 			key := [2]cpuz80.RegisterParam{resolved.RegisterParams[0], resolved.RegisterParams[1]}
 			if info, ok := resolved.Instruction.RegisterPairOpcodes[key]; ok {
@@ -287,6 +288,7 @@ func parseValueOperand(tok token.Token) (ast.Node, bool, error) {
 			return nil, false, fmt.Errorf("parsing number '%s': %w", tok.Value, err)
 		}
 		return ast.NewNumber(value), true, nil
+
 	case token.Identifier:
 		return ast.NewLabel(tok.Value), true, nil
 	default:

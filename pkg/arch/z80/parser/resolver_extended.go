@@ -186,11 +186,13 @@ func extendedRegisterParamCandidates(register cpuz80.RegisterParam, registerFirs
 			return []cpuz80.RegisterParam{cpuz80.RegLoadExtA, cpuz80.RegA}
 		}
 		return []cpuz80.RegisterParam{cpuz80.RegStoreExtA, cpuz80.RegA}
+
 	case cpuz80.RegHL:
 		if registerFirst {
 			return []cpuz80.RegisterParam{cpuz80.RegLoadExtHL, cpuz80.RegHL}
 		}
 		return []cpuz80.RegisterParam{cpuz80.RegHL}
+
 	default:
 		return []cpuz80.RegisterParam{register}
 	}

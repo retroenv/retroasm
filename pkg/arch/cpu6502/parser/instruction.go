@@ -98,11 +98,13 @@ func parseInstructionImmediate(parser arch.Parser, ins *instruction, next token.
 		return parseInstructionImmediateAddressingWithExpression(parser, ins)
 	case next.Type == token.Lt || next.Type == token.Gt || next.Type == token.Caret:
 		return parseInstructionImmediateAddressByte(parser, ins, next.Type)
+
 	case next.Type == token.Identifier || next.Type == token.Number:
 		if parser.NextToken(2).Type.IsOperator() {
 			return parseInstructionImmediateAddressingExpression(parser, ins)
 		}
 		return parseInstructionImmediateAddressingWithToken(parser, ins, next)
+
 	default:
 		return nil, fmt.Errorf("unsupported immediate argument type %s", next.Type)
 	}
@@ -163,8 +165,10 @@ func parenthesizedAddressing(ins *instruction) (cpu6502.AddressingMode, bool) {
 	case addressingZeroPage:
 		return cpu6502.ZeroPageIndirectAddressing,
 			ins.instruction.HasAddressing(cpu6502.ZeroPageIndirectAddressing)
+
 	case addressingAbsolute:
 		return cpu6502.IndirectAddressing, ins.instruction.HasAddressing(cpu6502.IndirectAddressing)
+
 	default:
 		if ins.instruction.HasAddressing(cpu6502.ZeroPageIndirectAddressing) {
 			return cpu6502.ZeroPageIndirectAddressing, true
@@ -306,6 +310,7 @@ func argumentFromToken(argument token.Token) (ast.Node, error) {
 			return nil, fmt.Errorf("parsing number %q: %w", argument.Value, err)
 		}
 		return ast.NewNumber(value), nil
+
 	case token.Identifier:
 		return ast.NewLabel(argument.Value), nil
 	default:
@@ -347,6 +352,7 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 	switch len(availableAddressing) {
 	case 1:
 		addressing = availableAddressing[0]
+
 	case 2:
 		switch availableAddressing[0] {
 		case cpu6502.AbsoluteXAddressing:
@@ -356,6 +362,7 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 		default:
 			return nil, errors.New("indirect addressing size is ambiguous")
 		}
+
 	default:
 		return nil, errors.New("invalid second parameter addressing mode usage")
 	}

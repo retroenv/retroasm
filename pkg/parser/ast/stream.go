@@ -654,11 +654,13 @@ func validateSymbolNode(symbol Symbol, entry Entry) error {
 		if symbol.Expression.Kind != SymbolExpressionDefinition || !sameDefinition(symbol.Expression.Definition, alias.Expression) {
 			return errors.New("an expression that differs from its entry")
 		}
+
 	case LabelSymbol:
 		label, ok := entry.Node.(Label)
 		if !ok || label.Name != symbol.Name || !locationExpression(symbol.Expression) {
 			return errors.New("a label that differs from its entry")
 		}
+
 	case FunctionSymbol:
 		function, ok := entry.Node.(Function)
 		if !ok || function.Name != symbol.Name || !locationExpression(symbol.Expression) {
@@ -775,6 +777,7 @@ func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
 		}
 		nested, ok := argument.Value.(Node)
 		return ok && nodeReferencesExpression(nested, expected)
+
 	case InstructionArguments:
 		for _, value := range argument.Values {
 			if nodeReferencesExpression(value, expected) {
@@ -901,6 +904,7 @@ func immutableStreamValue(value reflect.Value) bool {
 		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
 		reflect.String:
 		return true
+
 	case reflect.Array:
 		for index := range value.Len() {
 			if !immutableStreamValue(value.Index(index)) {
@@ -908,6 +912,7 @@ func immutableStreamValue(value reflect.Value) bool {
 			}
 		}
 		return true
+
 	case reflect.Struct:
 		for index := range value.NumField() {
 			if !immutableStreamValue(value.Field(index)) {
@@ -915,6 +920,7 @@ func immutableStreamValue(value reflect.Value) bool {
 			}
 		}
 		return true
+
 	case reflect.Interface:
 		return value.IsNil() || immutableStreamValue(value.Elem())
 	default:

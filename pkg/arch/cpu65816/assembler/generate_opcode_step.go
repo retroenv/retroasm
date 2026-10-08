@@ -101,12 +101,14 @@ func generateImmediateOpcode(assigner arch.AddressAssigner, ins arch.Instruction
 		}
 		ins.SetOpcodes(append(ins.Opcodes(), byte(value)))
 		width = ast.WidthByte
+
 	case 2:
 		if value > math.MaxUint16 {
 			return fmt.Errorf("value %d exceeds word", value)
 		}
 		ins.SetOpcodes(binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value)))
 		width = ast.WidthWord
+
 	default:
 		return fmt.Errorf("unsupported immediate width %d", ins.Size()-1)
 	}

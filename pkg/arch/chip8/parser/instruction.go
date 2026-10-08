@@ -408,6 +408,7 @@ func parseAddressArgument(tok token.Token) (ast.Node, error) {
 			return nil, fmt.Errorf("address %d exceeds 12-bit range", val)
 		}
 		return ast.NewNumber(val), nil
+
 	case token.Identifier:
 		return ast.NewIdentifier(tok.Value), nil
 	default:
@@ -426,6 +427,7 @@ func parseByteArgument(tok token.Token) (ast.Node, error) {
 			return nil, fmt.Errorf("value %d exceeds byte range", val)
 		}
 		return ast.NewNumber(val), nil
+
 	case token.Identifier:
 		return ast.NewIdentifier(tok.Value), nil
 	default:
@@ -444,6 +446,7 @@ func parseNibbleArgument(tok token.Token) (ast.Node, error) {
 			return nil, fmt.Errorf("nibble %d exceeds 4-bit range", val)
 		}
 		return ast.NewNumber(val), nil
+
 	case token.Identifier:
 		return ast.NewIdentifier(tok.Value), nil
 	default:

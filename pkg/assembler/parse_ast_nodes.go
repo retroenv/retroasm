@@ -129,9 +129,11 @@ func parseData(astData ast.Data, order binary.ByteOrder) ([]ast.Node, error) {
 		case ast.LowAddressByte:
 			refType = lowAddressByte
 			dat.width = 1
+
 		case ast.HighAddressByte:
 			refType = highAddressByte
 			dat.width = 1
+
 		case ast.BankAddressByte:
 			refType = bankAddressByte
 			dat.width = 1
@@ -429,10 +431,12 @@ func parseSourceInclude[T any](ctx context.Context, asm *parseAST[T], name strin
 		switch n := node.(type) {
 		case *ast.Comment:
 			continue
+
 		case ast.Segment:
 			if err := parseSegment(asm, n); err != nil {
 				return nil, fmt.Errorf("parsing segment in included file '%s': %w", name, err)
 			}
+
 		default:
 			newNodes, err := parseASTNode(ctx, asm, node)
 			if err != nil {

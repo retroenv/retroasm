@@ -106,11 +106,13 @@ func resolvedOperandValue(assigner arch.AddressAssigner, resolved parser.Resolve
 				return 0, errors.New("instruction argument modifier overflows uint64")
 			}
 			value += offset
+
 		case "-":
 			if offset > value {
 				return 0, errors.New("instruction argument modifier produces a negative value")
 			}
 			value -= offset
+
 		default:
 			return 0, fmt.Errorf("unsupported modifier operator %q", modifier.Operator.Operator)
 		}

@@ -39,6 +39,7 @@ func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 			if !segments.Contains(index) {
 				stream.RecordSegmentChange(c.segmentChange(index, node, order))
 			}
+
 		case ast.Data:
 			recordDataRelocations(stream, index, node, order, relocations)
 		}

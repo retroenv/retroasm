@@ -179,19 +179,23 @@ func recordEAExtensionRelocation(assigner arch.AddressAssigner, ea *parser.Effec
 	case cpu68000.IndexedMode:
 		byteOffset++
 		width = ast.WidthByte
+
 	case cpu68000.PCIndexedMode:
 		byteOffset++
 		kind = ast.RelativeRelocation
 		width = ast.WidthByte
+
 	case cpu68000.PCDisplacementMode:
 		kind = ast.RelativeRelocation
 	case cpu68000.AbsLongMode:
 		width = ast.WidthLong
+
 	case cpu68000.ImmediateMode:
 		switch opSize {
 		case cpu68000.SizeByte:
 			byteOffset++
 			width = ast.WidthByte
+
 		case cpu68000.SizeLong:
 			width = ast.WidthLong
 		}

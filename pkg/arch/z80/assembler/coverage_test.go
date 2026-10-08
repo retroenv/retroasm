@@ -245,12 +245,15 @@ func setImmediateOperands(resolved *z80parser.ResolvedInstruction, opcodeInfo cp
 	switch operandWidth {
 	case 0:
 		return nil
+
 	case 1:
 		resolved.OperandValues = []ast.Node{ast.NewNumber(0x12)}
 		return nil
+
 	case 2:
 		resolved.OperandValues = []ast.Node{ast.NewNumber(0x1234)}
 		return nil
+
 	default:
 		return fmt.Errorf("unsupported immediate operand width %d for instruction %q", operandWidth, resolved.Instruction.Name)
 	}
@@ -277,9 +280,11 @@ func setOptionalByteOperand(resolved *z80parser.ResolvedInstruction, opcodeInfo 
 	switch operandWidth {
 	case 0:
 		return nil
+
 	case 1:
 		resolved.OperandValues = []ast.Node{ast.NewNumber(0x20)}
 		return nil
+
 	default:
 		return fmt.Errorf("unsupported optional-byte operand width %d for instruction %q", operandWidth, resolved.Instruction.Name)
 	}

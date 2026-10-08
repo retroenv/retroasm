@@ -44,6 +44,7 @@ func parseTrailingAddend(symbol string, operator token.Type, value string) (stri
 			return "", 0, false
 		}
 		return symbol, int64(addend), true
+
 	case token.Minus:
 		if addend > uint64(math.MaxInt64)+1 {
 			return "", 0, false
@@ -52,6 +53,7 @@ func parseTrailingAddend(symbol string, operator token.Type, value string) (stri
 			return symbol, math.MinInt64, true
 		}
 		return symbol, -int64(addend), true
+
 	default:
 		return "", 0, false
 	}

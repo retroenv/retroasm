@@ -24,24 +24,31 @@ func FormatValue(value Node, options ValueFormatOptions) (string, error) {
 	switch typed := value.(type) {
 	case Number:
 		return formatNumberValue(typed.Value, options), nil
+
 	case *Number:
 		if typed != nil {
 			return formatNumberValue(typed.Value, options), nil
 		}
+
 	case Label:
 		return typed.Name, nil
+
 	case *Label:
 		if typed != nil {
 			return typed.Name, nil
 		}
+
 	case Identifier:
 		return typed.Name, nil
+
 	case *Identifier:
 		if typed != nil {
 			return typed.Name, nil
 		}
+
 	case Expression:
 		return FormatExpression(typed.Value)
+
 	case *Expression:
 		if typed != nil {
 			return FormatExpression(typed.Value)

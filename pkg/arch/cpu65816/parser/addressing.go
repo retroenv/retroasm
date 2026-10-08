@@ -90,6 +90,7 @@ func addressingSizeAvailability(size addressingSize) (absolute, directPage bool)
 	case addressingDefault:
 		absolute = true
 		directPage = true
+
 	case addressingAbsolute:
 		absolute = true
 	case addressingDirectPage:

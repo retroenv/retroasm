@@ -103,17 +103,20 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch typed := argument.(type) {
 	case ast.InstructionArgument:
 		value = typed.Value
+
 	case *ast.InstructionArgument:
 		if typed == nil {
 			return ResolvedInstruction{}, fmt.Errorf("%w: nil instruction argument", ErrInvalidInstruction)
 		}
 		value = typed.Value
+
 	default:
 		return ResolvedInstruction{}, fmt.Errorf("%w: unexpected argument %T", ErrInvalidInstruction, argument)
 	}
 	switch resolved := value.(type) {
 	case ResolvedInstruction:
 		return resolved, nil
+
 	case *ResolvedInstruction:
 		if resolved != nil {
 			return *resolved, nil

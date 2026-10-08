@@ -195,6 +195,7 @@ func operandFromRaw(operand rawOperand, resolved *ResolvedInstruction) (Operand,
 		return conditionOperandFromRaw(operand, resolved), nil
 	case operand.register != sm83.RegNone:
 		return RegisterOperand(operand.register), nil
+
 	default:
 		value, ok, err := operandValue(operand)
 		if err != nil {

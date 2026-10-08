@@ -78,18 +78,22 @@ func evaluateNode[T any](expEval *expressionEvaluation[T], seg *segment, current
 	switch n := node.(type) {
 	case ast.If:
 		return true, parseIfCondition(expEval, n)
+
 	case ast.Ifdef:
 		parseIfdefCondition(expEval, n)
 		return true, nil
+
 	case ast.Ifndef:
 		parseIfndefCondition(expEval, n)
 		return true, nil
+
 	case ast.Else:
 		return true, processElseCondition(expEval)
 	case ast.ElseIf:
 		return true, parseElseIfCondition(expEval, n)
 	case ast.Endif:
 		return true, processEndifCondition(expEval)
+
 	case ast.Error:
 		if expEval.currentContext.processNodes {
 			return true, errors.New(n.Message)
@@ -219,12 +223,14 @@ func dataExpressionSize(tokens []token.Token, width int) int {
 		case tok.Type == token.Identifier || tok.Type == token.Number:
 			values++
 			operandExpected = false
+
 		case tok.Type.IsOperator():
 			unary := operandExpected && (tok.Type == token.Lt || tok.Type == token.Gt || tok.Type == token.Caret)
 			if !unary {
 				values--
 			}
 			operandExpected = true
+
 		case tok.Type == token.LeftParentheses:
 			operandExpected = true
 		case tok.Type == token.RightParentheses:

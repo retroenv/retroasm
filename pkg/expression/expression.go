@@ -497,6 +497,7 @@ func processEvaluatedData(values []any, dataWidth int) ([]byte, error) {
 				return nil, fmt.Errorf("writing data bytes: %w", err)
 			}
 			data = append(data, b...)
+
 		case []byte:
 			data = append(data, v...)
 		default:

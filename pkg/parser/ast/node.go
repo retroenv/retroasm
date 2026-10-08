@@ -46,6 +46,7 @@ func InstructionFromNode(n Node) (Instruction, bool) {
 	switch instr := n.(type) {
 	case Instruction:
 		return instr, true
+
 	case *Instruction:
 		if instr != nil {
 			return *instr, true
@@ -83,6 +84,7 @@ func IdentifierName(n Node) (string, bool) {
 	switch identifier := n.(type) {
 	case Identifier:
 		return identifier.Name, true
+
 	case *Identifier:
 		if identifier != nil {
 			return identifier.Name, true
@@ -103,6 +105,7 @@ func LabelName(n Node) (string, bool) {
 	switch label := n.(type) {
 	case Label:
 		return label.Name, true
+
 	case *Label:
 		if label != nil {
 			return label.Name, true
@@ -116,6 +119,7 @@ func NumberValue(n Node) (uint64, bool) {
 	switch number := n.(type) {
 	case Number:
 		return number.Value, true
+
 	case *Number:
 		if number != nil {
 			return number.Value, true

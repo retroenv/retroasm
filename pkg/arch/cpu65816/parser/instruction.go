@@ -487,12 +487,14 @@ func parseInstructionSecondIdentifier(ins *instruction, indirectAccess bool) (as
 	switch len(availableAddressing) {
 	case 1:
 		addressing = addressings[0]
+
 	case 2:
 		if addressings[0] == cpu65816.AbsoluteIndexedXAddressing {
 			addressing = XAddressing
 		} else {
 			addressing = YAddressing
 		}
+
 	default:
 		return nil, errors.New("invalid second parameter addressing mode usage")
 	}

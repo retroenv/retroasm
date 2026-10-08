@@ -89,6 +89,7 @@ func resolveOperands(instruction *chip8.Instruction, operands Operands) (chip8.M
 		addressing = resolveSingleOperand(instruction, operands[0])
 	case 2:
 		addressing = resolveTwoOperands(operands[0], operands[1])
+
 	case 3:
 		if operands[0].Kind == OperandRegister && operands[1].Kind == OperandRegister &&
 			operands[2].Kind == OperandNibble {
@@ -111,6 +112,7 @@ func resolveSingleOperand(instruction *chip8.Instruction, operand Operand) chip8
 		if instruction.Name == chip8.SkpName || instruction.Name == chip8.SknpName {
 			return chip8.RegisterValueAddressing
 		}
+
 	case OperandAddress:
 		return chip8.AbsoluteAddressing
 	}
@@ -244,12 +246,14 @@ func operandsFromParsed(instruction ast.Instruction) (Operands, error) { //nolin
 		return singleParsedRegister(instruction.Argument)
 	case chip8.RegisterValueAddressing:
 		return parsedRegisterValue(instruction)
+
 	case chip8.RegisterRegisterAddressing:
 		value, ok := ast.NumberValue(instruction.Argument)
 		if !ok {
 			return nil, fmt.Errorf("%w: register pair is not numeric", ErrInvalidInstruction)
 		}
 		return Operands{RegisterOperand(byte(value >> 4)), RegisterOperand(byte(value & 0xf))}, nil
+
 	case chip8.RegisterRegisterNibbleAddressing:
 		argument, ok := instruction.Argument.(ast.RegisterRegisterValue)
 		if !ok {
@@ -260,6 +264,7 @@ func operandsFromParsed(instruction ast.Instruction) (Operands, error) { //nolin
 			RegisterOperand(argument.Register2),
 			NibbleOperand(argument.Value.Copy()),
 		}, nil
+
 	default:
 		return parsedSpecialOperands(addressing, instruction.Argument)
 	}

@@ -82,6 +82,7 @@ func WithInstructionOpcodeID(n Node, id OpcodeID) Node {
 	case Instruction:
 		instruction.OpcodeID = id
 		return instruction
+
 	case *Instruction:
 		if instruction != nil {
 			instruction.OpcodeID = id
@@ -96,11 +97,13 @@ func copyInstructionArgumentAndMetadata(i Instruction) (*node, Node) {
 		metadata, operandMetadata := copyInstructionMetadata(i.node, argument.node)
 		argument.node = operandMetadata
 		return metadata, argument
+
 	case Identifier:
 		metadata, operandMetadata := copyInstructionMetadata(i.node, argument.node)
 		argument.node = operandMetadata
 		argument.Arguments = slices.Clone(argument.Arguments)
 		return metadata, argument
+
 	default:
 		var argumentCopy Node
 		if i.Argument != nil {

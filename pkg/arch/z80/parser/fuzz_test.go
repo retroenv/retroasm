@@ -59,6 +59,7 @@ func fuzzMnemonicAndVariants(selector byte) (string, []*cpuz80.Instruction) {
 			cpuz80.FdLdAIYd,
 			cpuz80.FdLdIYdA,
 		}
+
 	case 1:
 		return cpuz80.JpName, []*cpuz80.Instruction{
 			cpuz80.JpAbs,
@@ -67,18 +68,21 @@ func fuzzMnemonicAndVariants(selector byte) (string, []*cpuz80.Instruction) {
 			cpuz80.DdJpIX,
 			cpuz80.FdJpIY,
 		}
+
 	case 2:
 		return cpuz80.BitName, []*cpuz80.Instruction{
 			cpuz80.CBBit,
 			cpuz80.DdcbBit,
 			cpuz80.FdcbBit,
 		}
+
 	case 3:
 		return cpuz80.InName, []*cpuz80.Instruction{
 			cpuz80.InPort,
 			cpuz80.EdInAC,
 			cpuz80.EdInBC,
 		}
+
 	default:
 		return cpuz80.OutName, []*cpuz80.Instruction{
 			cpuz80.OutPort,
@@ -114,11 +118,13 @@ func fuzzToken(raw byte) token.Token {
 			Type:  token.Identifier,
 			Value: identifiers[int(raw)%len(identifiers)],
 		}
+
 	case 1:
 		return token.Token{
 			Type:  token.Number,
 			Value: numbers[int(raw)%len(numbers)],
 		}
+
 	case 2:
 		return token.Token{Type: token.LeftParentheses}
 	case 3:

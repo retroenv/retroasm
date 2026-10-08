@@ -176,6 +176,7 @@ func opcodeInfo(instruction *cpuz80.Instruction, addressing cpuz80.AddressingMod
 		if ok {
 			return info, nil
 		}
+
 	case 2:
 		key := [2]cpuz80.RegisterParam{registerParams[0], registerParams[1]}
 		info, ok := instruction.RegisterPairOpcodes[key]

@@ -83,18 +83,22 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 		if i > math.MaxUint8 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 1)
 		}
+
 	case 2:
 		if i > math.MaxUint16 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 2)
 		}
+
 	case 3:
 		if i > 0xffffff {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 3)
 		}
+
 	case 4:
 		if i > math.MaxUint32 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 4)
 		}
+
 	case 8:
 
 	default:
@@ -118,23 +122,28 @@ func WriteToBytesWithOrder(i uint64, dataWidth int, order binary.ByteOrder) ([]b
 	switch dataWidth {
 	case 1:
 		return []byte{uint8(i)}, nil
+
 	case 2:
 		data := make([]byte, 2)
 		order.PutUint16(data, uint16(i))
 		return data, nil
+
 	case 3:
 		if order == binary.BigEndian {
 			return []byte{byte(i >> 16), byte(i >> 8), byte(i)}, nil
 		}
 		return []byte{byte(i), byte(i >> 8), byte(i >> 16)}, nil
+
 	case 4:
 		data := make([]byte, 4)
 		order.PutUint32(data, uint32(i))
 		return data, nil
+
 	case 8:
 		data := make([]byte, 8)
 		order.PutUint64(data, i)
 		return data, nil
+
 	default:
 		return nil, fmt.Errorf("%w: "+unsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}

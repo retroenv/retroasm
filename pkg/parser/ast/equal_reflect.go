@@ -52,11 +52,13 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 	switch left.Kind() {
 	case reflect.Pointer:
 		return equalValue(left.Elem(), right.Elem(), seen)
+
 	case reflect.Interface:
 		if left.IsNil() || right.IsNil() {
 			return left.IsNil() == right.IsNil()
 		}
 		return equalValue(left.Elem(), right.Elem(), seen)
+
 	case reflect.Struct:
 		for index := range left.NumField() {
 			if !equalValue(left.Field(index), right.Field(index), seen) {
@@ -64,6 +66,7 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 			}
 		}
 		return true
+
 	case reflect.Array, reflect.Slice:
 		for index := range left.Len() {
 			if !equalValue(left.Index(index), right.Index(index), seen) {
@@ -71,6 +74,7 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 			}
 		}
 		return true
+
 	case reflect.Map:
 		iterator := left.MapRange()
 		for iterator.Next() {
@@ -79,6 +83,7 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 			}
 		}
 		return true
+
 	default:
 		return equalScalar(left, right)
 	}

@@ -96,6 +96,7 @@ func (resolved ResolvedInstruction) OpcodeInfo() (cpusm83.OpcodeInfo, cpusm83.Ad
 		if info, ok := resolved.Instruction.RegisterOpcodes[resolved.RegisterParams[0]]; ok {
 			return info, resolved.effectiveAddressing(), nil
 		}
+
 	case 2:
 		key := [2]cpusm83.RegisterParam{resolved.RegisterParams[0], resolved.RegisterParams[1]}
 		if info, ok := resolved.Instruction.RegisterPairOpcodes[key]; ok {
@@ -374,6 +375,7 @@ func buildParenthesizedRegOrLabel(inner token.Token) (rawOperand, error) {
 			indirect: true,
 			isHLPlus: true,
 		}, nil
+
 	case "hl-":
 		return rawOperand{
 			indirect:  true,
@@ -503,6 +505,7 @@ func parseValueOperand(tok token.Token) (ast.Node, bool, error) {
 			return nil, false, fmt.Errorf("parsing number '%s': %w", tok.Value, err)
 		}
 		return ast.NewNumber(value), true, nil
+
 	case token.Identifier:
 		return ast.NewLabel(tok.Value), true, nil
 	default:
@@ -844,18 +847,44 @@ func resolveSpecialADD(variants []*cpusm83.Instruction, op1, op2 rawOperand) *Re
 }
 
 func resolveSpecialLDH(variants []*cpusm83.Instruction, op1, op2 rawOperand) *ResolvedInstruction {
+	resolved := matchSpecialImplied(variants, cpusm83.LdhInst)
+	if resolved == nil {
+		return nil
+	}
+
+	var indirect rawOperand
+	var isLoad bool
 	switch {
-	case op1.indirect && op1.register == cpusm83.RegC && op2.register == cpusm83.RegA && !op2.indirect:
-		return matchSpecialImplied(variants, cpusm83.LdhCA)
-	case op1.register == cpusm83.RegA && !op1.indirect && op2.indirect && op2.register == cpusm83.RegC:
-		return matchSpecialImplied(variants, cpusm83.LdhAC)
-	case op1.indirect && op1.value != nil && op2.register == cpusm83.RegA && !op2.indirect:
-		return matchSpecialWithValue(variants, cpusm83.LdhNA, cpusm83.ImmediateAddressing, op1.value)
-	case op1.register == cpusm83.RegA && !op1.indirect && op2.indirect && op2.value != nil:
-		return matchSpecialWithValue(variants, cpusm83.LdhAN, cpusm83.ImmediateAddressing, op2.value)
+	case op1.indirect && op2.register == cpusm83.RegA && !op2.indirect:
+		indirect = op1
+	case op1.register == cpusm83.RegA && !op1.indirect && op2.indirect:
+		indirect, isLoad = op2, true
 	default:
 		return nil
 	}
+
+	var register cpusm83.RegisterParam
+	resolved.Addressing = cpusm83.ImpliedAddressing
+	switch {
+	case indirect.register == cpusm83.RegC:
+		register = cpusm83.RegCIndirect
+		if isLoad {
+			register = cpusm83.RegLoadCIndirect
+		}
+
+	case indirect.value != nil:
+		register = cpusm83.RegHighMem
+		if isLoad {
+			register = cpusm83.RegLoadHighMem
+		}
+		resolved.Addressing = cpusm83.ImmediateAddressing
+		resolved.OperandValues = []ast.Node{indirect.value}
+
+	default:
+		return nil
+	}
+	resolved.RegisterParams = []cpusm83.RegisterParam{register}
+	return resolved
 }
 
 func resolveSpecialLDAccumulator(variants []*cpusm83.Instruction, op1, op2 rawOperand) *ResolvedInstruction {
@@ -981,9 +1010,11 @@ func resolveIndirectLoadStore(variants []*cpusm83.Instruction, op1, op2 rawOpera
 	case op2.indirect && !op1.indirect:
 		regOp, indOp = op1, op2
 		isLoad = true
+
 	case op1.indirect && !op2.indirect:
 		regOp, indOp = op2, op1
 		isLoad = false
+
 	default:
 		return nil
 	}

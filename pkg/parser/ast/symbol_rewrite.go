@@ -32,23 +32,29 @@ func rewriteCopiedNodeSymbols(node Node, rename func(string) string) (Node, erro
 	case Label:
 		value.Name = rename(value.Name)
 		return value, nil
+
 	case Identifier:
 		value.Name = rename(value.Name)
 		return value, nil
+
 	case Function:
 		value.Name = rename(value.Name)
 		return value, nil
+
 	case Variable:
 		value.Name = rename(value.Name)
 		return value, nil
+
 	case Alias:
 		value.Name = rename(value.Name)
 		value.Expression = rewriteSymbolExpressionTokens(value.Expression, rename)
 		return value, nil
+
 	case Instruction:
 		argument, err := RewriteNodeSymbols(value.Argument, rename)
 		value.Argument = argument
 		return value, err
+
 	case InstructionArguments:
 		for index, argument := range value.Values {
 			rewritten, err := RewriteNodeSymbols(argument, rename)
@@ -58,16 +64,20 @@ func rewriteCopiedNodeSymbols(node Node, rename func(string) string) (Node, erro
 			value.Values[index] = rewritten
 		}
 		return value, nil
+
 	case InstructionArgument:
 		return rewriteTypedArgumentSymbols(value, rename)
+
 	case RegisterValue:
 		rewritten, err := RewriteNodeSymbols(value.Value, rename)
 		value.Value = rewritten
 		return value, err
+
 	case RegisterRegisterValue:
 		rewritten, err := RewriteNodeSymbols(value.Value, rename)
 		value.Value = rewritten
 		return value, err
+
 	default:
 		return rewriteDirectiveSymbols(node, rename)
 	}
@@ -78,36 +88,46 @@ func rewriteDirectiveSymbols(node Node, rename func(string) string) (Node, error
 	case Expression:
 		value.Value = rewriteSymbolExpressionTokens(value.Value, rename)
 		return value, nil
+
 	case Data:
 		value.Size = rewriteSymbolExpressionTokens(value.Size, rename)
 		for index, item := range value.Values {
 			value.Values[index] = rewriteSymbolExpressionTokens(item, rename)
 		}
 		return value, nil
+
 	case Base:
 		value.Address = rewriteSymbolExpressionTokens(value.Address, rename)
 		return value, nil
+
 	case Enum:
 		value.Address = rewriteSymbolExpressionTokens(value.Address, rename)
 		return value, nil
+
 	case Configuration:
 		value.Expression = rewriteSymbolExpressionTokens(value.Expression, rename)
 		return value, nil
+
 	case If:
 		value.Condition = rewriteSymbolExpressionTokens(value.Condition, rename)
 		return value, nil
+
 	case ElseIf:
 		value.Condition = rewriteSymbolExpressionTokens(value.Condition, rename)
 		return value, nil
+
 	case Ifdef:
 		value.Identifier = rename(value.Identifier)
 		return value, nil
+
 	case Ifndef:
 		value.Identifier = rename(value.Identifier)
 		return value, nil
+
 	case Rept:
 		value.Count = rewriteSymbolExpressionTokens(value.Count, rename)
 		return value, nil
+
 	case Number, Operator, *Comment, Segment, Bank, OffsetCounter, FunctionEnd, EnumEnd, Else, Endif, Endr:
 		return node, nil
 	default:

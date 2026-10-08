@@ -509,6 +509,7 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 		return uint64(value), nil
 	case ast.Number:
 		return value.Value, nil
+
 	case ast.Label:
 		if m.values == nil {
 			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
@@ -518,6 +519,7 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 			return 0, fmt.Errorf("value for label '%s' not configured", value.Name)
 		}
 		return resolved, nil
+
 	default:
 		return 0, fmt.Errorf("unsupported argument type %T", argument)
 	}

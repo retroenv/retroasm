@@ -56,6 +56,7 @@ func generateInstructionArgumentOpcode(assigner arch.AddressAssigner, resolved p
 		return generateValueOpcode(assigner, resolved.Operands, 1, 0xfff, opcode)
 	case chip8.RegisterAddressing:
 		return generateRegisterOpcode(resolved.Operands, 0, opcode)
+
 	case chip8.RegisterValueAddressing:
 		if err := generateRegisterOpcode(resolved.Operands, 0, opcode); err != nil {
 			return err
@@ -64,13 +65,16 @@ func generateInstructionArgumentOpcode(assigner arch.AddressAssigner, resolved p
 			return nil
 		}
 		return generateValueOpcode(assigner, resolved.Operands, 1, 0xff, opcode)
+
 	case chip8.RegisterRegisterAddressing:
 		return generateRegisterPairOpcode(resolved.Operands, opcode)
+
 	case chip8.RegisterRegisterNibbleAddressing:
 		if err := generateRegisterPairOpcode(resolved.Operands, opcode); err != nil {
 			return err
 		}
 		return generateValueOpcode(assigner, resolved.Operands, 2, 0xf, opcode)
+
 	case chip8.RegisterDTAddressing, chip8.RegisterKAddressing,
 		chip8.DTRegisterAddressing, chip8.STRegisterAddressing,
 		chip8.FRegisterAddressing, chip8.BRegisterAddressing,
@@ -158,6 +162,7 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 			PreserveMask: 0xf000,
 		}
 		return 0, encoding, true
+
 	case chip8.V0AbsoluteAddressing, chip8.IAbsoluteAddressing:
 		encoding.Width = ast.WidthWord
 		encoding.Field = ast.PackedField{
@@ -165,6 +170,7 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 			PreserveMask: 0xf000,
 		}
 		return 1, encoding, true
+
 	case chip8.RegisterValueAddressing:
 		if len(resolved.Operands) < 2 {
 			return 0, arch.RelocationEncoding{}, false
@@ -172,6 +178,7 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 		encoding.ByteOffset = 1
 		encoding.Width = ast.WidthByte
 		return 1, encoding, true
+
 	case chip8.RegisterRegisterNibbleAddressing:
 		encoding.ByteOffset = 1
 		encoding.Width = ast.WidthByte
@@ -180,6 +187,7 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 			PreserveMask: 0xf0,
 		}
 		return 2, encoding, true
+
 	default:
 		return 0, arch.RelocationEncoding{}, false
 	}

@@ -611,10 +611,12 @@ func layoutNodeSignature(t *testing.T, node ast.Node) string {
 		value, err := ast.FormatExpression(typed.Expression)
 		assert.NoError(t, err)
 		return fmt.Sprintf("alias:%s:%t:%t:%s:%s", typed.Name, typed.SymbolReusable, typed.Expression.IsEvaluatedOnce(), value, comment)
+
 	case ast.Base:
 		value, err := ast.FormatExpression(typed.Address)
 		assert.NoError(t, err)
 		return fmt.Sprintf("base:%s:%s", value, comment)
+
 	case ast.Bank:
 		return fmt.Sprintf("bank:%d:%s", typed.Number, comment)
 	case ast.Segment:
@@ -623,6 +625,7 @@ func layoutNodeSignature(t *testing.T, node ast.Node) string {
 		return fmt.Sprintf("offset:%d:%s", typed.Number, comment)
 	case ast.Variable:
 		return fmt.Sprintf("variable:%s:%d:%t:%s", typed.Name, typed.Size, typed.UseOffsetCounter, comment)
+
 	case ast.Configuration:
 		value := ""
 		if typed.Expression != nil {
@@ -631,6 +634,7 @@ func layoutNodeSignature(t *testing.T, node ast.Node) string {
 			assert.NoError(t, err)
 		}
 		return fmt.Sprintf("configuration:%d:%d:%s:%s", typed.Item, typed.Value, value, comment)
+
 	default:
 		return fmt.Sprintf("%T:%s", node, comment)
 	}
@@ -701,12 +705,14 @@ func sourceNodeSignature(t *testing.T, node ast.Node, comment string) string {
 	switch typed := node.(type) {
 	case ast.Include:
 		return fmt.Sprintf("include:%s:%t:%d:%d:%s", typed.Name, typed.Binary, typed.Start, typed.Size, comment)
+
 	case ast.Macro:
 		tokens := make([]string, len(typed.Token))
 		for index, bodyToken := range typed.Token {
 			tokens[index] = fmt.Sprintf("%d:%s", bodyToken.Type, bodyToken.Value)
 		}
 		return fmt.Sprintf("macro:%s:%v:%s:%s", typed.Name, typed.Arguments, strings.Join(tokens, ","), comment)
+
 	case ast.Error:
 		return fmt.Sprintf("error:%s:%s", typed.Message, comment)
 	default:

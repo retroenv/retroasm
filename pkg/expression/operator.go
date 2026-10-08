@@ -61,16 +61,19 @@ func evaluateOperatorIntInt(operator token.Type, a, b int64) (any, error) {
 		return a - b, nil
 	case token.Asterisk:
 		return a * b, nil
+
 	case token.Percent:
 		if b == 0 {
 			return 0, errDivisionByZero
 		}
 		return a % b, nil
+
 	case token.Slash:
 		if b == 0 {
 			return 0, errDivisionByZero
 		}
 		return a / b, nil
+
 	case token.Caret:
 		return int64(math.Pow(float64(a), float64(b))), nil
 	case token.ShiftLeft, token.ShiftRight, token.Ampersand, token.Pipe, token.BitwiseXor:
@@ -122,11 +125,13 @@ func evaluateOperatorByteInt(operator token.Type, a []byte, b int64) (any, error
 		operate = func(v byte) byte { return v * bb }
 	case token.Percent:
 		operate = func(v byte) byte { return v % bb }
+
 	case token.Slash:
 		if b == 0 {
 			return nil, errDivisionByZero
 		}
 		operate = func(v byte) byte { return v / bb }
+
 	case token.Caret:
 		operate = func(v byte) byte { return byte(math.Pow(float64(v), float64(b))) }
 	default:
@@ -153,21 +158,25 @@ func evaluateOperatorByteByte(operator token.Type, a, b []byte) (any, error) {
 			a[i] += b[j]
 			return nil
 		}
+
 	case token.Minus:
 		operate = func(i, j int, a, b []byte) error {
 			a[i] -= b[j]
 			return nil
 		}
+
 	case token.Asterisk:
 		operate = func(i, j int, a, b []byte) error {
 			a[i] *= b[j]
 			return nil
 		}
+
 	case token.Percent:
 		operate = func(i, j int, a, b []byte) error {
 			a[i] %= b[j]
 			return nil
 		}
+
 	case token.Slash:
 		operate = func(i, j int, a, b []byte) error {
 			if b[j] == 0 {
@@ -176,24 +185,20 @@ func evaluateOperatorByteByte(operator token.Type, a, b []byte) (any, error) {
 			a[i] /= b[j]
 			return nil
 		}
+
 	case token.Caret:
 		operate = func(i, j int, a, b []byte) error {
 			a[i] = byte(math.Pow(float64(a[i]), float64(b[j])))
 			return nil
 		}
+
 	default:
 		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and []byte", operator)
 	}
 
-	j := 0
 	for i := range a {
-		if err := operate(i, j, a, b); err != nil {
+		if err := operate(i, i%len(b), a, b); err != nil {
 			return nil, err
-		}
-
-		j++
-		if j >= len(b) {
-			j = 0
 		}
 	}
 

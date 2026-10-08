@@ -223,8 +223,10 @@ func validateResolvedValues(resolved ResolvedInstruction) error {
 		if remaining == 2 {
 			return validateNumberWidths(resolved.OperandValues, 0xffff)
 		}
+
 	case cpuz80.ExtendedAddressing, cpuz80.RelativeAddressing:
 		return validateNumberWidths(resolved.OperandValues, 0xffff)
+
 	case cpuz80.RegisterIndirectAddressing, cpuz80.PortAddressing:
 		if remaining > 0 {
 			return validateNumberWidths(resolved.OperandValues, 0xff)
@@ -247,11 +249,13 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch typed := argument.(type) {
 	case ast.InstructionArgument:
 		value = typed.Value
+
 	case *ast.InstructionArgument:
 		if typed == nil {
 			return ResolvedInstruction{}, fmt.Errorf("%w: nil instruction argument", ErrInvalidInstruction)
 		}
 		value = typed.Value
+
 	default:
 		return ResolvedInstruction{}, fmt.Errorf("%w: unexpected argument %T", ErrInvalidInstruction, argument)
 	}
@@ -259,6 +263,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	switch resolved := value.(type) {
 	case ResolvedInstruction:
 		return resolved, nil
+
 	case *ResolvedInstruction:
 		if resolved != nil {
 			return *resolved, nil

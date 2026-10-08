@@ -232,6 +232,7 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 	switch v := argument.(type) {
 	case ast.Number:
 		return v.Value, nil
+
 	case ast.Label:
 		if m.values != nil {
 			if val, ok := m.values[v.Name]; ok {
@@ -239,6 +240,7 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 			}
 		}
 		return 0, fmt.Errorf("label '%s' not found", v.Name)
+
 	case ast.Identifier:
 		if m.values != nil {
 			if val, ok := m.values[v.Name]; ok {
@@ -246,6 +248,7 @@ func (m *mockAssigner) ArgumentValue(argument any) (uint64, error) {
 			}
 		}
 		return 0, fmt.Errorf("identifier '%s' not found", v.Name)
+
 	default:
 		return 0, fmt.Errorf("unsupported argument type %T", argument)
 	}

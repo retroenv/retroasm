@@ -240,10 +240,12 @@ func nodeEditReplacement(edit *NodeEdit, operation string) (int, int, []Node) {
 		return 1, 3, []Node{edit.At(2), edit.At(1)}
 	case "copy":
 		return 2, 3, []Node{edit.At(2), edit.At(2)}
+
 	case "replace":
 		replacement := edit.At(1).(Label)
 		replacement.Name = "renamed"
 		return 1, 2, []Node{replacement}
+
 	case "empty":
 		return 2, 2, nil
 	default:

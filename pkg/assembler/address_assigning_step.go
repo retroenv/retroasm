@@ -56,6 +56,7 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 				return 0, fmt.Errorf("reference '%s' resolved to negative value %d", arg.name, adjusted)
 			}
 			return uint64(adjusted), nil
+
 		case uint64:
 			return applyUint64Offset(v, offset)
 		default:
@@ -148,6 +149,7 @@ func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (ui
 			return 0, fmt.Errorf("expression result %d is negative", v)
 		}
 		return uint64(v), nil
+
 	case uint64:
 		return v, nil
 	default:
@@ -168,6 +170,7 @@ func instructionArgumentReference(argument any) (string, int64, bool) {
 		name, offset := parseReferenceOffset(arg.name)
 		combined, err := applyInt64Offset(offset, arg.offset)
 		return name, combined, err == nil
+
 	case ast.InstructionReference:
 		symbol, addend, ok := instructionArgumentReference(arg.Value)
 		if !ok {
@@ -179,6 +182,7 @@ func instructionArgumentReference(argument any) (string, int64, bool) {
 		}
 		combined, err := applyInt64Offset(addend, modifierAddend)
 		return symbol, combined, err == nil
+
 	case ast.Label:
 		return arg.Name, 0, true
 	case ast.Identifier:
