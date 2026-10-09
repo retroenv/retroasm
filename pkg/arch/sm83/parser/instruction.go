@@ -357,11 +357,11 @@ func parseParenthesizedIdentifier(p arch.Parser, inner token.Token) (rawOperand,
 		p.AdvanceReadPosition(2)
 		return buildParenthesizedRegOrLabel(inner)
 
-	case token.Plus:
-		return parseHLPlusMinus(p, inner, true)
-
-	case token.Minus:
-		return parseHLPlusMinus(p, inner, false)
+	case token.Plus, token.Minus:
+		if strings.EqualFold(inner.Value, "hl") && p.NextToken(3).Type == token.RightParentheses {
+			return parseHLPlusMinus(p, inner, next.Type == token.Plus)
+		}
+		return parseParenthesizedExpressionOperand(p, inner)
 
 	default:
 		return rawOperand{}, fmt.Errorf("unsupported parenthesized identifier form near '%s'", inner.Value)
