@@ -253,3 +253,26 @@ SEGMENTS {
     CODE: load = CODE, type = rw;
 }
 `
+
+// TestAssembleShiftImmediateHasNoExtension checks that a register shift keeps
+// its immediate count in the opcode word. The next instruction must follow
+// directly; a reserved extension word would run as ORI.B and consume it.
+func TestAssembleShiftImmediateHasNoExtension(t *testing.T) {
+	tests := []struct {
+		source string
+		want   []byte
+	}{
+		{"LSR.B #3,D0", []byte{0xE6, 0x08}},
+		{"LSR.W #8,D0", []byte{0xE0, 0x48}},
+		{"LSR.L #3,D0", []byte{0xE6, 0x88}},
+		{"ASL.W #1,D1", []byte{0xE3, 0x41}},
+		{"ASR.L #8,D2", []byte{0xE0, 0x82}},
+		{"ROXR.B #2,D3", []byte{0xE4, 0x13}},
+		{"LSL.L D1,D0", []byte{0xE3, 0xA8}},
+		{"ADDQ.L #1,D0", []byte{0x52, 0x80}},
+	}
+	for _, test := range tests {
+		result := assembleCPU68000(t, ".segment \"CODE\"\n"+test.source+"\nNOP\n")
+		assertBytes(t, append(test.want, 0x4E, 0x71), result)
+	}
+}

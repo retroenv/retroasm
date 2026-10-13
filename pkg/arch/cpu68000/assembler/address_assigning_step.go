@@ -58,9 +58,27 @@ func instructionSize(resolved parser.ResolvedInstruction) int {
 	case cpu68000.MOVEMName:
 		return instructionSizeMOVEM(resolved)
 
+	case cpu68000.ADDQName, cpu68000.SUBQName:
+		// The quick immediate is a field of the opcode word.
+		return 2 + eaExtensionSize(resolved.DstEA, resolved.Size)
+
+	case cpu68000.ASLName, cpu68000.ASRName, cpu68000.LSLName, cpu68000.LSRName,
+		cpu68000.ROLName, cpu68000.RORName, cpu68000.ROXLName, cpu68000.ROXRName:
+		return instructionSizeShift(resolved)
+
 	default:
 		return 2 + eaExtensionSize(resolved.SrcEA, resolved.Size) + eaExtensionSize(resolved.DstEA, resolved.Size)
 	}
+}
+
+// instructionSizeShift returns the size of a shift or rotate. A register
+// shift holds its count, immediate or register, in the opcode word. A memory
+// shift by one has only the extension words of its address.
+func instructionSizeShift(resolved parser.ResolvedInstruction) int {
+	if resolved.SrcEA != nil {
+		return 2
+	}
+	return 2 + eaExtensionSize(resolved.DstEA, cpu68000.SizeWord)
 }
 
 func instructionSizeMOVEM(resolved parser.ResolvedInstruction) int {

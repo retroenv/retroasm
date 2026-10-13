@@ -40,11 +40,12 @@ func TestInstructionCoverage_AllMnemonics(t *testing.T) {
 			assert.NoError(t, err, "AssignInstructionAddress: instruction=%s", name)
 			assert.True(t, mockIns.Size() >= 2, "size must be ≥ 2 bytes, got %d", mockIns.Size())
 			assert.Equal(t, coveragePC+uint64(mockIns.Size()), nextPC)
+			assigned := mockIns.Size()
 
 			err = GenerateInstructionOpcode(assigner, mockIns)
 			assert.NoError(t, err, "GenerateInstructionOpcode: instruction=%s", name)
-			assert.Len(t, mockIns.Opcodes(), mockIns.Size(),
-				"opcodes length must equal size for instruction=%s", name)
+			assert.Len(t, mockIns.Opcodes(), assigned,
+				"opcodes length must equal the assigned size for instruction=%s", name)
 		})
 	}
 }

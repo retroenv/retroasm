@@ -2,6 +2,7 @@ package assembler
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/retroenv/retroasm/pkg/arch"
@@ -26,10 +27,18 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 		return fmt.Errorf("encoding instruction '%s': %w", ins.Name(), err)
 	}
 
+	// Addresses of later instructions use the assigned size, so a different
+	// encoded length would leave padding or overlap in the output.
+	if assigned := ins.Size(); assigned != 0 && assigned != len(opcodes) {
+		return fmt.Errorf("encoding instruction '%s': %w: assigned %d bytes, encoded %d",
+			ins.Name(), errInstructionSizeMismatch, assigned, len(opcodes))
+	}
 	ins.SetOpcodes(opcodes)
 	ins.SetSize(len(opcodes))
 	return nil
 }
+
+var errInstructionSizeMismatch = errors.New("instruction size mismatch")
 
 type instructionRelocationAssigner struct {
 	arch.AddressAssigner
