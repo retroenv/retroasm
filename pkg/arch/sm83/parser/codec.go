@@ -382,5 +382,13 @@ func formatValueWithOptions(value ast.Node, minimumHexDigits int, decimal bool) 
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrUnsupportedValue, err)
 	}
+	if symbol := ast.SymbolName(value); symbol != "" {
+		_, register := lookupRegister(symbol)
+		_, condition := lookupCondition(symbol)
+		if register || condition {
+			// An expression keeps the symbol distinct from a register or condition.
+			return "0+" + formatted, nil
+		}
+	}
 	return formatted, nil
 }
