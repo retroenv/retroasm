@@ -400,6 +400,12 @@ func parseDisplacementEA(p arch.Parser, disp uint64) (*EffectiveAddress, error) 
 }
 
 func parseIdentifierEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error) {
+	if p.NextToken(1).Type == token.Dot {
+		suffix := strings.ToUpper(p.NextToken(2).Value)
+		if suffix == "W" || suffix == "L" {
+			return parseLabelEA(p, tok)
+		}
+	}
 	info, ok := lookupRegister(tok.Value)
 	if !ok {
 		// Not a register - treat as label (absolute address)

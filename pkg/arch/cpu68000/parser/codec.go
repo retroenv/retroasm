@@ -418,6 +418,16 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 			if err != nil {
 				return nil, fmt.Errorf("formatting flow target: %w", err)
 			}
+			absoluteWordFlow := address.Mode == cpu68000.AbsShortMode &&
+				(resolved.Instruction.Name == cpu68000.JMPName || resolved.Instruction.Name == cpu68000.JSRName)
+			if IsRegisterName(value) || absoluteWordFlow {
+				value, err = formatEffectiveAddress(address, resolved.Size, options)
+				if err != nil {
+					return nil, fmt.Errorf("formatting named flow target: %w", err)
+				}
+				formatted[index] = value
+				continue
+			}
 			formatted[index] = signedCPU68000Value(value, address.Negative)
 			continue
 		}

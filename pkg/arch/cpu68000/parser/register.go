@@ -12,6 +12,12 @@ const (
 
 var registers map[string]registerInfo
 
+// IsRegisterName reports whether a name identifies a CPU68000 register.
+func IsRegisterName(name string) bool {
+	_, ok := registers[strings.ToUpper(name)]
+	return ok
+}
+
 func init() {
 	registers = make(map[string]registerInfo, 32)
 
