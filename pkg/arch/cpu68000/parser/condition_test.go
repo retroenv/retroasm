@@ -34,6 +34,12 @@ var conditionCodeTests = []struct {
 	{"DBNE", "DBcc", 6, true},
 	{"DBGT", "DBcc", 14, true},
 	{"dbne", "DBcc", 6, true},
+	{"DBF", "DBcc", 1, true},
+	{"DBT", "DBcc", 0, true},
+	{"DBRA", "DBcc", 1, true},
+	{"dbf", "DBcc", 1, true},
+	{"dbt", "DBcc", 0, true},
+	{"dbra", "DBcc", 1, true},
 	// Scc variants
 	{"SHI", "Scc", 2, true},
 	{"SEQ", "Scc", 7, true},
@@ -45,6 +51,11 @@ var conditionCodeTests = []struct {
 	{"ADD", "ADD", 0, false},
 	// B prefix but not a valid condition
 	{"BXYZ", "BXYZ", 0, false},
+	{"DB", "DB", 0, false},
+	{"DBR", "DBR", 0, false},
+	{"DBXYZ", "DBXYZ", 0, false},
+	{"BRA", "BRA", 0, false},
+	{"SRA", "SRA", 0, false},
 }
 
 func TestParseConditionCode(t *testing.T) {

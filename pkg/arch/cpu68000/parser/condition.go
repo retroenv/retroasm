@@ -39,8 +39,11 @@ func ParseConditionCode(mnemonic string) (string, uint16, bool) {
 	}
 
 	// Check for DBcc (decrement and branch)
-	if len(upper) >= 4 && upper[:2] == "DB" {
+	if len(upper) >= 3 && upper[:2] == "DB" {
 		suffix := upper[2:]
+		if suffix == "RA" {
+			suffix = "F"
+		}
 		if code, ok := conditionCodes[suffix]; ok {
 			return "DBcc", code, true
 		}
