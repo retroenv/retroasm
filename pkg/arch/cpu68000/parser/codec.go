@@ -586,7 +586,13 @@ func formatAbsoluteAddress(value ast.Node, suffix string, maximum uint64, negati
 	if err != nil {
 		return "", err
 	}
-	return signedCPU68000Value(formatted, negative) + suffix, nil
+	formatted = signedCPU68000Value(formatted, negative)
+	switch value.(type) {
+	case ast.Expression, *ast.Expression:
+		// Keep the complete expression before the absolute size suffix.
+		formatted = "(" + formatted + ")"
+	}
+	return formatted + suffix, nil
 }
 
 func signedCPU68000Value(value string, negative bool) string {

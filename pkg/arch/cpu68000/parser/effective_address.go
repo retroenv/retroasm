@@ -129,6 +129,9 @@ func parsePreDecrementEA(p arch.Parser) (*EffectiveAddress, error) {
 }
 
 func parseIndirectEA(p arch.Parser) (*EffectiveAddress, error) {
+	if address, explicit := parseExplicitAbsoluteExpressionEA(p); explicit {
+		return address, nil
+	}
 	// Current token is '('
 	inner := p.NextToken(1)
 	if inner.Type.IsTerminator() {
@@ -514,4 +517,59 @@ func parseLabelDisplacementEA(p arch.Parser, tok token.Token) (*EffectiveAddress
 	}
 
 	return nil, fmt.Errorf("%w: unexpected token after label '(' '%s'", errInvalidEA, regTok.Value)
+}
+
+// An explicit absolute suffix applies before register names are classified.
+func parseExplicitAbsoluteExpressionEA(p arch.Parser) (*EffectiveAddress, bool) {
+	depth := 1
+	var tokens []token.Token
+	for offset := 1; ; offset++ {
+		tok := p.NextToken(offset)
+		if tok.Type.IsTerminator() || tok.Type == token.Comma {
+			return nil, false
+		}
+		if tok.Type == token.LeftParentheses {
+			depth++
+		}
+		if tok.Type == token.RightParentheses {
+			depth--
+			if depth == 0 {
+				return parseAbsoluteExpressionSuffix(p, tokens, offset)
+			}
+		}
+		tokens = append(tokens, tok)
+	}
+}
+
+func parseAbsoluteExpressionSuffix(p arch.Parser, tokens []token.Token, closing int) (*EffectiveAddress, bool) {
+	if len(tokens) == 0 || p.NextToken(closing+1).Type != token.Dot {
+		return nil, false
+	}
+	suffix := strings.ToUpper(p.NextToken(closing + 2).Value)
+	if suffix != "W" && suffix != "L" {
+		return nil, false
+	}
+	mode := cpu68000.AbsLongMode
+	if suffix == "W" {
+		mode = cpu68000.AbsShortMode
+	}
+	var value ast.Node = ast.NewExpression(tokens...)
+	if len(tokens) == 1 {
+		switch tokens[0].Type {
+		case token.Identifier:
+			value = ast.NewLabel(tokens[0].Value)
+
+		case token.Number:
+			bits, err := number.Parse(tokens[0].Value)
+			if err != nil {
+				return nil, false
+			}
+			value = ast.NewNumber(bits)
+		}
+	}
+	p.AdvanceReadPosition(closing + 2)
+	return &EffectiveAddress{
+		Mode:  mode,
+		Value: value,
+	}, true
 }
