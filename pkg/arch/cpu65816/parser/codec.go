@@ -219,6 +219,10 @@ func formatValue(value ast.Node, minimumHexDigits int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("formatting CPU65816 value: %w", err)
 	}
+	if strings.EqualFold(ast.SymbolName(value), "a") {
+		// Keep a memory symbol distinct from the accumulator operand.
+		return formatted + "+0", nil
+	}
 	return formatted, nil
 }
 

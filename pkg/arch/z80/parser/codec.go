@@ -51,6 +51,8 @@ func BuildInstructionWithProfile(mnemonic string, variants []*cpuz80.Instruction
 	if err != nil {
 		return ast.Instruction{}, fmt.Errorf("%w: resolving '%s': %w", ErrInvalidInstruction, mnemonic, err)
 	}
+	// Typed operands retain their register or value identity when names match.
+	resolved.Operands = copyOperands(operands)
 	if err := profile.ValidateInstruction(
 		profileKind,
 		resolved.Instruction,
@@ -377,6 +379,10 @@ func formatValueWithOptions(value ast.Node, minimumHexDigits int, decimal bool) 
 	})
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrUnsupportedValue, err)
+	}
+	if symbol := ast.SymbolName(value); symbol != "" && len(registerCandidatesForIdentifier(symbol)) != 0 {
+		// A leading zero also keeps IX and IY distinct from indexed addresses.
+		return "0+" + formatted, nil
 	}
 	return formatted, nil
 }

@@ -58,14 +58,9 @@ type instruction struct {
 func parseInstruction(parser arch.Parser, instructionDetails *cpu65816.Instruction) (ast.Node, error) {
 	parser.AdvanceReadPosition(1)
 
-	var err error
 	ins := &instruction{
-		instruction: instructionDetails,
-	}
-
-	ins.addressingSize, err = parseAddressSize(parser, instructionDetails)
-	if err != nil {
-		return nil, fmt.Errorf("parsing addressing size: %w", err)
+		instruction:    instructionDetails,
+		addressingSize: parseAddressSize(parser),
 	}
 
 	ins.arg1 = resolveArg1Token(parser)
@@ -277,7 +272,9 @@ func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast
 		return parseBranchingInstruction(parser, ins)
 	}
 
-	if ins.instruction.HasAddressing(cpu65816.AccumulatorAddressing) {
+	if ins.instruction.HasAddressing(cpu65816.AccumulatorAddressing) &&
+		ins.addressingSize == addressingDefault && len(ins.modifiers) == 0 {
+
 		if node := parseInstructionSingleIdentifierAccumulator(parser, ins); node != nil {
 			return node, nil
 		}

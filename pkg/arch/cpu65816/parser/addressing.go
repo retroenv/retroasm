@@ -24,19 +24,11 @@ const (
 	YAddressing                  = cpu65816.AbsoluteIndexedYAddressing | cpu65816.DirectPageIndexedYAddressing
 )
 
-// parseAddressSize returns the addressing mode used for an instruction based on the following
-// tokens.
-func parseAddressSize(parser arch.Parser, ins *cpu65816.Instruction) (addressingSize, error) {
+// parseAddressSize reads an address prefix followed by a colon.
+func parseAddressSize(parser arch.Parser) addressingSize {
 	tok := parser.NextToken(0)
-	if tok.Type != token.Identifier && tok.Type != token.EOL {
-		return addressingDefault, nil
-	}
-
-	accumulatorAddressing := ins.HasAddressing(cpu65816.AccumulatorAddressing)
-	next1 := parser.NextToken(1)
-
-	if accumulatorAddressing && (tok.Type == token.EOL || next1.Type != token.Colon) {
-		return addressingDefault, nil
+	if tok.Type != token.Identifier || parser.NextToken(1).Type != token.Colon {
+		return addressingDefault
 	}
 
 	var addrSize addressingSize
@@ -48,20 +40,10 @@ func parseAddressSize(parser arch.Parser, ins *cpu65816.Instruction) (addressing
 	case "f", "F":
 		addrSize = addressingLong
 	default:
-		return addressingDefault, nil
+		return addressingDefault
 	}
-
-	switch next1.Type {
-	case token.EOF, token.EOL:
-		return addressingDefault, nil
-
-	case token.Colon:
-		parser.AdvanceReadPosition(2)
-		return addrSize, nil
-
-	default:
-		return addressingDefault, fmt.Errorf("invalid token type %s after addressing token", tok.Type)
-	}
+	parser.AdvanceReadPosition(2)
+	return addrSize
 }
 
 func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu65816.AddressingMode, error) {
