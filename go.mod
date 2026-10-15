@@ -2,6 +2,6 @@ module github.com/retroenv/retroasm
 
 go 1.25.0
 
-require github.com/retroenv/retrogolib v0.0.0-20260924213440-9b578e97f6b3
+require github.com/retroenv/retrogolib v0.0.0-20261015141614-d3e39f301df1
 
-replace github.com/retroenv/retrogolib => /home/user/go/src/github.com/retroenv/retrogolib
+replace github.com/retroenv/retrogolib => ../retrogolib

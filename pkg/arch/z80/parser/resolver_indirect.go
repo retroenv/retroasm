@@ -218,9 +218,9 @@ func resolveIndexedImmediate(variants []*cpuz80.Instruction, operand1 rawOperand
 			if !matchesIndexedRegisterPrefix(indexedRegister, opcodeInfo.Prefix) {
 				continue
 			}
-			// Only match displacement+immediate variants (keyed by RegImm8
-			// or RegIYIndirect), not 16-bit immediate loads (keyed by RegIX/RegIY).
-			if param == cpuz80.RegIX || param == cpuz80.RegIY {
+			// A matching prefix does not prove an indexed memory operand.
+			// Byte-half and complete-pair loads have the same prefix.
+			if param != cpuz80.RegImm8 && param != indexedRegister {
 				continue
 			}
 

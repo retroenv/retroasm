@@ -17,7 +17,7 @@ import (
 
 func TestZ80CodecRegisterNamedSymbolsRoundTrip(t *testing.T) {
 	c := newZ80Codec(t)
-	for _, name := range []string{"A", "AF", "B", "BC", "C", "D", "DE", "E", "H", "HL", "I", "IX", "IY", "L", "R", "SP", "NZ", "Z", "NC", "PO", "PE", "P", "M", "hl", "ix", "ordinary"} {
+	for _, name := range []string{"A", "AF", "B", "BC", "C", "D", "DE", "E", "H", "HL", "I", "IX", "IY", "L", "R", "SP", "NZ", "Z", "NC", "PO", "PE", "P", "M", "hl", "ix", "IXH", "IXL", "IYH", "IYL", "ixh", "ixl", "iyh", "iyl", "ordinary"} {
 		value := z80parser.ValueOperand(ast.NewLabel(name))
 		memory := z80parser.IndirectValueOperand(ast.NewLabel(name))
 		for _, test := range []struct {
