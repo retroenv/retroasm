@@ -7,6 +7,9 @@ import (
 )
 
 func encodeMOVE(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction) ([]byte, error) {
+	if resolved.SrcEA.Mode == cpu68000.StatusRegMode || resolved.DstEA.Mode == cpu68000.StatusRegMode {
+		return encodeStatusMOVE(assigner, resolved)
+	}
 	var sizeBits uint16
 	switch resolved.Size {
 	case cpu68000.SizeByte:
@@ -214,6 +217,9 @@ func encodeCMPM(resolved parser.ResolvedInstruction) ([]byte, error) {
 func encodeImmediate(assigner arch.AddressAssigner, resolved parser.ResolvedInstruction,
 	baseOpcode uint16) ([]byte, error) {
 
+	if resolved.DstEA.Mode == cpu68000.StatusRegMode {
+		return encodeImmediateStatus(assigner, resolved, baseOpcode)
+	}
 	sizeBits := encodeSizeBits(resolved.Size)
 	dstMode, dstReg := encodeEAField(resolved.DstEA)
 

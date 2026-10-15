@@ -416,16 +416,16 @@ func parseIdentifierEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error
 	}
 
 	if info.special {
-		if info.number == regSR {
+		if info.number == RegSR {
 			return &EffectiveAddress{
 				Mode:     cpu68000.StatusRegMode,
-				Register: regSR,
+				Register: RegSR,
 			}, nil
 		}
-		if info.number == regCCR {
+		if info.number == RegCCR {
 			return &EffectiveAddress{
 				Mode:     cpu68000.StatusRegMode,
-				Register: regCCR,
+				Register: RegCCR,
 			}, nil
 		}
 		if info.number == regUSP {

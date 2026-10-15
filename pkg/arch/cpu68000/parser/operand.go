@@ -138,5 +138,23 @@ func Immediate(value ast.Node) *EffectiveAddress {
 
 // RegisterList constructs a MOVEM register-list effective address.
 func RegisterList(mask uint16) *EffectiveAddress {
-	return &EffectiveAddress{RegList: mask}
+	return &EffectiveAddress{
+		RegList: mask,
+	}
+}
+
+// StatusRegister constructs an SR operand.
+func StatusRegister() *EffectiveAddress {
+	return &EffectiveAddress{
+		Mode:     cpu68000.StatusRegMode,
+		Register: RegSR,
+	}
+}
+
+// ConditionCodeRegister constructs a CCR operand.
+func ConditionCodeRegister() *EffectiveAddress {
+	return &EffectiveAddress{
+		Mode:     cpu68000.StatusRegMode,
+		Register: RegCCR,
+	}
 }

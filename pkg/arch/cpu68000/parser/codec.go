@@ -287,7 +287,7 @@ func validateEffectiveAddress(address *EffectiveAddress, size cpu68000.OperandSi
 		return validateValue(address.Value, math.MaxUint8)
 
 	case cpu68000.StatusRegMode:
-		if address.Register != regSR && address.Register != regCCR {
+		if address.Register != RegSR && address.Register != RegCCR {
 			return fmt.Errorf("invalid status register %d", address.Register)
 		}
 		return nil
@@ -547,7 +547,7 @@ func formatEffectiveAddress(address *EffectiveAddress, operandSize cpu68000.Oper
 		return "#" + signedCPU68000Value(value, address.Negative), nil
 
 	case cpu68000.StatusRegMode:
-		if address.Register == regCCR {
+		if address.Register == RegCCR {
 			return formatKeyword("ccr", options), nil
 		}
 		return formatKeyword("sr", options), nil

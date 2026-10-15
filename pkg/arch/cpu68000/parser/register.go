@@ -4,8 +4,8 @@ import "strings"
 
 // Register types for special registers.
 const (
-	regSR  = 0xFF
-	regCCR = 0xFE
+	RegSR  = 0xFF
+	RegCCR = 0xFE
 	regUSP = 0xFD
 	regPC  = 0xFC
 )
@@ -22,7 +22,9 @@ func init() {
 	registers = make(map[string]registerInfo, 32)
 
 	for i := range uint8(8) {
-		registers["D"+string(rune('0'+i))] = registerInfo{number: i}
+		registers["D"+string(rune('0'+i))] = registerInfo{
+			number: i,
+		}
 	}
 
 	for i := range uint8(7) {
@@ -41,11 +43,11 @@ func init() {
 	}
 
 	registers["SR"] = registerInfo{
-		number:  regSR,
+		number:  RegSR,
 		special: true,
 	}
 	registers["CCR"] = registerInfo{
-		number:  regCCR,
+		number:  RegCCR,
 		special: true,
 	}
 	registers["USP"] = registerInfo{
