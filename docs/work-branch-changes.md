@@ -11,18 +11,18 @@ architecture. Do not merge the complete `work2` branch.
 | Review date | 2026-10-16 |
 | Source branch | `work2` |
 | Source commit | `b49f75d05938edbe83b7522e081140474b635458` |
-| Local target commit | `80bc1425d8df88080ea738ae6e9062e2766d4dcb` |
+| Local target commit | `05c2979df3e51358c2e49a7dc5c7cc347dbbf42b` |
 | Merge base | `dfff226de66987f15d173c5af52a2d7a75c3c0d1` |
 | Working tree before this plan | Clean |
-| Complete branch difference | 289 files; 42,280 added lines; 976 removed lines |
+| Complete branch difference | 286 files; 42,155 added lines; 1,036 removed lines |
 
 These values refer to local Git refs. The remote target was not fetched.
 Local `main` is no longer an ancestor of the source commit: it carries the P01
-extraction on top of the merge base, and the source branch already contains the
-equivalent change. The two-dot count above therefore excludes the two P01
-lexer files. The three-dot diff from the merge base is 291 files; 42,287 added
-lines; 977 removed lines, with `pkg/lexer/{lexer.go,lexer_test.go}` as the
-only difference. Do not synchronize branches only to make these numbers equal.
+and P02/P03 extractions on top of the merge base, and the source branch already
+contains the equivalent changes. The two-dot count above therefore excludes
+the extracted files that now match. The three-dot diff from the merge base is
+291 files; 42,320 added lines; 977 removed lines. Do not synchronize branches
+only to make these numbers equal.
 
 The counts describe the fixed source commit before this document update.
 The previous source was `1a3ab37`. The current source additionally contains
@@ -1307,16 +1307,9 @@ The absolute replacement in `go.mod` is excluded from every proposal.
 
 ## Progress record
 
-P00 and P01 are complete locally as of 2026-10-06. P02 is the next part.
-P02-P23, V01, and T01-T06 remain planned. The scope table above describes
+P00-P03 are complete locally as of 2026-10-16. P04 is the next part.
+P04-P23, V01, and T01-T06 remain planned. The scope table above describes
 the original source snapshot, not the current target after extraction.
-
-On 2026-10-16 this plan was re-verified against source `b49f75d`. No further
-parts were extracted. The source advanced with register-named symbol
-preservation, CPU68000 status-register and DBcc encoding, SM83 parenthesized
-offsets, Z80 index-register byte halves, the shared byte-array operand fix
-now carried by P06, and a retrogolib bump that stays excluded. P02 remains
-the next part.
 
 ### P00 — Complete
 
@@ -1350,6 +1343,42 @@ the next part.
 - The temporary candidate checkout was removed after the commit.
   No temporary file is required for P02. Start P02 from the current `main`
   endpoint and retain its CI setup changes.
+
+### P02/P03 — Complete (landed together)
+
+P02 alone cannot pass its own gate: with the new padding logic, the default
+`fill = yes` config turns the retroasm default output into a padded 32 KiB
+buffer, breaking `TestASTAssembly`, `TestTextAssembly`, and `ExampleNew`.
+Source history landed the same change set in one commit (`1dcc23f`). The
+user approved landing P02 and P03 together; the P03 default-output decision
+is recorded in this commit instead of a separate review.
+
+- Target base: `80bc1425d8df88080ea738ae6e9062e2766d4dcb` on local `main`.
+  Remote `main` matched the base before extraction.
+- Candidate commit: `05c2979df3e51358c2e49a7dc5c7cc347dbbf42b` on local
+  `main`. No PR or push was requested. CI is pending a later push.
+- Included P02: `pkg/assembler/memory.go` write bounds and memory-relative
+  offsets; `memory_test.go`; `write_output_step.go` full-buffer output;
+  `address_assigning_step.go` `SegmentStart` program counters and the
+  post-assignment memory-overflow check; `banked_output_test.go` with
+  `m6502` imports; the asm6 branch fixture moved to `.org $0082`.
+- Included P03: `fill = yes` removed from the retroasm default config with
+  the used-bytes comment; `TestTextAssemblyOutputLengths` comparing default,
+  filled, and unfilled output; the `docs/library-usage.md` filled-config
+  example. `ExampleNew` passes unchanged after the default change.
+- Excluded mixed hunks: relocation recording (P17) and the reservation
+  error return (P02a) in `address_assigning_step.go`; the cpu6502 import
+  renames (P11) and data-expression cases (P06) in the asm6 test.
+- Checks passed: `GOWORK=off go test ./pkg/assembler/... ./pkg/retroasm/... ./cmd/retroasm/...`,
+  `GOWORK=off make build`, `GOWORK=off make lint`, `GOWORK=off make test`,
+  and `git diff --check`. Pinned retrogolib, no local replacement.
+- Lint note: the dev `retrogolint` currently in `PATH` reports 44
+  pre-existing `codequality-switch-case-separation` violations on the main
+  baseline; the pinned `v1.0.6` from `make install-linters` reports none.
+  The source branch's whitespace-only fixes for that rule remain outside
+  this phase.
+- The temporary candidate checkout was removed after the commit. Start P04
+  from the current `main` endpoint.
 
 For each future part, record:
 
