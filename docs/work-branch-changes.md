@@ -8,23 +8,30 @@ architecture. Do not merge the complete `work2` branch.
 
 | Item | Verified value |
 |---|---|
-| Review date | 2026-10-06 |
+| Review date | 2026-10-16 |
 | Source branch | `work2` |
-| Source commit | `1a3ab37a50401077c6324e8203da1af90f12abff` |
-| Local target commit | `0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3` |
-| Merge base | Same commit as local `main` |
+| Source commit | `b49f75d05938edbe83b7522e081140474b635458` |
+| Local target commit | `80bc1425d8df88080ea738ae6e9062e2766d4dcb` |
+| Merge base | `dfff226de66987f15d173c5af52a2d7a75c3c0d1` |
 | Working tree before this plan | Clean |
-| Complete branch difference | 277 files; 40,558 added lines; 970 removed lines |
+| Complete branch difference | 289 files; 42,280 added lines; 976 removed lines |
 
 These values refer to local Git refs. The remote target was not fetched.
-`main` is an ancestor of the source commit. At this base, the two-dot and
-three-dot diffs describe the same changes. The old instruction to synchronize
-`main` into `work2` before extraction is no longer necessary.
+Local `main` is no longer an ancestor of the source commit: it carries the P01
+extraction on top of the merge base, and the source branch already contains the
+equivalent change. The two-dot count above therefore excludes the two P01
+lexer files. The three-dot diff from the merge base is 291 files; 42,287 added
+lines; 977 removed lines, with `pkg/lexer/{lexer.go,lexer_test.go}` as the
+only difference. Do not synchronize branches only to make these numbers equal.
 
 The counts describe the fixed source commit before this document update.
-The previous plan used `f29b126`. The current source also contains reservation
-conversion and bounds checks, codec reservation tests, and a CPU65816 forward
-storage fix. P02a and P15/P16 include the shared 6502 changes. The CPU65816 fix
+The previous source was `1a3ab37`. The current source additionally contains
+register-named symbol preservation in the Z80, CPU65816, SM83, and CPU68000
+codecs, CPU68000 status-register and DBcc branch encoding, SM83 parenthesized
+symbolic offsets, Z80 index-register byte halves, a shared byte-array operand
+repeat fix, and a retrogolib dependency bump. The new CPU work stays with its
+excluded architecture proposals. P06 now carries the shared operand fix. P02a
+and P15/P16 include the shared 6502 changes. The CPU65816 forward storage fix
 remains deferred with its architecture. The documentation index is now tracked.
 
 This plan retains the existing 6502 scope. The complete branch inventory is in
@@ -106,11 +113,14 @@ For a documentation-only part, check the text, references, and
 
 ### Dependency control
 
-Both branch tips require
+Local `main` requires
 `github.com/retroenv/retrogolib v0.0.0-20260924213440-9b578e97f6b3`.
-The only `go.mod` difference is the source branch's absolute local `replace`.
-Do not extract that replacement. No dependency upgrade is currently part of
-this plan.
+The source branch requires
+`v0.0.0-20261015141614-d3e39f301df1` and carries a relative local
+`replace github.com/retroenv/retrogolib => ../retrogolib`.
+Do not extract that replacement. No dependency upgrade is part of this plan.
+The source bump arrived with excluded CPU work; a part may use it only after
+identifying the exact API that the pinned version lacks.
 
 Run code checks on candidates with the pinned module and no local replacement.
 Also inspect `go.work` and `go env GOWORK` for workspace replacements. Use
@@ -167,7 +177,7 @@ Use the fixed source SHA from the scope table for extraction. For example,
 these read-only commands show the P01 patch and the current target file:
 
 ```sh
-git diff 0e4317aa7dc0fd94dfb33e93f26a7ef8e285d3b3 1a3ab37a50401077c6324e8203da1af90f12abff -- pkg/lexer/lexer.go pkg/lexer/lexer_test.go
+git diff 80bc1425d8df88080ea738ae6e9062e2766d4dcb b49f75d05938edbe83b7522e081140474b635458 -- pkg/lexer/lexer.go pkg/lexer/lexer_test.go
 git show main:pkg/lexer/lexer.go
 ```
 
@@ -367,6 +377,7 @@ nil values, and typed nils retain their documented behavior.
 | `pkg/assembler/nodes.go` | Store independent values and reference offsets. Leave opcode IDs and source-entry fields for P12/P17. |
 | `pkg/assembler/parse_ast_nodes.go` | Reserve each directive's full size and collect its values. Keep the target byte-order behavior. |
 | `pkg/assembler/expression_evaluation_step.go` | Evaluate each value and apply reference offsets with overflow checks. |
+| `pkg/expression/{operator.go,operator_test.go}` | Keep the byte-array operand behavior in `evaluateOperatorByteByte`: repeat the right operand, and accept empty operands. |
 | `pkg/assembler/generate_opcode_step.go` | Emit values once, with their declared width. Leave instruction relocation callbacks for P17. |
 | `pkg/assembler/{assembler_asm6_test,assembler_x816_test,parse_ast_nodes_test}.go` | Include mixed arithmetic and forward-data tests. Update direct data construction without the package rename. |
 | `docs/library-usage.md` | **Add on target:** migrate direct `ast.Data.Values` construction to an expression slice. |
@@ -378,6 +389,8 @@ slice. Change all users in the same part:
 - `pkg/parser/directives/{addr,base,data,hex}.go` and related tests
 - data hunks in assembler `nodes.go`, `parse_ast_nodes.go`,
   `expression_evaluation_step.go`, and `generate_opcode_step.go`
+- the byte-array operand repeat and empty-operand fix in
+  `pkg/expression/operator.go` with its `operator_test.go` cases
 - `symbol_reference.go` and its tests
 - reference offsets and declared-width encoding in the assembler
 - mixed-expression cases in asm6 and x816 assembler tests
@@ -392,9 +405,10 @@ If one item has a forward reference, reserve the complete directive's size
 and emit each item exactly once after addresses exist. Preserve the current
 x816 `.dl` meaning and immediate-expression behavior.
 
-**Focused check:** `go test ./pkg/parser/... ./pkg/assembler/...`.
+**Focused check:** `go test ./pkg/parser/... ./pkg/assembler/... ./pkg/expression/...`.
 **Exit condition:** Cases such as `DB 1+2, 3*4, (5+1)` and
-`.dw 2, later+1` produce exact expected bytes and label addresses. Include a
+`.dw 2, later+1` produce exact expected bytes and label addresses. Byte-array
+arithmetic repeats the right operand and tolerates empty operands. Include a
 migration example for direct `ast.Data.Values` users.
 
 ## Phase B: Compatibility without new CPU registration
@@ -985,9 +999,10 @@ branch diff as the completion criterion.
 | `pkg/retroasm/default.go` | P03 default fill; P11 imports. Preserve the target's public dispatcher. |
 | `pkg/retroasm/{assembler_test,example_test,doc}.go` | P03: add output-length coverage on the target; P11: extract import/API docs. |
 | `pkg/lexer/**`, `pkg/number/**` | P01 literals; P04 width three; P15 byte order if used. |
+| `pkg/expression/operator*.go` | P06 byte-array operand repeat and empty-operand behavior. |
 | `README.md`, `docs/library-usage.md`, `examples/ast-first/main.go` | P11 migration examples; P23 verified usage. |
 | Compatibility docs | P07-P10 tested reference material; P23 final audit. |
-| `go.mod` | Omit the absolute local replacement. |
+| `go.mod` | Omit the local replacement and the retrogolib bump. |
 | `CHANGES_SUMMARY.md`, `docs/work-branch-changes.md` | Branch tracking only. |
 | `docs/README.md`, `.gitignore` | P23: target user-guide index and its ignore exception. Exclude Z80 fixture rules and source-only links. |
 | Excluded architecture docs/tests/examples | Deferred as listed below. |
@@ -1081,8 +1096,9 @@ Files to merge with this proposal:
 
 Split shared changes in `pkg/arch/byte_order_test.go`,
 `pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
-`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
-tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+`pkg/codec/reservation_test.go`, `pkg/codec/register_symbol_roundtrip_test.go`,
+and codec stream comparison/rename/rewrite tests. Add only this CPU's
+constructors, imports, and cases. Extract CLI
 registration, defaults, validation, help, and tests from
 `cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
 them. Publish checked README commands and guide links with the CPU phase.
@@ -1105,10 +1121,12 @@ Files to merge with this proposal:
 - `pkg/arch/cpu68000/assembler/encode.go`
 - `pkg/arch/cpu68000/assembler/encode_alu.go`
 - `pkg/arch/cpu68000/assembler/encode_misc.go`
+- `pkg/arch/cpu68000/assembler/encode_status.go`
 - `pkg/arch/cpu68000/assembler/generate_opcode_step.go`
 - `pkg/arch/cpu68000/assembler/generate_opcode_step_test.go`
 - `pkg/arch/cpu68000/cpu68000.go`
 - `pkg/arch/cpu68000/cpu68000_test.go`
+- `pkg/arch/cpu68000/dbcc_test.go`
 - `pkg/arch/cpu68000/parser/codec.go`
 - `pkg/arch/cpu68000/parser/codec_test.go`
 - `pkg/arch/cpu68000/parser/condition.go`
@@ -1125,6 +1143,9 @@ Files to merge with this proposal:
 - `pkg/arch/cpu68000/parser/size_test.go`
 - `pkg/arch/cpu68000/parser/symbol_rewrite.go`
 - `pkg/codec/cpu68000_test.go`
+- `pkg/codec/cpu68000_register_symbol_test.go`
+- `pkg/codec/cpu68000_status_test.go`
+- `pkg/codec/cpu68000_symbol_addend_test.go`
 - `docs/cpu68000-support-plan.md`
 
 Split shared changes in `pkg/arch/byte_order_test.go`,
@@ -1152,6 +1173,7 @@ Files to merge with this proposal:
 - `pkg/arch/sm83/assembler/generate_opcode_step_test.go`
 - `pkg/arch/sm83/parser/codec.go`
 - `pkg/arch/sm83/parser/instruction.go`
+- `pkg/arch/sm83/parser/instruction_test.go`
 - `pkg/arch/sm83/parser/operand.go`
 - `pkg/arch/sm83/parser/register.go`
 - `pkg/arch/sm83/parser/resolved_copy_test.go`
@@ -1159,12 +1181,14 @@ Files to merge with this proposal:
 - `pkg/arch/sm83/sm83.go`
 - `pkg/arch/sm83/sm83_test.go`
 - `pkg/codec/sm83_test.go`
+- `pkg/parser/sm83_parenthesized_test.go`
 - `docs/sm83-support-plan.md`
 
 Split shared changes in `pkg/arch/byte_order_test.go`,
 `pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
-`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
-tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+`pkg/codec/reservation_test.go`, `pkg/codec/register_symbol_roundtrip_test.go`,
+and codec stream comparison/rename/rewrite tests. Add only this CPU's
+constructors, imports, and cases. Extract CLI
 registration, defaults, validation, help, and tests from
 `cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
 them. Publish checked README commands and guide links with the CPU phase.
@@ -1215,6 +1239,7 @@ Files to merge with this proposal:
 - `pkg/arch/z80/z80.go`
 - `pkg/arch/z80/z80_test.go`
 - `pkg/codec/z80_test.go`
+- `pkg/codec/z80_index_halves_test.go`
 - `docs/z80-support-plan.md`
 - `docs/z80-branch-changes.md`
 - `cmd/retroasm/z80_fixture_test.go`
@@ -1235,8 +1260,9 @@ Files to merge with this proposal:
 
 Split shared changes in `pkg/arch/byte_order_test.go`,
 `pkg/arch/instruction_registration_test.go`, `pkg/parser/opcode_identity_test.go`,
-`pkg/codec/reservation_test.go`, and codec stream comparison/rename/rewrite
-tests. Add only this CPU's constructors, imports, and cases. Extract CLI
+`pkg/codec/reservation_test.go`, `pkg/codec/register_symbol_roundtrip_test.go`,
+and codec stream comparison/rename/rewrite tests. Add only this CPU's
+constructors, imports, and cases. Extract CLI
 registration, defaults, validation, help, and tests from
 `cmd/retroasm/{architecture,assemble,main,main_test}.go` where this CPU needs
 them. Publish checked README commands and guide links with the CPU phase.
@@ -1284,6 +1310,13 @@ The absolute replacement in `go.mod` is excluded from every proposal.
 P00 and P01 are complete locally as of 2026-10-06. P02 is the next part.
 P02-P23, V01, and T01-T06 remain planned. The scope table above describes
 the original source snapshot, not the current target after extraction.
+
+On 2026-10-16 this plan was re-verified against source `b49f75d`. No further
+parts were extracted. The source advanced with register-named symbol
+preservation, CPU68000 status-register and DBcc encoding, SM83 parenthesized
+offsets, Z80 index-register byte halves, the shared byte-array operand fix
+now carried by P06, and a retrogolib bump that stays excluded. P02 remains
+the next part.
 
 ### P00 — Complete
 
