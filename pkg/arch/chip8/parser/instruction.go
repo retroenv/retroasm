@@ -41,7 +41,10 @@ func ParseIdentifier(parser arch.Parser, ins *chip8.Instruction) (ast.Node, erro
 func parseInstruction(parser arch.Parser, ins *chip8.Instruction) (ast.Node, error) {
 	parser.AdvanceReadPosition(1)
 
-	arg1 := parser.NextToken(0)
+	arg1, err := arch.OperandSymbolToken(parser, 0)
+	if err != nil {
+		return nil, fmt.Errorf("reading first operand: %w", err)
+	}
 
 	// Check for terminator (instruction with no args or implied addressing)
 	if arg1.Type.IsTerminator() {
@@ -59,7 +62,10 @@ func parseInstruction(parser arch.Parser, ins *chip8.Instruction) (ast.Node, err
 	next1 := parser.NextToken(1)
 	if next1.Type == token.Comma {
 		parser.AdvanceReadPosition(2)
-		arg2 := parser.NextToken(0)
+		arg2, err := arch.OperandSymbolToken(parser, 0)
+		if err != nil {
+			return nil, fmt.Errorf("reading second operand: %w", err)
+		}
 		return parseInstructionTwoArgs(ins, arg1, arg2, parser)
 	}
 
