@@ -49,3 +49,15 @@ func TestZ80DotSymbolRejectsMissingIdentifier(t *testing.T) {
 		})
 	}
 }
+
+func TestZ80DotSymbolDefinitionsKeepLiteralNames(t *testing.T) {
+	const source = "main:\n.Ltable:\n.db 3,9\nother:\n.byte:\n.db 4\n"
+	parser := asmparser.New(asmz80.New().Arch, strings.NewReader(source), config.CompatDefault)
+	assert.NoError(t, parser.Read(t.Context()))
+	nodes, err := parser.TokensToAstNodes()
+	assert.NoError(t, err)
+	assert.Equal(t, ast.NewLabel("main"), nodes[0])
+	assert.Equal(t, ast.NewLabel(".Ltable"), nodes[1])
+	assert.Equal(t, ast.NewLabel("other"), nodes[3])
+	assert.Equal(t, ast.NewLabel(".byte"), nodes[4])
+}

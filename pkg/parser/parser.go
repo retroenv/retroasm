@@ -299,6 +299,11 @@ func (p *Parser[T]) parseDot() (ast.Node, error) {
 	if next.Type.IsTerminator() {
 		return nil, errMissingParameter
 	}
+	if next.Type == token.Identifier && p.NextToken(2).Type == token.Colon && !p.compatMode.DotLocalLabels() {
+		p.AdvanceReadPosition(2)
+		return ast.NewLabel("." + next.Value), nil
+	}
+
 	directive := strings.ToLower(next.Value)
 	handler, ok := p.handlers[directive]
 	if !ok {
