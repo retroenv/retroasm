@@ -73,7 +73,10 @@ func parseOperands(parser arch.Parser) ([]rawOperand, error) {
 }
 
 func parseOperand(parser arch.Parser) (rawOperand, error) {
-	tok := parser.NextToken(0)
+	tok, err := arch.OperandSymbolToken(parser, 0)
+	if err != nil {
+		return rawOperand{}, fmt.Errorf("reading operand symbol: %w", err)
+	}
 
 	switch tok.Type {
 	case token.Number, token.Identifier:
@@ -96,7 +99,10 @@ func parseOperand(parser arch.Parser) (rawOperand, error) {
 }
 
 func parseParenthesizedOperand(parser arch.Parser) (rawOperand, error) {
-	inner := parser.NextToken(1)
+	inner, err := arch.OperandSymbolToken(parser, 1)
+	if err != nil {
+		return rawOperand{}, fmt.Errorf("reading operand symbol: %w", err)
+	}
 	if inner.Type.IsTerminator() {
 		return rawOperand{}, errMissingOperand
 	}
