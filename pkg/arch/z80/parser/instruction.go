@@ -73,9 +73,9 @@ func parseOperands(parser arch.Parser) ([]rawOperand, error) {
 }
 
 func parseOperand(parser arch.Parser) (rawOperand, error) {
-	tok, err := operandSymbolToken(parser, 0)
+	tok, err := arch.OperandSymbolToken(parser, 0)
 	if err != nil {
-		return rawOperand{}, err
+		return rawOperand{}, fmt.Errorf("reading operand symbol: %w", err)
 	}
 
 	switch tok.Type {
@@ -99,9 +99,9 @@ func parseOperand(parser arch.Parser) (rawOperand, error) {
 }
 
 func parseParenthesizedOperand(parser arch.Parser) (rawOperand, error) {
-	inner, err := operandSymbolToken(parser, 1)
+	inner, err := arch.OperandSymbolToken(parser, 1)
 	if err != nil {
-		return rawOperand{}, err
+		return rawOperand{}, fmt.Errorf("reading operand symbol: %w", err)
 	}
 	if inner.Type.IsTerminator() {
 		return rawOperand{}, errMissingOperand
@@ -115,25 +115,6 @@ func parseParenthesizedOperand(parser arch.Parser) (rawOperand, error) {
 	default:
 		return rawOperand{}, fmt.Errorf("unsupported parenthesized operand token type %s", inner.Type)
 	}
-}
-
-// operandSymbolToken keeps a dot-prefixed symbol in one identifier token.
-func operandSymbolToken(parser arch.Parser, offset int) (token.Token, error) {
-	current := parser.NextToken(offset)
-	if current.Type != token.Dot {
-		return current, nil
-	}
-	identifier := parser.NextToken(offset + 1)
-	if identifier.Type != token.Identifier {
-		return token.Token{}, errors.New("expected identifier after '.' in operand")
-	}
-	name := parser.ResolveDotLocalLabel(identifier.Value)
-	if name == "" {
-		name = "." + identifier.Value
-	}
-	identifier.Value = name
-	parser.AdvanceReadPosition(1)
-	return identifier, nil
 }
 
 func parseParenthesizedIdentifierOperand(parser arch.Parser, identifier token.Token) (rawOperand, error) {

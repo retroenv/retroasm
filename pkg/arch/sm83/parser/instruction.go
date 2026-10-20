@@ -204,7 +204,10 @@ func parseOperands(p arch.Parser) ([]rawOperand, error) {
 }
 
 func parseOperand(p arch.Parser) (rawOperand, error) {
-	tok := p.NextToken(0)
+	tok, err := arch.OperandSymbolToken(p, 0)
+	if err != nil {
+		return rawOperand{}, fmt.Errorf("reading operand symbol: %w", err)
+	}
 
 	switch tok.Type {
 	case token.Number:
@@ -334,7 +337,10 @@ func parseSPOffsetOperand(p arch.Parser, base token.Token, operator token.Type) 
 }
 
 func parseParenthesizedOperand(p arch.Parser) (rawOperand, error) {
-	inner := p.NextToken(1)
+	inner, err := arch.OperandSymbolToken(p, 1)
+	if err != nil {
+		return rawOperand{}, fmt.Errorf("reading operand symbol: %w", err)
+	}
 	if inner.Type.IsTerminator() {
 		return rawOperand{}, errMissingOperand
 	}
