@@ -63,7 +63,11 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu65816.Instructi
 		addressingSize: parseAddressSize(parser),
 	}
 
-	ins.arg1 = resolveArg1Token(parser)
+	argument, err := resolveArg1Token(parser)
+	if err != nil {
+		return nil, err
+	}
+	ins.arg1 = argument
 	ins.modifiers = directives.ParseModifier(parser)
 
 	next1 := parser.NextToken(1)
@@ -620,9 +624,8 @@ func resolveArgument(tok token.Token) (ast.Node, error) {
 	}
 }
 
-// resolveArg1Token reads and resolves the first instruction argument token, handling
-// identifier scoping, unnamed label references, and dot-local label references.
-func resolveArg1Token(p arch.Parser) token.Token {
+// resolveArg1Token reads the first argument and resolves its label scope.
+func resolveArg1Token(p arch.Parser) (token.Token, error) {
 	arg := p.NextToken(0)
 	if arg.Type == token.Identifier {
 		arg.Value = p.ScopeLocalLabel(arg.Value)
@@ -632,18 +635,17 @@ func resolveArg1Token(p arch.Parser) token.Token {
 			return token.Token{
 				Type:  token.Identifier,
 				Value: name,
-			}
+			}, nil
 		}
 	}
 	if arg.Type == token.Dot {
-		if name, ok := resolveDotLocalLabelRef(p); ok {
-			return token.Token{
-				Type:  token.Identifier,
-				Value: name,
-			}
+		resolved, err := arch.OperandSymbolToken(p, 0)
+		if err != nil {
+			return token.Token{}, fmt.Errorf("reading CPU65816 symbol operand: %w", err)
 		}
+		return resolved, nil
 	}
-	return arg
+	return arg, nil
 }
 
 func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
@@ -666,20 +668,5 @@ func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
 
 	p.AdvanceReadPosition(level)
 	name := p.ResolveUnnamedLabel(forward, level)
-	return name, true
-}
-
-func resolveDotLocalLabelRef(p arch.Parser) (string, bool) {
-	next := p.NextToken(1)
-	if next.Type != token.Identifier {
-		return "", false
-	}
-
-	name := p.ResolveDotLocalLabel(next.Value)
-	if name == "" {
-		return "", false
-	}
-
-	p.AdvanceReadPosition(1)
 	return name, true
 }
