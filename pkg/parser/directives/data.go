@@ -42,31 +42,19 @@ func Data(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(1)
 	typ := p.NextToken(0)
 	typName := strings.ToLower(typ.Value)
+	if typName == "dcb" && p.NextToken(1).Type == token.Dot {
+		return readMotorolaData(p, true)
+	}
 	width, ok := dataByteWidth[typName]
 	if !ok {
 		return nil, fmt.Errorf("data width for type '%s' not found", typ.Value)
 	}
 
-	data := ast.NewData(ast.DataType, width)
-
 	values, err := readDataValueExpressions(p)
 	if err != nil {
 		return nil, fmt.Errorf("reading data values: %w", err)
 	}
-	if addresses, referenceType, matched := addressByteDataExpressions(values); matched {
-		data.Type = ast.AddressType
-		data.Width = 1
-		data.ReferenceType = referenceType
-		data.Values = addresses
-		return data, nil
-	}
-	if width == p.AddressWidth()/8 && addressDataExpressions(values) {
-		data.Type = ast.AddressType
-		data.ReferenceType = ast.FullAddress
-	}
-	data.Values = values
-
-	return data, nil
+	return constantData(p, width, values), nil
 }
 
 // DataStorage parses a storage reservation directive (.dsb, .dsw).
@@ -115,6 +103,24 @@ func Align(p arch.Parser) (ast.Node, error) {
 	data.Size.AddTokens(rightParen, percent)
 	data.Size.AddTokens(tokens...)
 	return data, nil
+}
+
+func constantData(p arch.Parser, width int, values []*expression.Expression) ast.Data {
+	data := ast.NewData(ast.DataType, width)
+	if addresses, referenceType, matched := addressByteDataExpressions(values); matched {
+		data.Type = ast.AddressType
+		data.Width = 1
+		data.ReferenceType = referenceType
+		data.Values = addresses
+		return data
+	}
+	if width == p.AddressWidth()/8 && addressDataExpressions(values) {
+		data.Type = ast.AddressType
+		data.ReferenceType = ast.FullAddress
+	}
+	data.Values = values
+
+	return data
 }
 
 func addressByteDataExpressions(values []*expression.Expression) ([]*expression.Expression, ast.ReferenceType, bool) {
@@ -254,7 +260,10 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 	// read all tokens until the terminator
 	for {
 		p.AdvanceReadPosition(1)
-		tok := p.NextToken(0)
+		tok, err := dataExpressionToken(p, tokens)
+		if err != nil {
+			return nil, err
+		}
 
 		switch {
 		case tok.Type == token.Number,
@@ -305,4 +314,23 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 			return tokens, nil
 		}
 	}
+}
+
+func dataExpressionToken(p arch.Parser, preceding []token.Token) (token.Token, error) {
+	tok, err := arch.OperandSymbolToken(p, 0)
+	if err != nil {
+		return token.Token{}, fmt.Errorf("reading data symbol: %w", err)
+	}
+	if tok.Type != token.Asterisk {
+		return tok, nil
+	}
+	if len(preceding) > 0 {
+		previous := preceding[len(preceding)-1].Type
+		if previous != token.LeftParentheses && !previous.IsOperator() {
+			return tok, nil
+		}
+	}
+	tok.Type = token.Number
+	tok.Value = expression.ProgramCounterReference
+	return tok, nil
 }

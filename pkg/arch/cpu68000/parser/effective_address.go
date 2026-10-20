@@ -20,7 +20,10 @@ var (
 
 // parseEffectiveAddress parses an effective address operand from the token stream.
 func parseEffectiveAddress(p arch.Parser) (*EffectiveAddress, error) {
-	tok := p.NextToken(0)
+	tok, err := arch.OperandSymbolToken(p, 0)
+	if err != nil {
+		return nil, fmt.Errorf("reading effective address: %w", err)
+	}
 
 	switch {
 	case tok.Type == token.Number && len(tok.Value) > 1 && tok.Value[0] == '#':
@@ -71,7 +74,10 @@ func parseImmediateEA(tok token.Token) (*EffectiveAddress, error) {
 }
 
 func parseImmediateHashEA(p arch.Parser) (*EffectiveAddress, error) {
-	tok := p.NextToken(0)
+	tok, err := arch.OperandSymbolToken(p, 0)
+	if err != nil {
+		return nil, fmt.Errorf("reading immediate address: %w", err)
+	}
 	switch tok.Type {
 	case token.Number:
 		v, err := number.Parse(tok.Value)
