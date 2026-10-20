@@ -85,8 +85,9 @@ func baseHandlers() map[string]Handler {
 		"base":       Base,
 		"bin":        Include, // asm6
 		"byt":        Data,
-		"byte":       Data,     // asm6
-		"db":         Data,     // asm6
+		"byte":       Data, // asm6
+		"db":         Data, // asm6
+		"dc":         MotorolaData,
 		"dcb":        Data,     // asm6
 		"dcw":        Data,     // asm6
 		"dh":         AddrHigh, // asm6
