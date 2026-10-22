@@ -150,50 +150,9 @@ func evaluateOperatorByteByte(operator token.Type, a, b []byte) (any, error) {
 		return a, nil
 	}
 
-	var operate func(i, j int, a, b []byte) error
-
-	switch operator {
-	case token.Plus:
-		operate = func(i, j int, a, b []byte) error {
-			a[i] += b[j]
-			return nil
-		}
-
-	case token.Minus:
-		operate = func(i, j int, a, b []byte) error {
-			a[i] -= b[j]
-			return nil
-		}
-
-	case token.Asterisk:
-		operate = func(i, j int, a, b []byte) error {
-			a[i] *= b[j]
-			return nil
-		}
-
-	case token.Percent:
-		operate = func(i, j int, a, b []byte) error {
-			a[i] %= b[j]
-			return nil
-		}
-
-	case token.Slash:
-		operate = func(i, j int, a, b []byte) error {
-			if b[j] == 0 {
-				return errDivisionByZero
-			}
-			a[i] /= b[j]
-			return nil
-		}
-
-	case token.Caret:
-		operate = func(i, j int, a, b []byte) error {
-			a[i] = byte(math.Pow(float64(a[i]), float64(b[j])))
-			return nil
-		}
-
-	default:
-		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and []byte", operator)
+	operate, err := byteByteOperation(operator)
+	if err != nil {
+		return nil, err
 	}
 
 	for i := range a {
@@ -203,4 +162,51 @@ func evaluateOperatorByteByte(operator token.Type, a, b []byte) (any, error) {
 	}
 
 	return a, nil
+}
+
+// byteByteOperation returns the function that applies an operator to one element pair of two []byte operands.
+func byteByteOperation(operator token.Type) (func(i, j int, a, b []byte) error, error) {
+	switch operator {
+	case token.Plus:
+		return func(i, j int, a, b []byte) error {
+			a[i] += b[j]
+			return nil
+		}, nil
+
+	case token.Minus:
+		return func(i, j int, a, b []byte) error {
+			a[i] -= b[j]
+			return nil
+		}, nil
+
+	case token.Asterisk:
+		return func(i, j int, a, b []byte) error {
+			a[i] *= b[j]
+			return nil
+		}, nil
+
+	case token.Percent:
+		return func(i, j int, a, b []byte) error {
+			a[i] %= b[j]
+			return nil
+		}, nil
+
+	case token.Slash:
+		return func(i, j int, a, b []byte) error {
+			if b[j] == 0 {
+				return errDivisionByZero
+			}
+			a[i] /= b[j]
+			return nil
+		}, nil
+
+	case token.Caret:
+		return func(i, j int, a, b []byte) error {
+			a[i] = byte(math.Pow(float64(a[i]), float64(b[j])))
+			return nil
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and []byte", operator)
+	}
 }

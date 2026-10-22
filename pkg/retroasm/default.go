@@ -52,7 +52,7 @@ func NewArchitectureAdapter[T any](name string, arch any, cfg *config.Config[T])
 func (a *ArchitectureAdapter[T]) Name() string { return a.name }
 
 func (a *ArchitectureAdapter[T]) AddressWidth() int {
-	if aw, ok := a.arch.(interface{ AddressWidth() int }); ok {
+	if aw, ok := a.arch.(addressWidthProvider); ok {
 		return aw.AddressWidth()
 	}
 	return 16
@@ -79,6 +79,11 @@ func (a *ArchitectureAdapter[T]) assembleText(ctx context.Context, source anyRea
 
 type anyReader interface {
 	Read(p []byte) (n int, err error)
+}
+
+// Architectures implement addressWidthProvider to report their address width in bits.
+type addressWidthProvider interface {
+	AddressWidth() int
 }
 
 type architectureDispatcher interface {
