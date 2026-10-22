@@ -75,9 +75,10 @@ var (
 
 // Assembly is the result of assembling a typed node stream.
 type Assembly struct {
-	Binary  []byte
-	Symbols map[string]uint64
-	Stream  *ast.Stream
+	Sections []assembler.Section
+	Binary   []byte
+	Symbols  map[string]uint64
+	Stream   *ast.Stream
 }
 
 // Codec binds typed stream operations to one architecture configuration.
@@ -237,9 +238,10 @@ func (c *Codec[T]) AssembleStream(ctx context.Context, stream *ast.Stream) (*Ass
 		return nil, fmt.Errorf("resolving typed stream symbols: %w", err)
 	}
 	return &Assembly{
-		Binary:  output.Bytes(),
-		Symbols: maps.Clone(asm.Symbols()),
-		Stream:  assemblyStream,
+		Binary:   output.Bytes(),
+		Sections: asm.Sections(),
+		Symbols:  maps.Clone(asm.Symbols()),
+		Stream:   assemblyStream,
 	}, nil
 }
 

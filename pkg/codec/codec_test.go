@@ -595,6 +595,25 @@ func TestCodec_ParseHonorsCancellation(t *testing.T) {
 	assert.True(t, errors.Is(err, context.Canceled))
 }
 
+func TestCodecAssemblyIncludesSectionExtents(t *testing.T) {
+	configuration := asmcpu6502.New()
+	assert.NoError(t, configuration.ReadCa65Config(strings.NewReader(`
+MEMORY { PRG: start = $8000, size = $20; }
+SEGMENTS { CODE: load = PRG; }`)))
+	c, err := codec.New(configuration)
+	assert.NoError(t, err)
+	stream, err := c.ParseStream(t.Context(), "input.asm", strings.NewReader(".segment \"CODE\"\nentry: nop\n.byte 42"))
+	assert.NoError(t, err)
+	assembled, err := c.AssembleStream(t.Context(), stream)
+	assert.NoError(t, err)
+	assert.Len(t, assembled.Sections, 1)
+	section := assembled.Sections[0]
+	assert.Equal(t, "CODE", section.Name)
+	assert.Equal(t, uint64(0x8000), section.Start)
+	assert.Equal(t, uint64(0x8002), section.End)
+	assert.Equal(t, uint64(2), section.Bytes)
+}
+
 func newCPU6502Codec(t *testing.T) *codec.Codec[*cpu6502.Instruction] {
 	t.Helper()
 	c, err := codec.New(asmcpu6502.New())

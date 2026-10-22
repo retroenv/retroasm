@@ -43,6 +43,7 @@ second: lda #2
 	copy(want[16:], []byte{0xa9, 1, 0x60})
 	copy(want[32:], []byte{0xa9, 2, 0x60})
 	assert.Equal(t, want, buf.Bytes())
+	assertBankedSectionLayout(t, asm)
 	assert.Equal(t, uint64(0xc000), asm.Symbols()["first"])
 	assert.Equal(t, uint64(0xc000), asm.Symbols()["second"])
 }
@@ -84,4 +85,35 @@ SEGMENTS { INIT: load = BANK; }`)))
 end: rts
 `))
 	assert.ErrorContains(t, err, `segment "INIT" exceeds memory "BANK"`)
+}
+
+func assertBankedSectionLayout[T any](t *testing.T, asm *Assembler[T]) {
+	t.Helper()
+
+	assert.Equal(t, []Section{
+		{
+			Name:   "CODE",
+			Memory: "FIXED",
+			Start:  0x8000,
+			End:    0x8007,
+			Bytes:  7,
+		},
+		{
+			Name:   "COLD0",
+			Memory: "BANK0",
+			Start:  0xc000,
+			End:    0xc003,
+			Bytes:  3,
+		},
+		{
+			Name:   "COLD1",
+			Memory: "BANK1",
+			Start:  0xc000,
+			End:    0xc003,
+			Bytes:  3,
+		},
+	}, asm.Sections())
+	sections := asm.Sections()
+	sections[0].Name = "changed"
+	assert.Equal(t, "CODE", asm.Sections()[0].Name)
 }
