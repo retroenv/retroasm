@@ -34,6 +34,16 @@ excluded architecture proposals. P06 now carries the shared operand fix. P02a
 and P15/P16 include the shared 6502 changes. The CPU65816 forward storage fix
 remains deferred with its architecture. The documentation index is now tracked.
 
+Update 2026-10-20: nine later commits (`62b989c` to `df15ece`) add dot-prefixed
+symbol operands and Motorola `dc` data. They touch the Z80, SM83, CPU65816,
+CPU68000, and Chip-8 parsers, the shared `pkg/arch/operand.go`, `pkg/parser/parser.go`,
+and the `pkg/parser/directives` files. The counts above do not include them.
+The new CPU work stays with its excluded architecture proposals. The shared
+changes are assigned in the mixed-file table and in the deferred shared
+contracts table. The 65816 hunk replaces the dot-local label helper, which
+is on the target already for the 6502 parser. Keep that 6502 helper in the
+6502 queue.
+
 This plan retains the existing 6502 scope. The complete branch inventory is in
 [CHANGES_SUMMARY.md](../CHANGES_SUMMARY.md). The follow-up table below assigns
 the remaining architecture file groups to separate proposals.
@@ -963,12 +973,13 @@ branch diff as the completion criterion.
 | `pkg/assembler/memory*.go`, `write_output_step.go`, `banked_output_test.go` | P02 only. Adapt imports until P11 lands. |
 | `pkg/assembler/process_macros_step.go` | P09 positional macro expansion. |
 | Assembler asm6/ca65/x816 tests and `parse_ast_nodes_test.go` | P02 range interactions; P06 data migration; P07/P08 dialect cases; P11 imports. |
-| `pkg/parser/parser.go` | P07-P09 labels and macros; P12 identity; P15 stream output. Preserve existing x816 behavior. |
+| `pkg/parser/parser.go` | P07-P09 labels and macros; P12 identity; P15 stream output. Preserve existing x816 behavior. Defer the `parseDot` literal dot-label hunk to the shared contract in T01. |
 | `pkg/parser/parser*_test.go` | Same behavior split as parser code; P11 import migration. |
 | `pkg/parser/opcode_identity_test.go` | P12: keep shared isolation behavior; replace excluded CPU fixtures. |
-| `pkg/parser/directives/data.go` | P06 data expressions; P09 NESASM `ds`. Existing align behavior is already on main. |
+| `pkg/parser/directives/data.go` | P06 data expressions; P09 NESASM `ds`. Existing align behavior is already on main. Defer the `constantData` split, the `dcb.` branch, and `dataExpressionToken` to T03 and the shared contract in T01. |
 | `pkg/parser/directives/{addr,base,hex}.go` | P06 data migration. |
-| `pkg/parser/directives/directives.go` | P07-P09 mode overlays. Preserve independent maps and existing x816 overlay. |
+| `pkg/parser/directives/directives.go` | P07-P09 mode overlays. Preserve independent maps and existing x816 overlay. Defer the `dc` registration to T03. |
+| `pkg/arch/operand.go` | New with the dot-symbol shared contract in T01. No 6502 part uses it. |
 | `pkg/parser/directives/{ca65,macro}.go` | P08; adapt data handlers to P06. |
 | `pkg/parser/directives/nesasm.go` | P07 NES 2.0 parser additions. Existing NESASM handlers stay intact. |
 | `pkg/parser/directives/helper.go` | Include only if the retained program-counter path needs it; otherwise omit the redundant wrapper. |
@@ -1021,6 +1032,7 @@ proposals must use the contract already present on the target.
 
 | First user | Shared files | Changes to merge |
 |---|---|---|
+| T01: Chip-8 | `pkg/arch/operand.go`, `pkg/parser/parser.go`, `pkg/parser/directives/data.go` | Add `OperandSymbolToken`, the literal dot-label definition in `parseDot`, and dot-symbol reading in data expressions. Chip-8, CPU65816, CPU68000, SM83, and Z80 use them. Later proposals reuse the contract on the target. |
 | T01: Chip-8 | `pkg/parser/ast/stream.go`, `pkg/parser/ast/stream_test.go`, `pkg/arch/arch.go`, `pkg/arch/relocation_test.go`, `pkg/assembler/address_assigning_step.go`, `pkg/assembler/address_assigning_step_test.go`, `pkg/codec/codec.go` | Add packed relocation fields, validation, recording, and reconciliation for bits inside an instruction word. |
 | T02: CPU65816 | `pkg/arch/arch.go`, `pkg/parser/parser.go`, `pkg/parser/parser_test.go`, `pkg/parser/ast/instruction_argument.go`, `pkg/parser/ast/instruction_argument_test.go`, `pkg/parser/ast/stream.go`, `pkg/parser/ast/stream_test.go`, `pkg/codec/codec.go`, `pkg/codec/codec_test.go` | Add parser state methods, instruction state transitions, state-aware construction/parsing, and validation. Keep state private to each parser and stream. |
 | T05: Z80 | `pkg/arch/arch.go`, `pkg/parser/parser.go`, registered adapter methods and parser mocks on the target | Pass the original mnemonic to `ParseIdentifier` for target forms that need it. Update all existing adapters and mocks in this candidate. The 6502 queue retains the old signature. |
@@ -1053,6 +1065,7 @@ Files to merge with this proposal:
 - `pkg/arch/chip8/parser/resolved_copy_test.go`
 - `pkg/arch/chip8/parser/symbol_rewrite.go`
 - `pkg/codec/chip8_test.go`
+- `pkg/codec/chip8_dot_symbol_test.go`
 - `examples/chip8/README.md`
 - `examples/chip8/cube.asm`
 - `examples/chip8/hello.asm`
@@ -1092,6 +1105,8 @@ Files to merge with this proposal:
 - `pkg/arch/cpu65816/parser/state.go`
 - `pkg/arch/cpu65816/parser/symbol_rewrite.go`
 - `pkg/codec/cpu65816_test.go`
+- `pkg/assembler/cpu65816_dot_symbol_test.go`
+- `pkg/parser/cpu65816_dot_symbol_test.go`
 - `docs/cpu65816-support-plan.md`
 
 Split shared changes in `pkg/arch/byte_order_test.go`,
@@ -1143,6 +1158,9 @@ Files to merge with this proposal:
 - `pkg/arch/cpu68000/parser/size_test.go`
 - `pkg/arch/cpu68000/parser/symbol_rewrite.go`
 - `pkg/codec/cpu68000_test.go`
+- `pkg/assembler/cpu68000_dot_symbol_test.go`
+- `pkg/parser/cpu68000_dot_symbol_test.go`
+- `pkg/parser/directives/motorola_data.go`
 - `pkg/codec/cpu68000_register_symbol_test.go`
 - `pkg/codec/cpu68000_status_test.go`
 - `pkg/codec/cpu68000_symbol_addend_test.go`
@@ -1181,6 +1199,8 @@ Files to merge with this proposal:
 - `pkg/arch/sm83/sm83.go`
 - `pkg/arch/sm83/sm83_test.go`
 - `pkg/codec/sm83_test.go`
+- `pkg/assembler/sm83_dot_symbol_test.go`
+- `pkg/parser/sm83_dot_symbol_test.go`
 - `pkg/parser/sm83_parenthesized_test.go`
 - `docs/sm83-support-plan.md`
 
@@ -1240,6 +1260,8 @@ Files to merge with this proposal:
 - `pkg/arch/z80/z80_test.go`
 - `pkg/codec/z80_test.go`
 - `pkg/codec/z80_index_halves_test.go`
+- `pkg/assembler/z80_dot_symbol_test.go`
+- `pkg/parser/z80_dot_symbol_test.go`
 - `docs/z80-support-plan.md`
 - `docs/z80-branch-changes.md`
 - `cmd/retroasm/z80_fixture_test.go`
