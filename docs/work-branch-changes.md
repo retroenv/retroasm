@@ -1329,8 +1329,10 @@ The absolute replacement in `go.mod` is excluded from every proposal.
 
 ## Progress record
 
-P00-P03 are complete locally as of 2026-10-16. P04 is the next part.
-P04-P23, V01, and T01-T06 remain planned. The scope table above describes
+P00, P01, and P04 are complete locally as of 2026-10-21. P02 and P03 are
+planned again: their earlier record named a commit that is not in the
+repository (see below). P02/P03 are the next parts. P02a, P05-P23, V01,
+and T01-T06 remain planned. The scope table above describes
 the original source snapshot, not the current target after extraction.
 
 ### P00 — Complete
@@ -1366,41 +1368,58 @@ the original source snapshot, not the current target after extraction.
   No temporary file is required for P02. Start P02 from the current `main`
   endpoint and retain its CI setup changes.
 
-### P02/P03 — Complete (landed together)
+### P04 — Complete
 
-P02 alone cannot pass its own gate: with the new padding logic, the default
-`fill = yes` config turns the retroasm default output into a padded 32 KiB
-buffer, breaking `TestASTAssembly`, `TestTextAssembly`, and `ExampleNew`.
-Source history landed the same change set in one commit (`1dcc23f`). The
-user approved landing P02 and P03 together; the P03 default-output decision
-is recorded in this commit instead of a separate review.
+- Target commit: `03b8f1febd64b8f43c2f96b5fac48d6c567cf4c0` on local `main`.
+  Base: `80bc1425d8df88080ea738ae6e9062e2766d4dcb`. The remote `main` ref still
+  matches the base. No PR or push was requested. CI is pending a later push.
+- Included files: `pkg/number/number.go` and `pkg/number/number_test.go`.
+  Width three in `CheckDataWidth` and little-endian output in
+  `WriteToBytes`. Test cases: `0x123456` gives `56 34 12`, and `0x1234567`
+  fails the width check. The byte-order API stays in P15.
+- Checks passed with `GOWORK=off`: `go test ./pkg/number/...`, `make build`,
+  `make test` (with race checks), and `git diff --check`.
+- `make lint` fails on pre-existing violations only. The dev `retrogolint`
+  reports 45 on the base and 43 on the candidate. The pinned `v1.0.6` was not
+  installed, so no pinned-linter result is claimed.
+- P04 needs only P00. It landed before P02/P03.
 
-- Target base: `80bc1425d8df88080ea738ae6e9062e2766d4dcb` on local `main`.
-  Remote `main` matched the base before extraction.
-- Candidate commit: `05c2979df3e51358c2e49a7dc5c7cc347dbbf42b` on local
-  `main`. No PR or push was requested. CI is pending a later push.
-- Included P02: `pkg/assembler/memory.go` write bounds and memory-relative
+### P02/P03 — Planned (not landed)
+
+Correction, 2026-10-21: an earlier record said that P02 and P03 were complete
+in candidate commit `05c2979`. That commit is not in the repository. Local and
+remote `main` do not contain the P02 or P03 changes: `address_assigning_step.go`
+has no `SegmentStart`, and `defaultConfig` still has `fill = yes`. No result
+for these parts exists. Do not claim one.
+
+Plan: land P02 and P03 as one candidate. P02 alone cannot pass its gate. With
+the new padding logic, the default `fill = yes` config makes the default
+output a padded 32 KiB buffer. This breaks `TestASTAssembly`,
+`TestTextAssembly`, and `ExampleNew`. Source history uses one commit for the
+same change set (`1dcc23f`). Record the P03 default-output decision in the
+candidate commit and in the PR.
+
+- Target base: the current `main` endpoint, which includes P04 (`03b8f1f`).
+  Compare the base with the remote `main` before extraction.
+- P02 content: `pkg/assembler/memory.go` write bounds and memory-relative
   offsets; `memory_test.go`; `write_output_step.go` full-buffer output;
   `address_assigning_step.go` `SegmentStart` program counters and the
   post-assignment memory-overflow check; `banked_output_test.go` with
   `m6502` imports; the asm6 branch fixture moved to `.org $0082`.
-- Included P03: `fill = yes` removed from the retroasm default config with
-  the used-bytes comment; `TestTextAssemblyOutputLengths` comparing default,
-  filled, and unfilled output; the `docs/library-usage.md` filled-config
-  example. `ExampleNew` passes unchanged after the default change.
-- Excluded mixed hunks: relocation recording (P17) and the reservation
-  error return (P02a) in `address_assigning_step.go`; the cpu6502 import
-  renames (P11) and data-expression cases (P06) in the asm6 test.
-- Checks passed: `GOWORK=off go test ./pkg/assembler/... ./pkg/retroasm/... ./cmd/retroasm/...`,
-  `GOWORK=off make build`, `GOWORK=off make lint`, `GOWORK=off make test`,
-  and `git diff --check`. Pinned retrogolib, no local replacement.
-- Lint note: the dev `retrogolint` currently in `PATH` reports 44
-  pre-existing `codequality-switch-case-separation` violations on the main
-  baseline; the pinned `v1.0.6` from `make install-linters` reports none.
-  The source branch's whitespace-only fixes for that rule remain outside
-  this phase.
-- The temporary candidate checkout was removed after the commit. Start P04
-  from the current `main` endpoint.
+- P03 content: remove `fill = yes` from the retroasm default config and
+  update its comment; add `TestTextAssemblyOutputLengths` for default,
+  filled, and unfilled output; add the filled-config example to
+  `docs/library-usage.md`. Check that `ExampleNew` passes unchanged.
+- Exclude mixed hunks: relocation recording (P17) and the reservation error
+  return (P02a) in `address_assigning_step.go`; the cpu6502 import renames
+  (P11) and data-expression cases (P06) in the asm6 test.
+- Checks to run: `go test ./pkg/assembler/... ./pkg/retroasm/... ./cmd/retroasm/...`,
+  then `make build`, `make lint`, `make test`, and `git diff --check`, with
+  `GOWORK=off` and the pinned retrogolib.
+- Lint: the dev `retrogolint` in `PATH` reports pre-existing
+  `codequality-switch-case-separation` violations on `main` (45 when P04 was
+  checked). Compare the candidate count with the base count. The source
+  branch's whitespace-only fixes for that rule stay outside this phase.
 
 For each future part, record:
 
