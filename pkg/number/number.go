@@ -82,6 +82,7 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 		if i > math.MaxUint8 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 1)
 		}
+
 	case 2:
 		if i > math.MaxUint16 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 2)
@@ -96,6 +97,7 @@ func CheckDataWidth(i uint64, dataWidth int) error {
 		if i > math.MaxUint32 {
 			return fmt.Errorf("%w: "+numberExceedsMsg, ErrNumberExceedsWidth, i, 4)
 		}
+
 	case 8:
 
 	default:
@@ -110,6 +112,7 @@ func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
 	switch dataWidth {
 	case 1:
 		return []byte{uint8(i)}, nil
+
 	case 2:
 		data := make([]byte, 2)
 		binary.LittleEndian.PutUint16(data, uint16(i))
@@ -122,10 +125,12 @@ func WriteToBytes(i uint64, dataWidth int) ([]byte, error) {
 		data := make([]byte, 4)
 		binary.LittleEndian.PutUint32(data, uint32(i))
 		return data, nil
+
 	case 8:
 		data := make([]byte, 8)
 		binary.LittleEndian.PutUint64(data, i)
 		return data, nil
+
 	default:
 		return nil, fmt.Errorf("%w: "+unsupportedDataWidthMsg, ErrUnsupportedDataWidth, dataWidth)
 	}

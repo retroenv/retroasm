@@ -67,6 +67,7 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu6502.A
 	case addressingDefault:
 		absolute = true
 		zeropage = true
+
 	case addressingAbsolute:
 		absolute = true
 	case addressingZeroPage:

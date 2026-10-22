@@ -301,6 +301,7 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		case "equ":
 			p.readPosition++
 			return p.parseAlias(tok, next2)
+
 		case "rs":
 			return p.parseNesAsmVariable(tok)
 		}
@@ -434,6 +435,7 @@ func (p *Parser[T]) createIdentifier(tok token.Token) (ast.Node, error) {
 		switch tok.Type {
 		case token.Identifier, token.Number:
 			i.Arguments = append(i.Arguments, tok)
+
 		case token.Comma:
 		default:
 			end = true

@@ -55,6 +55,7 @@ func (aa *addressAssign[T]) ArgumentValue(argument any) (uint64, error) {
 				return 0, fmt.Errorf("reference '%s' resolved to negative value %d", arg.name, adjusted)
 			}
 			return uint64(adjusted), nil
+
 		case uint64:
 			return applyUint64Offset(v, offset)
 		default:
@@ -123,6 +124,7 @@ func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (ui
 			return 0, fmt.Errorf("expression result %d is negative", v)
 		}
 		return uint64(v), nil
+
 	case uint64:
 		return v, nil
 	default:

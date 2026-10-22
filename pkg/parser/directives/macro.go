@@ -24,6 +24,7 @@ func Macro(p arch.Parser) (ast.Node, error) {
 		switch tok.Type {
 		case token.Identifier:
 			m.Arguments = append(m.Arguments, tok.Value)
+
 		case token.Comma:
 		default:
 			end = true

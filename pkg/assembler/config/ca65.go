@@ -68,6 +68,7 @@ func (c *Config[T]) readCa65Config(lex *lexer.Lexer) error {
 				if err != nil {
 					return fmt.Errorf("reading segments section: %w", err)
 				}
+
 			default:
 				return fmt.Errorf("unsupported identifier '%s' found at line %d column %d",
 					tok.Value, tok.Position.Line, tok.Position.Column)

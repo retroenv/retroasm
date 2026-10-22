@@ -170,6 +170,7 @@ func registerArchitectureForCPU(asm retroasm.Assembler, cpuName string) error {
 			return fmt.Errorf("registering architecture '%s': %w", cpu6502, err)
 		}
 		return nil
+
 	default:
 		return fmt.Errorf("%w: %s", ErrUnsupportedCPU, cpuName)
 	}
