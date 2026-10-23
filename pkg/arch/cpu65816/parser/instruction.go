@@ -528,7 +528,9 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 	}
 	tokenType := tok.Type
 
-	parser.AdvanceReadPosition(2)
+	parser.AdvanceReadPosition(1)
+	ins.modifiers = directives.ParseModifier(parser)
+	parser.AdvanceReadPosition(1)
 
 	argument, err := resolveImmediateArgument(tokenType, tokenValue)
 	if err != nil {
