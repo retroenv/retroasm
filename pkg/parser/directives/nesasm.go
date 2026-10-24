@@ -53,6 +53,7 @@ func NesasmConfig(p arch.Parser) (ast.Node, error) {
 	p.AdvanceReadPosition(2)
 	cfg := ast.NewConfiguration(configItem)
 	cfg.Value = i
+
 	return cfg, nil
 }
 
@@ -69,5 +70,6 @@ func NesasmOffsetCounter(p arch.Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
+
 	return ast.NewOffsetCounter(i), nil
 }

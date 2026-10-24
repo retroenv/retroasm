@@ -22,5 +22,6 @@ func FillValue(p arch.Parser) (ast.Node, error) {
 		return nil, fmt.Errorf("reading data tokens: %w", err)
 	}
 	cfg.Expression = expression.New(tokens...)
+
 	return cfg, nil
 }

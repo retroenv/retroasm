@@ -85,6 +85,7 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu6502.A
 		if absolute {
 			addressings = append(addressings, cpu6502.AbsoluteXAddressing)
 		}
+
 		if zeropage {
 			addressings = append(addressings, cpu6502.ZeroPageXAddressing)
 		}
@@ -97,6 +98,7 @@ func extendedAddressingParam(ins *instruction, indirectAccess bool) ([]cpu6502.A
 		if absolute {
 			addressings = append(addressings, cpu6502.AbsoluteYAddressing)
 		}
+
 		if zeropage {
 			addressings = append(addressings, cpu6502.ZeroPageYAddressing)
 		}

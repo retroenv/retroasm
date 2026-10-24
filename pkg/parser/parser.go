@@ -168,7 +168,9 @@ func (p *Parser[T]) TokensToAstNodes() ([]ast.Node, error) {
 		if entry != nil {
 			nodes = append(nodes, entry)
 		}
+
 		previousNode = entry
+
 		p.readPosition++
 	}
 
@@ -230,7 +232,9 @@ func (p *Parser[T]) parseTokens(ctx context.Context) error {
 			return fmt.Errorf("tokenization cancelled: %w", ctx.Err())
 		default:
 		}
+
 		tok, err := p.lexer.NextToken()
+
 		if err != nil {
 			return fmt.Errorf("reading next token: %w", err)
 		}
@@ -345,6 +349,7 @@ func (p *Parser[T]) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
 	p.readPosition += 3
 	v := ast.NewVariable(tok.Value, int(i))
 	v.UseOffsetCounter = true
+
 	return v, nil
 }
 
@@ -373,6 +378,7 @@ func (p *Parser[T]) parseAnonymousLabel(forward bool) ast.Node {
 		}
 		break
 	}
+
 	p.readPosition += level - 1
 
 	if forward {
@@ -381,6 +387,7 @@ func (p *Parser[T]) parseAnonymousLabel(forward bool) ast.Node {
 	}
 
 	p.anonBackwardCount++
+
 	return ast.NewLabel(fmt.Sprintf("__anon_bwd_%d_%d", level, p.anonBackwardCount))
 }
 
@@ -422,6 +429,7 @@ func (p *Parser[T]) isColonOptionalLabel(tok, next token.Token) bool {
 		return true
 	}
 	_, ok := p.handlers[nextName]
+
 	return ok
 }
 

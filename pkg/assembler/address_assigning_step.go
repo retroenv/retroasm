@@ -114,6 +114,7 @@ func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (ui
 	} else {
 		value, err = exprNode.Value.Evaluate(aa.currentScope, width)
 	}
+
 	if err != nil {
 		return 0, fmt.Errorf("evaluating expression argument: %w", err)
 	}
@@ -201,6 +202,7 @@ func parseReferenceOffset(name string) (string, int64) {
 			return name[:idx], n
 		}
 	}
+
 	return name, 0
 }
 
@@ -245,6 +247,7 @@ func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {
 		return 0, fmt.Errorf("getting data node size: %w", err)
 	}
 	aa.programCounter += uint64(size)
+
 	return aa.programCounter, nil
 }
 
@@ -271,6 +274,7 @@ func assignSymbolAddress[T any](aa addressAssign[T], sym *symbol) error {
 			return fmt.Errorf("evaluating data size at program counter: %w", err)
 		}
 	}
+
 	return nil
 }
 

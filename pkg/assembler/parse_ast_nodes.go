@@ -107,6 +107,7 @@ func parseSegment[T any](asm *parseAST[T], astSegment ast.Segment) error {
 	asm.currentSegment = seg
 	asm.segments[seg.config.SegmentName] = seg
 	asm.segmentsOrder = append(asm.segmentsOrder, seg)
+
 	return nil
 }
 
@@ -205,6 +206,7 @@ func parseAlias[T any](asm *parseAST[T], alias ast.Alias) ([]ast.Node, error) {
 		return nil, fmt.Errorf("creating symbol: %w", err)
 	}
 	sym.SetExpression(alias.Expression)
+
 	return []ast.Node{&symbol{Symbol: sym}}, nil
 }
 
@@ -253,6 +255,7 @@ func convertInstructionArgument(argument ast.Node, modifiers []ast.Modifier) (an
 			}
 			value += uint64(offset)
 		}
+
 		return value, nil
 
 	case ast.Label:
@@ -349,6 +352,7 @@ func modifierOffset(modifiers []ast.Modifier) (int64, error) {
 			return 0, fmt.Errorf("unsupported modifier operator '%s'", mod.Operator.Operator)
 		}
 	}
+
 	return offset, nil
 }
 
@@ -387,6 +391,7 @@ func parseBinaryInclude[T any](asm *parseAST[T], name string) ([]ast.Node, error
 	dat := &data{size: expression.New()}
 	dat.size.SetValue(1)
 	dat.values = append(dat.values, b)
+
 	return []ast.Node{dat}, nil
 }
 

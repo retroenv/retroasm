@@ -59,6 +59,7 @@ func (d Data) Copy() Node {
 	if d.Size != nil {
 		sizeCopy = d.Size.Copy()
 	}
+
 	if d.Values != nil {
 		valuesCopy = d.Values.Copy()
 	}

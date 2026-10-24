@@ -44,6 +44,7 @@ func generateOpcodesStep[T any](_ context.Context, asm *Assembler[T]) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -70,10 +71,12 @@ func generateDeferredDataBytes(currentScope *scope.Scope, dat *data) error {
 		}
 		actualSize += len(bytes)
 	}
+
 	// A changed byte count would invalidate every address assigned after this node.
 	if actualSize != dat.deferredSize {
 		return fmt.Errorf("deferred data size changed from %d to %d bytes", dat.deferredSize, actualSize)
 	}
+
 	return nil
 }
 
@@ -100,13 +103,16 @@ func generateDataFillBytes(d *data) error {
 			if j >= len(filler) {
 				j = 0
 			}
+
 			b[i] = filler[j]
+
 			j++
 		}
 	}
 
 	// replace the defined filler values with the final filled reserved buffer
 	d.values = []any{b}
+
 	return nil
 }
 
@@ -156,5 +162,6 @@ func generateReferenceDataBytes(currentScope *scope.Scope, d *data) error {
 
 		d.values[i] = b
 	}
+
 	return nil
 }

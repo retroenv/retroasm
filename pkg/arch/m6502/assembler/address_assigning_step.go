@@ -21,6 +21,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
 		insDetails = cpu6502.InstructionsByID[id]
 	}
+
 	if insDetails == nil {
 		name := strings.ToLower(ins.Name())
 		var ok bool
@@ -45,6 +46,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	}
 
 	programCounter := pc + uint64(instructionSize(addressing, addressingInfo.Size))
+
 	return programCounter, nil
 }
 
@@ -79,5 +81,6 @@ func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction,
 	} else {
 		ins.SetAddressing(int(modes[1]))
 	}
+
 	return nil
 }

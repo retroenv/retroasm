@@ -19,6 +19,7 @@ func updateDataSizesStep[T any](_ context.Context, asm *Assembler[T]) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -34,6 +35,7 @@ func updateDataSize(dat *data) error {
 		}
 		size *= int64(dat.width)
 		dat.size.SetValue(size)
+
 		return nil
 	}
 	if dat.deferred {
@@ -56,5 +58,6 @@ func updateDataSize(dat *data) error {
 	}
 
 	dat.size.SetValue(int64(size))
+
 	return nil
 }

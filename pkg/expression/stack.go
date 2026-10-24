@@ -16,6 +16,7 @@ func (st *stack[T]) pop() T {
 	lastIdx := len(st.data) - 1
 	item := st.data[lastIdx]
 	st.data = st.data[:lastIdx]
+
 	return item
 }
 

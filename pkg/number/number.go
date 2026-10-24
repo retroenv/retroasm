@@ -170,6 +170,7 @@ func parseBaseIndicator(r rune, i, idx, base *int, value string) (bool, error) {
 		*base = 16
 		*idx++
 		*i++
+
 		return true, nil
 
 	default:

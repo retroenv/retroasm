@@ -152,6 +152,7 @@ func (l *Lexer) checkCommentPrefixes(r rune) (token.Token, bool, error) {
 		}
 		return tok, true, nil
 	}
+
 	return token.Token{}, false, nil
 }
 
@@ -203,6 +204,7 @@ func (l *Lexer) readNumber(firstCharacter rune) (token.Token, error) {
 		if value == "%" {
 			tokenType = token.Percent
 		}
+
 		return l.newTokenPosition(tokenType, value, pos), nil
 	}
 
@@ -261,6 +263,7 @@ func (l *Lexer) processNumberCharacter(firstCharacter, r rune, i int, isBinary, 
 		literal.WriteRune(r)
 		*hasPrefix = true
 		*isBinary = true
+
 		return false, true
 
 	case !*hasPrefix &&

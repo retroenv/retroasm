@@ -155,6 +155,7 @@ func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) err
 	if dat.expression == nil {
 		dat.expression = expEval.fillValues
 	}
+
 	if dat.expression == nil || dat.expression.IsEvaluatedAtAddressAssign() {
 		return nil
 	}
@@ -183,6 +184,7 @@ func appendDataExpressionValue(dat *data, value any) error {
 		}
 
 		dat.values = append(dat.values, b)
+
 		return nil
 
 	case []byte:
@@ -210,6 +212,7 @@ func dataExpressionSize(tokens []token.Token, width int) int {
 			if !unary {
 				values--
 			}
+
 			operandExpected = true
 
 		case tok.Type == token.LeftParentheses:
@@ -220,6 +223,7 @@ func dataExpressionSize(tokens []token.Token, width int) int {
 			operandExpected = true
 		}
 	}
+
 	return values * width
 }
 
@@ -292,6 +296,7 @@ func parseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.If) erro
 		parent:       expEval.currentContext,
 	}
 	expEval.currentContext = ctx
+
 	return nil
 }
 
@@ -335,6 +340,7 @@ func parseElseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.Else
 	}
 
 	expEval.currentContext.processNodes = conditionMet
+
 	return nil
 }
 

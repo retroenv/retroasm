@@ -31,6 +31,7 @@ func NewInstruction(name string, addressing int, argument Node, modifier []Modif
 	if OpcodeIDLookup != nil {
 		opcodeID = OpcodeIDLookup(name)
 	}
+
 	return Instruction{
 		node:       &node{},
 		OpcodeID:   opcodeID,
@@ -52,6 +53,7 @@ func (i Instruction) Copy() Node {
 	if i.Argument != nil {
 		arg = i.Argument.Copy()
 	}
+
 	return Instruction{
 		node:       i.node,
 		OpcodeID:   i.OpcodeID,

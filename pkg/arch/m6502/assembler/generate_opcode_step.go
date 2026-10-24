@@ -17,10 +17,13 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
 		instructionInfo = cpu6502.InstructionsByID[id]
 	}
+
 	if instructionInfo == nil {
 		instructionInfo = cpu6502.Instructions[strings.ToLower(ins.Name())]
 	}
+
 	addressing := cpu6502.AddressingMode(ins.Addressing())
+
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
 	ins.SetSize(instructionSize(addressing, addressingInfo.Size))
@@ -71,6 +74,7 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 
 	opcodes := append(ins.Opcodes(), byte(value))
 	ins.SetOpcodes(opcodes)
+
 	return nil
 }
 
@@ -92,12 +96,15 @@ func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode
 	if id := cpu6502.OpcodeID(ins.OpcodeID()); id != cpu6502.InvalidOpcodeID {
 		instructionInfo = cpu6502.InstructionsByID[id]
 	}
+
 	if instructionInfo == nil {
 		instructionInfo = cpu6502.Instructions[strings.ToLower(ins.Name())]
 	}
+
 	if instructionInfo == nil {
 		return fmt.Errorf("value %d exceeds byte (no instruction info for upgrade)", value)
 	}
+
 	absInfo, ok := instructionInfo.Addressing[newMode]
 	if !ok {
 		return fmt.Errorf("value %d exceeds byte (no %d addressing for %s)", value, newMode, ins.Name())
@@ -111,6 +118,7 @@ func upgradeAndGenerateWord(ins arch.Instruction, newMode cpu6502.AddressingMode
 	}
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
+
 	return nil
 }
 
@@ -125,6 +133,7 @@ func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
+
 	return nil
 }
 
@@ -143,5 +152,6 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 
 	opcodes := append(ins.Opcodes(), b)
 	ins.SetOpcodes(opcodes)
+
 	return nil
 }

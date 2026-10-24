@@ -17,5 +17,6 @@ func Error(p arch.Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
+
 	return ast.NewError(strings.Trim(msg.Value, "\"'")), nil
 }

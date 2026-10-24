@@ -89,6 +89,7 @@ func setDefaultArchitecture(options *optionFlags) bool {
 	}
 	options.cpu = cpu6502
 	options.system = systemNES
+
 	return true
 }
 
@@ -100,6 +101,7 @@ func applyDerivedArchitectureDefaults(options *optionFlags) error {
 		}
 		options.cpu = defaultCPU
 	}
+
 	if options.system == "" && options.cpu != "" {
 		defaultSystem, ok := defaultSystemByCPU[options.cpu]
 		if !ok {
@@ -107,6 +109,7 @@ func applyDerivedArchitectureDefaults(options *optionFlags) error {
 		}
 		options.system = defaultSystem
 	}
+
 	return nil
 }
 

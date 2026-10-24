@@ -59,6 +59,7 @@ func Data(p arch.Parser) (ast.Node, error) {
 		data.Width = 1
 		data.ReferenceType = referenceType
 		data.Values = expression.New(values...)
+
 		return data, nil
 	}
 	// Restrict full-address inference to the architecture's address width so
@@ -67,6 +68,7 @@ func Data(p arch.Parser) (ast.Node, error) {
 		data.Type = ast.AddressType
 		data.ReferenceType = ast.FullAddress
 	}
+
 	data.Values = expression.New(tokens...)
 
 	return data, nil
@@ -111,6 +113,7 @@ func Align(p arch.Parser) (ast.Node, error) {
 	data.Size.AddTokens(tokens...)
 	data.Size.AddTokens(rightParen, percent)
 	data.Size.AddTokens(tokens...)
+
 	return data, nil
 }
 
@@ -160,6 +163,7 @@ func addressDataTokens(tokens []token.Token) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -180,6 +184,7 @@ func dataValueTokens(tokens []token.Token) []token.Token {
 			values = append(values, tok)
 		}
 	}
+
 	return values
 }
 
@@ -192,6 +197,7 @@ func addSizeProgramCounterReference(data ast.Data) (ast.Node, error) {
 		Value: expression.ProgramCounterReference,
 	}
 	data.Size.AddTokens(minus, programCounter)
+
 	return data, nil
 }
 
@@ -228,6 +234,7 @@ func readDataStorageTokens(p arch.Parser) (ast.Data, error) {
 		return ast.Data{}, fmt.Errorf("reading data tokens: %w", err)
 	}
 	data.Values = expression.New(tokens...)
+
 	return data, nil
 }
 
@@ -249,6 +256,7 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 			if tok.Type == token.Identifier {
 				tok.Value = p.ScopeLocalLabel(tok.Value)
 			}
+
 			tokens = append(tokens, tok)
 
 		case tok.Type == token.Comma:

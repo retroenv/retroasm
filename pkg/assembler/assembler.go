@@ -99,11 +99,13 @@ func (asm *Assembler[T]) ProcessAST(ctx context.Context, nodes []ast.Node) error
 			return fmt.Errorf("processing cancelled: %w", ctx.Err())
 		default:
 		}
+
 		if err := stp.handler(ctx, asm); err != nil {
 			return fmt.Errorf("executing assembler step %d/%d: %s: %w",
 				i+1, len(steps), stp.errorTemplate, err)
 		}
 	}
+
 	return nil
 }
 
@@ -140,6 +142,7 @@ func (asm *Assembler[T]) parseASTNodes(ctx context.Context, nodes []ast.Node) er
 			return fmt.Errorf("AST parsing cancelled: %w", ctx.Err())
 		default:
 		}
+
 		switch n := node.(type) {
 		case *ast.Comment:
 

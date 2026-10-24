@@ -31,5 +31,6 @@ func Base(p arch.Parser) (ast.Node, error) {
 	data.Fill = true
 	data.Size.AddTokens(addressTokens...)
 	data.Values = expression.New(tokens...)
+
 	return addSizeProgramCounterReference(data)
 }

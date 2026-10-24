@@ -40,6 +40,7 @@ func BuildHandlers(mode config.CompatibilityMode) map[string]Handler {
 		// .dl cannot change the defaults used by other parser instances.
 		maps.Copy(handlers, x816Handlers())
 	}
+
 	return handlers
 }
 

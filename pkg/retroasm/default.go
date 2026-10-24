@@ -303,6 +303,7 @@ func copyInputSymbols(symbols map[string]uint64, sourceName string) map[string]S
 			},
 		}
 	}
+
 	return result
 }
 

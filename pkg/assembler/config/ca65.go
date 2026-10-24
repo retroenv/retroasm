@@ -219,6 +219,7 @@ func readCa65ConfigAttribute(lex *lexer.Lexer, ar *ca65Area, attribute string) e
 	}
 
 	ar.attributes[strings.ToLower(attribute)] = tok.Value
+
 	return nil
 }
 

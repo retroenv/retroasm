@@ -49,9 +49,11 @@ func buildLogFields(input string, options *optionFlags) []log.Field {
 	if options.cpu != "" {
 		fields = append(fields, log.String("cpu", options.cpu))
 	}
+
 	if options.system != "" {
 		fields = append(fields, log.String("system", options.system))
 	}
+
 	return fields
 }
 
@@ -61,9 +63,11 @@ func createLogger(options *optionFlags) *log.Logger {
 	if options.debug {
 		cfg.Level = log.DebugLevel
 	}
+
 	if options.quiet {
 		cfg.Level = log.ErrorLevel
 	}
+
 	return log.NewWithConfig(cfg)
 }
 

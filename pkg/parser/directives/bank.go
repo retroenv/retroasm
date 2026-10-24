@@ -22,5 +22,6 @@ func Bank(p arch.Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
+
 	return ast.NewBank(int(i)), nil
 }

@@ -30,6 +30,7 @@ func (p *Parser[T]) parseAlias(tok, next token.Token) (ast.Node, error) {
 			return nil, fmt.Errorf("'%s': %w", tok.Value, errUnsupportedIdentifier)
 		}
 		p.readPosition-- // advance back since dot handler expects dot token
+
 		return handler(p)
 	}
 
@@ -41,6 +42,7 @@ func (p *Parser[T]) parseAlias(tok, next token.Token) (ast.Node, error) {
 	alias.Expression.SetEvaluateOnce(evaluateOnce)
 
 	p.readPosition += 2
+
 	return alias, nil
 }
 
