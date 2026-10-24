@@ -139,6 +139,7 @@ func (aa *addressAssign[T]) argumentExpressionValue(exprNode ast.Expression) (ui
 	} else {
 		value, err = exprNode.Value.Evaluate(aa.currentScope, width)
 	}
+
 	if err != nil {
 		return 0, fmt.Errorf("evaluating expression argument: %w", err)
 	}
@@ -181,6 +182,7 @@ func instructionArgumentReference(argument any) (string, int64, bool) {
 			return "", 0, false
 		}
 		combined, err := applyInt64Offset(addend, modifierAddend)
+
 		return symbol, combined, err == nil
 
 	case ast.Label:
@@ -263,6 +265,7 @@ func parseReferenceOffset(name string) (string, int64) {
 			return name[:idx], n
 		}
 	}
+
 	return name, 0
 }
 
@@ -307,6 +310,7 @@ func assignDataAddress[T any](aa addressAssign[T], d *data) (uint64, error) {
 		return 0, fmt.Errorf("getting data node size: %w", err)
 	}
 	aa.programCounter += uint64(size)
+
 	return aa.programCounter, nil
 }
 
@@ -329,6 +333,7 @@ func assignVariableAddress[T any](aa addressAssign[T], v *variable) (uint64, err
 	}
 
 	v.address = aa.programCounter
+
 	return end, nil
 }
 
@@ -349,6 +354,7 @@ func assignSymbolAddress[T any](aa addressAssign[T], sym *symbol) error {
 			return fmt.Errorf("evaluating data size at program counter: %w", err)
 		}
 	}
+
 	return nil
 }
 

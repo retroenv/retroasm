@@ -42,7 +42,9 @@ func parseAddressSize(parser arch.Parser) addressingSize {
 	default:
 		return addressingDefault
 	}
+
 	parser.AdvanceReadPosition(2)
+
 	return addrSize
 }
 
@@ -79,6 +81,7 @@ func addressingSizeAvailability(size addressingSize) (absolute, directPage bool)
 		directPage = true
 	case addressingLong:
 	}
+
 	return absolute, directPage
 }
 
@@ -88,17 +91,21 @@ func indexedXAddressings(absolute, directPage, indirect bool) []cpu65816.Address
 		if absolute {
 			addressings = append(addressings, cpu65816.AbsoluteIndexedXIndirectAddressing)
 		}
+
 		if directPage {
 			addressings = append(addressings, cpu65816.DirectPageIndexedXIndirectAddressing)
 		}
+
 		return addressings
 	}
 	if absolute {
 		addressings = append(addressings, cpu65816.AbsoluteIndexedXAddressing)
 	}
+
 	if directPage {
 		addressings = append(addressings, cpu65816.DirectPageIndexedXAddressing)
 	}
+
 	return addressings
 }
 
@@ -110,8 +117,10 @@ func indexedYAddressings(absolute, directPage, indirect bool) []cpu65816.Address
 	if absolute {
 		addressings = append(addressings, cpu65816.AbsoluteIndexedYAddressing)
 	}
+
 	if directPage {
 		addressings = append(addressings, cpu65816.DirectPageIndexedYAddressing)
 	}
+
 	return addressings
 }

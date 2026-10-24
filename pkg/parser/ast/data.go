@@ -92,6 +92,7 @@ func (d Data) Validate() error {
 			return fmt.Errorf("%w: address value %d has %d tokens", ErrInvalidData, index, tokenCount)
 		}
 	}
+
 	return nil
 }
 
@@ -140,6 +141,7 @@ func DataFromNode(n Node) (Data, bool) {
 			return *data, true
 		}
 	}
+
 	return Data{}, false
 }
 
@@ -154,5 +156,6 @@ func copyDataValues(values []*expression.Expression) []*expression.Expression {
 			copied[index] = value.Copy()
 		}
 	}
+
 	return copied
 }

@@ -16,5 +16,6 @@ func (resolved ResolvedInstruction) RewriteInstructionSymbols(rename func(string
 		}
 		resolved.Operands[index].Value = value
 	}
+
 	return resolved, nil
 }

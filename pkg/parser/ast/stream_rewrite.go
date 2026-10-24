@@ -61,16 +61,19 @@ func (stm *Stream) rewriteValidatedSource(edits []EntryEdit) error {
 			source = stm.entries[edit.SourceIndex]
 			destinations[edit.SourceIndex].add(index)
 		}
+
 		replacement := edit.Node
 		if replacement == nil && edit.SourceIndex != NoSourceEntry && len(destinations[edit.SourceIndex].indices) > 1 {
 			replacement = source.Node
 		}
+
 		entry, err := copyRewriteEntry(source, replacement)
 		if err != nil {
 			return fmt.Errorf("%w: edit %d: %w", ErrInvalidStream, index, err)
 		}
 		candidate.entries[index] = entry
 	}
+
 	candidate.rewriteMetadata(stm, destinations)
 	if err := candidate.RebuildSymbols(); err != nil {
 		return fmt.Errorf("rebuilding rewritten symbols: %w", err)
@@ -80,6 +83,7 @@ func (stm *Stream) rewriteValidatedSource(edits []EntryEdit) error {
 	}
 	candidate.revision = &streamRevision{}
 	*stm = *candidate
+
 	return nil
 }
 
@@ -93,6 +97,7 @@ func (stm *Stream) rewriteMetadata(source *Stream, destinations []rewriteDestina
 			stm.relocations = append(stm.relocations, copied)
 		}
 	}
+
 	stm.segmentChanges = nil
 	for _, change := range source.segmentChanges {
 		for _, index := range destinations[change.EntryIndex].indices {
@@ -101,6 +106,7 @@ func (stm *Stream) rewriteMetadata(source *Stream, destinations []rewriteDestina
 			stm.segmentChanges = append(stm.segmentChanges, copied)
 		}
 	}
+
 	for index, entry := range source.entries {
 		if len(destinations[index].indices) == 0 && entryHasSourceMetadata(entry) {
 			stm.removedEntries = append(stm.removedEntries, entry.Copy())
@@ -134,21 +140,26 @@ func copyRewriteEntry(source Entry, replacement Node) (Entry, error) {
 				// Instruction payload sharing did not improve the full build.
 				copied.Node = instruction.Copy()
 			}
+
 			return copied, nil
 		}
 	}
+
 	if replacement != nil {
 		source.Node = replacement
 	}
+
 	copied := source.Copy()
 	if carrier, ok := copied.Node.(entryCarrier); ok {
 		carrier.setEntryHandle(nil)
 	}
+
 	if replacement != nil {
 		if err := retainEntryComment(original, copied.Node); err != nil {
 			return Entry{}, err
 		}
 	}
+
 	return copied, nil
 }
 
@@ -171,6 +182,7 @@ func retainEntryComment(source, replacement Node) error {
 		return errors.New("replacement changes the source comment")
 	}
 	replacement.SetComment(comment)
+
 	return nil
 }
 

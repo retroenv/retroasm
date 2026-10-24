@@ -152,6 +152,7 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 
 			parser.AdvanceReadPosition(2)
 			ins.arg2 = parser.NextToken(0)
+
 			return parseInstructionSecondIdentifier(ins, true)
 
 		default:
@@ -196,6 +197,7 @@ func parseZeroPageRelativeInstruction(ins *instruction) (ast.Node, error) {
 		return nil, fmt.Errorf("parsing relative target: %w", err)
 	}
 	arguments := ast.NewInstructionArguments(zeroPage, target)
+
 	return newInstruction(ins.instruction, int(cpu6502.ZeroPageRelativeAddressing), arguments, nil), nil
 }
 
@@ -242,6 +244,7 @@ func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
+
 	return newInstruction(ins.instruction, int(addressing), l, ins.modifiers), nil
 }
 
@@ -394,6 +397,7 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 	if tok.Type == token.Identifier {
 		tokenValue = parser.ScopeLocalLabel(tokenValue)
 	}
+
 	tokenType := tok.Type
 
 	parser.AdvanceReadPosition(2) // Skip past # and the token
@@ -420,6 +424,7 @@ func parseInstructionImmediateAddressByte(parser arch.Parser, ins *instruction, 
 
 	parser.AdvanceReadPosition(3)
 	argument := ast.NewExpression(token.Token{Type: prefix}, operand)
+
 	return newInstruction(ins.instruction, int(cpu6502.ImmediateAddressing), argument, ins.modifiers), nil
 }
 
@@ -439,9 +444,11 @@ func parseInstructionImmediateAddressingExpression(parser arch.Parser, ins *inst
 		if tok.Type == token.Identifier {
 			tok.Value = parser.ScopeLocalLabel(tok.Value)
 		}
+
 		if tok.Type != token.Identifier && tok.Type != token.Number && !tok.Type.IsOperator() {
 			return nil, fmt.Errorf("unexpected token '%s' in immediate expression", tok.Type)
 		}
+
 		tokens = append(tokens, tok)
 	}
 }
@@ -549,6 +556,7 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 	}
 
 	n := ast.NewNumber(i)
+
 	return newInstruction(ins.instruction, int(addressing), n, ins.modifiers), nil
 }
 
@@ -559,6 +567,7 @@ func resolveArg1Token(p arch.Parser) token.Token {
 	if arg.Type == token.Identifier {
 		arg.Value = p.ScopeLocalLabel(arg.Value)
 	}
+
 	if arg.Type == token.Colon {
 		if name, ok := resolveUnnamedLabelRef(p); ok {
 			return token.Token{
@@ -567,6 +576,7 @@ func resolveArg1Token(p arch.Parser) token.Token {
 			}
 		}
 	}
+
 	if arg.Type == token.Dot {
 		if name, ok := resolveDotLocalLabelRef(p); ok {
 			return token.Token{
@@ -575,6 +585,7 @@ func resolveArg1Token(p arch.Parser) token.Token {
 			}
 		}
 	}
+
 	return arg
 }
 
@@ -604,6 +615,7 @@ func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
 		return "", false
 	}
 	p.AdvanceReadPosition(level) // advance past the +/- tokens (: stays as position base)
+
 	return name, true
 }
 
@@ -621,5 +633,6 @@ func resolveDotLocalLabelRef(p arch.Parser) (string, bool) {
 	}
 
 	p.AdvanceReadPosition(1) // advance past the identifier (. stays as position base)
+
 	return name, true
 }

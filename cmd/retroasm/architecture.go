@@ -110,6 +110,7 @@ func normalizeArchitectureOptions(options *optionFlags) bool {
 	options.cpu = strings.ToLower(strings.TrimSpace(options.cpu))
 	options.system = strings.ToLower(strings.TrimSpace(options.system))
 	options.z80Profile = strings.ToLower(strings.TrimSpace(options.z80Profile))
+
 	return options.z80Profile != ""
 }
 
@@ -121,6 +122,7 @@ func setDefaultArchitecture(options *optionFlags, z80ProfileRequested bool) bool
 	options.cpu = cpu6502Name
 	options.system = systemNES
 	options.z80Profile = profile.Default.String()
+
 	return true
 }
 
@@ -239,6 +241,7 @@ func validateZ80Profile(options *optionFlags, requested bool) error {
 	}
 
 	options.z80Profile = profile.Default.String()
+
 	return nil
 }
 

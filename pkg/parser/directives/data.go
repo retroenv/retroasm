@@ -102,6 +102,7 @@ func Align(p arch.Parser) (ast.Node, error) {
 	data.Size.AddTokens(tokens...)
 	data.Size.AddTokens(rightParen, percent)
 	data.Size.AddTokens(tokens...)
+
 	return data, nil
 }
 
@@ -112,12 +113,14 @@ func constantData(p arch.Parser, width int, values []*expression.Expression) ast
 		data.Width = 1
 		data.ReferenceType = referenceType
 		data.Values = addresses
+
 		return data
 	}
 	if width == p.AddressWidth()/8 && addressDataExpressions(values) {
 		data.Type = ast.AddressType
 		data.ReferenceType = ast.FullAddress
 	}
+
 	data.Values = values
 
 	return data
@@ -172,6 +175,7 @@ func addressDataExpressions(values []*expression.Expression) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -194,6 +198,7 @@ func addSizeProgramCounterReference(data ast.Data) (ast.Node, error) {
 		Value: expression.ProgramCounterReference,
 	}
 	data.Size.AddTokens(minus, programCounter)
+
 	return data, nil
 }
 
@@ -230,6 +235,7 @@ func readDataStorageTokens(p arch.Parser) (ast.Data, error) {
 		return ast.Data{}, fmt.Errorf("reading data values: %w", err)
 	}
 	data.Values = values
+
 	return data, nil
 }
 
@@ -274,6 +280,7 @@ func readDataTokens(p arch.Parser, returnOnComma bool) ([]token.Token, error) {
 			if tok.Type == token.Identifier {
 				tok.Value = p.ScopeLocalLabel(tok.Value)
 			}
+
 			tokens = append(tokens, tok)
 
 		case tok.Type == token.Comma:
@@ -330,7 +337,9 @@ func dataExpressionToken(p arch.Parser, preceding []token.Token) (token.Token, e
 			return tok, nil
 		}
 	}
+
 	tok.Type = token.Number
 	tok.Value = expression.ProgramCounterReference
+
 	return tok, nil
 }

@@ -34,6 +34,7 @@ func New() *config.Config[*chip8.Instruction] {
 			segment,
 		},
 	}
+
 	return cfg
 }
 
@@ -59,6 +60,7 @@ func (ar *archChip8[T]) BuildInstruction(mnemonic string, operands parser.Operan
 		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
 	}
 	built.SetOpcodeID(ar.OpcodeID(instruction))
+
 	return built, nil
 }
 
@@ -79,6 +81,7 @@ func (ar *archChip8[T]) InstructionRegistrations() []arch.InstructionRegistratio
 		for addressing := range instruction.Addressing {
 			addressings = append(addressings, int(addressing))
 		}
+
 		slices.Sort(addressings)
 		registrations = append(registrations, arch.InstructionRegistration{
 			Name:        instruction.Name,
@@ -86,9 +89,11 @@ func (ar *archChip8[T]) InstructionRegistrations() []arch.InstructionRegistratio
 			Addressings: addressings,
 		})
 	}
+
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
 		return strings.Compare(left.Name, right.Name)
 	})
+
 	return registrations
 }
 

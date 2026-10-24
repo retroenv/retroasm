@@ -16,6 +16,7 @@ func (resolved ResolvedInstruction) RewriteInstructionSymbols(rename func(string
 		}
 		resolved.Operands[index].Value = value
 	}
+
 	for index, operand := range resolved.OperandValues {
 		value, err := ast.RewriteNodeSymbols(operand, rename)
 		if err != nil {
@@ -23,5 +24,6 @@ func (resolved ResolvedInstruction) RewriteInstructionSymbols(rename func(string
 		}
 		resolved.OperandValues[index] = value
 	}
+
 	return resolved, nil
 }

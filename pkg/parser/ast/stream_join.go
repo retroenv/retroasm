@@ -37,14 +37,17 @@ func (stm *Stream) AppendStream(source *Stream) error {
 		symbol.EntryIndex += offset
 		candidate.symbols = append(candidate.symbols, symbol)
 	}
+
 	for _, relocation := range suffix.relocations {
 		relocation.EntryIndex += offset
 		candidate.relocations = append(candidate.relocations, relocation)
 	}
+
 	for _, change := range suffix.segmentChanges {
 		change.EntryIndex += offset
 		candidate.segmentChanges = append(candidate.segmentChanges, change)
 	}
+
 	candidate.finalState = suffix.finalState
 	if err := candidate.Validate(); err != nil {
 		return fmt.Errorf("validating combined stream: %w", err)
@@ -52,6 +55,7 @@ func (stm *Stream) AppendStream(source *Stream) error {
 
 	candidate.revision = &streamRevision{}
 	*stm = *candidate
+
 	return nil
 }
 

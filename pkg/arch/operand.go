@@ -21,7 +21,9 @@ func OperandSymbolToken(parser Parser, offset int) (token.Token, error) {
 	if name == "" {
 		name = "." + identifier.Value
 	}
+
 	identifier.Value = name
 	parser.AdvanceReadPosition(1)
+
 	return identifier, nil
 }

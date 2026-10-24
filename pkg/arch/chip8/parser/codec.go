@@ -37,6 +37,7 @@ func BuildInstruction(mnemonic string, instruction *chip8.Instruction, operands 
 		return ast.Instruction{}, err
 	}
 	argument := ast.NewInstructionArgument(resolved)
+
 	return ast.NewInstruction(mnemonic, int(addressing), argument, nil), nil
 }
 
@@ -81,6 +82,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 	if options.Uppercase || options.UppercaseMnemonic {
 		mnemonic = strings.ToUpper(mnemonic)
 	}
+
 	formatted := make([]string, len(resolved.Operands))
 	for index, operand := range resolved.Operands {
 		formatted[index], err = formatOperand(operand, options)
@@ -88,6 +90,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 			return "", fmt.Errorf("formatting operand %d: %w", index, err)
 		}
 	}
+
 	if len(formatted) == 0 {
 		return options.Indent + mnemonic, nil
 	}
@@ -95,6 +98,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 	if options.SpaceAfterComma {
 		separator = ", "
 	}
+
 	return options.Indent + mnemonic + " " + strings.Join(formatted, separator), nil
 }
 
@@ -113,6 +117,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 	default:
 		return ResolvedInstruction{}, fmt.Errorf("%w: unexpected argument %T", ErrInvalidInstruction, argument)
 	}
+
 	switch resolved := value.(type) {
 	case ResolvedInstruction:
 		return resolved, nil
@@ -122,6 +127,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 			return *resolved, nil
 		}
 	}
+
 	return ResolvedInstruction{}, fmt.Errorf("%w: unexpected resolved argument %T", ErrInvalidInstruction, value)
 }
 

@@ -131,6 +131,7 @@ func resolveOperands(instruction *cpu6502.Instruction, operands Operands) (cpu65
 			return cpu6502.ZeroPageRelativeAddressing, nil
 		}
 	}
+
 	return cpu6502.NoAddressing, ErrUnsupportedAddressing
 }
 
@@ -169,6 +170,7 @@ func resolveOperand(instruction *cpu6502.Instruction, operand Operand) (cpu6502.
 	default:
 		return cpu6502.NoAddressing, ErrUnsupportedAddressing
 	}
+
 	if !supportsAddressing(instruction, addressing) {
 		return cpu6502.NoAddressing, ErrUnsupportedAddressing
 	}
@@ -245,6 +247,7 @@ func resolveMemorySize(instruction *cpu6502.Instruction, value ast.Node, zeroPag
 			return zeroPage
 		}
 	}
+
 	switch {
 	case hasZeroPage && hasAbsolute:
 		return ambiguous
@@ -299,6 +302,7 @@ func validateResolved(resolved ResolvedInstruction) error {
 			}
 		}
 	}
+
 	return validateWidths(resolved)
 }
 
@@ -318,9 +322,11 @@ func validateWidths(resolved ResolvedInstruction) error {
 
 			maximum = math.MaxUint8
 		}
+
 		if value, ok := ast.NumberValue(operand.Value); ok && value > maximum {
 			return fmt.Errorf("%w: operand %d value %d exceeds 0x%X", ErrInvalidInstruction, index, value, maximum)
 		}
 	}
+
 	return nil
 }

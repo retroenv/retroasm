@@ -181,6 +181,7 @@ func NewDefinitionSymbolExpression(definition *expression.Expression) SymbolExpr
 	if definition != nil {
 		copied = definition.Copy()
 	}
+
 	return SymbolExpression{
 		Kind:          SymbolExpressionDefinition,
 		ReferenceType: FullAddress,
@@ -211,6 +212,7 @@ func NewStreamFromNodes(nodes ...Node) *Stream {
 	for index, node := range nodes {
 		entries[index] = Entry{Node: node}
 	}
+
 	return NewStream(entries...)
 }
 
@@ -237,6 +239,7 @@ func (exp SymbolExpression) Copy() SymbolExpression {
 	if exp.Definition != nil {
 		exp.Definition = exp.Definition.Copy()
 	}
+
 	return exp
 }
 
@@ -269,6 +272,7 @@ func (ent Entry) Copy() Entry {
 	if ent.Node != nil {
 		result.Node = ent.Node.Copy()
 	}
+
 	if ent.Annotations != nil {
 		result.Annotations = make([]Annotation, len(ent.Annotations))
 		for index, annotation := range ent.Annotations {
@@ -277,6 +281,7 @@ func (ent Entry) Copy() Entry {
 			}
 		}
 	}
+
 	return result
 }
 
@@ -327,6 +332,7 @@ func (stm *Stream) Nodes() []Node {
 			nodes[index] = entry.Node.Copy()
 		}
 	}
+
 	return nodes
 }
 
@@ -387,6 +393,7 @@ func (stm *Stream) Replace(start, end int, replacement []Entry) error {
 
 	candidate.revision = &streamRevision{}
 	*stm = *candidate
+
 	return nil
 }
 
@@ -407,12 +414,14 @@ func (stm *Stream) ResolveSymbolValues(values map[string]uint64) error {
 			symbol.Expression = NewAbsoluteSymbolExpression(value)
 		}
 	}
+
 	if err := candidate.Validate(); err != nil {
 		return fmt.Errorf("%w: resolved symbol metadata is incompatible: %w", ErrInvalidStream, err)
 	}
 
 	candidate.revision = &streamRevision{}
 	*stm = *candidate
+
 	return nil
 }
 
@@ -454,6 +463,7 @@ func (stm *Stream) reindexMetadata(start, end, replacementCount int) error {
 		}
 		stm.symbols[index].EntryIndex = entryIndex
 	}
+
 	for index := range stm.relocations {
 		entryIndex, err := replacementEntryIndex(stm.relocations[index].EntryIndex, start, end, replacementCount)
 		if err != nil {
@@ -461,6 +471,7 @@ func (stm *Stream) reindexMetadata(start, end, replacementCount int) error {
 		}
 		stm.relocations[index].EntryIndex = entryIndex
 	}
+
 	for index := range stm.segmentChanges {
 		entryIndex, err := replacementEntryIndex(stm.segmentChanges[index].EntryIndex, start, end, replacementCount)
 		if err != nil {
@@ -468,6 +479,7 @@ func (stm *Stream) reindexMetadata(start, end, replacementCount int) error {
 		}
 		stm.segmentChanges[index].EntryIndex = entryIndex
 	}
+
 	return nil
 }
 
@@ -497,6 +509,7 @@ func validateEntries(entries []Entry) error {
 			return fmt.Errorf("%w: entry %d has boundary %d", ErrInvalidStream, index, entry.Boundary)
 		}
 	}
+
 	return nil
 }
 
@@ -521,6 +534,7 @@ func validateSymbols(symbols []Symbol, entries []Entry) error {
 			return fmt.Errorf("%w: symbol %q has %w", ErrInvalidStream, symbol.Name, err)
 		}
 	}
+
 	return nil
 }
 
@@ -551,6 +565,7 @@ func validateRelocations(relocations []Relocation, entries []Entry) error {
 			return fmt.Errorf("%w: relocation %d has %w", ErrInvalidStream, index, err)
 		}
 	}
+
 	return nil
 }
 
@@ -573,6 +588,7 @@ func validateSegmentChanges(changes []SegmentChange, entries []Entry) error {
 			return fmt.Errorf("%w: segment change %d does not match its entry", ErrInvalidStream, index)
 		}
 	}
+
 	return nil
 }
 
@@ -667,6 +683,7 @@ func validateSymbolNode(symbol Symbol, entry Entry) error {
 			return errors.New("a function that differs from its entry")
 		}
 	}
+
 	return nil
 }
 
@@ -700,6 +717,7 @@ func validateRelocationNode(relocation Relocation, node Node) error {
 	if data.ReferenceType != FullAddress {
 		width = 1
 	}
+
 	if DataWidth(width) != relocation.Width || relocation.ByteOffset%uint64(width) != 0 {
 		return errors.New("a width or byte offset that differs from its data entry")
 	}
@@ -775,6 +793,7 @@ func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
 				}
 			}
 		}
+
 		nested, ok := argument.Value.(Node)
 		return ok && nodeReferencesExpression(nested, expected)
 
@@ -785,6 +804,7 @@ func nodeReferencesExpression(node Node, expected SymbolExpression) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -798,6 +818,7 @@ func instructionReferenceMatchesExpression(reference InstructionReference, expec
 		return false
 	}
 	addend, ok = combineInstructionAddends(addend, modifierAddend)
+
 	return ok && symbol == expected.Symbol && addend == expected.Addend && reference.ReferenceType == expected.ReferenceType
 }
 
@@ -827,12 +848,14 @@ func instructionModifierAddend(modifiers []Modifier) (int64, bool) {
 		default:
 			return 0, false
 		}
+
 		var ok bool
 		result, ok = combineInstructionAddends(result, delta)
 		if !ok {
 			return 0, false
 		}
 	}
+
 	return result, true
 }
 
@@ -848,6 +871,7 @@ func copySymbols(symbols []Symbol) []Symbol {
 	for index := range result {
 		result[index].Expression = result[index].Expression.Copy()
 	}
+
 	return result
 }
 
@@ -856,6 +880,7 @@ func copyRelocations(relocations []Relocation) []Relocation {
 	for index := range result {
 		result[index].Expression = result[index].Expression.Copy()
 	}
+
 	return result
 }
 
@@ -876,6 +901,7 @@ func copyEntries(entries []Entry) []Entry {
 	for index, entry := range entries {
 		result[index] = entry.Copy()
 	}
+
 	return result
 }
 
@@ -911,6 +937,7 @@ func immutableStreamValue(value reflect.Value) bool {
 				return false
 			}
 		}
+
 		return true
 
 	case reflect.Struct:
@@ -919,6 +946,7 @@ func immutableStreamValue(value reflect.Value) bool {
 				return false
 			}
 		}
+
 		return true
 
 	case reflect.Interface:

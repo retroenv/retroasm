@@ -37,6 +37,7 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.RegisterParams = slices.Clone(resolved.RegisterParams)
 	resolved.OperandValues = ast.CopyNodes(resolved.OperandValues)
 	resolved.Operands = copyOperands(resolved.Operands)
+
 	return resolved
 }
 
@@ -46,6 +47,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 	for index, register := range resolved.RegisterParams {
 		registers[index] = fmt.Sprintf("%d", register)
 	}
+
 	operands := make([]string, len(resolved.Operands))
 	for index, operand := range resolved.Operands {
 		operands[index] = fmt.Sprintf(
@@ -55,6 +57,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 			ast.InstructionArgumentForm(operand.Value),
 		)
 	}
+
 	return fmt.Sprintf(
 		"addressing=%d;registers=%s;operands=%s",
 		resolved.Addressing,
@@ -76,6 +79,7 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 			ReferenceType: ast.FullAddress,
 		})
 	}
+
 	return references
 }
 
@@ -115,6 +119,7 @@ func (resolved ResolvedInstruction) OpcodeInfo() (cpusm83.OpcodeInfo, cpusm83.Ad
 			return info, addressing, nil
 		}
 	}
+
 	return cpusm83.OpcodeInfo{}, cpusm83.NoAddressing, ErrOpcodeNotFound
 }
 
@@ -127,6 +132,7 @@ func (resolved ResolvedInstruction) effectiveAddressing() cpusm83.AddressingMode
 			return addressing
 		}
 	}
+
 	return cpusm83.NoAddressing
 }
 
@@ -147,6 +153,7 @@ func ParseIdentifier(p arch.Parser, mnemonic string, variants []*cpusm83.Instruc
 	}
 
 	argument := ast.NewInstructionArgument(*resolved)
+
 	return ast.NewInstruction(mnemonic, int(resolved.Addressing), argument, nil), nil
 }
 
@@ -174,6 +181,7 @@ func operandReferencesSymbol(value ast.Node) bool {
 		return false
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
+
 	return ok
 }
 
@@ -280,6 +288,7 @@ func parseEmbeddedSPOffset(identifier token.Token) (rawOperand, bool, error) {
 	if lower[2] == '-' {
 		operator = token.Minus
 	}
+
 	value, err := number.Parse(identifier.Value[3:])
 	if err != nil {
 		return rawOperand{}, true, fmt.Errorf("parsing SP offset '%s': %w", identifier.Value[3:], err)
@@ -290,6 +299,7 @@ func parseEmbeddedSPOffset(identifier token.Token) (rawOperand, bool, error) {
 	if operator == token.Minus {
 		value = (0x100 - value) & 0xff
 	}
+
 	return rawOperand{
 		token:    identifier,
 		register: cpusm83.RegSP,
@@ -310,6 +320,7 @@ func parseNegativeNumberOperand(p arch.Parser) (rawOperand, error) {
 		return rawOperand{}, fmt.Errorf("negative byte offset %d exceeds signed byte", value)
 	}
 	p.AdvanceReadPosition(1)
+
 	return rawOperand{value: ast.NewNumber((0x100 - value) & 0xff)}, nil
 }
 
@@ -328,7 +339,9 @@ func parseSPOffsetOperand(p arch.Parser, base token.Token, operator token.Type) 
 	if operator == token.Minus {
 		value = (0x100 - value) & 0xff
 	}
+
 	p.AdvanceReadPosition(2)
+
 	return rawOperand{
 		token:    base,
 		register: cpusm83.RegSP,
@@ -388,6 +401,7 @@ func buildParenthesizedRegOrLabel(inner token.Token) (rawOperand, error) {
 			isHLMinus: true,
 		}, nil
 	}
+
 	if indReg, ok := lookupIndirectRegister(inner.Value); ok {
 		return rawOperand{
 			indirect:    true,
@@ -459,6 +473,7 @@ func parseParenthesizedExpressionOperand(p arch.Parser, base token.Token) (rawOp
 	}
 
 	p.AdvanceReadPosition(closingOffset)
+
 	return rawOperand{
 		indirect: true,
 		value:    ast.NewExpression(append([]token.Token{base}, tokens...)...),
@@ -472,6 +487,7 @@ func parseExpressionOperand(p arch.Parser, base token.Token) (rawOperand, bool) 
 	}
 
 	p.AdvanceReadPosition(consumed)
+
 	return rawOperand{
 		value: ast.NewExpression(append([]token.Token{base}, tokens...)...),
 	}, true
@@ -609,6 +625,7 @@ func resolveSingleRegister(variants []*cpusm83.Instruction, op rawOperand) *Reso
 		}
 
 		addressing := selectRegisterAddressing(variant)
+
 		return &ResolvedInstruction{
 			Addressing:     addressing,
 			Instruction:    variant,
@@ -635,12 +652,14 @@ func matchConditionSingle(variants []*cpusm83.Instruction, cond cpusm83.Register
 		}
 
 		addressing := selectRegisterAddressing(variant)
+
 		return &ResolvedInstruction{
 			Addressing:     addressing,
 			Instruction:    variant,
 			RegisterParams: []cpusm83.RegisterParam{cond},
 		}
 	}
+
 	return nil
 }
 
@@ -671,6 +690,7 @@ func matchIndirectRegisterOpcode(variants []*cpusm83.Instruction, reg cpusm83.Re
 			RegisterParams: []cpusm83.RegisterParam{reg},
 		}
 	}
+
 	return nil
 }
 
@@ -687,6 +707,7 @@ func matchIndirectAddressingOnly(variants []*cpusm83.Instruction) *ResolvedInstr
 			Instruction: variant,
 		}
 	}
+
 	return nil
 }
 
@@ -755,6 +776,7 @@ func matchRstVariant(variants []*cpusm83.Instruction, rstParam cpusm83.RegisterP
 			RegisterParams: []cpusm83.RegisterParam{rstParam},
 		}
 	}
+
 	return nil
 }
 
@@ -821,6 +843,7 @@ func resolveSpecialLD(variants []*cpusm83.Instruction, op1, op2 rawOperand) *Res
 			return result
 		}
 	}
+
 	if result := resolveAbsoluteLD(variants, op1, op2); result != nil {
 		return result
 	}
@@ -863,8 +886,11 @@ func resolveSpecialLDH(variants []*cpusm83.Instruction, op1, op2 rawOperand) *Re
 	switch {
 	case op1.indirect && op2.register == cpusm83.RegA && !op2.indirect:
 		indirect = op1
+
 	case op1.register == cpusm83.RegA && !op1.indirect && op2.indirect:
-		indirect, isLoad = op2, true
+		indirect = op2
+		isLoad = true
+
 	default:
 		return nil
 	}
@@ -883,13 +909,16 @@ func resolveSpecialLDH(variants []*cpusm83.Instruction, op1, op2 rawOperand) *Re
 		if isLoad {
 			register = cpusm83.RegLoadHighMem
 		}
+
 		resolved.Addressing = cpusm83.ImmediateAddressing
 		resolved.OperandValues = []ast.Node{indirect.value}
 
 	default:
 		return nil
 	}
+
 	resolved.RegisterParams = []cpusm83.RegisterParam{register}
+
 	return resolved
 }
 
@@ -970,6 +999,7 @@ func soleAddressing(instruction *cpusm83.Instruction) cpusm83.AddressingMode {
 			return addressing
 		}
 	}
+
 	return cpusm83.NoAddressing
 }
 
@@ -1014,11 +1044,13 @@ func resolveIndirectLoadStore(variants []*cpusm83.Instruction, op1, op2 rawOpera
 	var isLoad bool
 	switch {
 	case op2.indirect && !op1.indirect:
-		regOp, indOp = op1, op2
+		regOp = op1
+		indOp = op2
 		isLoad = true
 
 	case op1.indirect && !op2.indirect:
-		regOp, indOp = op2, op1
+		regOp = op2
+		indOp = op1
 		isLoad = false
 
 	default:
@@ -1040,6 +1072,7 @@ func resolveIndirectLoadStore(variants []*cpusm83.Instruction, op1, op2 rawOpera
 
 	// Try RegisterPairOpcodes (e.g., LD (HL),A uses pair keys).
 	pairKeys := indirectPairKeys(regOp.register, indOp.indirectReg, isLoad)
+
 	return matchIndirectPairKeys(variants, pairKeys)
 }
 
@@ -1076,6 +1109,7 @@ func hlLoadRegisterParam(reg, ind cpusm83.RegisterParam) (cpusm83.RegisterParam,
 			return cpusm83.RegLoadHLA, true
 		}
 	}
+
 	if ind == cpusm83.RegBCIndirect && reg == cpusm83.RegA {
 		return cpusm83.RegLoadBC, true
 	}
@@ -1093,6 +1127,7 @@ func indirectPairKeys(reg, ind cpusm83.RegisterParam, isLoad bool) [][2]cpusm83.
 	} else {
 		keys = append(keys, [2]cpusm83.RegisterParam{ind, reg})
 	}
+
 	return keys
 }
 
@@ -1115,6 +1150,7 @@ func matchIndirectKeys(variants []*cpusm83.Instruction, keys []cpusm83.RegisterP
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -1137,6 +1173,7 @@ func matchIndirectPairKeys(variants []*cpusm83.Instruction, keys [][2]cpusm83.Re
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -1200,6 +1237,7 @@ func resolveAluRegisterPair(variants []*cpusm83.Instruction, op1, op2 rawOperand
 		}
 
 		addressing := selectRegisterAddressing(variant)
+
 		return &ResolvedInstruction{
 			Addressing:     addressing,
 			Instruction:    variant,
@@ -1304,6 +1342,7 @@ func resolveBitRegister(variants []*cpusm83.Instruction, op1, op2 rawOperand) *R
 	if op2.indirect && op2.indirectReg != cpusm83.RegNone {
 		reg = op2.indirectReg
 	}
+
 	if reg == cpusm83.RegNone {
 		return nil
 	}

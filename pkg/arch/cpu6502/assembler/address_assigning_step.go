@@ -36,6 +36,7 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	}
 
 	programCounter := pc + uint64(instructionSize(addressing, addressingInfo.Size))
+
 	return programCounter, nil
 }
 
@@ -74,5 +75,6 @@ func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction,
 	} else {
 		ins.SetAddressing(int(modes[1]))
 	}
+
 	return nil
 }

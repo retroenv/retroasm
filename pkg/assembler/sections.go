@@ -24,6 +24,7 @@ func (asm *Assembler[T]) Sections() []Section {
 		section := segment.layout()
 		sections = append(sections, section)
 	}
+
 	return sections
 }
 
@@ -51,6 +52,7 @@ func (seg *segment) layout() Section {
 				continue
 			}
 		}
+
 		start, extent, encoded := assembledNodeExtent(node)
 		section.Bytes += encoded
 		if extent == 0 {
@@ -61,9 +63,11 @@ func (seg *segment) layout() Section {
 			section.End = start
 			hasExtent = true
 		}
+
 		section.Start = min(section.Start, start)
 		section.End = max(section.End, start+extent)
 	}
+
 	return section
 }
 
@@ -80,6 +84,7 @@ func assembledNodeExtent(node ast.Node) (uint64, uint64, uint64) {
 				size += uint64(len(encoded))
 			}
 		}
+
 		return value.address, size, size
 
 	case *variable:

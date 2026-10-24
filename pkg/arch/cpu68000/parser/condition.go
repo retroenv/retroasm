@@ -44,6 +44,7 @@ func ParseConditionCode(mnemonic string) (string, uint16, bool) {
 		if suffix == "RA" {
 			suffix = "F"
 		}
+
 		if code, ok := conditionCodes[suffix]; ok {
 			return "DBcc", code, true
 		}

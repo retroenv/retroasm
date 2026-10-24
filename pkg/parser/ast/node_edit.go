@@ -44,6 +44,7 @@ func (stm *Stream) EditNodes() (*NodeEdit, error) {
 		edit.nodes[index] = entry.Node
 		edit.handles[&edit.tokens[index]] = index
 	}
+
 	return edit, nil
 }
 
@@ -68,6 +69,7 @@ func (edit *NodeEdit) Commit(nodes []Node) error {
 		}
 		edits[index] = entry
 	}
+
 	return edit.stream.rewriteValidatedSource(edits)
 }
 
@@ -80,6 +82,7 @@ func (edit *NodeEdit) Nodes() []Node {
 	for index := range nodes {
 		nodes[index] = edit.At(index)
 	}
+
 	return nodes
 }
 
@@ -96,6 +99,7 @@ func (edit *NodeEdit) Replace(start, end int, replacement []Node) error {
 	for index := range start {
 		edits[index].SourceIndex = index
 	}
+
 	for index, node := range replacement {
 		entry, err := edit.entryEdit(node, start+index)
 		if err != nil {
@@ -103,9 +107,11 @@ func (edit *NodeEdit) Replace(start, end int, replacement []Node) error {
 		}
 		edits[start+index] = entry
 	}
+
 	for index := end; index < edit.Len(); index++ {
 		edits[start+len(replacement)+index-end].SourceIndex = index
 	}
+
 	return edit.stream.rewriteValidatedSource(edits)
 }
 
@@ -125,10 +131,12 @@ func (edit *NodeEdit) entryEdit(node Node, index int) (EntryEdit, error) {
 			return EntryEdit{}, fmt.Errorf("%w: node %d has a foreign entry handle", ErrInvalidStream, index)
 		}
 	}
+
 	// The source handle establishes correspondence. Equality only avoids a copy.
 	if source != NoSourceEntry && equalRetainedNode(node, edit.nodes[source]) {
 		node = nil
 	}
+
 	return EntryEdit{
 		SourceIndex: source,
 		Node:        node,
@@ -146,6 +154,7 @@ func equalRetainedNode(left, right Node) bool {
 	if instruction, ok := InstructionFromNode(left); ok {
 		value = instruction.Argument
 	}
+
 	switch value.(type) {
 	case nil, Number, *Number, Label, *Label, Identifier, *Identifier, Operator, *Operator, *Comment:
 		return Equal(left, right)

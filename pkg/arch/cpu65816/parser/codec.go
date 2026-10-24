@@ -55,6 +55,7 @@ func BuildInstructionWithState(mnemonic string, instruction *cpu65816.Instructio
 
 	argument := ast.NewInstructionArgument(resolved)
 	built := ast.NewInstruction(mnemonic, int(addressing), argument, nil)
+
 	return built, nextState(state, instruction, operands), nil
 }
 
@@ -107,6 +108,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 	if options.Uppercase {
 		mnemonic = strings.ToUpper(mnemonic)
 	}
+
 	if len(resolved.Operands) == 0 {
 		return options.Indent + mnemonic, nil
 	}
@@ -118,6 +120,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 			return "", fmt.Errorf("formatting operand %d: %w", index, err)
 		}
 	}
+
 	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
 }
 
@@ -146,6 +149,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 			return *resolved, nil
 		}
 	}
+
 	return ResolvedInstruction{}, fmt.Errorf("%w: unexpected resolved argument %T", ErrInvalidInstruction, value)
 }
 
@@ -234,10 +238,12 @@ func operandHexDigits(resolved ResolvedInstruction, operand Operand, options For
 	if byteDigits == 0 {
 		byteDigits = 2
 	}
+
 	wordDigits := options.WordHexDigits
 	if wordDigits == 0 {
 		wordDigits = 4
 	}
+
 	longDigits := options.LongHexDigits
 	if longDigits == 0 {
 		longDigits = 6
@@ -283,6 +289,7 @@ func appendModifiers(value string, modifiers []ast.Modifier) (string, error) {
 		}
 		builder.WriteString(formatted)
 	}
+
 	return builder.String(), nil
 }
 
@@ -296,6 +303,7 @@ func addressPrefix(size AddressSize, options FormatOptions) string {
 	case AddressLong:
 		prefix = "f:"
 	}
+
 	if options.Uppercase {
 		return strings.ToUpper(prefix)
 	}

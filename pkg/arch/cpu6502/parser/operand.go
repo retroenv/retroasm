@@ -89,7 +89,9 @@ func copyOperands(operands Operands) Operands {
 		if operand.Value != nil {
 			copied[index].Value = operand.Value.Copy()
 		}
+
 		copied[index].Modifiers = slices.Clone(operand.Modifiers)
 	}
+
 	return copied
 }

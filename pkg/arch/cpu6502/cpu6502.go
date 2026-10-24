@@ -23,14 +23,17 @@ func New(optionList ...Option) *config.Config[*cpu6502.Instruction] {
 			option(&settings)
 		}
 	}
+
 	instructions := cpu6502.Instructions
 	if settings.strictVariant {
 		instructions = cpu6502.InstructionsForVariant(settings.variant)
 	}
+
 	p := &arch6502[*cpu6502.Instruction]{instructions: instructions}
 	cfg := &config.Config[*cpu6502.Instruction]{
 		Arch: p,
 	}
+
 	return cfg
 }
 
@@ -57,6 +60,7 @@ func (ar *arch6502[T]) BuildInstruction(mnemonic string, operands parser.Operand
 		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
 	}
 	built.SetOpcodeID(ar.OpcodeID(instruction))
+
 	return built, nil
 }
 
@@ -77,6 +81,7 @@ func (ar *arch6502[T]) InstructionRegistrations() []arch.InstructionRegistration
 		for addressing := range instruction.Addressing {
 			addressings = append(addressings, int(addressing))
 		}
+
 		slices.Sort(addressings)
 		registrations = append(registrations, arch.InstructionRegistration{
 			Name:        instruction.Name,
@@ -84,9 +89,11 @@ func (ar *arch6502[T]) InstructionRegistrations() []arch.InstructionRegistration
 			Addressings: addressings,
 		})
 	}
+
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
 		return strings.Compare(left.Name, right.Name)
 	})
+
 	return registrations
 }
 

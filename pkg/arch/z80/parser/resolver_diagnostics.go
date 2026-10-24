@@ -62,11 +62,13 @@ func expectedAddressingFamilies(variants []*cpuz80.Instruction) string {
 	for family := range addressingFamilies(variants) {
 		families = append(families, family)
 	}
+
 	if len(families) == 0 {
 		return "unknown"
 	}
 
 	slices.Sort(families)
+
 	return strings.Join(families, ", ")
 }
 
@@ -77,6 +79,7 @@ func addressingFamilies(variants []*cpuz80.Instruction) set.Set[string] {
 		for addressing := range variant.Addressing {
 			families.Add(addressingFamilyName(addressing))
 		}
+
 		if len(variant.RegisterOpcodes) > 0 || len(variant.RegisterPairOpcodes) > 0 {
 			families.Add("register")
 		}

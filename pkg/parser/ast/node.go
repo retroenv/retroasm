@@ -24,7 +24,7 @@ type Node interface {
 
 // InlineComment returns the comment attached to a non-comment node.
 func InlineComment(n Node) string {
-	commented, ok := n.(interface{ inlineComment() string })
+	commented, ok := n.(inlineCommenter)
 	if !ok {
 		return ""
 	}
@@ -52,6 +52,7 @@ func InstructionFromNode(n Node) (Instruction, bool) {
 			return *instr, true
 		}
 	}
+
 	return Instruction{}, false
 }
 
@@ -90,6 +91,7 @@ func IdentifierName(n Node) (string, bool) {
 			return identifier.Name, true
 		}
 	}
+
 	return "", false
 }
 
@@ -111,6 +113,7 @@ func LabelName(n Node) (string, bool) {
 			return label.Name, true
 		}
 	}
+
 	return "", false
 }
 
@@ -125,6 +128,7 @@ func NumberValue(n Node) (uint64, bool) {
 			return number.Value, true
 		}
 	}
+
 	return 0, false
 }
 
@@ -142,6 +146,7 @@ func SameOperand(a, b Node) bool {
 		return false
 	}
 	bv, ok := symbolName(b)
+
 	return ok && av == bv
 }
 
@@ -149,6 +154,21 @@ func SameOperand(a, b Node) bool {
 func SymbolName(n Node) string {
 	name, _ := symbolName(n)
 	return name
+}
+
+// inlineCommenter is implemented by nodes that carry an inline comment.
+type inlineCommenter interface {
+	inlineComment() string
+}
+
+// handleSetter is implemented by nodes that accept an entry handle.
+type handleSetter interface {
+	setEntryHandle(*entryHandle)
+}
+
+// handleGetter is implemented by nodes that return their entry handle.
+type handleGetter interface {
+	entryHandle() *entryHandle
 }
 
 type node struct {

@@ -165,6 +165,7 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		}
 		value := (uint64(reg1) << 4) | uint64(reg2)
 		n := ast.NewNumber(value)
+
 		return ast.NewInstruction(ins.Name, int(chip8.RegisterRegisterAddressing), n, nil), nil
 
 	case isReg1 && isDT2:
@@ -259,7 +260,9 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 				return nil, err
 			}
 		}
+
 		n := ast.NewRegisterValue(reg1, valueNode)
+
 		return ast.NewInstruction(ins.Name, int(chip8.RegisterValueAddressing), n, nil), nil
 
 	default:
@@ -290,6 +293,7 @@ func parseInstructionThreeArgs(ins *chip8.Instruction, arg1, arg2, arg3 token.To
 	}
 
 	n := ast.NewRegisterRegisterValue(reg1, reg2, nibble)
+
 	return ast.NewInstruction(ins.Name, int(chip8.RegisterRegisterNibbleAddressing), n, nil), nil
 }
 
@@ -322,6 +326,7 @@ func parseIndirectFirstArg(parser arch.Parser, ins *chip8.Instruction) (ast.Node
 	}
 
 	n := ast.NewNumber(uint64(reg2))
+
 	return ast.NewInstruction(ins.Name, int(chip8.IIndirectRegisterAddressing), n, nil), nil
 }
 
@@ -349,6 +354,7 @@ func parseIndirectSecondArg(ins *chip8.Instruction, arg1 token.Token, parser arc
 	}
 
 	n := ast.NewNumber(uint64(reg1))
+
 	return ast.NewInstruction(ins.Name, int(chip8.RegisterIndirectIAddressing), n, nil), nil
 }
 
@@ -397,9 +403,11 @@ func collectExpressionOperand(parser arch.Parser, first token.Token) ast.Node {
 		tokens = append(tokens, t)
 		advance = i
 	}
+
 	if advance > 0 {
 		parser.AdvanceReadPosition(advance)
 	}
+
 	return ast.NewExpression(tokens...)
 }
 

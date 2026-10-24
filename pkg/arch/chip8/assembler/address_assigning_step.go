@@ -32,5 +32,6 @@ func AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instructio
 	ins.SetSize(instructionSize)
 
 	programCounter := pc + instructionSize
+
 	return programCounter, nil
 }

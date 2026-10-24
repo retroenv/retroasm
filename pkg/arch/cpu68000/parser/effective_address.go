@@ -42,6 +42,7 @@ func parseEffectiveAddress(p arch.Parser) (*EffectiveAddress, error) {
 		if address != nil {
 			address.Negative = true
 		}
+
 		return address, err
 
 	case tok.Type == token.LeftParentheses:
@@ -105,6 +106,7 @@ func parseImmediateHashEA(p arch.Parser) (*EffectiveAddress, error) {
 			return nil, fmt.Errorf("parsing immediate value '-%s': %w", numberToken.Value, err)
 		}
 		p.AdvanceReadPosition(1)
+
 		return &EffectiveAddress{
 			Mode:     cpu68000.ImmediateMode,
 			Value:    ast.NewNumber(v),
@@ -387,6 +389,7 @@ func parseDisplacementEA(p arch.Parser, disp uint64) (*EffectiveAddress, error) 
 		if info.number == regPC {
 			mode = cpu68000.PCDisplacementMode
 		}
+
 		return &EffectiveAddress{
 			Mode:     mode,
 			Register: info.number,
@@ -401,6 +404,7 @@ func parseDisplacementEA(p arch.Parser, disp uint64) (*EffectiveAddress, error) 
 			return nil, err
 		}
 		ea.Value = ast.NewNumber(disp)
+
 		return ea, nil
 
 	default:
@@ -415,6 +419,7 @@ func parseIdentifierEA(p arch.Parser, tok token.Token) (*EffectiveAddress, error
 			return parseLabelEA(p, tok)
 		}
 	}
+
 	info, ok := lookupRegister(tok.Value)
 	if !ok {
 		// Not a register - treat as label (absolute address)
@@ -505,6 +510,7 @@ func parseLabelDisplacementEA(p arch.Parser, tok token.Token) (*EffectiveAddress
 		if info.number == regPC {
 			mode = cpu68000.PCDisplacementMode
 		}
+
 		return &EffectiveAddress{
 			Mode:     mode,
 			Register: info.number,
@@ -519,6 +525,7 @@ func parseLabelDisplacementEA(p arch.Parser, tok token.Token) (*EffectiveAddress
 			return nil, err
 		}
 		ea.Value = ast.NewLabel(tok.Value)
+
 		return ea, nil
 	}
 
@@ -537,12 +544,14 @@ func parseExplicitAbsoluteExpressionEA(p arch.Parser) (*EffectiveAddress, bool) 
 		if tok.Type == token.LeftParentheses {
 			depth++
 		}
+
 		if tok.Type == token.RightParentheses {
 			depth--
 			if depth == 0 {
 				return parseAbsoluteExpressionSuffix(p, tokens, offset)
 			}
 		}
+
 		tokens = append(tokens, tok)
 	}
 }
@@ -559,6 +568,7 @@ func parseAbsoluteExpressionSuffix(p arch.Parser, tokens []token.Token, closing 
 	if suffix == "W" {
 		mode = cpu68000.AbsShortMode
 	}
+
 	var value ast.Node = ast.NewExpression(tokens...)
 	if len(tokens) == 1 {
 		switch tokens[0].Type {
@@ -573,7 +583,9 @@ func parseAbsoluteExpressionSuffix(p arch.Parser, tokens []token.Token, closing 
 			value = ast.NewNumber(bits)
 		}
 	}
+
 	p.AdvanceReadPosition(closing + 2)
+
 	return &EffectiveAddress{
 		Mode:  mode,
 		Value: value,

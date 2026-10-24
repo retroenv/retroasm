@@ -35,6 +35,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	}
 	ins.SetOpcodes(opcodes)
 	ins.SetSize(len(opcodes))
+
 	return nil
 }
 

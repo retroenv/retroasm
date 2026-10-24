@@ -52,7 +52,8 @@ func TestSM83ParenthesizedHLUpdates(t *testing.T) {
 					source := "ld a," + address
 					index := 1
 					if store {
-						source, index = "ld "+address+",a", 0
+						source = "ld " + address + ",a"
+						index = 0
 					}
 					instruction := parseInstruction(t, asmsm83.New().Arch, source)
 					resolved := instruction.Argument.(ast.InstructionArgument).Value.(sm83parser.ResolvedInstruction)

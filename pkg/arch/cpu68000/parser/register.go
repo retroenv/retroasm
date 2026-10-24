@@ -33,6 +33,7 @@ func init() {
 			isAddr: true,
 		}
 	}
+
 	registers["A7"] = registerInfo{
 		number: 7,
 		isAddr: true,

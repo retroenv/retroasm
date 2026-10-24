@@ -26,6 +26,7 @@ func (sc *Scope) AddSymbol(sym *Symbol) error {
 	}
 
 	sc.symbols[sym.name] = sym
+
 	return nil
 }
 
@@ -38,6 +39,7 @@ func (sc *Scope) GetSymbol(name string) (*Symbol, error) {
 			return sym, nil
 		}
 	}
+
 	return nil, fmt.Errorf("symbol '%s' not found in scope", name)
 }
 
@@ -56,5 +58,6 @@ func (sc *Scope) AllLabels() map[string]uint64 {
 			result[name] = sym.address
 		}
 	}
+
 	return result
 }

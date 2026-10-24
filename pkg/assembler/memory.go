@@ -45,5 +45,6 @@ func (o *memory) write(data []byte, address uint64) error {
 	}
 
 	copy(o.data[index:index+len(data)], data)
+
 	return nil
 }

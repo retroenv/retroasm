@@ -25,6 +25,7 @@ func encodeStatusMOVE(assigner arch.AddressAssigner, resolved parser.ResolvedIns
 			opcode = 0x46c0
 		}
 	}
+
 	mode, register := encodeEAField(operand)
 	if mode == 1 || resolved.SrcEA.Mode == cpu68000.StatusRegMode &&
 		(operand.Mode == cpu68000.ImmediateMode || operand.Mode == cpu68000.PCDisplacementMode || operand.Mode == cpu68000.PCIndexedMode) {
@@ -45,6 +46,7 @@ func encodeImmediateStatus(assigner arch.AddressAssigner, resolved parser.Resolv
 		size = cpu68000.SizeWord
 		opcode |= 0x0040
 	}
+
 	if resolved.Size != size {
 		return nil, errors.New("invalid immediate status operand size")
 	}

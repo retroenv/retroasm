@@ -104,6 +104,7 @@ func isNoOperandInstruction(name string) bool {
 		cpu68000.RESETName, cpu68000.TRAPVName, cpu68000.ILLEGALName:
 		return true
 	}
+
 	return false
 }
 
@@ -121,6 +122,7 @@ func parseBranch(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = ea
+
 	return nil
 }
 
@@ -142,6 +144,7 @@ func parseDBcc(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = dst // displacement/label
+
 	return nil
 }
 
@@ -168,6 +171,7 @@ func parseMOVEM(p arch.Parser, resolved *ResolvedInstruction) error {
 		}
 		resolved.DstEA = dst
 		resolved.Extra = 0 // register-to-memory
+
 		return nil
 	}
 
@@ -189,6 +193,7 @@ func parseMOVEM(p arch.Parser, resolved *ResolvedInstruction) error {
 	}
 	resolved.DstEA = &EffectiveAddress{RegList: regList}
 	resolved.Extra = 1 // memory-to-register
+
 	return nil
 }
 
@@ -225,7 +230,9 @@ func parseRegisterListFromTokens(p arch.Parser) (uint16, error) {
 			default:
 				part = next.Value
 			}
+
 			parts = append(parts, part)
+
 			continue
 		}
 		break
@@ -253,6 +260,7 @@ func parseMOVEQ(p arch.Parser, resolved *ResolvedInstruction) error {
 	}
 	resolved.DstEA = dst
 	resolved.Size = cpu68000.SizeLong
+
 	return nil
 }
 
@@ -263,6 +271,7 @@ func parseTRAP(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.SrcEA = ea
+
 	return nil
 }
 
@@ -273,6 +282,7 @@ func parseSTOP(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.SrcEA = ea
+
 	return nil
 }
 
@@ -294,6 +304,7 @@ func parseLINK(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = dst
+
 	return nil
 }
 
@@ -304,6 +315,7 @@ func parseUNLK(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = ea
+
 	return nil
 }
 
@@ -314,6 +326,7 @@ func parseDataRegOnly(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = ea
+
 	return nil
 }
 
@@ -335,6 +348,7 @@ func parseEXG(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = dst
+
 	return nil
 }
 
@@ -349,6 +363,7 @@ func parseQuick(p arch.Parser, resolved *ResolvedInstruction) error {
 	if src != nil && src.Mode == cpu68000.ImmediateMode {
 		src.Mode = cpu68000.QuickImmediateMode
 	}
+
 	resolved.SrcEA = src
 
 	if p.NextToken(1).Type != token.Comma {
@@ -361,6 +376,7 @@ func parseQuick(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = dst
+
 	return nil
 }
 
@@ -385,5 +401,6 @@ func parseGenericOperands(p arch.Parser, resolved *ResolvedInstruction) error {
 		return err
 	}
 	resolved.DstEA = dst
+
 	return nil
 }

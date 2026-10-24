@@ -147,6 +147,7 @@ func copyOperands(operands []Operand) []Operand {
 			copied[index].Value = operand.Value.Copy()
 		}
 	}
+
 	return copied
 }
 
@@ -162,6 +163,7 @@ func operandsFromRaw(operands []rawOperand, resolvedValues []ast.Node) ([]Operan
 		}
 		result[index] = converted
 	}
+
 	return result, nil
 }
 
@@ -213,6 +215,7 @@ func resolvedIdentifierOperandValue(operand rawOperand, resolvedValues []ast.Nod
 			return value, true
 		}
 	}
+
 	return nil, false
 }
 
@@ -256,6 +259,7 @@ func rawOperands(operands []Operand) ([]rawOperand, error) {
 		}
 		result[index] = converted
 	}
+
 	return result, nil
 }
 

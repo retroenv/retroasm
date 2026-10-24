@@ -141,6 +141,7 @@ func evaluateOperatorByteInt(operator token.Type, a []byte, b int64) (any, error
 	for i := range a {
 		a[i] = operate(a[i])
 	}
+
 	return a, nil
 }
 

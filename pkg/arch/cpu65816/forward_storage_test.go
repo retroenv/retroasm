@@ -50,7 +50,8 @@ RAM: load = WRAM, type = bss;
 				} else {
 					assert.NoError(t, asm.Process(t.Context(), strings.NewReader(source)))
 				}
-				low, high := byte(address), byte(address>>8)
+				low := byte(address)
+				high := byte(address >> 8)
 				assert.Equal(t, []byte{
 					0xad, low, high, 0x8d, low + 1, high, 0xae, low, high,
 					0xac, low, high, 0xbd, low, high, 0xb9, low, high,

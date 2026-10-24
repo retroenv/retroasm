@@ -45,6 +45,7 @@ func resolveRegisterValueOperands(variants []*cpuz80.Instruction, operand1,
 			if operand1.displacement != nil {
 				operandValues = append(operandValues, operand1.displacement)
 			}
+
 			operandValues = append(operandValues, value)
 
 			// For ALU instructions (non-LD) where the first operand is the implicit

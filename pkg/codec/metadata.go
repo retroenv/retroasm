@@ -26,6 +26,7 @@ func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 	for _, change := range stream.SegmentChanges() {
 		segments.Add(change.EntryIndex)
 	}
+
 	relocations := set.New[relocationLocation]()
 	for _, relocation := range stream.Relocations() {
 		relocations.Add(relocationLocation{
@@ -33,6 +34,7 @@ func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 			byteOffset: relocation.ByteOffset,
 		})
 	}
+
 	for index, entry := range stream.Entries() {
 		switch node := entry.Node.(type) {
 		case ast.Segment:
@@ -44,6 +46,7 @@ func (c *Codec[T]) recordAssemblyMetadata(stream *ast.Stream) error {
 			recordDataRelocations(stream, index, node, order, relocations)
 		}
 	}
+
 	if err := stream.Validate(); err != nil {
 		return err //nolint:wrapcheck // the codec adds operation context
 	}
@@ -60,6 +63,7 @@ func (c *Codec[T]) segmentChange(entryIndex int, segment ast.Segment, order ast.
 	if configured, ok := c.configuration.Segments[name]; ok {
 		change.Alignment = ast.Alignment(configured.Align)
 	}
+
 	return change
 }
 
@@ -79,6 +83,7 @@ func recordDataRelocations(stream *ast.Stream, entryIndex int, data ast.Data, or
 	if data.ReferenceType != ast.FullAddress {
 		width = 1
 	}
+
 	for valueIndex, value := range data.Values {
 		byteOffset := uint64(valueIndex * width)
 		if recorded.Contains(relocationLocation{

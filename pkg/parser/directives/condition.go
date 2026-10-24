@@ -66,6 +66,7 @@ func parseSymbolExistsDirective(p arch.Parser, constructor func(string) ast.Node
 	}
 
 	p.AdvanceReadPosition(2)
+
 	return constructor(next.Value), nil
 }
 

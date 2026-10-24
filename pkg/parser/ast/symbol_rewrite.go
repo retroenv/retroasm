@@ -63,6 +63,7 @@ func rewriteCopiedNodeSymbols(node Node, rename func(string) string) (Node, erro
 			}
 			value.Values[index] = rewritten
 		}
+
 		return value, nil
 
 	case InstructionArgument:
@@ -94,6 +95,7 @@ func rewriteDirectiveSymbols(node Node, rename func(string) string) (Node, error
 		for index, item := range value.Values {
 			value.Values[index] = rewriteSymbolExpressionTokens(item, rename)
 		}
+
 		return value, nil
 
 	case Base:
@@ -145,6 +147,7 @@ func rewriteSymbolExpressionTokens(value *expression.Expression, rename func(str
 			copied.Tokens()[index].Value = rename(item.Value)
 		}
 	}
+
 	return copied
 }
 
@@ -158,5 +161,6 @@ func rewriteTypedArgumentSymbols(value InstructionArgument, rename func(string) 
 		return nil, fmt.Errorf("rewriting typed argument: %w", err)
 	}
 	value.Value = rewritten
+
 	return value, nil
 }

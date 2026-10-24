@@ -122,9 +122,11 @@ func testZ80IndexHalfRoundTrip(t *testing.T, test z80IndexHalfCase) {
 func z80IndexHalfCases() []z80IndexHalfCase {
 	cases := make([]z80IndexHalfCase, 0, 92)
 	for _, prefix := range []byte{z80.PrefixDD, z80.PrefixFD} {
-		high, low := z80.RegIXH, z80.RegIXL
+		high := z80.RegIXH
+		low := z80.RegIXL
 		if prefix == z80.PrefixFD {
-			high, low = z80.RegIYH, z80.RegIYL
+			high = z80.RegIYH
+			low = z80.RegIYL
 		}
 		registers := []z80.RegisterParam{z80.RegB, z80.RegC, z80.RegD, z80.RegE, high, low, z80.RegNone, z80.RegA}
 		for _, lane := range []byte{4, 5} {

@@ -34,5 +34,6 @@ func resolveKeywordOperator(tok token.Token) token.Token {
 	if opType, ok := keywordOperators[strings.ToUpper(tok.Value)]; ok {
 		tok.Type = opType
 	}
+
 	return tok
 }

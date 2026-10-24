@@ -32,6 +32,7 @@ func readMotorolaData(p arch.Parser, repeated bool) (ast.Node, error) {
 	default:
 		return nil, fmt.Errorf("invalid motorola data width '%s'", p.NextToken(2).Value)
 	}
+
 	p.AdvanceReadPosition(2)
 	if !repeated {
 		values, err := readDataValueExpressions(p)
@@ -66,5 +67,6 @@ func readMotorolaBlock(p arch.Parser, width int) (ast.Node, error) {
 		return nil, errors.New("expected one motorola fill value")
 	}
 	data.Values = values
+
 	return data, nil
 }

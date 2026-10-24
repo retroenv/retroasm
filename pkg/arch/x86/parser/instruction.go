@@ -44,9 +44,14 @@ func ParseIdentifier(parser arch.Parser, ins any) (ast.Node, error) {
 	return node, nil
 }
 
+// namer is implemented by instructions that return their name.
+type namer interface {
+	Name() string
+}
+
 func extractInstructionName(ins any) string {
 	// Use reflection-like approach to get name
-	if insPtr, ok := ins.(interface{ Name() string }); ok {
+	if insPtr, ok := ins.(namer); ok {
 		return insPtr.Name()
 	}
 	return "UNKNOWN"
@@ -66,6 +71,7 @@ func parseInstruction(parser arch.Parser, instructionName string) (ast.Node, err
 
 		// Create a register node with the register information
 		regNode := ast.NewIdentifier(regName)
+
 		return ast.NewInstruction(instructionName, registerAddressing, regNode, nil), nil
 	}
 
@@ -156,6 +162,7 @@ func parseImmediateInstruction(instructionName string, arg token.Token) (ast.Nod
 	}
 
 	n := ast.NewNumber(i)
+
 	return ast.NewInstruction(instructionName, immediateAddressing, n, nil), nil
 }
 
@@ -170,6 +177,7 @@ func parseDirectAddressInstruction(instructionName string, arg token.Token) (ast
 	}
 
 	n := ast.NewNumber(i)
+
 	return ast.NewInstruction(instructionName, directAddressing, n, nil), nil
 }
 
@@ -189,6 +197,7 @@ func parseLabelInstruction(instructionName string, arg token.Token) (ast.Node, e
 	}
 
 	l := ast.NewLabel(arg.Value)
+
 	return ast.NewInstruction(instructionName, directAddressing, l, nil), nil
 }
 

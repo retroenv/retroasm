@@ -44,6 +44,7 @@ func (ar *architecture) BuildInstruction(mnemonic string, operands parser.Operan
 		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
 	}
 	built.SetOpcodeID(ar.OpcodeID(instruction))
+
 	return built, nil
 }
 
@@ -92,9 +93,11 @@ func (ar *architecture) InstructionRegistrations() []arch.InstructionRegistratio
 			DynamicOperands: true,
 		})
 	}
+
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
 		return strings.Compare(left.Name, right.Name)
 	})
+
 	return registrations
 }
 

@@ -19,11 +19,13 @@ func resolveIndirectLoadStoreOperands(variants []*cpuz80.Instruction, operand1,
 	var isLoad bool
 	switch {
 	case operand2.parenthesized && !operand1.parenthesized:
-		regOp, indOp = operand1, operand2
+		regOp = operand1
+		indOp = operand2
 		isLoad = true
 
 	case operand1.parenthesized && !operand2.parenthesized:
-		regOp, indOp = operand2, operand1
+		regOp = operand2
+		indOp = operand1
 		isLoad = false
 
 	default:
@@ -80,6 +82,7 @@ func matchIndirectLoadStoreKeys(variants []*cpuz80.Instruction, keys []cpuz80.Re
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -96,6 +99,7 @@ func indirectRegisterPairKeys(regCandidates, indCandidates []cpuz80.RegisterPara
 			}
 		}
 	}
+
 	return keys
 }
 
@@ -119,6 +123,7 @@ func matchIndirectLoadStorePairKeys(variants []*cpuz80.Instruction,
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -136,6 +141,7 @@ func resolveStackPointerIndirectVariant(variants []*cpuz80.Instruction) *Resolve
 			Instruction: variant,
 		}
 	}
+
 	return nil
 }
 
@@ -182,6 +188,7 @@ func resolveIndirectImmediateOperands(variants []*cpuz80.Instruction, operand1,
 
 	// Case 2: LD (IX+d),n / LD (IY+d),n — uses ImmediateAddressing with displacement.
 	result := resolveIndexedImmediate(variants, operand1, value)
+
 	return result, result != nil, nil
 }
 
@@ -200,6 +207,7 @@ func resolveIndirectRegisterImmediate(variants []*cpuz80.Instruction, value ast.
 			OperandValues: []ast.Node{value},
 		}
 	}
+
 	return nil
 }
 
@@ -251,6 +259,7 @@ func indirectRegisterKeys(regCandidates, indCandidates []cpuz80.RegisterParam, i
 				if ind == cpuz80.RegHLIndirect {
 					keys = append(keys, reg)
 				}
+
 				keys = append(keys, ind)
 				keys = append(keys, reg)
 			}
@@ -281,6 +290,7 @@ func hlLoadRegisterParam(reg, ind cpuz80.RegisterParam) (cpuz80.RegisterParam, b
 			return cpuz80.RegLoadHLA, true
 		}
 	}
+
 	if ind == cpuz80.RegBCIndirect && reg == cpuz80.RegA {
 		return cpuz80.RegLoadBC, true
 	}
@@ -301,5 +311,6 @@ func hasIndirectRegisterParam(candidates []cpuz80.RegisterParam) bool {
 			return true
 		}
 	}
+
 	return false
 }

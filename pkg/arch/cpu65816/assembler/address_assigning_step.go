@@ -81,7 +81,9 @@ func resolveAddressingMode(assigner arch.AddressAssigner, ins arch.Instruction,
 	} else {
 		addressing = modes[1]
 	}
+
 	ins.SetAddressing(int(addressing))
+
 	return addressing, nil
 }
 
@@ -117,5 +119,6 @@ func resolvedOperandValue(assigner arch.AddressAssigner, resolved parser.Resolve
 			return 0, fmt.Errorf("unsupported modifier operator %q", modifier.Operator.Operator)
 		}
 	}
+
 	return value, nil
 }

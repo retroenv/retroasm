@@ -14,6 +14,7 @@ func (stm *Stream) RenameSymbols(names map[string]string) error {
 			return fmt.Errorf("%w: a symbol rename has an empty name", ErrInvalidStream)
 		}
 	}
+
 	if len(names) == 0 {
 		return nil
 	}
@@ -26,10 +27,13 @@ func (stm *Stream) RenameSymbols(names map[string]string) error {
 		if !ok {
 			target = source
 		}
+
 		if previous, exists := seen[target]; exists && previous != source {
 			collision = fmt.Errorf("%w: symbols %q and %q map to %q", ErrInvalidStream, previous, source, target)
 		}
+
 		seen[target] = source
+
 		return target
 	}
 	for index := range candidate.entries {
@@ -39,14 +43,17 @@ func (stm *Stream) RenameSymbols(names map[string]string) error {
 		}
 		candidate.entries[index].Node = node
 	}
+
 	for index := range candidate.symbols {
 		symbol := &candidate.symbols[index]
 		symbol.Name = rename(symbol.Name)
 		rewriteSymbolExpression(&symbol.Expression, rename)
 	}
+
 	for index := range candidate.relocations {
 		rewriteSymbolExpression(&candidate.relocations[index].Expression, rename)
 	}
+
 	if collision != nil {
 		return collision
 	}
@@ -55,6 +62,7 @@ func (stm *Stream) RenameSymbols(names map[string]string) error {
 	}
 	candidate.revision = &streamRevision{}
 	*stm = *candidate
+
 	return nil
 }
 
@@ -62,5 +70,6 @@ func rewriteSymbolExpression(value *SymbolExpression, rename func(string) string
 	if value.Symbol != "" {
 		value.Symbol = rename(value.Symbol)
 	}
+
 	value.Definition = rewriteSymbolExpressionTokens(value.Definition, rename)
 }

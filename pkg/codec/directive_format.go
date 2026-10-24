@@ -106,6 +106,7 @@ func (c *Codec[T]) formatMacro(macro ast.Macro) (string, error) {
 			return "", fmt.Errorf("%w: macro argument %q", ErrFormattingUnsupported, argument)
 		}
 	}
+
 	if len(macro.Token) == 0 ||
 		macro.Token[0].Type != token.EOL ||
 		macro.Token[len(macro.Token)-1].Type != token.EOL {
@@ -155,6 +156,7 @@ func formatInclude(include ast.Include) (string, error) {
 	if include.Binary {
 		directive = ".incbin"
 	}
+
 	line := directive + " " + include.Name
 	if include.Size != 0 {
 		return line + ", " + strconv.Itoa(include.Start) + ", " + strconv.Itoa(include.Size), nil
@@ -186,11 +188,13 @@ func formatMacroTokens(tokens []token.Token) (string, error) {
 			if !lineStart {
 				builder.WriteByte(' ')
 			}
+
 			builder.WriteByte(';')
 			if bodyToken.Value != "" {
 				builder.WriteByte(' ')
 				builder.WriteString(bodyToken.Value)
 			}
+
 			// The lexer consumes the source newline as part of a comment token.
 			builder.WriteByte('\n')
 			lineStart = true
@@ -206,10 +210,12 @@ func formatMacroTokens(tokens []token.Token) (string, error) {
 			if !lineStart {
 				builder.WriteByte(' ')
 			}
+
 			builder.WriteString(value)
 			lineStart = false
 		}
 	}
+
 	return builder.String(), nil
 }
 

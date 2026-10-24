@@ -90,6 +90,7 @@ func encodeAddSub(assigner arch.AddressAssigner, resolved parser.ResolvedInstruc
 	} else {
 		buf, err = appendEAExtensionWords(buf, assigner, resolved.DstEA, resolved.Size)
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +130,7 @@ func encodeExtendedOp(resolved parser.ResolvedInstruction, baseOpcode uint16) ([
 	}
 
 	opcode := baseOpcode | rx<<9 | 1<<8 | sizeBits<<6 | rm<<3 | ry
+
 	return encodeWord(opcode), nil
 }
 
@@ -163,6 +165,7 @@ func encodeLogical(assigner arch.AddressAssigner, resolved parser.ResolvedInstru
 	} else {
 		buf, err = appendEAExtensionWords(buf, assigner, resolved.DstEA, resolved.Size)
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +214,7 @@ func encodeCMPM(resolved parser.ResolvedInstruction) ([]byte, error) {
 	sizeBits := encodeSizeBits(resolved.Size)
 
 	opcode := uint16(0xB108) | ax<<9 | sizeBits<<6 | ay
+
 	return encodeWord(opcode), nil
 }
 

@@ -54,6 +54,7 @@ func FormatValue(value Node, options ValueFormatOptions) (string, error) {
 			return FormatExpression(typed.Value)
 		}
 	}
+
 	return "", fmt.Errorf("%w: %T", ErrUnsupportedValueFormat, value)
 }
 
@@ -78,11 +79,14 @@ func FormatExpression(value *expression.Expression) (string, error) {
 			}
 			tokenValue = fmt.Sprintf("0x%X", parsed)
 		}
+
 		if tokenValue == "" {
 			tokenValue = expressionToken.Type.String()
 		}
+
 		builder.WriteString(tokenValue)
 	}
+
 	if builder.Len() == 0 {
 		return "", ErrUnsupportedValueFormat
 	}

@@ -19,7 +19,7 @@ func TestInstructionCopyKeepsMetadataIndependent(t *testing.T) {
 		original.setEntryHandle(&entryHandle{})
 		if argument != nil {
 			argument.SetComment("operand")
-			argument.(interface{ setEntryHandle(*entryHandle) }).setEntryHandle(&entryHandle{})
+			argument.(handleSetter).setEntryHandle(&entryHandle{})
 		}
 		copied := original.Copy().(Instruction)
 		assert.Equal(t, original, copied)
@@ -35,9 +35,9 @@ func TestInstructionCopyKeepsMetadataIndependent(t *testing.T) {
 		}
 		assert.Equal(t, "operand", InlineComment(copied.Argument))
 		copied.Argument.SetComment("changed operand")
-		copied.Argument.(interface{ setEntryHandle(*entryHandle) }).setEntryHandle(nil)
+		copied.Argument.(handleSetter).setEntryHandle(nil)
 		assert.Equal(t, "operand", InlineComment(original.Argument))
-		assert.NotNil(t, original.Argument.(interface{ entryHandle() *entryHandle }).entryHandle())
+		assert.NotNil(t, original.Argument.(handleGetter).entryHandle())
 		assert.Equal(t, "changed instruction", InlineComment(copied))
 		if copiedIdentifier, ok := copied.Argument.(Identifier); ok {
 			copiedIdentifier.Arguments[0].Value = "2"

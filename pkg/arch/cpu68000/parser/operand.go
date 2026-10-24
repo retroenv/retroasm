@@ -99,6 +99,7 @@ func Absolute(long bool, value ast.Node) *EffectiveAddress {
 	if long {
 		mode = cpu68000.AbsLongMode
 	}
+
 	return &EffectiveAddress{
 		Mode:  mode,
 		Value: value,

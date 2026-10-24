@@ -177,7 +177,9 @@ func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) err
 			for _, deferred := range dat.expressions {
 				dat.deferredSize += dataExpressionSize(deferred.Tokens(), dat.width)
 			}
+
 			dat.values = nil
+
 			return nil
 		}
 		if err != nil {
@@ -185,11 +187,13 @@ func parseDataExpression[T any](expEval *expressionEvaluation[T], dat *data) err
 		}
 		values = append(values, value)
 	}
+
 	for index, value := range values {
 		if err := appendDataExpressionValue(dat, value, expEval.byteOrder); err != nil {
 			return fmt.Errorf("appending data expression item %d: %w", index, err)
 		}
 	}
+
 	return nil
 }
 
@@ -202,6 +206,7 @@ func appendDataExpressionValue(dat *data, value any, order binary.ByteOrder) err
 		}
 
 		dat.values = append(dat.values, b)
+
 		return nil
 
 	case []byte:
@@ -229,6 +234,7 @@ func dataExpressionSize(tokens []token.Token, width int) int {
 			if !unary {
 				values--
 			}
+
 			operandExpected = true
 
 		case tok.Type == token.LeftParentheses:
@@ -239,6 +245,7 @@ func dataExpressionSize(tokens []token.Token, width int) int {
 			operandExpected = true
 		}
 	}
+
 	return values * width
 }
 
@@ -311,6 +318,7 @@ func parseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.If) erro
 		parent:       expEval.currentContext,
 	}
 	expEval.currentContext = ctx
+
 	return nil
 }
 
@@ -354,6 +362,7 @@ func parseElseIfCondition[T any](expEval *expressionEvaluation[T], cond ast.Else
 	}
 
 	expEval.currentContext.processNodes = conditionMet
+
 	return nil
 }
 

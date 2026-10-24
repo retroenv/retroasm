@@ -19,12 +19,14 @@ func (stm *Stream) RebuildSymbols() error {
 			symbols = append(symbols, symbol)
 		}
 	}
+
 	if err := validateSymbols(symbols, stm.entries); err != nil {
 		return err
 	}
 
 	stm.symbols = symbols
 	stm.revision = &streamRevision{}
+
 	return nil
 }
 
@@ -48,6 +50,7 @@ func symbolFromEntry(entryIndex int, segment string, entry Entry) (Symbol, bool)
 		symbol.Kind = LabelSymbol
 		symbol.Name = node.Name
 		symbol.Expression = NewLocationSymbolExpression()
+
 		return symbol, true
 
 	case *Label:
@@ -55,6 +58,7 @@ func symbolFromEntry(entryIndex int, segment string, entry Entry) (Symbol, bool)
 			symbol.Kind = LabelSymbol
 			symbol.Name = node.Name
 			symbol.Expression = NewLocationSymbolExpression()
+
 			return symbol, true
 		}
 
@@ -62,6 +66,7 @@ func symbolFromEntry(entryIndex int, segment string, entry Entry) (Symbol, bool)
 		symbol.Kind = FunctionSymbol
 		symbol.Name = node.Name
 		symbol.Expression = NewLocationSymbolExpression()
+
 		return symbol, true
 
 	case *Function:
@@ -69,9 +74,11 @@ func symbolFromEntry(entryIndex int, segment string, entry Entry) (Symbol, bool)
 			symbol.Kind = FunctionSymbol
 			symbol.Name = node.Name
 			symbol.Expression = NewLocationSymbolExpression()
+
 			return symbol, true
 		}
 	}
+
 	return Symbol{}, false
 }
 
@@ -80,8 +87,10 @@ func symbolFromAlias(symbol Symbol, alias Alias) Symbol {
 	if alias.SymbolReusable {
 		symbol.Kind = AliasSymbol
 	}
+
 	symbol.Name = alias.Name
 	symbol.Expression = NewDefinitionSymbolExpression(alias.Expression)
+
 	return symbol
 }
 
@@ -95,5 +104,6 @@ func segmentFromNode(node Node) (Segment, bool) {
 			return *segment, true
 		}
 	}
+
 	return Segment{}, false
 }

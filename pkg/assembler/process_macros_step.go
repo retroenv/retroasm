@@ -142,6 +142,7 @@ func resolvePositionalMacro[T any](ctx context.Context, asm *Assembler[T], mac m
 				}
 				resolved = append(resolved, id.Arguments[argIdx])
 				i++ // skip the number token
+
 				continue
 			}
 		}

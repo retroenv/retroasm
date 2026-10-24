@@ -30,5 +30,6 @@ func resolveOptions(opts []Option) options {
 		}
 		opt(&settings)
 	}
+
 	return settings
 }

@@ -18,7 +18,9 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	if instructionInfo == nil {
 		return fmt.Errorf("unsupported instruction %q", ins.Name())
 	}
+
 	addressing := cpu6502.AddressingMode(ins.Addressing())
+
 	addressingInfo := instructionInfo.Addressing[addressing]
 	ins.SetOpcodes([]byte{addressingInfo.Opcode})
 	ins.SetSize(instructionSize(addressing, addressingInfo.Size))
@@ -83,6 +85,7 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	opcodes := append(ins.Opcodes(), byte(value))
 	ins.SetOpcodes(opcodes)
 	recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.AbsoluteRelocation, ast.WidthByte)
+
 	return nil
 }
 
@@ -107,6 +110,7 @@ func upgradeAndGenerateWord(ins arch.Instruction, instructionInfo *cpu6502.Instr
 	if instructionInfo == nil {
 		return fmt.Errorf("value %d exceeds byte (no instruction info for upgrade)", value)
 	}
+
 	absInfo, ok := instructionInfo.Addressing[newMode]
 	if !ok {
 		return fmt.Errorf("value %d exceeds byte (no %d addressing for %s)", value, newMode, ins.Name())
@@ -120,6 +124,7 @@ func upgradeAndGenerateWord(ins arch.Instruction, instructionInfo *cpu6502.Instr
 	}
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
+
 	return nil
 }
 
@@ -135,6 +140,7 @@ func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
 	recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.AbsoluteRelocation, ast.WidthWord)
+
 	return nil
 }
 
@@ -154,6 +160,7 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 	opcodes := append(ins.Opcodes(), b)
 	ins.SetOpcodes(opcodes)
 	recordCPU6502Relocation(assigner, ins, ins.Argument(), 1, ast.RelativeRelocation, ast.WidthByte)
+
 	return nil
 }
 
@@ -187,6 +194,7 @@ func generateZeroPageRelativeAddressingOpcode(assigner arch.AddressAssigner, ins
 	ins.SetOpcodes(append(ins.Opcodes(), byte(zeroPage), offset))
 	recordCPU6502Relocation(assigner, ins, arguments[0], 1, ast.AbsoluteRelocation, ast.WidthByte)
 	recordCPU6502Relocation(assigner, ins, arguments[1], 2, ast.RelativeRelocation, ast.WidthByte)
+
 	return nil
 }
 

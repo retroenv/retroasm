@@ -188,7 +188,9 @@ func (p *Parser[T]) TokensToStream(sourceName string) (*ast.Stream, error) {
 				Column: tok.Position.Column,
 			}))
 		}
+
 		previousNode = entry
+
 		p.readPosition++
 	}
 
@@ -261,7 +263,9 @@ func (p *Parser[T]) parseTokens(ctx context.Context) error {
 			return fmt.Errorf("tokenization cancelled: %w", ctx.Err())
 		default:
 		}
+
 		tok, err := p.lexer.NextToken()
+
 		if err != nil {
 			return fmt.Errorf("reading next token: %w", err)
 		}
@@ -328,6 +332,7 @@ func (p *Parser[T]) parseDotLocalLabel(nameTok token.Token) (ast.Node, error) {
 	}
 
 	scopedName := p.scopeDotLocalLabel(name)
+
 	return ast.NewLabel(scopedName), nil
 }
 
@@ -355,6 +360,7 @@ func (p *Parser[T]) parseIdentifier(tok token.Token) (ast.Node, error) {
 		p.readPosition++
 		name := p.scopeLocalLabel(tok.Value)
 		p.updateLabelScope(tok.Value)
+
 		return ast.NewLabel(name), nil
 
 	case next.Type == token.Assign: // "identifier = number"
@@ -401,6 +407,7 @@ func (p *Parser[T]) isDotIdentifierKeyword(keyword token.Token) bool {
 	case "macro":
 		return p.compatMode.NesasmMacroSyntax()
 	}
+
 	return false
 }
 
@@ -440,6 +447,7 @@ func (p *Parser[T]) parseNesAsmVariable(tok token.Token) (ast.Node, error) {
 	p.readPosition += 3
 	v := ast.NewVariable(tok.Value, int(i))
 	v.UseOffsetCounter = true
+
 	return v, nil
 }
 
@@ -514,6 +522,7 @@ func (p *Parser[T]) parseAnonymousLabel(forward bool) ast.Node {
 			break
 		}
 	}
+
 	// advance past the extra +/- tokens (first one is consumed by the main loop)
 	p.readPosition += level - 1
 

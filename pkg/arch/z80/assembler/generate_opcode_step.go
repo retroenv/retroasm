@@ -96,6 +96,7 @@ func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction,
 		byteOffset := uint64(len(opcodes))
 		opcodes = append(opcodes, byte(value))
 		recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+
 		return opcodes, nil
 
 	case 2:
@@ -114,6 +115,7 @@ func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction,
 					assigner, ins, resolved, i, uint64(len(opcodes)-1), ast.AbsoluteRelocation, ast.WidthByte,
 				)
 			}
+
 			return opcodes, nil
 		}
 
@@ -127,6 +129,7 @@ func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction,
 		byteOffset := uint64(len(opcodes))
 		opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
 		recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+
 		return opcodes, nil
 
 	default:
@@ -147,6 +150,7 @@ func appendExtendedOperand(assigner arch.AddressAssigner, ins arch.Instruction, 
 	byteOffset := uint64(len(opcodes))
 	opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
 	recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+
 	return opcodes, nil
 }
 
@@ -171,6 +175,7 @@ func appendOptionalByteOperand(assigner arch.AddressAssigner, ins arch.Instructi
 	byteOffset := uint64(len(opcodes))
 	opcodes = append(opcodes, byte(value))
 	recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+
 	return opcodes, nil
 }
 
@@ -190,6 +195,7 @@ func appendRelativeOperand(assigner arch.AddressAssigner, ins arch.Instruction, 
 	byteOffset := uint64(len(opcodes))
 	opcodes = append(opcodes, offset)
 	recordZ80Relocation(assigner, ins, resolved, 0, byteOffset, ast.RelativeRelocation, ast.WidthByte)
+
 	return opcodes, nil
 }
 
@@ -198,6 +204,7 @@ func baseOpcodeBytes(opcodeInfo cpuz80.OpcodeInfo) []byte {
 	if opcodeInfo.Prefix != 0 {
 		opcodes = append(opcodes, opcodeInfo.Prefix)
 	}
+
 	return append(opcodes, opcodeInfo.Opcode)
 }
 
@@ -222,6 +229,7 @@ func buildBitOpcode(assigner arch.AddressAssigner, resolved z80parser.ResolvedIn
 
 	opcode := opcodeInfo.Opcode + byte(bitNumber<<bitNumberShift) + registerCode
 	opcodes = append(opcodes, opcode)
+
 	return opcodes, nil
 }
 
@@ -260,6 +268,7 @@ func buildIndexedBitOpcode(assigner arch.AddressAssigner, ins arch.Instruction, 
 	opcode := opcodeInfo.Opcode + byte(bitNumber<<bitNumberShift) + registerCode
 	opcodes := []byte{opcodeInfo.Prefix, cpuz80.PrefixCB, byte(displacement), opcode}
 	recordZ80Relocation(assigner, ins, resolved, displacementIndex, 2, ast.AbsoluteRelocation, ast.WidthByte)
+
 	return opcodes, nil
 }
 

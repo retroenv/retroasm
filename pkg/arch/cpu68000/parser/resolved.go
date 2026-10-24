@@ -63,6 +63,7 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 			ReferenceType: ast.FullAddress,
 		})
 	}
+
 	return references
 }
 
@@ -89,6 +90,7 @@ func copyEffectiveAddress(address *EffectiveAddress) *EffectiveAddress {
 	if address.Value != nil {
 		copied.Value = address.Value.Copy()
 	}
+
 	return &copied
 }
 
@@ -104,5 +106,6 @@ func effectiveAddressReferencesSymbol(value ast.Node) bool {
 		return false
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
+
 	return ok
 }

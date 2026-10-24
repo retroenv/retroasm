@@ -91,6 +91,7 @@ func appendDisplacementEAExtension(buf []byte, assigner arch.AddressAssigner, ea
 
 	buf = binary.BigEndian.AppendUint16(buf, uint16(v))
 	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+
 	return buf, nil
 }
 
@@ -103,6 +104,7 @@ func appendIndexedEAExtension(buf []byte, assigner arch.AddressAssigner, ea *par
 		return nil, err
 	}
 	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+
 	return buf, nil
 }
 
@@ -119,7 +121,9 @@ func appendAbsoluteEAExtension(buf []byte, assigner arch.AddressAssigner, ea *pa
 	} else {
 		buf = binary.BigEndian.AppendUint16(buf, uint16(v))
 	}
+
 	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+
 	return buf, nil
 }
 
@@ -132,6 +136,7 @@ func appendImmediateEAExtension(buf []byte, assigner arch.AddressAssigner, ea *p
 		return nil, err
 	}
 	recordEAExtensionRelocation(assigner, ea, opSize, byteOffset)
+
 	return buf, nil
 }
 
@@ -157,10 +162,12 @@ func appendIndexExtensionWord(buf []byte, assigner arch.AddressAssigner, ea *par
 	if ea.IsAddrReg {
 		ext |= 1 << 15
 	}
+
 	ext |= uint16(ea.IndexReg&7) << 12
 	if ea.IndexSize == cpu68000.SizeLong {
 		ext |= 1 << 11
 	}
+
 	ext |= uint16(disp) & 0xFF
 
 	return binary.BigEndian.AppendUint16(buf, ext), nil
@@ -200,6 +207,7 @@ func recordEAExtensionRelocation(assigner arch.AddressAssigner, ea *parser.Effec
 			width = ast.WidthLong
 		}
 	}
+
 	recordCPU68000Relocation(assigner, ea.Value, cpu68000RelocationEncoding(byteOffset, kind, width))
 }
 
@@ -215,6 +223,7 @@ func effectiveAddressReferencesSymbol(ea *parser.EffectiveAddress) bool {
 		return false
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
+
 	return ok
 }
 
@@ -262,6 +271,7 @@ func eaValue(assigner arch.AddressAssigner, ea *parser.EffectiveAddress) (uint64
 	if ea.Negative {
 		v = uint64(-int64(v))
 	}
+
 	return v, nil
 }
 
@@ -288,5 +298,6 @@ func reverseRegisterList(mask uint16) uint16 {
 			result |= 1 << uint(15-i)
 		}
 	}
+
 	return result
 }

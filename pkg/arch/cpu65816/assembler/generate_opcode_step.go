@@ -112,7 +112,9 @@ func generateImmediateOpcode(assigner arch.AddressAssigner, ins arch.Instruction
 	default:
 		return fmt.Errorf("unsupported immediate width %d", ins.Size()-1)
 	}
+
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, width)
+
 	return nil
 }
 
@@ -130,6 +132,7 @@ func generateByteAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	opcodes := append(ins.Opcodes(), byte(value))
 	ins.SetOpcodes(opcodes)
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, ast.WidthByte)
+
 	return nil
 }
 
@@ -147,6 +150,7 @@ func generateWordAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(value))
 	ins.SetOpcodes(opcodes)
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, ast.WidthWord)
+
 	return nil
 }
 
@@ -165,6 +169,7 @@ func generateLongAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instru
 	opcodes = append(opcodes, byte(value>>16))
 	ins.SetOpcodes(opcodes)
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.AbsoluteRelocation, ast.WidthLong)
+
 	return nil
 }
 
@@ -186,6 +191,7 @@ func generateRelativeAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 	opcodes := append(ins.Opcodes(), b)
 	ins.SetOpcodes(opcodes)
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.RelativeRelocation, ast.WidthByte)
+
 	return nil
 }
 
@@ -208,6 +214,7 @@ func generateRelativeLongOpcode(assigner arch.AddressAssigner, ins arch.Instruct
 	opcodes := binary.LittleEndian.AppendUint16(ins.Opcodes(), uint16(int16(offset)))
 	ins.SetOpcodes(opcodes)
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 1, ast.RelativeRelocation, ast.WidthWord)
+
 	return nil
 }
 
@@ -231,6 +238,7 @@ func generateBlockMoveOpcode(assigner arch.AddressAssigner, ins arch.Instruction
 	ins.SetOpcodes(opcodes)
 	recordCPU65816Relocation(assigner, ins, resolved, 1, 1, ast.AbsoluteRelocation, ast.WidthByte)
 	recordCPU65816Relocation(assigner, ins, resolved, 0, 2, ast.AbsoluteRelocation, ast.WidthByte)
+
 	return nil
 }
 

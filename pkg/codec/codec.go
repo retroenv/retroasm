@@ -171,6 +171,7 @@ func (c *Codec[T]) ValidateStream(stream *ast.Stream) error {
 			return streamEntryError("validating", index, entry.Position, err)
 		}
 	}
+
 	return nil
 }
 
@@ -205,8 +206,10 @@ func (c *Codec[T]) FormatStream(stream *ast.Stream) (string, error) {
 		if comment := ast.InlineComment(entry.Node); comment != "" {
 			line += " ; " + comment
 		}
+
 		lines = append(lines, line)
 	}
+
 	return strings.Join(lines, "\n"), nil
 }
 
@@ -363,6 +366,7 @@ func (c *Codec[T]) formatData(data ast.Data) (string, error) {
 		}
 		values = append(values, size)
 	}
+
 	for index, value := range data.Values {
 		formatted, err := ast.FormatExpression(value)
 		if err != nil {
@@ -370,6 +374,7 @@ func (c *Codec[T]) formatData(data ast.Data) (string, error) {
 		}
 		values = append(values, formatted)
 	}
+
 	if len(values) == 0 {
 		return "", fmt.Errorf("%w: data node has no values", ErrFormattingUnsupported)
 	}
@@ -396,6 +401,7 @@ func (c *Codec[T]) dataDirective(data ast.Data) (string, error) {
 			return directive, nil
 		}
 	}
+
 	return "", fmt.Errorf(
 		"%w: data width %d in %s mode",
 		ErrFormattingUnsupported,
@@ -427,6 +433,7 @@ func (c *Codec[T]) addressDirective(data ast.Data) (string, error) {
 			return ".bankbytes", nil
 		}
 	}
+
 	return "", fmt.Errorf(
 		"%w: address reference type %d with width %d in %s mode",
 		ErrFormattingUnsupported,
@@ -557,6 +564,7 @@ func reconcileInstructionRelocations(stream *ast.Stream, selected []ast.Relocati
 			existingByEntry[relocation.EntryIndex] = append(existingByEntry[relocation.EntryIndex], relocation)
 		}
 	}
+
 	for _, relocation := range selected {
 		if relocation.EntryIndex < 0 || relocation.EntryIndex >= len(entries) {
 			return fmt.Errorf("%w: entry index %d", ErrInstructionRelocationMismatch, relocation.EntryIndex)
@@ -577,12 +585,14 @@ func reconcileInstructionRelocations(stream *ast.Stream, selected []ast.Relocati
 			for _, relocation := range generated {
 				stream.RecordRelocation(relocation)
 			}
+
 			continue
 		}
 		if !slices.Equal(existing, generated) {
 			return fmt.Errorf("%w at entry %d", ErrInstructionRelocationMismatch, entryIndex)
 		}
 	}
+
 	return nil
 }
 
@@ -663,6 +673,7 @@ func compressedConfigurationValue(value, unit uint64) (uint64, bool) {
 			return units, true
 		}
 	}
+
 	if value >= 0xeff {
 		return value, true
 	}
@@ -688,6 +699,7 @@ func validIdentifier(value string) bool {
 			return false
 		}
 	}
+
 	return value != ""
 }
 

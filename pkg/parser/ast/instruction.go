@@ -88,6 +88,7 @@ func WithInstructionOpcodeID(n Node, id OpcodeID) Node {
 			instruction.OpcodeID = id
 		}
 	}
+
 	return n
 }
 
@@ -102,6 +103,7 @@ func copyInstructionArgumentAndMetadata(i Instruction) (*node, Node) {
 		metadata, operandMetadata := copyInstructionMetadata(i.node, argument.node)
 		argument.node = operandMetadata
 		argument.Arguments = slices.Clone(argument.Arguments)
+
 		return metadata, argument
 
 	default:
@@ -109,6 +111,7 @@ func copyInstructionArgumentAndMetadata(i Instruction) (*node, Node) {
 		if i.Argument != nil {
 			argumentCopy = i.Argument.Copy()
 		}
+
 		return i.node.copyNode(), argumentCopy
 	}
 }
@@ -119,9 +122,11 @@ func copyInstructionMetadata(instruction, operand *node) (*node, *node) {
 	if instruction != nil {
 		metadata[0] = *instruction
 	}
+
 	if operand != nil {
 		metadata[1] = *operand
 	}
+
 	return &metadata[0], &metadata[1]
 }
 
@@ -132,5 +137,6 @@ func copyInstructionModifiers(modifiers []Modifier) []Modifier {
 			copied[index].Operator.node = copied[index].Operator.node.copyNode()
 		}
 	}
+
 	return copied
 }

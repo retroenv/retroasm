@@ -44,6 +44,7 @@ func ParseIdentifier(parser arch.Parser, ins *cpu65816.Instruction) (ast.Node, e
 	if stateful != nil {
 		stateful.SetArchitectureState(nextState(state, ins, resolved.Operands))
 	}
+
 	return typed, nil
 }
 
@@ -79,6 +80,7 @@ func parseInstruction(parser arch.Parser, instructionDetails *cpu65816.Instructi
 
 		parser.AdvanceReadPosition(2)
 		ins.arg2 = parser.NextToken(0)
+
 		return parseInstructionSecondIdentifier(ins, false)
 	}
 
@@ -126,6 +128,7 @@ func parseInstructionBrackets(parser arch.Parser, ins *instruction) (ast.Node, e
 
 			parser.AdvanceReadPosition(2)
 			ins.arg2 = parser.NextToken(0)
+
 			return parseInstructionBracketIndexed(ins)
 
 		default:
@@ -190,6 +193,7 @@ func parseInstructionParentheses(parser arch.Parser, ins *instruction) (ast.Node
 
 			parser.AdvanceReadPosition(2)
 			ins.arg2 = parser.NextToken(0)
+
 			return parseInstructionSecondIdentifier(ins, true)
 
 		default:
@@ -309,6 +313,7 @@ func parseInstructionSingleIdentifier(parser arch.Parser, ins *instruction) (ast
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
+
 	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, ins.modifiers), nil
 }
 
@@ -379,6 +384,7 @@ func parseBranchingInstruction(parser arch.Parser, ins *instruction) (ast.Node, 
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
+
 	return ast.NewInstruction(ins.instruction.Name, int(addressing), l, ins.modifiers), nil
 }
 
@@ -403,6 +409,7 @@ func parseBranchingIndirect(parser arch.Parser, ins *instruction) (ast.Node, err
 		}
 
 		l := ast.NewLabel(ins.arg1.Value)
+
 		return ast.NewInstruction(ins.instruction.Name, int(cpu65816.AbsoluteIndexedXIndirectAddressing), l, nil), nil
 	}
 
@@ -416,6 +423,7 @@ func parseBranchingIndirect(parser arch.Parser, ins *instruction) (ast.Node, err
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
+
 	return ast.NewInstruction(ins.instruction.Name, int(cpu65816.AbsoluteIndirectAddressing), l, nil), nil
 }
 
@@ -432,6 +440,7 @@ func parseBranchingIndirectLong(parser arch.Parser, ins *instruction) (ast.Node,
 	}
 
 	l := ast.NewLabel(ins.arg1.Value)
+
 	return ast.NewInstruction(ins.instruction.Name, int(cpu65816.AbsoluteIndirectLongAddressing), l, nil), nil
 }
 
@@ -463,6 +472,7 @@ func parseBlockMove(parser arch.Parser, ins *instruction) (ast.Node, error) {
 	// Pack as (src << 8) | dst for later extraction
 	packed := (src << 8) | dst
 	n := ast.NewNumber(packed)
+
 	return ast.NewInstruction(ins.instruction.Name, int(cpu65816.BlockMoveAddressing), n, nil), nil
 }
 
@@ -526,6 +536,7 @@ func parseInstructionImmediateAddressingWithToken(parser arch.Parser, ins *instr
 	if tok.Type == token.Identifier {
 		tokenValue = parser.ScopeLocalLabel(tokenValue)
 	}
+
 	tokenType := tok.Type
 
 	parser.AdvanceReadPosition(1)
@@ -589,6 +600,7 @@ func parseInstructionNumberParameter(ins *instruction) (ast.Node, error) {
 	}
 
 	n := ast.NewNumber(i)
+
 	return ast.NewInstruction(ins.instruction.Name, int(addressing), n, ins.modifiers), nil
 }
 
@@ -632,6 +644,7 @@ func resolveArg1Token(p arch.Parser) (token.Token, error) {
 	if arg.Type == token.Identifier {
 		arg.Value = p.ScopeLocalLabel(arg.Value)
 	}
+
 	if arg.Type == token.Colon {
 		if name, ok := resolveUnnamedLabelRef(p); ok {
 			return token.Token{
@@ -640,6 +653,7 @@ func resolveArg1Token(p arch.Parser) (token.Token, error) {
 			}, nil
 		}
 	}
+
 	if arg.Type == token.Dot {
 		resolved, err := arch.OperandSymbolToken(p, 0)
 		if err != nil {
@@ -670,5 +684,6 @@ func resolveUnnamedLabelRef(p arch.Parser) (string, bool) {
 
 	p.AdvanceReadPosition(level)
 	name := p.ResolveUnnamedLabel(forward, level)
+
 	return name, true
 }

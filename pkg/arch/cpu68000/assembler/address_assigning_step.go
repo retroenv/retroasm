@@ -88,6 +88,7 @@ func instructionSizeMOVEM(resolved parser.ResolvedInstruction) int {
 	} else {
 		size += eaExtensionSize(resolved.SrcEA, resolved.Size)
 	}
+
 	return size
 }
 

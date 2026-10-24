@@ -45,6 +45,7 @@ func equalValue(left, right reflect.Value, seen set.Set[equalVisit]) bool {
 		}
 		seen.Add(visit)
 	}
+
 	return equalValueContents(left, right, seen)
 }
 
@@ -65,6 +66,7 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 				return false
 			}
 		}
+
 		return true
 
 	case reflect.Array, reflect.Slice:
@@ -73,6 +75,7 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 				return false
 			}
 		}
+
 		return true
 
 	case reflect.Map:
@@ -82,6 +85,7 @@ func equalValueContents(left, right reflect.Value, seen set.Set[equalVisit]) boo
 				return false
 			}
 		}
+
 		return true
 
 	default:

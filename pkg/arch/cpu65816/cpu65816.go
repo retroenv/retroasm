@@ -47,6 +47,7 @@ func (ar *arch65816[T]) BuildInstruction(mnemonic string, operands parser.Operan
 		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
 	}
 	built.SetOpcodeID(ar.OpcodeID(instruction))
+
 	return built, nil
 }
 
@@ -63,6 +64,7 @@ func (ar *arch65816[T]) BuildInstructionWithState(mnemonic string, operands pars
 		return ast.Instruction{}, parser.State{}, err //nolint:wrapcheck // architecture codec boundary adds context
 	}
 	built.SetOpcodeID(ar.OpcodeID(instruction))
+
 	return built, nextState, nil
 }
 
@@ -83,30 +85,36 @@ func (ar *arch65816[T]) InstructionRegistrations() []arch.InstructionRegistratio
 		for addressing := range instruction.Addressing {
 			addressings.Add(int(addressing))
 		}
+
 		if instruction.HasAddressing(cpu65816.AbsoluteAddressing) &&
 			instruction.HasAddressing(cpu65816.DirectPageAddressing) {
 
 			addressings.Add(int(parser.AbsoluteDirectPageAddressing))
 		}
+
 		if instruction.HasAddressing(cpu65816.AbsoluteIndexedXAddressing) &&
 			instruction.HasAddressing(cpu65816.DirectPageIndexedXAddressing) {
 
 			addressings.Add(int(parser.XAddressing))
 		}
+
 		if instruction.HasAddressing(cpu65816.AbsoluteIndexedYAddressing) &&
 			instruction.HasAddressing(cpu65816.DirectPageIndexedYAddressing) {
 
 			addressings.Add(int(parser.YAddressing))
 		}
+
 		registrations = append(registrations, arch.InstructionRegistration{
 			Name:        instruction.Name,
 			OpcodeID:    ar.OpcodeID(instruction),
 			Addressings: set.Sorted(addressings),
 		})
 	}
+
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
 		return strings.Compare(left.Name, right.Name)
 	})
+
 	return registrations
 }
 

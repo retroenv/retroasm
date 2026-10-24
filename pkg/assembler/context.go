@@ -19,6 +19,7 @@ func processElseCondition[T any](expEval *expressionEvaluation[T]) error {
 
 	expEval.currentContext.hasElse = true
 	expEval.currentContext.processNodes = !expEval.currentContext.processNodes
+
 	return nil
 }
 

@@ -41,6 +41,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 			ast.InstructionArgumentForm(operand.Value),
 		)
 	}
+
 	return fmt.Sprintf("addressing=%d;operands=%s", resolved.Addressing, strings.Join(operands, ","))
 }
 
@@ -57,6 +58,7 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 			ReferenceType: ast.FullAddress,
 		})
 	}
+
 	return references
 }
 
@@ -97,6 +99,7 @@ func resolveOperands(instruction *chip8.Instruction, operands Operands) (chip8.M
 			addressing = chip8.RegisterRegisterNibbleAddressing
 		}
 	}
+
 	if _, ok := instruction.Addressing[addressing]; !ok {
 		return chip8.NoAddressing, ErrUnsupportedAddressing
 	}
@@ -116,6 +119,7 @@ func resolveSingleOperand(instruction *chip8.Instruction, operand Operand) chip8
 	case OperandAddress:
 		return chip8.AbsoluteAddressing
 	}
+
 	return chip8.NoAddressing
 }
 
@@ -183,6 +187,7 @@ func validateResolved(resolved ResolvedInstruction) error {
 			return fmt.Errorf("%w: operand %d value %d exceeds 0x%X", ErrInvalidInstruction, index, value, maximum)
 		}
 	}
+
 	return nil
 }
 
@@ -211,6 +216,7 @@ func operandReferencesSymbol(value ast.Node) bool {
 		return false
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
+
 	return ok
 }
 
@@ -228,6 +234,7 @@ func resolvedFromParsed(instruction ast.Instruction, details *chip8.Instruction)
 		return ast.Instruction{}, err
 	}
 	instruction.Argument = ast.NewInstructionArgument(resolved)
+
 	return instruction, nil
 }
 

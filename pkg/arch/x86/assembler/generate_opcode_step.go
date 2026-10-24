@@ -59,6 +59,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	}
 
 	ins.SetOpcodes(opcodes)
+
 	return nil
 }
 
@@ -93,6 +94,7 @@ func getArithmeticOpcode(name string, addressing int) byte {
 	case xorInst:
 		return getXorOpcode(addressing)
 	}
+
 	return 0 // Not an arithmetic instruction
 }
 
@@ -119,6 +121,7 @@ func getSimpleOpcode(name string) byte {
 	case nopInst:
 		return 0x90 // NOP
 	}
+
 	return 0x90 // Default NOP
 }
 
@@ -131,6 +134,7 @@ func getMovOpcode(addressing int) byte {
 	case 2: // DirectAddressing
 		return 0x8B // MOV r16, r/m16
 	}
+
 	return 0x89
 }
 
@@ -141,6 +145,7 @@ func getAddOpcode(addressing int) byte {
 	case 1:
 		return 0x05 // ADD AX, imm16
 	}
+
 	return 0x01
 }
 
@@ -151,6 +156,7 @@ func getSubOpcode(addressing int) byte {
 	case 1:
 		return 0x2D // SUB AX, imm16
 	}
+
 	return 0x29
 }
 
@@ -161,6 +167,7 @@ func getCmpOpcode(addressing int) byte {
 	case 1:
 		return 0x3D // CMP AX, imm16
 	}
+
 	return 0x39
 }
 
@@ -171,6 +178,7 @@ func getAndOpcode(addressing int) byte {
 	case 1:
 		return 0x25 // AND AX, imm16
 	}
+
 	return 0x21
 }
 
@@ -181,6 +189,7 @@ func getOrOpcode(addressing int) byte {
 	case 1:
 		return 0x0D // OR AX, imm16
 	}
+
 	return 0x09
 }
 
@@ -191,6 +200,7 @@ func getXorOpcode(addressing int) byte {
 	case 1:
 		return 0x35 // XOR AX, imm16
 	}
+
 	return 0x31
 }
 
@@ -209,6 +219,7 @@ func generateRegisterAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 			// Modify opcode based on register
 			(*opcodes)[0] += byte(value)
 		}
+
 		return nil
 	}
 
@@ -224,6 +235,7 @@ func generateRegisterAddressingOpcode(assigner arch.AddressAssigner, ins arch.In
 			}
 			modrm |= byte(value) // Set r/m field
 		}
+
 		*opcodes = append(*opcodes, modrm)
 	}
 
@@ -272,6 +284,7 @@ func generateBranchOpcode(name string, value uint64, opcodes *[]byte) error {
 		}
 		*opcodes = append(*opcodes, byte(value))
 	}
+
 	return nil
 }
 
@@ -292,6 +305,7 @@ func generateDirectAddressingOpcode(assigner arch.AddressAssigner, ins arch.Inst
 
 	// Add 16-bit address
 	*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
+
 	return nil
 }
 

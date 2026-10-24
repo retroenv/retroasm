@@ -119,6 +119,7 @@ func (e *Expression) AddTokens(tokens ...token.Token) {
 		if tok.Type == token.Number && tok.Value == ProgramCounterReference {
 			e.evaluateAtAddressAssign = true
 		}
+
 		e.nodes = append(e.nodes, tok)
 	}
 }
@@ -193,6 +194,7 @@ func (e *Expression) evaluate(scope *scope.Scope, dataWidth int, programCounter 
 	}
 
 	e.evaluated = true
+
 	return e.value, nil
 }
 
@@ -224,6 +226,7 @@ func parseToRPN(scope *scope.Scope, nodes []token.Token, programCounter uint64) 
 			if tok.Value == ProgramCounterReference {
 				tok.Value = strconv.FormatUint(programCounter, 10)
 			}
+
 			values.push(tok)
 
 		case token.LeftParentheses:
@@ -265,6 +268,7 @@ func closeRPNParenthesis(values, operators *stack[token.Token]) error {
 		}
 		values.push(op)
 	}
+
 	return fmt.Errorf("%w: missing left parenthesis", errMismatchedParenthesis)
 }
 
@@ -288,6 +292,7 @@ func normalizeUnaryAddressOperators(nodes []token.Token) []token.Token {
 				normalized = append(normalized, unaryAddressExpression(tok, operand)...)
 				i++
 				operandExpected = false
+
 				continue
 			}
 		}
@@ -336,6 +341,7 @@ func unaryAddressExpression(prefix, operand token.Token) []token.Token {
 	if prefix.Type == token.Caret {
 		shift = "16"
 	}
+
 	return []token.Token{
 		left,
 		left,
@@ -396,6 +402,7 @@ func parseToRPNHandleIdentifier(scope *scope.Scope, tok token.Token,
 	}
 
 	values.push(tok)
+
 	return nil, nil
 }
 
@@ -425,6 +432,7 @@ func parseToRPNHandleOperator(tok token.Token, values, operators *stack[token.To
 	}
 
 	operators.push(tok)
+
 	return nil
 }
 
@@ -452,6 +460,7 @@ func evaluateRPN(tokens []token.Token, dataWidth int) (any, error) {
 				}
 				values.push(int64(i))
 			}
+
 			continue
 		}
 
@@ -478,6 +487,7 @@ func evaluateRPN(tokens []token.Token, dataWidth int) (any, error) {
 	}
 
 	result := values.last()
+
 	return result, nil
 }
 
@@ -504,5 +514,6 @@ func processEvaluatedData(values []any, dataWidth int) ([]byte, error) {
 			return nil, fmt.Errorf("unsupported data expression result type %T", value)
 		}
 	}
+
 	return data, nil
 }

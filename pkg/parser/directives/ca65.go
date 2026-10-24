@@ -20,6 +20,7 @@ func Scope(p arch.Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
+
 	return ast.NewScope(next.Value), nil
 }
 
@@ -49,6 +50,7 @@ func Asciiz(p arch.Parser) (ast.Node, error) {
 
 	data := ast.NewData(ast.DataType, 1)
 	data.Values = values
+
 	return data, nil
 }
 
@@ -84,6 +86,7 @@ func Warning(p arch.Parser) (ast.Node, error) {
 	}
 
 	p.AdvanceReadPosition(2)
+
 	return ast.NewError(strings.Trim(msg.Value, "\"'")), nil
 }
 

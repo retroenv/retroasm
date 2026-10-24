@@ -31,6 +31,7 @@ func New(opts ...Option) *config.Config[*InstructionGroup] {
 	cfg := &config.Config[*InstructionGroup]{
 		Arch: p,
 	}
+
 	return cfg
 }
 
@@ -82,13 +83,16 @@ func (ar *architecture) InstructionRegistrations() []arch.InstructionRegistratio
 			for addressing := range instruction.Addressing {
 				addressings.Add(int(addressing))
 			}
+
 			for register := range instruction.RegisterOpcodes {
 				registers.Add(fmt.Sprintf("%d", register))
 			}
+
 			for pair := range instruction.RegisterPairOpcodes {
 				registerPairs.Add(fmt.Sprintf("%d/%d", pair[0], pair[1]))
 			}
 		}
+
 		registrations = append(registrations, arch.InstructionRegistration{
 			Name:              group.Name,
 			OpcodeID:          ar.OpcodeID(group),
@@ -97,9 +101,11 @@ func (ar *architecture) InstructionRegistrations() []arch.InstructionRegistratio
 			RegisterPairForms: set.Sorted(registerPairs),
 		})
 	}
+
 	slices.SortFunc(registrations, func(left, right arch.InstructionRegistration) int {
 		return strings.Compare(left.Name, right.Name)
 	})
+
 	return registrations
 }
 
@@ -122,6 +128,7 @@ func (ar *architecture) BuildInstruction(mnemonic string, operands z80parser.Ope
 		return ast.Instruction{}, err //nolint:wrapcheck // architecture codec boundary adds context
 	}
 	instruction.SetOpcodeID(ar.OpcodeID(group))
+
 	return instruction, nil
 }
 

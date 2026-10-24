@@ -163,6 +163,7 @@ func copyOperands(operands []Operand) []Operand {
 			copied[index].Value = operand.Value.Copy()
 		}
 	}
+
 	return copied
 }
 
@@ -178,6 +179,7 @@ func operandsFromRaw(operands []rawOperand, resolved *ResolvedInstruction) ([]Op
 		}
 		result[index] = converted
 	}
+
 	return result, nil
 }
 
@@ -215,6 +217,7 @@ func conditionOperandFromRaw(operand rawOperand, resolved *ResolvedInstruction) 
 
 		condition = operand.indirectReg
 	}
+
 	return RegisterOperand(condition)
 }
 
@@ -226,6 +229,7 @@ func indirectOperandFromRaw(operand rawOperand) (Operand, error) {
 	if register == sm83.RegNone {
 		register = sourceIndirectRegister(operand.indirectReg)
 	}
+
 	if !validIndirectRegister(register) {
 		return Operand{}, errInvalidOperandRegister
 	}
@@ -241,6 +245,7 @@ func rawOperands(operands []Operand) ([]rawOperand, error) {
 		}
 		result[index] = converted
 	}
+
 	return result, nil
 }
 

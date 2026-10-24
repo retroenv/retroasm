@@ -157,8 +157,9 @@ func TestEqualIgnoresEntryHandles(t *testing.T) {
 		},
 		NewAlias("alias"),
 	} {
-		left, right := source.Copy(), source.Copy()
-		carrier := left.(interface{ setEntryHandle(*entryHandle) })
+		left := source.Copy()
+		right := source.Copy()
+		carrier := left.(handleSetter)
 		carrier.setEntryHandle(&entryHandle{})
 		assert.True(t, Equal(left, right), "%T", source)
 		assert.True(t, Equal(right, left), "%T", source)

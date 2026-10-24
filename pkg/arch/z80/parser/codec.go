@@ -66,6 +66,7 @@ func BuildInstructionWithProfile(mnemonic string, variants []*cpuz80.Instruction
 	}
 
 	argument := ast.NewInstructionArgument(*resolved)
+
 	return ast.NewInstruction(mnemonic, int(resolved.Addressing), argument, nil), nil
 }
 
@@ -119,6 +120,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 	if options.Uppercase {
 		mnemonic = strings.ToUpper(mnemonic)
 	}
+
 	if len(resolved.Operands) == 0 {
 		return options.Indent + mnemonic, nil
 	}
@@ -135,11 +137,13 @@ func FormatInstructionWithOptions(instruction ast.Instruction, options FormatOpt
 
 			operandOptions.MinimumHexDigits = options.PairImmediateHexDigits
 		}
+
 		formatted[index], err = formatOperandWithOptions(operand, operandOptions, decimalValue)
 		if err != nil {
 			return "", fmt.Errorf("formatting operand %d: %w", index, err)
 		}
 	}
+
 	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
 }
 
@@ -200,6 +204,7 @@ func validateResolvedValues(resolved ResolvedInstruction) error {
 			return fmt.Errorf("bit number %d exceeds 7", value)
 		}
 	}
+
 	for _, operand := range resolved.Operands {
 		if operand.Kind != OperandIndexed {
 			continue
@@ -213,6 +218,7 @@ func validateResolvedValues(resolved ResolvedInstruction) error {
 	if opcodeInfo.Prefix != 0 {
 		baseWidth++
 	}
+
 	remaining := int(opcodeInfo.Size) - baseWidth
 	switch addressing {
 	case cpuz80.ImmediateAddressing:
@@ -234,6 +240,7 @@ func validateResolvedValues(resolved ResolvedInstruction) error {
 			return validateNumberWidths(resolved.OperandValues, 0xff)
 		}
 	}
+
 	return nil
 }
 
@@ -243,6 +250,7 @@ func validateNumberWidths(values []ast.Node, maximum uint64) error {
 			return fmt.Errorf("operand %d value %d exceeds 0x%X", index, numberValue, maximum)
 		}
 	}
+
 	return nil
 }
 
@@ -271,6 +279,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 			return *resolved, nil
 		}
 	}
+
 	return ResolvedInstruction{}, fmt.Errorf("%w: unexpected resolved argument %T", ErrInvalidInstruction, value)
 }
 
@@ -285,6 +294,7 @@ func sameValues(left, right []ast.Node) bool {
 			return false
 		}
 	}
+
 	return true
 }
 

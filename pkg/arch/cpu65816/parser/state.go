@@ -139,12 +139,15 @@ func applyStatusMask(state State, mnemonic string, operands Operands) State {
 			state.Carry = StatusSet
 		}
 	}
+
 	if mask&statusAccumulatorWidth != 0 {
 		state.AccumulatorWidth = statusWidth(state, mnemonic)
 	}
+
 	if mask&statusIndexWidth != 0 {
 		state.IndexWidth = statusWidth(state, mnemonic)
 	}
+
 	return state
 }
 
@@ -167,6 +170,7 @@ func stateAfterStatusRestore(state State) State {
 	}
 	state.AccumulatorWidth = WidthUnknown
 	state.IndexWidth = WidthUnknown
+
 	return state
 }
 
@@ -184,6 +188,7 @@ func stateAfterExchangeCarryEmulation(state State) State {
 			state.IndexWidth = WidthUnknown
 		}
 	}
+
 	return state
 }
 

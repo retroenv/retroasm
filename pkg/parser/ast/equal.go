@@ -117,5 +117,6 @@ func equalModifiers(left, right []Modifier) bool {
 			return false
 		}
 	}
+
 	return true
 }

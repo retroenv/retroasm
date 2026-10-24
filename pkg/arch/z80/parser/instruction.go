@@ -43,6 +43,7 @@ func ParseIdentifierWithProfile(parser arch.Parser, mnemonic string, variants []
 	}
 
 	argument := ast.NewInstructionArgument(*resolved)
+
 	return ast.NewInstruction(mnemonic, int(resolved.Addressing), argument, nil), nil
 }
 
@@ -259,6 +260,7 @@ func parseExpressionOperand(parser arch.Parser, base token.Token) (rawOperand, b
 	}
 
 	parser.AdvanceReadPosition(consumed)
+
 	return rawOperand{
 		value: ast.NewExpression(append([]token.Token{base}, tokens...)...),
 	}, true, nil
@@ -281,6 +283,7 @@ func parseParenthesizedExpressionOperand(parser arch.Parser, base token.Token,
 	}
 
 	parser.AdvanceReadPosition(closingOffset)
+
 	return rawOperand{
 		parenthesized: true,
 		value:         ast.NewExpression(append([]token.Token{base}, tokens...)...),

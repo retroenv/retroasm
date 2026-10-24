@@ -32,6 +32,7 @@ func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instructi
 	binary.BigEndian.PutUint16(opcodeBytes, opcode)
 	ins.SetOpcodes(opcodeBytes)
 	recordCHIP8Relocation(assigner, ins, resolved)
+
 	return nil
 }
 
@@ -95,6 +96,7 @@ func generateRegisterOpcode(operands parser.Operands, index int, opcode *uint16)
 		return fmt.Errorf("register %d exceeds 4-bit range", register)
 	}
 	*opcode |= uint16(register) << 8
+
 	return nil
 }
 
@@ -110,6 +112,7 @@ func generateRegisterPairOpcode(operands parser.Operands, opcode *uint16) error 
 		return fmt.Errorf("register %d exceeds 4-bit range", register)
 	}
 	*opcode |= uint16(register) << 4
+
 	return nil
 }
 
@@ -119,6 +122,7 @@ func generateSpecialRegisterOpcode(operands parser.Operands, opcode *uint16) err
 			return generateRegisterOpcode(operands, index, opcode)
 		}
 	}
+
 	return errors.New("instruction has no register operand")
 }
 
@@ -136,6 +140,7 @@ func generateValueOpcode(assigner arch.AddressAssigner, operands parser.Operands
 		return fmt.Errorf("value %d exceeds 0x%X", value, maximum)
 	}
 	*opcode |= uint16(value)
+
 	return nil
 }
 
@@ -177,6 +182,7 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 		}
 		encoding.ByteOffset = 1
 		encoding.Width = ast.WidthByte
+
 		return 1, encoding, true
 
 	case chip8.RegisterRegisterNibbleAddressing:
@@ -186,6 +192,7 @@ func chip8RelocationEncoding(resolved parser.ResolvedInstruction) (int, arch.Rel
 			BitWidth:     4,
 			PreserveMask: 0xf0,
 		}
+
 		return 2, encoding, true
 
 	default:

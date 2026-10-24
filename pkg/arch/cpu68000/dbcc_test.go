@@ -64,9 +64,11 @@ func runDecrementBranch(t *testing.T, memory *cpu68000.BasicMemory, alwaysTrue b
 		}
 		assert.NoError(t, processor.Step())
 	}
-	wantCounter, wantVisits := uint32(0xa5a5ffff), counter+1
+	wantCounter := uint32(0xa5a5ffff)
+	wantVisits := counter + 1
 	if alwaysTrue {
-		wantCounter, wantVisits = 0xa5a50000|counter, 1
+		wantCounter = 0xa5a50000 | counter
+		wantVisits = 1
 	}
 	assert.Equal(t, wantCounter, processor.D[0])
 	assert.Equal(t, wantVisits, visits)

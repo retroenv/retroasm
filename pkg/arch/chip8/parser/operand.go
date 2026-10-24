@@ -78,5 +78,6 @@ func copyOperands(operands Operands) Operands {
 			copied[index].Value = operand.Value.Copy()
 		}
 	}
+
 	return copied
 }

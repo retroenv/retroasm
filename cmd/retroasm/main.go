@@ -51,15 +51,19 @@ func buildLogFields(input string, options *optionFlags) []log.Field {
 	if options.cpu != "" {
 		fields = append(fields, log.String("cpu", options.cpu))
 	}
+
 	if options.system != "" {
 		fields = append(fields, log.String("system", options.system))
 	}
+
 	if options.cpu == cpuZ80 && options.z80Profile != "" {
 		fields = append(fields, log.String("z80_profile", options.z80Profile))
 	}
+
 	if options.compat != "" {
 		fields = append(fields, log.String("compat", options.compat))
 	}
+
 	return fields
 }
 
@@ -69,9 +73,11 @@ func createLogger(options *optionFlags) *log.Logger {
 	if options.debug {
 		cfg.Level = log.DebugLevel
 	}
+
 	if options.quiet {
 		cfg.Level = log.ErrorLevel
 	}
+
 	return log.NewWithConfig(cfg)
 }
 

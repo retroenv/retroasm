@@ -71,9 +71,11 @@ func registerCandidatesForIdentifier(value string) []cpuz80.RegisterParam {
 	if registerParam, ok := registerParamByName[value]; ok {
 		params = append(params, registerParam)
 	}
+
 	if conditionParam, ok := conditionParamByName[value]; ok && !containsRegisterParam(params, conditionParam) {
 		params = append(params, conditionParam)
 	}
+
 	return params
 }
 
@@ -90,6 +92,7 @@ func registerCandidatesForNumber(value uint64) []cpuz80.RegisterParam {
 
 	result := make([]cpuz80.RegisterParam, len(candidates))
 	copy(result, candidates)
+
 	return result
 }
 
@@ -101,6 +104,7 @@ func registerCandidatesForIndirectIdentifier(value string) []cpuz80.RegisterPara
 
 	result := make([]cpuz80.RegisterParam, len(candidates))
 	copy(result, candidates)
+
 	return result
 }
 

@@ -68,6 +68,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 		for modifierIndex, modifier := range operand.Modifiers {
 			modifiers[modifierIndex] = modifier.Operator.Operator
 		}
+
 		operands[index] = fmt.Sprintf(
 			"%d/%d/%s/%s",
 			operand.Kind,
@@ -76,6 +77,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 			ast.InstructionArgumentForm(operand.Value),
 		)
 	}
+
 	return fmt.Sprintf(
 		"addressing=%d;state=%d/%d/%d/%d;operands=%s",
 		resolved.Addressing,
@@ -139,6 +141,7 @@ func (resolved ResolvedInstruction) EncodedSize(addressing cpu65816.AddressingMo
 	if width == WidthWord {
 		size++
 	}
+
 	return size, nil
 }
 
@@ -156,6 +159,7 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 			ReferenceType: ast.FullAddress,
 		})
 	}
+
 	return references
 }
 
@@ -186,6 +190,7 @@ func operandReferencesSymbol(value ast.Node) bool {
 		return false
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
+
 	return ok
 }
 
@@ -207,6 +212,7 @@ func resolvedFromParsed(instruction ast.Instruction, details *cpu65816.Instructi
 	}
 	instruction.Argument = ast.NewInstructionArgument(resolved)
 	instruction.Modifier = nil
+
 	return instruction, resolved, nil
 }
 
@@ -239,6 +245,7 @@ func operandsFromParsed(instruction ast.Instruction) (Operands, error) {
 		Value:     instruction.Argument.Copy(),
 		Modifiers: slices.Clone(instruction.Modifier),
 	}
+
 	return Operands{operand}, nil
 }
 
@@ -268,6 +275,7 @@ func resolveOperands(instruction *cpu65816.Instruction, operands Operands) (cpu6
 			return cpu65816.BlockMoveAddressing, nil
 		}
 	}
+
 	return cpu65816.NoAddressing, ErrUnsupportedAddressing
 }
 
@@ -315,6 +323,7 @@ func resolveSingleOperand(instruction *cpu65816.Instruction, operand Operand) (c
 	default:
 		return cpu65816.NoAddressing, ErrUnsupportedAddressing
 	}
+
 	if !supportsAddressing(instruction, addressing) {
 		return cpu65816.NoAddressing, ErrUnsupportedAddressing
 	}
@@ -338,6 +347,7 @@ func resolveAddress(instruction *cpu65816.Instruction, operand Operand) cpu65816
 			return addressing
 		}
 	}
+
 	return resolveDefaultAddress(instruction, operand.Value)
 }
 
@@ -352,6 +362,7 @@ func resolveDefaultAddress(instruction *cpu65816.Instruction, value ast.Node) cp
 			return cpu65816.AbsoluteLongAddressing
 		}
 	}
+
 	hasDirect := instruction.HasAddressing(cpu65816.DirectPageAddressing)
 	hasAbsolute := instruction.HasAddressing(cpu65816.AbsoluteAddressing)
 	switch {
@@ -392,6 +403,7 @@ func resolveIndexedX(instruction *cpu65816.Instruction, operand Operand) cpu6581
 			return cpu65816.AbsoluteLongIndexedXAddressing
 		}
 	}
+
 	return firstSupported(
 		instruction,
 		cpu65816.AbsoluteIndexedXAddressing,
@@ -422,6 +434,7 @@ func resolveIndexedY(instruction *cpu65816.Instruction, operand Operand) cpu6581
 			return cpu65816.AbsoluteIndexedYAddressing
 		}
 	}
+
 	return firstSupported(instruction, cpu65816.AbsoluteIndexedYAddressing, cpu65816.DirectPageIndexedYAddressing)
 }
 
@@ -461,6 +474,7 @@ func firstSupported(instruction *cpu65816.Instruction, addressings ...cpu65816.A
 			return addressing
 		}
 	}
+
 	return cpu65816.NoAddressing
 }
 
@@ -512,6 +526,7 @@ func validateResolved(resolved ResolvedInstruction) error {
 			}
 		}
 	}
+
 	return validateResolvedWidths(resolved)
 }
 
@@ -542,6 +557,7 @@ func validateResolvedWidths(resolved ResolvedInstruction) error {
 		AbsoluteDirectPageAddressing, XAddressing, YAddressing:
 		maximum = 0xffffff
 	}
+
 	return validateOperandMaximum(resolved.Operands, maximum)
 }
 
@@ -551,6 +567,7 @@ func validateOperandMaximum(operands Operands, maximum uint64) error {
 			return fmt.Errorf("operand %d value %d exceeds 0x%X", index, value, maximum)
 		}
 	}
+
 	return nil
 }
 

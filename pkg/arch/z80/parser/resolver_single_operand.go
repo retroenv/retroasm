@@ -130,6 +130,7 @@ func matchRegisterOpcodeVariant(variants []*cpuz80.Instruction, operand rawOpera
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -147,6 +148,7 @@ func resolveParenthesizedIndirect(variants []*cpuz80.Instruction) *ResolvedInstr
 			Instruction: variant,
 		}
 	}
+
 	return nil
 }
 
@@ -200,9 +202,11 @@ func resolveSingleNumericRegisterOperand(variants []*cpuz80.Instruction, value u
 					addressing = mode
 				}
 			}
+
 			if addressing == cpuz80.NoAddressing && variant.HasAddressing(cpuz80.ImpliedAddressing) {
 				addressing = cpuz80.ImpliedAddressing
 			}
+
 			if addressing == cpuz80.NoAddressing {
 				addressing = cpuz80.RegisterAddressing
 			}

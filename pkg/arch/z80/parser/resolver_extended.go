@@ -164,6 +164,7 @@ func resolveExtendedHLStore(variants []*cpuz80.Instruction, value ast.Node) *Res
 			OperandValues: []ast.Node{value},
 		}
 	}
+
 	return nil
 }
 

@@ -35,6 +35,7 @@ func (resolved ResolvedInstruction) CopyInstructionArgument() any {
 	resolved.RegisterParams = slices.Clone(resolved.RegisterParams)
 	resolved.OperandValues = ast.CopyNodes(resolved.OperandValues)
 	resolved.Operands = copyOperands(resolved.Operands)
+
 	return resolved
 }
 
@@ -44,6 +45,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 	for index, register := range resolved.RegisterParams {
 		registers[index] = fmt.Sprintf("%d", register)
 	}
+
 	operands := make([]string, len(resolved.Operands))
 	for index, operand := range resolved.Operands {
 		operands[index] = fmt.Sprintf(
@@ -53,6 +55,7 @@ func (resolved ResolvedInstruction) InstructionFormKey() string {
 			ast.InstructionArgumentForm(operand.Value),
 		)
 	}
+
 	return fmt.Sprintf(
 		"addressing=%d;registers=%s;operands=%s",
 		resolved.Addressing,
@@ -74,6 +77,7 @@ func (resolved ResolvedInstruction) InstructionReferences() []ast.InstructionRef
 			ReferenceType: ast.FullAddress,
 		})
 	}
+
 	return references
 }
 
@@ -109,6 +113,7 @@ func (resolved ResolvedInstruction) OpcodeInfo() (cpuz80.OpcodeInfo, cpuz80.Addr
 			return info, addressing, nil
 		}
 	}
+
 	return cpuz80.OpcodeInfo{}, cpuz80.NoAddressing, ErrOpcodeNotFound
 }
 
@@ -121,6 +126,7 @@ func (resolved ResolvedInstruction) effectiveAddressing() cpuz80.AddressingMode 
 			return addressing
 		}
 	}
+
 	return cpuz80.NoAddressing
 }
 
@@ -146,6 +152,7 @@ func operandReferencesSymbol(value ast.Node) bool {
 		return false
 	}
 	_, _, ok = ast.ParseSymbolReference(expression.Value)
+
 	return ok
 }
 
@@ -162,6 +169,7 @@ func resolveInstruction(variants []*cpuz80.Instruction, operands []rawOperand) (
 	default:
 		return nil, fmt.Errorf("%w: expected at most 2 operands, got %d", errUnsupportedOperandPattern, len(operands))
 	}
+
 	if err != nil {
 		return nil, err
 	}

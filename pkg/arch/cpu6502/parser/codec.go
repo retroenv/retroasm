@@ -48,6 +48,7 @@ func BuildInstruction(mnemonic string, instruction *cpu6502.Instruction, operand
 		argument = operands[0].Value.Copy()
 		modifiers = slices.Clone(operands[0].Modifiers)
 	}
+
 	return ast.NewInstruction(mnemonic, int(addressing), argument, modifiers), nil
 }
 
@@ -74,6 +75,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, expected *cpu6502
 	if options.Uppercase {
 		mnemonic = strings.ToUpper(mnemonic)
 	}
+
 	if len(resolved.Operands) == 0 {
 		return options.Indent + mnemonic, nil
 	}
@@ -85,6 +87,7 @@ func FormatInstructionWithOptions(instruction ast.Instruction, expected *cpu6502
 		}
 		formatted = append(formatted, value)
 	}
+
 	return options.Indent + mnemonic + " " + strings.Join(formatted, ","), nil
 }
 
@@ -165,6 +168,7 @@ func appendModifiers(value string, modifiers []ast.Modifier) (string, error) {
 		}
 		builder.WriteString(formatted)
 	}
+
 	return builder.String(), nil
 }
 
@@ -176,10 +180,12 @@ func operandHexDigits(resolved ResolvedInstruction, operand Operand, options For
 	if byteDigits == 0 {
 		byteDigits = 2
 	}
+
 	wordDigits := options.WordHexDigits
 	if wordDigits == 0 {
 		wordDigits = 4
 	}
+
 	if operand.Kind == OperandImmediate || operand.Size == AddressZeroPage ||
 		resolved.Addressing == cpu6502.IndirectXAddressing ||
 		resolved.Addressing == cpu6502.IndirectYAddressing ||
@@ -201,6 +207,7 @@ func addressPrefix(size AddressSize, options FormatOptions) string {
 	case AddressAbsolute:
 		prefix = "a:"
 	}
+
 	if options.Uppercase {
 		return strings.ToUpper(prefix)
 	}

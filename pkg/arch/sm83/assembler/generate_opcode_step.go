@@ -92,6 +92,7 @@ func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction,
 		byteOffset := uint64(len(opcodes))
 		opcodes = append(opcodes, byte(value))
 		recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+
 		return opcodes, nil
 
 	case 2:
@@ -105,6 +106,7 @@ func appendImmediateOperand(assigner arch.AddressAssigner, ins arch.Instruction,
 		byteOffset := uint64(len(opcodes))
 		opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
 		recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+
 		return opcodes, nil
 
 	default:
@@ -125,6 +127,7 @@ func appendExtendedOperand(assigner arch.AddressAssigner, ins arch.Instruction, 
 	byteOffset := uint64(len(opcodes))
 	opcodes = binary.LittleEndian.AppendUint16(opcodes, uint16(value))
 	recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthWord)
+
 	return opcodes, nil
 }
 
@@ -144,6 +147,7 @@ func appendRelativeOperand(assigner arch.AddressAssigner, ins arch.Instruction, 
 	byteOffset := uint64(len(opcodes))
 	opcodes = append(opcodes, offset)
 	recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.RelativeRelocation, ast.WidthByte)
+
 	return opcodes, nil
 }
 
@@ -168,6 +172,7 @@ func appendOptionalByteOperand(assigner arch.AddressAssigner, ins arch.Instructi
 	byteOffset := uint64(len(opcodes))
 	opcodes = append(opcodes, byte(value))
 	recordSM83Relocation(assigner, ins, resolved, byteOffset, ast.AbsoluteRelocation, ast.WidthByte)
+
 	return opcodes, nil
 }
 
@@ -191,6 +196,7 @@ func baseOpcodeBytes(opcodeInfo cpusm83.OpcodeInfo) []byte {
 	if opcodeInfo.Prefix != 0 {
 		opcodes = append(opcodes, opcodeInfo.Prefix)
 	}
+
 	return append(opcodes, opcodeInfo.Opcode)
 }
 
@@ -215,6 +221,7 @@ func buildBitOpcode(assigner arch.AddressAssigner, resolved sm83parser.ResolvedI
 
 	opcode := opcodeInfo.Opcode + byte(bitNumber<<bitNumberShift) + registerCode
 	opcodes = append(opcodes, opcode)
+
 	return opcodes, nil
 }
 

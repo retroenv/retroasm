@@ -212,6 +212,7 @@ func resolveSpecialRegisterPairOperands(variants []*cpuz80.Instruction, operand1
 			if _, ok := variant.RegisterOpcodes[c1]; !ok {
 				registerKey = c2
 			}
+
 			if _, ok := variant.RegisterOpcodes[registerKey]; !ok {
 				return &ResolvedInstruction{
 					Addressing:  addressing,

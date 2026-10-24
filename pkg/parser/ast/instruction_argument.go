@@ -102,6 +102,7 @@ func InstructionArgumentForm(argument Node) string {
 		for index, item := range value.Values {
 			forms[index] = InstructionArgumentForm(item)
 		}
+
 		return "list[" + strings.Join(forms, ",") + "]"
 
 	case *InstructionArguments:
@@ -143,6 +144,7 @@ func CopyNodes(nodes []Node) []Node {
 			copied[index] = node.Copy()
 		}
 	}
+
 	return copied
 }
 
@@ -222,6 +224,7 @@ func instructionArgumentValueIsImmutable(value reflect.Value) bool {
 				return false
 			}
 		}
+
 		return true
 
 	case reflect.Struct:
@@ -230,6 +233,7 @@ func instructionArgumentValueIsImmutable(value reflect.Value) bool {
 				return false
 			}
 		}
+
 		return true
 
 	case reflect.Interface:

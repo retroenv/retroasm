@@ -48,6 +48,7 @@ func parseRegisterListPart(part string) (uint16, error) {
 	for i := start; i <= end; i++ {
 		mask |= 1 << i
 	}
+
 	return mask, nil
 }
 

@@ -42,9 +42,11 @@ func BuildInstruction(mnemonic string, instruction *cpu68000.Instruction, operan
 		}
 		size = suffixSize
 	}
+
 	if size == 0 {
 		size = cpu68000.SizeWord
 	}
+
 	if instruction.Name == cpu68000.MOVEQName {
 		size = cpu68000.SizeLong
 	}
@@ -60,12 +62,14 @@ func BuildInstruction(mnemonic string, instruction *cpu68000.Instruction, operan
 	if hasCondition {
 		resolved.Extra = condition
 	}
+
 	resolveSpecialOperandModes(&resolved)
 	if err := validateResolved(resolved); err != nil {
 		return ast.Instruction{}, err
 	}
 
 	argument := ast.NewInstructionArgument(resolved)
+
 	return ast.NewInstruction(instruction.Name, int(cpu68000.NoAddressing), argument, nil), nil
 }
 
@@ -141,6 +145,7 @@ func resolvedArgument(argument ast.Node) (ResolvedInstruction, error) {
 			return *resolved, nil
 		}
 	}
+
 	return ResolvedInstruction{}, fmt.Errorf("%w: unexpected resolved argument %T", ErrInvalidInstruction, value)
 }
 
@@ -150,12 +155,14 @@ func resolveSpecialOperandModes(resolved *ResolvedInstruction) {
 			resolved.SrcEA.Mode = cpu68000.QuickImmediateMode
 		}
 	}
+
 	if resolved.Instruction.Name != cpu68000.MOVEMName {
 		return
 	}
 	if resolved.SrcEA != nil && resolved.SrcEA.RegList != 0 {
 		resolved.Extra = 0
 	}
+
 	if resolved.DstEA != nil && resolved.DstEA.RegList != 0 {
 		resolved.Extra = 1
 	}
@@ -185,7 +192,8 @@ func validateResolved(resolved ResolvedInstruction) error {
 
 func validateOperandShape(resolved ResolvedInstruction) error {
 	name := resolved.Instruction.Name
-	source, destination := resolved.SrcEA != nil, resolved.DstEA != nil
+	source := resolved.SrcEA != nil
+	destination := resolved.DstEA != nil
 	switch {
 	case isNoOperandInstruction(name):
 		if source || destination {
@@ -212,6 +220,7 @@ func validateOperandShape(resolved ResolvedInstruction) error {
 			return fmt.Errorf("%w: %s requires source and destination operands", ErrInvalidInstruction, name)
 		}
 	}
+
 	return nil
 }
 
@@ -344,6 +353,7 @@ func validateSpecialValues(resolved ResolvedInstruction) error {
 			return fmt.Errorf("%w: MOVEM requires one register list", ErrInvalidInstruction)
 		}
 	}
+
 	return nil
 }
 
@@ -363,6 +373,7 @@ func formatMnemonic(resolved ResolvedInstruction, options FormatOptions) (string
 			name = "s" + condition
 		}
 	}
+
 	if options.OmitWordBranchSuffix && isBranchInstruction(resolved.Instruction.Name) &&
 		resolved.Size == cpu68000.SizeWord {
 
@@ -371,6 +382,7 @@ func formatMnemonic(resolved ResolvedInstruction, options FormatOptions) (string
 	if resolved.ExplicitSize || instructionUsesSizeSuffix(resolved.Instruction.Name) {
 		name += sizeSuffix(resolved.Size)
 	}
+
 	return name, nil
 }
 
@@ -405,9 +417,11 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 	if resolved.SrcEA != nil {
 		addresses = append(addresses, resolved.SrcEA)
 	}
+
 	if resolved.DstEA != nil {
 		addresses = append(addresses, resolved.DstEA)
 	}
+
 	formatted := make([]string, len(addresses))
 	for index, address := range addresses {
 		directFlowTarget := isDirectFlowInstruction(resolved.Instruction.Name) ||
@@ -426,9 +440,11 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 					return nil, fmt.Errorf("formatting named flow target: %w", err)
 				}
 				formatted[index] = value
+
 				continue
 			}
 			formatted[index] = signedCPU68000Value(value, address.Negative)
+
 			continue
 		}
 		value, err := formatEffectiveAddress(address, resolved.Size, options)
@@ -437,6 +453,7 @@ func formattedOperands(resolved ResolvedInstruction, options FormatOptions) ([]s
 		}
 		formatted[index] = value
 	}
+
 	return formatted, nil
 }
 
@@ -574,10 +591,12 @@ func formatIndexedAddress(address *EffectiveAddress, base string, options Format
 	if address.IsAddrReg {
 		prefix = "a"
 	}
+
 	index := fmt.Sprintf("%s%d%s", prefix, address.IndexReg, sizeSuffix(address.IndexSize))
 	if options.Uppercase {
 		index = strings.ToUpper(index)
 	}
+
 	return signedCPU68000Value(formatted, address.Negative) + "(" + base + "," + index + ")", nil
 }
 
@@ -592,6 +611,7 @@ func formatAbsoluteAddress(value ast.Node, suffix string, maximum uint64, negati
 		// Keep the complete expression before the absolute size suffix.
 		formatted = "(" + formatted + ")"
 	}
+
 	return formatted + suffix, nil
 }
 
@@ -614,6 +634,7 @@ func format68000Value(value ast.Node, maximum uint64, decimal bool) (string, err
 			digits = 8
 		}
 	}
+
 	formatted, err := ast.FormatValue(value, ast.ValueFormatOptions{
 		Decimal:          decimal,
 		MinimumHexDigits: digits,
@@ -636,12 +657,15 @@ func formatRegisterList(mask uint16, options FormatOptions) string {
 			prefix = "a"
 			number -= 8
 		}
+
 		name := fmt.Sprintf("%s%d", prefix, number)
 		if options.Uppercase {
 			name = strings.ToUpper(name)
 		}
+
 		registers = append(registers, name)
 	}
+
 	return strings.Join(registers, "/")
 }
 

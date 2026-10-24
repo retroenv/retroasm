@@ -29,5 +29,6 @@ func Base(p arch.Parser) (ast.Node, error) {
 	data.Fill = true
 	data.Size.AddTokens(addressTokens...)
 	data.Values = values
+
 	return addSizeProgramCounterReference(data)
 }
