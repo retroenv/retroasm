@@ -100,7 +100,7 @@ func TestEncodingMatchesNASM(t *testing.T) {
 func TestRejectsUnsupportedForms(t *testing.T) {
 	for _, text := range []string{
 		"mov al, 256", "mov ax, 65536", "mov ax, bl", "mov cs, ax", "mov ds, 1",
-		"int 256", "push al", "ret 2", "add ds, ax", "mov ax", "mov ax, [bx]", "bound ax, bx",
+		"int 256", "push al", "ret -32769", "add ds, ax", "mov ax", "mov ax, [sp]", "bound ax, bx",
 	} {
 		t.Run(text, func(t *testing.T) {
 			c := newCodec(t)
@@ -149,7 +149,12 @@ func TestConditionalBranchBoundaries(t *testing.T) {
 			assert.NoError(t, err)
 			assembly, err := c.Assemble(t.Context(), []ast.Node{ast.NewSegment("CODE"), instruction})
 			if !test.valid {
-				assert.Error(t, err)
+				assert.NoError(t, err)
+				expected := []byte{0x75, 3, 0xe9, 0x7d, 0}
+				if test.displacement < 0 {
+					expected = []byte{0x75, 3, 0xe9, 0x7c, 0xff}
+				}
+				assert.Equal(t, expected, assembly.Binary)
 				return
 			}
 			assert.NoError(t, err)

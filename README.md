@@ -31,7 +31,10 @@ syntax tree (AST) to machine code and ROM files.
 | ZX Spectrum | Z80 | Supported |
 | Generic binary output | 6502, 65816, 68000, SM83, or Z80 | Supported |
 
-Intel 8086 support is in development.
+Intel 8086 has an experimental library encoder for 16-bit DOS work. It supports
+typed memory operands, scalar operations, stack and string forms, and conditional
+branch expansion. It rejects later-CPU forms. See the
+[8086 library contract](docs/library-usage.md#experimental-8086-encoding).
 
 ## Quick Start
 

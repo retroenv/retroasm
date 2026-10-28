@@ -306,6 +306,63 @@ spacing. Relocations do not provide a complete external linker interface.
   at construction or copying.
 - Custom assembly adapters must implement `arch.ByteOrderer` on this branch.
 
+## Experimental 8086 encoding
+
+Use `pkg/arch/x86.New()` with the codec and an explicit 16-bit memory layout.
+The library does not supply a DOS loader or runtime. Existing opcode IDs keep
+their values when new instructions are added.
+
+Intel syntax retains byte and word registers, immediate values, and memory.
+Memory uses the eight 8086 base/index forms or a direct address. It can include
+one symbol, a word displacement, and an ES, CS, SS, or DS override. Register
+pairs such as `[sp]` and `[si+di]` are invalid. A paired register supplies memory
+width; immediate and unary operations need `byte` or `word` when width is
+ambiguous. For example:
+
+```asm
+mov ax, [bp-2]
+mov byte [es:bx+si+128], -1
+adc word [buffer+2], 0
+shl ax, cl
+rep movsb
+```
+
+For typed construction, wrap `parser.MemoryOperand` in
+`ast.NewInstructionArgument`. Use canonical ISA `Reg*Ref` address forms, or
+`RegMem` for a direct address. Width zero permits inference; one and two select
+byte and word storage. Segment zero selects the default segment. Symbols remain
+visible to shared AST reference and rename operations. Use `SignedImmediate`
+for negative literals and `RepeatedString` for a repeat prefix's operation.
+The parser package is `pkg/arch/x86/parser`; register identities come from
+`retrogolib/arch/cpu/x86`.
+
+The encoder supports MOV, LEA, the integer arithmetic and bitwise families,
+TEST, XCHG, INC/DEC, NEG/NOT, one-operand MUL/IMUL/DIV/IDIV, shifts and rotations
+by one or CL, word stack operations, direct and indirect near calls and jumps,
+near returns, INT/IRET, flag controls, and byte/word string operations. REPZ and
+REPNZ support compare and scan operations. Immediate PUSH, immediate shifts by
+other counts, later-CPU instructions, far transfers, and unregistered forms
+return errors. Signed immediates must fit the selected width. Non-accumulator
+word immediate arithmetic uses its full word form.
+
+Conditional branches start short. After symbols have addresses, the assembler
+expands an out-of-range condition to its inverse around a near JMP. It repeats
+layout until no branch grows. Each branch can grow once, from two to five bytes.
+This expansion preserves flags and uses no later-CPU opcode. Ordinary JMP uses
+the three-byte near form. One encoding selection supplies both size and bytes.
+
+Run the independent encoding and layout checks with:
+
+```sh
+RETROASM_REQUIRE_NASM=1 go test ./pkg/arch/x86 ./pkg/arch/x86/assembler ./pkg/assembler ./pkg/codec -count=1
+```
+
+The tests require NASM when `RETROASM_REQUIRE_NASM=1` is set. They compare byte
+encodings under `cpu 8086`, check invalid forms, and check branch expansion at
+both signed-byte limits and through multiple layout passes. CPU classification
+checks the selected opcode generation; operand legality is a separate check.
+These results do not establish an 8086 cycle timing model.
+
 ## Limitations
 
 Memory layout still uses ca65-style configuration. Supply a layout suitable

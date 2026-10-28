@@ -196,8 +196,8 @@ func instructionArgumentReference(argument any) (string, int64, bool) {
 	}
 }
 
-// assignAddressesStep assigns an address for every node in each scope.
-func assignAddressesStep[T any](_ context.Context, asm *Assembler[T]) error {
+// assignAddressPass assigns an address for every node in each scope.
+func assignAddressPass[T any](_ context.Context, asm *Assembler[T]) error {
 	var err error
 	aa := addressAssign[T]{
 		arch:         asm.cfg.Arch,

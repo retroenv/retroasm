@@ -35,6 +35,15 @@ func FormatInstruction(instruction ast.Instruction) (string, error) {
 
 func formatOperand(operand ast.Node) (string, error) {
 	if typed, ok := operand.(ast.InstructionArgument); ok {
+		switch value := typed.Value.(type) {
+		case MemoryOperand:
+			return formatMemory(value)
+		case SignedImmediate:
+			return fmt.Sprintf("%d", value), nil
+		case RepeatedString:
+			return string(value), nil
+		}
+
 		register, ok := RegisterValue(typed.Value)
 		if !ok || register < isa.RegAL || register > isa.RegDS {
 			return "", fmt.Errorf("unsupported 8086 register %v", typed.Value)

@@ -20,6 +20,22 @@ var opcodeNames = []string{
 	isa.MovName, isa.IntName, isa.CldName, isa.RetName, isa.NopName,
 	isa.PushName, isa.PopName, isa.CallName, isa.JmpName, isa.JzName, isa.JnzName,
 	isa.AddName, isa.SubName, isa.CmpName, isa.AndName, isa.OrName, isa.XorName,
+	isa.AdcName, isa.SbbName, isa.TestName, isa.XchgName, isa.LeaName,
+	isa.IncName, isa.DecName, isa.NegName, isa.NotName, isa.MulName, isa.ImulName, isa.DivName, isa.IdivName,
+	isa.ShlName, isa.ShrName, isa.SarName, isa.RolName, isa.RorName, isa.RclName, isa.RcrName,
+	isa.ClcName, isa.StcName, isa.CmcName, isa.StdName, isa.CbwName, isa.CwdName, isa.IretName,
+	isa.MovsbName, isa.MovswName, isa.CmpsbName, isa.CmpswName, isa.StosbName, isa.StoswName,
+	isa.LodsbName, isa.LodswName, isa.ScasbName, isa.ScaswName, isa.RepName, isa.RepzName, isa.RepnzName,
+	isa.JoName, isa.JnoName, isa.JbName, isa.JnbName, isa.JbeName, isa.JnbeName, isa.JsName, isa.JnsName,
+	isa.JpName, isa.JnpName, isa.JlName, isa.JnlName, isa.JleName, isa.JnleName,
+}
+
+var mnemonicAliases = map[string]string{
+	"je": isa.JzName, "jne": isa.JnzName, "jc": isa.JbName, "jnae": isa.JbName,
+	"jnc": isa.JnbName, "jae": isa.JnbName, "jna": isa.JbeName, "ja": isa.JnbeName,
+	"jpe": isa.JpName, "jpo": isa.JnpName, "jnge": isa.JlName, "jge": isa.JnlName,
+	"jng": isa.JleName, "jg": isa.JnleName, "sal": isa.ShlName, "repe": isa.RepzName,
+	"repne": isa.RepnzName,
 }
 
 // New returns an 8086 configuration. Unsupported operand forms return errors.
@@ -51,11 +67,9 @@ func (*architecture) ByteOrder() ast.ByteOrder { return ast.ByteOrderLittle }
 
 func (*architecture) Instruction(name string) (*isa.Instruction, bool) {
 	name = strings.ToLower(name)
-	switch name {
-	case "je":
-		name = isa.JzName
-	case "jne":
-		name = isa.JnzName
+
+	if canonical, known := mnemonicAliases[name]; known {
+		name = canonical
 	}
 
 	if slices.Contains(opcodeNames, name) {
@@ -115,4 +129,13 @@ func (*architecture) ValidateInstruction(instruction ast.Instruction) error {
 		return fmt.Errorf("validating 8086 instruction: %w", err)
 	}
 	return nil
+}
+
+// RelaxInstruction expands a conditional branch that cannot reach its target.
+func (*architecture) RelaxInstruction(assigner arch.AddressAssigner, instruction arch.Instruction) (bool, error) {
+	changed, err := assembler.RelaxInstruction(assigner, instruction)
+	if err != nil {
+		return false, fmt.Errorf("relaxing 8086 instruction: %w", err)
+	}
+	return changed, nil
 }
