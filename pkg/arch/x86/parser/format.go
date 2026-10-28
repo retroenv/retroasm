@@ -35,7 +35,7 @@ func FormatInstruction(instruction ast.Instruction) (string, error) {
 
 func formatOperand(operand ast.Node) (string, error) {
 	if typed, ok := operand.(ast.InstructionArgument); ok {
-		register, ok := typed.Value.(isa.RegisterParam)
+		register, ok := RegisterValue(typed.Value)
 		if !ok || register < isa.RegAL || register > isa.RegDS {
 			return "", fmt.Errorf("unsupported 8086 register %v", typed.Value)
 		}

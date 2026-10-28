@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/arch/x86/parser"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	isa "github.com/retroenv/retrogolib/arch/cpu/x86"
 )
@@ -127,7 +128,7 @@ func selectEncoding(assigner arch.AddressAssigner, mnemonic string, argument any
 		if len(args) != 1 {
 			break
 		}
-		register, ok := args[0].(isa.RegisterParam)
+		register, ok := parser.RegisterValue(args[0])
 		if !ok || !register.Is16Bit() {
 			break
 		}
@@ -155,7 +156,7 @@ func selectEncoding(assigner arch.AddressAssigner, mnemonic string, argument any
 }
 
 func immediate(assigner arch.AddressAssigner, arg any, width int, resolve bool) (uint64, error) {
-	if _, ok := arg.(isa.RegisterParam); ok {
+	if _, ok := parser.RegisterValue(arg); ok {
 		return 0, errors.New("8086 immediate cannot be a register")
 	}
 	if !resolve {
@@ -172,11 +173,11 @@ func immediate(assigner arch.AddressAssigner, arg any, width int, resolve bool) 
 }
 
 func binaryInstruction(assigner arch.AddressAssigner, name string, args []any, resolve bool) ([]byte, error) {
-	destination, ok := args[0].(isa.RegisterParam)
+	destination, ok := parser.RegisterValue(args[0])
 	if !ok || !destination.Is8Bit() && !destination.Is16Bit() && !destination.IsSegment() {
 		return nil, errors.New("unsupported 8086 destination register")
 	}
-	if source, ok := args[1].(isa.RegisterParam); ok {
+	if source, ok := parser.RegisterValue(args[1]); ok {
 		return registerInstruction(name, destination, source)
 	}
 	if destination.IsSegment() {

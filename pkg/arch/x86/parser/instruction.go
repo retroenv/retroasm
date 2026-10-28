@@ -14,6 +14,13 @@ import (
 
 // BuildInstruction constructs an instruction with operands in Intel order.
 func BuildInstruction(name string, operands ...ast.Node) ast.Instruction {
+	normalized := make([]ast.Node, len(operands))
+	for index, operand := range operands {
+		normalized[index] = normalizeRegisterOperand(operand)
+	}
+
+	operands = normalized
+
 	mode := isa.ImpliedAddressing
 	var argument ast.Node
 	switch len(operands) {
@@ -68,7 +75,9 @@ func parseOperand(value token.Token) (ast.Node, error) {
 	case token.Identifier:
 		for register := isa.RegAL; register <= isa.RegDS; register++ {
 			if strings.EqualFold(value.Value, register.String()) {
-				return ast.NewInstructionArgument(register), nil
+				return ast.NewInstructionArgument(RegisterOperand{
+					Register: register,
+				}), nil
 			}
 		}
 
