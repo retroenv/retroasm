@@ -1,8 +1,10 @@
-// Package x86 provides a x86 (8086/286) architecture specific assembler code.
+// Package x86 supplies the tested 8086 instruction subset for DOS output.
 package x86
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
 	"github.com/retroenv/retroasm/pkg/arch/x86/assembler"
@@ -10,57 +12,107 @@ import (
 	"github.com/retroenv/retroasm/pkg/assembler/config"
 	"github.com/retroenv/retroasm/pkg/parser/ast"
 	retroarch "github.com/retroenv/retrogolib/arch"
+	isa "github.com/retroenv/retrogolib/arch/cpu/x86"
 )
 
-// New returns a new x86 architecture configuration.
-func New() *config.Config[*Instruction] {
-	p := &archX86[*Instruction]{}
-	cfg := &config.Config[*Instruction]{
-		Arch: p,
+// Keep existing identities stable when the subset grows.
+var opcodeNames = []string{
+	isa.MovName, isa.IntName, isa.CldName, isa.RetName, isa.NopName,
+	isa.PushName, isa.PopName, isa.CallName, isa.JmpName, isa.JzName, isa.JnzName,
+	isa.AddName, isa.SubName, isa.CmpName, isa.AndName, isa.OrName, isa.XorName,
+}
+
+// New returns an 8086 configuration. Unsupported operand forms return errors.
+func New() *config.Config[*isa.Instruction] {
+	return &config.Config[*isa.Instruction]{
+		Arch: &architecture{},
 	}
-	return cfg
 }
 
-type archX86[T any] struct {
+// NewInstruction retains all operands without parsing assembly text.
+func NewInstruction(name string, operands ...ast.Node) (ast.Instruction, error) {
+	metadata, ok := (&architecture{}).Instruction(name)
+	if !ok {
+		return ast.Instruction{}, fmt.Errorf("unsupported 8086 instruction %q", name)
+	}
+	instruction := parser.BuildInstruction(metadata.Name, operands...)
+	instruction.OpcodeID = (&architecture{}).OpcodeID(metadata)
+	if err := assembler.ValidateInstruction(instruction); err != nil {
+		return ast.Instruction{}, fmt.Errorf("building 8086 instruction: %w", err)
+	}
+
+	return instruction, nil
 }
 
-func (_ *archX86[T]) AddressWidth() int {
-	return 16
+type architecture struct{}
+
+func (*architecture) AddressWidth() int        { return 16 }
+func (*architecture) ByteOrder() ast.ByteOrder { return ast.ByteOrderLittle }
+
+func (*architecture) Instruction(name string) (*isa.Instruction, bool) {
+	name = strings.ToLower(name)
+	switch name {
+	case "je":
+		name = isa.JzName
+	case "jne":
+		name = isa.JnzName
+	}
+
+	if slices.Contains(opcodeNames, name) {
+		instruction, ok := isa.Instructions[name]
+		return instruction, ok
+	}
+	return nil, false
 }
 
-func (*archX86[T]) ByteOrder() ast.ByteOrder {
-	return ast.ByteOrderLittle
+func (*architecture) OpcodeID(instruction *isa.Instruction) ast.OpcodeID {
+	for index, name := range opcodeNames {
+		if name == instruction.Name {
+			return ast.NewOpcodeID(retroarch.X86, uint16(index+1))
+		}
+	}
+
+	return ast.OpcodeID{}
 }
 
-func (_ *archX86[T]) Instruction(name string) (*Instruction, bool) {
-	ins, ok := Instructions[name]
-	return ins, ok
-}
-
-func (_ *archX86[T]) OpcodeID(_ *Instruction) ast.OpcodeID {
-	return ast.NewOpcodeID(retroarch.X86, 0)
-}
-
-func (_ *archX86[T]) ParseIdentifier(p arch.Parser, _ string, ins *Instruction) (ast.Node, error) {
-	node, err := parser.ParseIdentifier(p, ins)
+func (*architecture) ParseIdentifier(p arch.Parser, _ string, instruction *isa.Instruction) (ast.Node, error) {
+	node, err := parser.ParseIdentifier(p, instruction.Name)
 	if err != nil {
-		return nil, fmt.Errorf("parsing x86 instruction: %w", err)
+		return nil, fmt.Errorf("parsing 8086 instruction: %w", err)
 	}
 	return node, nil
 }
 
-func (_ *archX86[T]) AssignInstructionAddress(assigner arch.AddressAssigner, ins arch.Instruction) (uint64, error) {
-	addr, err := assembler.AssignInstructionAddress(assigner, ins)
+func (*architecture) AssignInstructionAddress(assigner arch.AddressAssigner,
+	instruction arch.Instruction) (uint64, error) {
+
+	next, err := assembler.AssignInstructionAddress(assigner, instruction)
 	if err != nil {
-		return 0, fmt.Errorf("assigning x86 instruction address: %w", err)
+		return 0, fmt.Errorf("assigning 8086 instruction address: %w", err)
 	}
-	return addr, nil
+	return next, nil
 }
 
-func (_ *archX86[T]) GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	err := assembler.GenerateInstructionOpcode(assigner, ins)
+func (*architecture) GenerateInstructionOpcode(assigner arch.AddressAssigner, instruction arch.Instruction) error {
+	if err := assembler.GenerateInstructionOpcode(assigner, instruction); err != nil {
+		return fmt.Errorf("encoding 8086 instruction: %w", err)
+	}
+	return nil
+}
+
+// FormatInstruction returns Intel syntax with both retained operands.
+func (*architecture) FormatInstruction(instruction ast.Instruction) (string, error) {
+	text, err := parser.FormatInstruction(instruction)
 	if err != nil {
-		return fmt.Errorf("generating x86 instruction opcode: %w", err)
+		return "", fmt.Errorf("formatting 8086 instruction: %w", err)
+	}
+	return text, nil
+}
+
+// ValidateInstruction checks the same forms used for sizing and encoding.
+func (*architecture) ValidateInstruction(instruction ast.Instruction) error {
+	if err := assembler.ValidateInstruction(instruction); err != nil {
+		return fmt.Errorf("validating 8086 instruction: %w", err)
 	}
 	return nil
 }

@@ -2,346 +2,232 @@ package assembler
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"math"
+	"strings"
 
 	"github.com/retroenv/retroasm/pkg/arch"
+	"github.com/retroenv/retroasm/pkg/parser/ast"
+	isa "github.com/retroenv/retrogolib/arch/cpu/x86"
 )
 
-// Instruction name constants.
-const (
-	movInst  = "MOV"
-	addInst  = "ADD"
-	subInst  = "SUB"
-	cmpInst  = "CMP"
-	incInst  = "INC"
-	decInst  = "DEC"
-	jmpInst  = "JMP"
-	jeInst   = "JE"
-	jneInst  = "JNE"
-	callInst = "CALL"
-	retInst  = "RET"
-	pushInst = "PUSH"
-	popInst  = "POP"
-	andInst  = "AND"
-	orInst   = "OR"
-	xorInst  = "XOR"
-	nopInst  = "NOP"
-)
-
-// GenerateInstructionOpcode generates the instruction opcode for x86 instructions.
-func GenerateInstructionOpcode(assigner arch.AddressAssigner, ins arch.Instruction) error {
-	name := ins.Name()
-	addressing := ins.Addressing()
-
-	// Get base opcode for the instruction and addressing mode
-	opcode := getBaseOpcode(name, addressing)
-	opcodes := []byte{opcode}
-
-	switch addressing {
-	case 0: // RegisterAddressing
-		if err := generateRegisterAddressingOpcode(assigner, ins, &opcodes); err != nil {
-			return fmt.Errorf("generating register opcode: %w", err)
-		}
-
-	case 1: // ImmediateAddressing
-		if err := generateImmediateAddressingOpcode(assigner, ins, &opcodes); err != nil {
-			return fmt.Errorf("generating immediate opcode: %w", err)
-		}
-
-	case 2: // DirectAddressing
-		if err := generateDirectAddressingOpcode(assigner, ins, &opcodes); err != nil {
-			return fmt.Errorf("generating direct opcode: %w", err)
-		}
-
-	default:
-		return fmt.Errorf("unsupported addressing mode %d", addressing)
-	}
-
-	ins.SetOpcodes(opcodes)
-
-	return nil
-}
-
-func getBaseOpcode(name string, addressing int) byte {
-	return getInstructionOpcode(name, addressing)
-}
-
-func getInstructionOpcode(name string, addressing int) byte {
-	// Handle arithmetic instructions with addressing modes
-	if opcode := getArithmeticOpcode(name, addressing); opcode != 0 {
-		return opcode
-	}
-
-	// Handle simple single-byte instructions
-	return getSimpleOpcode(name)
-}
-
-func getArithmeticOpcode(name string, addressing int) byte {
-	switch name {
-	case movInst:
-		return getMovOpcode(addressing)
-	case addInst:
-		return getAddOpcode(addressing)
-	case subInst:
-		return getSubOpcode(addressing)
-	case cmpInst:
-		return getCmpOpcode(addressing)
-	case andInst:
-		return getAndOpcode(addressing)
-	case orInst:
-		return getOrOpcode(addressing)
-	case xorInst:
-		return getXorOpcode(addressing)
-	}
-
-	return 0 // Not an arithmetic instruction
-}
-
-func getSimpleOpcode(name string) byte {
-	switch name {
-	case incInst:
-		return 0x40 // INC r16
-	case decInst:
-		return 0x48 // DEC r16
-	case jmpInst:
-		return 0xE9 // JMP rel16
-	case jeInst:
-		return 0x74 // JE rel8
-	case jneInst:
-		return 0x75 // JNE rel8
-	case callInst:
-		return 0xE8 // CALL rel16
-	case retInst:
-		return 0xC3 // RET
-	case pushInst:
-		return 0x50 // PUSH r16
-	case popInst:
-		return 0x58 // POP r16
-	case nopInst:
-		return 0x90 // NOP
-	}
-
-	return 0x90 // Default NOP
-}
-
-func getMovOpcode(addressing int) byte {
-	switch addressing {
-	case 0: // RegisterAddressing
-		return 0x89 // MOV r/m16, r16
-	case 1: // ImmediateAddressing
-		return 0xB8 // MOV r16, imm16
-	case 2: // DirectAddressing
-		return 0x8B // MOV r16, r/m16
-	}
-
-	return 0x89
-}
-
-func getAddOpcode(addressing int) byte {
-	switch addressing {
-	case 0:
-		return 0x01 // ADD r/m16, r16
-	case 1:
-		return 0x05 // ADD AX, imm16
-	}
-
-	return 0x01
-}
-
-func getSubOpcode(addressing int) byte {
-	switch addressing {
-	case 0:
-		return 0x29 // SUB r/m16, r16
-	case 1:
-		return 0x2D // SUB AX, imm16
-	}
-
-	return 0x29
-}
-
-func getCmpOpcode(addressing int) byte {
-	switch addressing {
-	case 0:
-		return 0x39 // CMP r/m16, r16
-	case 1:
-		return 0x3D // CMP AX, imm16
-	}
-
-	return 0x39
-}
-
-func getAndOpcode(addressing int) byte {
-	switch addressing {
-	case 0:
-		return 0x21 // AND r/m16, r16
-	case 1:
-		return 0x25 // AND AX, imm16
-	}
-
-	return 0x21
-}
-
-func getOrOpcode(addressing int) byte {
-	switch addressing {
-	case 0:
-		return 0x09 // OR r/m16, r16
-	case 1:
-		return 0x0D // OR AX, imm16
-	}
-
-	return 0x09
-}
-
-func getXorOpcode(addressing int) byte {
-	switch addressing {
-	case 0:
-		return 0x31 // XOR r/m16, r16
-	case 1:
-		return 0x35 // XOR AX, imm16
-	}
-
-	return 0x31
-}
-
-func generateRegisterAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcodes *[]byte) error {
-	name := ins.Name()
-
-	// Handle single register instructions (INC, DEC, PUSH, POP)
-	if isSingleRegisterInstruction(name) {
-		if ins.Argument() != nil {
-			// Get register code from argument
-			value, err := assigner.ArgumentValue(ins.Argument())
-			if err != nil {
-				return fmt.Errorf("getting register argument: %w", err)
-			}
-
-			// Modify opcode based on register
-			(*opcodes)[0] += byte(value)
-		}
-
-		return nil
-	}
-
-	// Handle two-operand register instructions that need ModR/M byte
-	if needsModRM(name, 0) {
-		// For simplicity, generate a basic ModR/M byte
-		// Real implementation would need proper ModR/M encoding
-		modrm := byte(0xC0) // 11 000 000 - register to register
-		if ins.Argument() != nil {
-			value, err := assigner.ArgumentValue(ins.Argument())
-			if err != nil {
-				return fmt.Errorf("getting register argument: %w", err)
-			}
-			modrm |= byte(value) // Set r/m field
-		}
-
-		*opcodes = append(*opcodes, modrm)
-	}
-
-	return nil
-}
-
-func generateImmediateAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcodes *[]byte) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+// GenerateInstructionOpcode emits bytes for the previously selected instruction size.
+func GenerateInstructionOpcode(assigner arch.AddressAssigner, instruction arch.Instruction) error {
+	encoded, err := encode(assigner, instruction, true)
 	if err != nil {
-		return fmt.Errorf("getting immediate argument: %w", err)
+		return err
 	}
-
-	name := ins.Name()
-
-	// Handle branch instructions (relative addressing)
-	if isBranchInstruction(name) {
-		return generateBranchOpcode(name, value, opcodes)
+	if len(encoded) != instruction.Size() {
+		return fmt.Errorf("8086 instruction size changed from %d to %d", instruction.Size(), len(encoded))
 	}
-
-	// Handle immediate data
-	if value > math.MaxUint16 {
-		return fmt.Errorf("immediate value %d exceeds word", value)
-	}
-
-	// Determine if we need 8-bit or 16-bit immediate
-	if value <= math.MaxUint8 && canUse8BitImmediate(name) {
-		*opcodes = append(*opcodes, byte(value))
-	} else {
-		*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
-	}
+	instruction.SetOpcodes(encoded)
 
 	return nil
 }
 
-func generateBranchOpcode(name string, value uint64, opcodes *[]byte) error {
-	if name == jmpInst || name == callInst {
-		// 16-bit relative offset
-		if value > math.MaxUint16 {
-			return fmt.Errorf("relative offset %d exceeds word", value)
-		}
-		*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
-	} else {
-		// 8-bit relative offset for conditional jumps
-		if value > math.MaxUint8 {
-			return fmt.Errorf("relative offset %d exceeds byte", value)
-		}
-		*opcodes = append(*opcodes, byte(value))
+// ValidateInstruction checks operands without resolving forward labels.
+func ValidateInstruction(instruction ast.Instruction) error {
+	var values []ast.Node
+	if list, ok := instruction.Argument.(ast.InstructionArguments); ok {
+		values = list.Values
+	} else if instruction.Argument != nil {
+		values = []ast.Node{instruction.Argument}
 	}
 
-	return nil
+	args := make([]any, 0, len(values))
+	for _, value := range values {
+		if typed, ok := value.(ast.InstructionArgument); ok {
+			args = append(args, typed.Value)
+		} else if number, ok := ast.NumberValue(value); ok {
+			args = append(args, number)
+		} else {
+			args = append(args, value)
+		}
+	}
+
+	_, err := encodeForm(nil, instruction.Name, args, 0, false)
+
+	return err
 }
 
-func generateDirectAddressingOpcode(assigner arch.AddressAssigner, ins arch.Instruction, opcodes *[]byte) error {
-	value, err := assigner.ArgumentValue(ins.Argument())
+func encode(assigner arch.AddressAssigner, instruction arch.Instruction, resolve bool) ([]byte, error) {
+	return encodeForm(assigner, instruction.Name(), instruction.Argument(), instruction.Address(), resolve)
+}
+
+func encodeForm(assigner arch.AddressAssigner, mnemonic string, argument any, address uint64,
+	resolve bool) ([]byte, error) {
+
+	name := strings.ToLower(mnemonic)
+	var args []any
+	if list, ok := argument.([]any); ok {
+		args = list
+	} else if argument != nil {
+		args = []any{argument}
+	}
+
+	switch name {
+	case isa.CldName, isa.NopName, isa.RetName:
+		if len(args) != 0 {
+			break
+		}
+		opcodes := map[string]byte{isa.CldName: 0xfc, isa.NopName: 0x90, isa.RetName: 0xc3}
+		return []byte{opcodes[name]}, nil
+
+	case isa.IntName:
+		if len(args) != 1 {
+			break
+		}
+		value, err := immediate(assigner, args[0], 1, resolve)
+		return []byte{0xcd, byte(value)}, err
+
+	case isa.PushName, isa.PopName:
+		if len(args) != 1 {
+			break
+		}
+		register, ok := args[0].(isa.RegisterParam)
+		if !ok || !register.Is16Bit() {
+			break
+		}
+		opcode := byte(0x50)
+		if name == isa.PopName {
+			opcode = 0x58
+		}
+
+		return []byte{opcode + byte(register-isa.RegAX)}, nil
+
+	case isa.CallName, isa.JmpName, isa.JzName, isa.JnzName:
+		if len(args) != 1 {
+			break
+		}
+		return relative(assigner, address, name, args[0], resolve)
+
+	case isa.MovName, isa.AddName, isa.SubName, isa.CmpName, isa.AndName, isa.OrName, isa.XorName:
+		if len(args) != 2 {
+			break
+		}
+		return binaryInstruction(assigner, name, args, resolve)
+	}
+
+	return nil, fmt.Errorf("unsupported 8086 instruction or operands: %s", mnemonic)
+}
+
+func immediate(assigner arch.AddressAssigner, arg any, width int, resolve bool) (uint64, error) {
+	if _, ok := arg.(isa.RegisterParam); ok {
+		return 0, errors.New("8086 immediate cannot be a register")
+	}
+	if !resolve {
+		return 0, nil
+	}
+	value, err := assigner.ArgumentValue(arg)
 	if err != nil {
-		return fmt.Errorf("getting direct address argument: %w", err)
+		return 0, fmt.Errorf("resolving 8086 operand: %w", err)
 	}
-	if value > math.MaxUint16 {
-		return fmt.Errorf("address %d exceeds word", value)
+	if value > (1<<uint(width*8))-1 {
+		return 0, fmt.Errorf("8086 immediate %d exceeds %d bytes", value, width)
 	}
-
-	// Add ModR/M byte for direct addressing (mod=00, r/m=110)
-	if needsModRM(ins.Name(), 2) {
-		modrm := byte(0x06) // 00 000 110 - direct addressing
-		*opcodes = append(*opcodes, modrm)
-	}
-
-	// Add 16-bit address
-	*opcodes = binary.LittleEndian.AppendUint16(*opcodes, uint16(value))
-
-	return nil
+	return value, nil
 }
 
-func needsModRM(name string, addressing int) bool {
-	switch name {
-	case movInst, addInst, subInst, cmpInst, andInst, orInst, xorInst:
-		return addressing == 0 || addressing == 2 // Register or Direct addressing
-	default:
-		return false
+func binaryInstruction(assigner arch.AddressAssigner, name string, args []any, resolve bool) ([]byte, error) {
+	destination, ok := args[0].(isa.RegisterParam)
+	if !ok || !destination.Is8Bit() && !destination.Is16Bit() && !destination.IsSegment() {
+		return nil, errors.New("unsupported 8086 destination register")
 	}
+	if source, ok := args[1].(isa.RegisterParam); ok {
+		return registerInstruction(name, destination, source)
+	}
+	if destination.IsSegment() {
+		return nil, errors.New("8086 segment register cannot receive an immediate")
+	}
+	width := destination.GetRegisterSize()
+	value, err := immediate(assigner, args[1], width, resolve)
+	if err != nil {
+		return nil, err
+	}
+	code := byte(destination)
+	if width == 2 {
+		code = byte(destination - isa.RegAX)
+	}
+
+	var encoded []byte
+	if name == isa.MovName {
+		opcode := byte(0xb0)
+		if width == 2 {
+			opcode = 0xb8
+		}
+
+		encoded = []byte{opcode + code}
+	} else {
+		opcode := byte(0x80)
+		if width == 2 {
+			opcode = 0x81
+		}
+
+		extensions := map[string]byte{isa.AddName: 0, isa.OrName: 1, isa.AndName: 4, isa.SubName: 5, isa.XorName: 6, isa.CmpName: 7}
+		encoded = []byte{opcode, isa.NewModRM(3, extensions[name], code).ToByte()}
+	}
+
+	if width == 1 {
+		return append(encoded, byte(value)), nil
+	}
+	return binary.LittleEndian.AppendUint16(encoded, uint16(value)), nil
 }
 
-func isSingleRegisterInstruction(name string) bool {
-	switch name {
-	case incInst, decInst, pushInst, popInst:
-		return true
-	default:
-		return false
+func registerInstruction(name string, destination, source isa.RegisterParam) ([]byte, error) {
+	if destination.IsSegment() || source.IsSegment() {
+		if name != isa.MovName {
+			return nil, errors.New("8086 segment arithmetic is unsupported")
+		}
+		if destination.IsSegment() && source.Is16Bit() && destination != isa.RegCS {
+			return []byte{0x8e, isa.NewModRM(3, byte(destination-isa.RegES), byte(source-isa.RegAX)).ToByte()}, nil
+		}
+		if source.IsSegment() && destination.Is16Bit() {
+			return []byte{0x8c, isa.NewModRM(3, byte(source-isa.RegES), byte(destination-isa.RegAX)).ToByte()}, nil
+		}
+		return nil, errors.New("invalid 8086 segment register transfer")
 	}
+	if destination.GetRegisterSize() != source.GetRegisterSize() || !source.Is8Bit() && !source.Is16Bit() {
+		return nil, errors.New("8086 register widths do not agree")
+	}
+	opcodes := map[string]byte{isa.MovName: 0x88, isa.AddName: 0, isa.OrName: 8, isa.AndName: 0x20, isa.SubName: 0x28, isa.XorName: 0x30, isa.CmpName: 0x38}
+	opcode := opcodes[name]
+	dst := byte(destination)
+	src := byte(source)
+	if destination.Is16Bit() {
+		opcode++
+		dst = byte(destination - isa.RegAX)
+		src = byte(source - isa.RegAX)
+	}
+
+	return []byte{opcode, isa.NewModRM(3, src, dst).ToByte()}, nil
 }
 
-func isBranchInstruction(name string) bool {
+func relative(assigner arch.AddressAssigner, address uint64, name string, arg any, resolve bool) ([]byte, error) {
+	opcode := byte(0xe8)
+	size := uint64(3)
 	switch name {
-	case jmpInst, callInst, jeInst, jneInst:
-		return true
-	default:
-		return false
-	}
-}
+	case isa.JmpName:
+		opcode = 0xe9
 
-func canUse8BitImmediate(name string) bool {
-	// Most arithmetic operations can use 8-bit immediates
-	switch name {
-	case addInst, subInst, cmpInst, andInst, orInst, xorInst:
-		return true
-	default:
-		return false
+	case isa.JzName:
+		opcode = 0x74
+		size = 2
+
+	case isa.JnzName:
+		opcode = 0x75
+		size = 2
 	}
+
+	target, err := immediate(assigner, arg, 2, resolve)
+	if err != nil {
+		return nil, err
+	}
+	displacement := int64(target) - int64(address+size)
+	if size == 2 {
+		if resolve && (displacement < -128 || displacement > 127) {
+			return nil, fmt.Errorf("8086 conditional branch distance %d exceeds signed byte", displacement)
+		}
+		return []byte{opcode, byte(displacement)}, nil
+	}
+	return binary.LittleEndian.AppendUint16([]byte{opcode}, uint16(displacement)), nil
 }
