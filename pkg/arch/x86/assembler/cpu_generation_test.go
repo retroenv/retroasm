@@ -1,0 +1,35 @@
+package assembler
+
+import (
+	"testing"
+
+	"github.com/retroenv/retrogolib/assert"
+)
+
+func TestValidate8086EncodingGeneration(t *testing.T) {
+	for _, encoded := range [][]byte{
+		{0xb0, 0x66},
+		{0xb8, 0x66, 0x0f},
+		{0x50},
+		{0xd1, 0xe0},
+		{0x26, 0x8b, 0x07},
+		{0xf3, 0xa4},
+	} {
+		assert.NoError(t, validate8086Encoding(encoded))
+	}
+	for _, encoded := range [][]byte{
+		nil,
+		{0x26},
+		{0x0f},
+		{0x68, 0x34, 0x12},
+		{0xc1, 0xe0, 2},
+		{0xc8, 0, 0, 0},
+		{0x66, 0xb8, 0, 0, 0, 0},
+		{0x26, 0x66, 0x8b, 0x07},
+		{0x0f, 0xb6, 0xc0},
+		{0x0f, 0xff},
+		{0xd6},
+	} {
+		assert.Error(t, validate8086Encoding(encoded))
+	}
+}

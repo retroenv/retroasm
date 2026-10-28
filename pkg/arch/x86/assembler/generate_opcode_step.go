@@ -57,6 +57,49 @@ func encode(assigner arch.AddressAssigner, instruction arch.Instruction, resolve
 func encodeForm(assigner arch.AddressAssigner, mnemonic string, argument any, address uint64,
 	resolve bool) ([]byte, error) {
 
+	encoded, err := selectEncoding(assigner, mnemonic, argument, address, resolve)
+	if err != nil {
+		return nil, err
+	}
+	if err := validate8086Encoding(encoded); err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
+
+// validate8086Encoding checks the selected opcode generation after legacy
+// prefixes. Immediate and displacement bytes are not instruction prefixes.
+func validate8086Encoding(encoded []byte) error {
+	for index, value := range encoded {
+		switch value {
+		case 0x26, 0x2e, 0x36, 0x3e, 0xf0, 0xf2, 0xf3:
+			continue
+		}
+
+		opcode := uint16(value)
+		if value == 0x0f {
+			if index+1 >= len(encoded) {
+				return errors.New("incomplete x86 escape opcode")
+			}
+			opcode = opcode<<8 | uint16(encoded[index+1])
+		}
+
+		info := isa.OpcodeInfo{
+			Opcode: opcode,
+			Size:   1,
+		}
+		if !isa.CPU8086.Supports(info) {
+			return fmt.Errorf("opcode %#x needs CPU %s or an explicit classification; target is 8086", opcode, info.MinimumCPU())
+		}
+		return nil
+	}
+
+	return errors.New("empty x86 encoding or incomplete prefix sequence")
+}
+
+func selectEncoding(assigner arch.AddressAssigner, mnemonic string, argument any, address uint64,
+	resolve bool) ([]byte, error) {
+
 	name := strings.ToLower(mnemonic)
 	var args []any
 	if list, ok := argument.([]any); ok {
