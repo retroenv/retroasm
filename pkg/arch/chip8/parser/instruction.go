@@ -229,15 +229,21 @@ func parseInstructionTwoArgs(ins *chip8.Instruction, arg1, arg2 token.Token, par
 		}
 		return ast.NewInstruction(ins.Name, int(chip8.V0AbsoluteAddressing), address, nil), nil
 
-	case isI && (arg2.Type == token.Number || arg2.Type == token.Identifier):
-		// I, addr - I register addressing
-		address, err := parseAddressArgument(arg2)
-		if err != nil {
-			return nil, err
-		}
+	case isI && (arg2.Type == token.Number || arg2.Type == token.Identifier || arg2.Type == token.LeftParentheses):
 		if !hasAddressing(ins, chip8.IAbsoluteAddressing) {
 			return nil, errors.New("instruction does not support I + absolute addressing")
 		}
+		var address ast.Node
+		if parser.NextToken(1).Type.IsOperator() || arg2.Type == token.LeftParentheses {
+			address = collectExpressionOperand(parser, arg2)
+		} else {
+			var err error
+			address, err = parseAddressArgument(arg2)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		return ast.NewInstruction(ins.Name, int(chip8.IAbsoluteAddressing), address, nil), nil
 
 	case isReg1 && (arg2.Type == token.Number || arg2.Type == token.Identifier || arg2.Type == token.LeftParentheses):
