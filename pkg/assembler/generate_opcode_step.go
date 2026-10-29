@@ -93,6 +93,9 @@ func generateDataFillBytes(d *data) error {
 	if err != nil {
 		return fmt.Errorf("getting data node size: %w", err)
 	}
+	if size < 0 {
+		return fmt.Errorf("data fill size %d is negative", size)
+	}
 
 	var filler []byte
 	for _, val := range d.values {
