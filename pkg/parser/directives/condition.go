@@ -24,12 +24,16 @@ func If(p arch.Parser) (ast.Node, error) {
 
 // Ifdef parses an .ifdef directive.
 func Ifdef(p arch.Parser) (ast.Node, error) {
-	return parseSymbolExistsDirective(p, func(s string) ast.Node { return ast.NewIfdef(s) })
+	return parseSymbolExistsDirective(p, func(s string) ast.Node {
+		return ast.NewIfdef(s)
+	})
 }
 
 // Ifndef parses an .ifndef directive.
 func Ifndef(p arch.Parser) (ast.Node, error) {
-	return parseSymbolExistsDirective(p, func(s string) ast.Node { return ast.NewIfndef(s) })
+	return parseSymbolExistsDirective(p, func(s string) ast.Node {
+		return ast.NewIfndef(s)
+	})
 }
 
 // Else parses an .else directive.

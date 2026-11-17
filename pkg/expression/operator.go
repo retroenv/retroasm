@@ -118,22 +118,38 @@ func evaluateOperatorByteInt(operator token.Type, a []byte, b int64) (any, error
 
 	switch operator {
 	case token.Plus:
-		operate = func(v byte) byte { return v + bb }
+		operate = func(v byte) byte {
+			return v + bb
+		}
+
 	case token.Minus:
-		operate = func(v byte) byte { return v - bb }
+		operate = func(v byte) byte {
+			return v - bb
+		}
+
 	case token.Asterisk:
-		operate = func(v byte) byte { return v * bb }
+		operate = func(v byte) byte {
+			return v * bb
+		}
+
 	case token.Percent:
-		operate = func(v byte) byte { return v % bb }
+		operate = func(v byte) byte {
+			return v % bb
+		}
 
 	case token.Slash:
 		if b == 0 {
 			return nil, errDivisionByZero
 		}
-		operate = func(v byte) byte { return v / bb }
+		operate = func(v byte) byte {
+			return v / bb
+		}
 
 	case token.Caret:
-		operate = func(v byte) byte { return byte(math.Pow(float64(v), float64(b))) }
+		operate = func(v byte) byte {
+			return byte(math.Pow(float64(v), float64(b)))
+		}
+
 	default:
 		return nil, fmt.Errorf("unsupported operator %d for arguments of type []byte and int64", operator)
 	}
